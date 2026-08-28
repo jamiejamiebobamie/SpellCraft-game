@@ -4,24 +4,23 @@ import { Cell } from './Cell';
 import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 
-export class GameBoard {
+export class GameBoardController {
   // Config Constants
-  readonly numRows: number = 3;
-  readonly numCols: number = 7;
+  static readonly NUM_ROWS: number = 3;
+  static readonly NUM_COLS: number = 7;
   readonly numPlayerCells: number = 1;     // Column size for endzones/home bases
   readonly numPlacementCells: number = 2;  // Column depth allowing spell spawning
 
   static readonly HIDDEN_TRANSPARENCY_AMT = .3;
   static readonly SHOWN_TRANSPARENCY_AMT = .8;
 
-
   // Board Data Layers
   readonly cells: Array<Cell> = [];
 
   // Interactive Overrides
-  isClickDisabled: boolean = false;
-  isHoverDisabled: boolean = false;
-  transparencyAmt: number = 1.0;
+  private isClickDisabled: boolean = false;
+  private isHoverDisabled: boolean = false;
+  private transparencyAmt: number = 1.0;
 
   // Trackers
   hoveredCell: Cell | null = null;
@@ -34,23 +33,24 @@ export class GameBoard {
   /**
    * Builds out a flattened multi-column 1D index array mapping tracking properties.
    */
+
   private initializeGrid = (p1: Player, p2: Player): void => {
-    for (let i = 0; i < this.numRows; i++) {
-      for (let j = 0; j < this.numCols; j++) {
+    for (let i = 0; i < GameBoardController.NUM_ROWS; i++) {
+      for (let j = 0; j < GameBoardController.NUM_COLS; j++) {
         const cell = new Cell({ j, i }); // Map (j, i) matching coordinate logic
 
         // 1. Assign Home-Bases / Player Owners (First columns vs Last columns)
         if (j < this.numPlayerCells) {
           cell.playerCellOwner = p1;
           cell.backgroundIcon = 'p1-home-zone';
-        } else if (j >= this.numCols - this.numPlayerCells) {
+        } else if (j >= GameBoardController.NUM_COLS - this.numPlayerCells) {
           cell.playerCellOwner = p2;
           cell.backgroundIcon = 'p2-home-zone';
         }
 
         // 2. Assign Spawnable Deployment Zones (Within placement column boundaries)
         const isP1SpellPlacementZone = j < this.numPlacementCells;
-        const isP2SpellPlacementZone = j >= this.numCols - this.numPlacementCells;
+        const isP2SpellPlacementZone = j >= GameBoardController.NUM_COLS - this.numPlacementCells;
 
         if (isP1SpellPlacementZone) {
           cell.setPlayerOfPlacementCell(p1);
@@ -70,15 +70,15 @@ export class GameBoard {
   getIsOffBoardAt = (index: CellIndex): boolean => {
     return (
       index.i < 0 ||
-      index.i >= this.numRows ||
+      index.i >= GameBoardController.NUM_ROWS ||
       index.j < 0 ||
-      index.j >= this.numCols
+      index.j >= GameBoardController.NUM_COLS
     );
   };
 
   getOneDIndexFrom = (index: CellIndex): number => {
     if (this.getIsOffBoardAt(index)) return -1;
-    return index.i * this.numCols + index.j;
+    return index.i * GameBoardController.NUM_COLS + index.j;
   };
 
   getCellAt = (index: CellIndex): Cell | null => {
@@ -106,6 +106,14 @@ export class GameBoard {
     return cell ? cell.getIsFree() : false;
   };
 
+  getIsClickDisabled = (): boolean => {
+    return this.isClickDisabled;
+  };
+
+  getIsHoverDisabled = (): boolean => {
+    return this.isHoverDisabled;
+  };
+
   // --- Interaction Configurations ---
 
   setIsClickDisabled = (isDisabled: boolean): void => {
@@ -118,6 +126,10 @@ export class GameBoard {
     this.cells.forEach(cell => cell.setIsHoverDisabled(isDisabled));
   };
 
+  getBoardTransparencyAmt = (): number => {
+    return this.transparencyAmt;
+  };
+
   setBoardTransparencyAmt = (transparencyAmt: number): void => {
     this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
     this.cells.forEach(cell => cell.setTransparencyAmt(this.transparencyAmt));
@@ -126,13 +138,13 @@ export class GameBoard {
   enableBoard = (): void => {
     this.setIsClickDisabled(false);
     this.setIsHoverDisabled(false);
-    this.setBoardTransparencyAmt(GameBoard.SHOWN_TRANSPARENCY_AMT)
+    this.setBoardTransparencyAmt(GameBoardController.SHOWN_TRANSPARENCY_AMT)
   }
 
-    disableBoard = (): void => {
+  disableBoard = (): void => {
     this.setIsClickDisabled(true);
     this.setIsHoverDisabled(true);
-    this.setBoardTransparencyAmt(GameBoard.HIDDEN_TRANSPARENCY_AMT)
+    this.setBoardTransparencyAmt(GameBoardController.HIDDEN_TRANSPARENCY_AMT)
   }
 
   // --- Note: Handling hoveredCell and clickedCell updates ---

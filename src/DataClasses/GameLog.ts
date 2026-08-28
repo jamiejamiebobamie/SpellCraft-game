@@ -21,6 +21,7 @@ export class GameLog {
    * If wrapped in Valtio, mutating this list immediately triggers updates in React.
    */
   appendEntry = (text: string, color: string = '#FFFFFF'): void => {
+
     this.logEntries.push({ text, color });
     
     // Optional: Auto-scroll to the bottom immediately after a log append

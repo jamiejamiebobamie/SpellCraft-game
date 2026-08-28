@@ -1,26 +1,28 @@
 // Game.ts
-import { GameBoard } from './GameBoard/GameBoard';
+import { GameBoardController } from './GameBoard/GameBoardController';
 import { GameLog } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { GameState, GameContext, PlayerDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
-import { SpellCanvas } from './SpellCanvas/SpellCanvas'
+import { SpellCanvasController } from './SpellCanvas/SpellCanvasController'
 import { Player
   // , NPCPlayer
  } from './Player/Player';
+import { CellIndex } from './types';
 
 export class Game {
   // Core Subsystem Managers
-  gameBoard!: GameBoard;
+  gameBoard!: GameBoardController;
   gameLog!: GameLog;
   placedSpells!: PlacedSpells;
   currentGameState!: GameState;
   model!: Model;
-  spellCanvas!: SpellCanvas;
+  spellCanvas!: SpellCanvasController;
   
   // Game Loop Properties
-  players: [Player, Player] | null = null;
+  players!: [Player, Player];
   gameTurn: number = 0;
+  gameContext!: GameContext;
 
   constructor() {
     this.init();
@@ -42,7 +44,7 @@ export class Game {
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout
-    this.gameBoard = new GameBoard(humanPlayer, computerPlayer);
+    this.gameBoard = new GameBoardController(humanPlayer, computerPlayer);
     
     // 4. Pass the fully initialized cell grid back to the AI context map
     // computerPlayer.gameBoardRef = this.gameBoard.cells;
@@ -54,10 +56,10 @@ export class Game {
     this.model = new Model();
     this.model.init();
 
-    this.spellCanvas = new SpellCanvas();
+    this.spellCanvas = new SpellCanvasController();
 
     // 6. Establish the global state context pointer map
-    const context: GameContext = {
+    this.gameContext = {
       activePlayer: humanPlayer,
       opposingPlayer: computerPlayer,
       gameBoard: this.gameBoard,
@@ -72,7 +74,7 @@ export class Game {
 
     // 7. Fire up the start of the human player turn phase machine
     humanPlayer.setIsTurn(true, this.gameTurn);
-    context.changeState(new PlayerDrawSpell(context));
+    this.gameContext.changeState(new PlayerDrawSpell(this.gameContext));
   };
 
   resetGame = (): void => {
@@ -126,6 +128,11 @@ export class Game {
         break;
     }
   };
+
+  placeSpellOnBoard = (cellIndex: CellIndex): void => {
+    this.gameBoard.setSpellAt(cellIndex, this.placedSpells.getTop());
+    // TO-DO: need to 'move' spell once after placement according to its direction and speed
+  }
 
   /**
    * Steps the turn cycle forward. Called by the Finite State Machine 

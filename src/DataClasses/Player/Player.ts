@@ -1,7 +1,7 @@
 // Player.ts
 import { Fizzle } from './Fizzle';
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
-import { GameBoard } from '../GameBoard/GameBoard';
+import { GameBoard } from '../GameBoard/GameBoardController';
 import { Quicken } from '../PlacedSpells/Spell';
 
 export type NPCPlayerTurnMove = {
@@ -42,8 +42,16 @@ export class Player {
     return this.healthAmt;
   };
 
+  getHealthPrct = (): number => {
+    return (this.healthAmt / Player.MAX_HEALTH_AMT) * 100
+  }
+
   getFocus = (): number => {
     return this.focusAmt;
+  };
+
+  getMaxFocus = (): number => {
+    return Player.MAX_FOCUS_AMT;
   };
 
   getColor = (): string => {
@@ -52,6 +60,10 @@ export class Player {
 
   getDirection = (): number => {
     return this.direction;
+  }
+
+  getFizzles = (): Array<Fizzle> => {
+    return this.fizzles;
   }
 
   getFizzleCount = (): number => {
@@ -71,7 +83,7 @@ export class Player {
 
   setIsTurn = (isTurn: boolean, currentGlobalTurn: number): void => {
     this.isTurn = isTurn;
-    
+
     // Automatically manage temporal states when a turn transitions
     if (isTurn) {
       this.updateFizzles(currentGlobalTurn);
@@ -106,13 +118,13 @@ export class Player {
   /**
    * Logs a new gesture drawing failure and instantly verifies if it triggers a Backlash.
    */
-   addFizzle = (currentGlobalTurn: number): void => {
+  addFizzle = (currentGlobalTurn: number): void => {
 
     this.decrementFocus(1);
 
     // Instantiate using the current global turn and a custom duration limit
     this.fizzles.push(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS));
-    
+
     if (this.fizzles.length > Player.MAX_FIZZLES_BEFORE_BACKLASH) {
       this.doBacklash();
     }
@@ -148,7 +160,7 @@ export class NPCPlayer extends Player {
   constructor(direction: -1 | 1, color: string, gameBoardRef: GameBoard, difficulty: number = 6) {
     super(direction, color);
     this.gameBoardRef = gameBoardRef;
-    
+
     // Clamp difficulty constructor fallback strictly to valid bounds
     this.difficulty = Math.max(1, Math.min(10, difficulty));
   }
@@ -181,7 +193,7 @@ export class NPCPlayer extends Player {
   doMove = (currentGlobalTurn: number): void => {
     // Produce a ceiling integer match between 1 and 10
     const roll = Math.ceil(Math.random() * 10);
-    
+
     let chosenMove: NPCPlayerTurnMove;
 
     if (this.difficulty <= roll) {

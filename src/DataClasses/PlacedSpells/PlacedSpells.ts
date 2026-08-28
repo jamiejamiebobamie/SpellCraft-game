@@ -1,6 +1,6 @@
 // PlacedSpells.ts
 import { Spell } from './Spell';
-import { GameBoard } from '../GameBoard/GameBoard';
+import { GameBoard } from '../GameBoard/GameBoardController';
 import { CellIndex } from '../types';
 
 export class PlacedSpells {
@@ -8,6 +8,10 @@ export class PlacedSpells {
   spells: Array<Spell> = [];
 
   // --- Core Array Utilities ---
+
+  getTop = (): Spell | null => {
+    return this.spells[this.spells.length - 1]
+  };
 
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates

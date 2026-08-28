@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { GameLogEntry } from './GameTypes';
+import { GameLogEntry } from '../DataClasses/GameLog';
 import styled from 'styled-components';
 
 const SlidingLogContainer = styled.div`
@@ -39,7 +39,7 @@ const LogScrollArea = styled.div`
   }
 `;
 
-const LogEntry = styled.div<{ key: string }>`
+const LogEntry = styled.div<{ key: number }>`
       display: flex;
      border-bottom: 1px solid #c3b091;// #141414;
      padding: 0.1cqw 0 .1cqw 3cqw;
@@ -54,10 +54,9 @@ const GameText = styled.span<{ $color?: string; $size?: string; $weight?: string
   font-weight: ${props => props.$weight || 'bold'};
 `;
 
-interface GameLogProps { logEntries: Array<GameLogEntry>; };
 
 {/* COMPACT INTERACTIVE FLYOUT LOGGER */ }
-const GameLog = ({ logEntries }: GameLogProps) => {
+const GameLog = (logEntries: Array<GameLogEntry>) => {
   const logEndRef = useRef<HTMLDivElement>(null);
   return (
     <SlidingLogContainer
@@ -65,8 +64,8 @@ const GameLog = ({ logEntries }: GameLogProps) => {
     >
       <LogScrollArea>
         <div ref={logEndRef} />
-        {logEntries.map(entry => (
-          <LogEntry key={entry.id}>
+        {logEntries.map((entry, i) => (
+          <LogEntry key={i}>
             <GameText $color={entry.color} $size="1.1cqw">{entry.text}</GameText>
           </LogEntry>
         ))}

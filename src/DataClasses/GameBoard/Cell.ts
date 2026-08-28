@@ -13,7 +13,7 @@ export class Cell {
   // Properties
   playerOfPlacementCell: Player | null = null;
   playerCellOwner: Player | null = null;
-  isHighlighted: boolean = false;
+  private isHighlighted: boolean = false;
   backgroundIcon: string = 'default-bg';
   color: string = '#transparent';
   cellIndex: CellIndex;
@@ -39,6 +39,10 @@ export class Cell {
 
   // --- Getters & Status Checks ---
 
+  getColor = (): string => {
+    return this.color;
+  };
+
   getIsFree = (): boolean => {
     return this.spell === null;
   };
@@ -51,8 +55,12 @@ export class Cell {
     return this.cellIndex;
   };
 
-  getIsPlaceCell = (player : Player): boolean => {
+  getIsPlaceCell = (player: Player): boolean => {
     return player === this.playerOfPlacementCell;
+  };
+
+  getIsHighlighted = (): boolean => {
+    return this.isHighlighted;
   };
 
   getCellOwner = (): Player | null => {
@@ -66,6 +74,10 @@ export class Cell {
   getIsPlayerCell = (): boolean => {
     // If there is an assigned player owner, it is a player base/endzone cell
     return this.playerCellOwner !== null;
+  };
+
+  getTransparencyAmt = (): number => {
+    return this.transparencyAmt;
   };
 
   // --- State Changers ---

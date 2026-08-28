@@ -1,9 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { ramerDouglasPeucker } from '../utils/rdp';
-import { findMaxDistance } from '../utils/maxdistance';
-import type { Point } from '../utils/rdp';
-import { runSpellInference } from '../utils/inference';
-import * as ort from 'onnxruntime-web';
+import { SpellCanvasController } from '../DataClasses/SpellCanvas/SpellCanvasController';
+import { Model } from '../DataClasses/NN_Model/Model';
 
 export const useCanvasSize = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -47,25 +44,8 @@ export const useCanvasSize = () => {
   return { canvasRef, ...size };
 };
 
-export default function SpellCanvas(session: ort.InferenceSession | null) {
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [rawPoints, setRawPoints] = useState<Point[]>([]);
-  const [result, setResult] = useState<string>('');
+export default function SpellCanvasComponent(spellCanvasController: SpellCanvasController, model: Model) {
   const { canvasRef, width, height } = useCanvasSize();
-
-  // useEffect(() => {
-  //   const canvas = canvasRef.current;
-  //   if (!canvas || width === 0 || height === 0) return;
-  //   const ctx = canvas.getContext('2d');
-  //   if (!ctx) return;
-  //   // --- DRAWING LOGIC HERE ---
-  //   // The hook handles clearing and scaling automatically on resize.
-  //   ctx.fillStyle = '#4f46e5';
-  //   ctx.fillRect(20, 20, width - 40, height - 40);
-  //   ctx.fillStyle = '#ffffff';
-  //   ctx.font = '16px sans-serif';
-  //   ctx.fillText(`Canvas Size: ${Math.round(width)}x${Math.round(height)}`, 40, 50);
-  // }, [width, height]); // Only re-draws when sizes actually change
 
   // 1. Click & Hold starts the tracking loop
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -85,13 +65,13 @@ export default function SpellCanvas(session: ort.InferenceSession | null) {
       ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
     }
 
-    setRawPoints([]);
-    setIsDrawing(true);
+    spellCanvasController.clearDrawing();
+    spellCanvasController.setIsDrawing(true);
   };
 
   // 2. Track points continuously as long as the mouse is down
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!spellCanvasController.getIsDrawing()) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -106,51 +86,17 @@ export default function SpellCanvas(session: ort.InferenceSession | null) {
       ctx.stroke();
     }
 
-    const next: Point = {
-      x: e.clientX,
-      y: e.clientY
-    };
-
-    setRawPoints(prev => [...prev, next]);
+    spellCanvasController.addRawPoint(e.clientX, e.clientY);
   };
 
   // 3. Releasing the click triggers your ONNX Matrix conversion instantly
   const handleMouseUp = async () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+    if (!spellCanvasController.getIsDrawing()) return;
+    spellCanvasController.setIsDrawing(false);
+    if (spellCanvasController.getNumPoints() == 0) return;
 
-    if (rawPoints.length === 0) return;
-
-    /// - -  model.runInference - - - - -
-
-    // Run RDP to strip out hand jitter and keep sharp geometric vertexes
-    // Adjust epsilon (0.01 - 0.05 is standard for a 0.0 to 1.0 normalized canvas space)
-    const epsilon = .005;
-
-    const minXY = rawPoints.reduce((acc, item) => {
-      if (acc.x > item.x) acc.x = item.x;
-      if (acc.y > item.y) acc.y = item.y;
-      return acc;
-    }, { x: Number.MAX_SAFE_INTEGER, y: Number.MAX_SAFE_INTEGER });
-
-    const maxDistance = findMaxDistance(rawPoints);
-
-    const simplifiedPoints = ramerDouglasPeucker(rawPoints.map(p => {
-      const normalizedPoint: Point = {
-        x: (p.x - minXY.x) / maxDistance,
-        y: (p.y - minXY.y) / maxDistance
-      }
-      return normalizedPoint;
-    }), epsilon);
-
-    console.log(`RDP Compression: Reduced points from ${rawPoints.length} to ${simplifiedPoints.length}`);
-
-    if (session) {
-      const result = await runSpellInference(simplifiedPoints, session);
-      console.log({ result, simplifiedPoints });
-      setResult(result);
-    } else console.log({ session });
-    // - - - - -  - - - - 
+    const rawPoints = spellCanvasController.getRawPoints();
+    model.runInference(rawPoints);
   };
 
 

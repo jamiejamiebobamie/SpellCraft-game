@@ -15,13 +15,17 @@ export interface Point {
     y: number;
 }
 
-export class SpellCanvas {
+export class SpellCanvasController {
     private isShowCanvas: boolean = false; // show/hide canvas
     private isDrawing: boolean = false; // controls adding points in React component
     private rawPoints: Point[] = [];
 
     public getIsShowCanvas(): boolean {
         return this.isShowCanvas;
+    }
+
+    public toggleShowCanvas(): void {
+        this.isShowCanvas = !this.isShowCanvas;
     }
 
     public setIsShowCanvas(isShowCanvas: boolean): void {

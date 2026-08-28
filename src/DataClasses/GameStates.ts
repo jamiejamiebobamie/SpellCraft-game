@@ -1,7 +1,7 @@
 import { Player, NPCPlayer } from './Player/Player';
 import { GameLog } from './GameLog';
 import { GameStateProgressionPath } from './types';
-import { GameBoard } from './GameBoard/GameBoard';
+import { GameBoard } from './GameBoard/GameBoardController';
 
 export interface GameContext {
   activePlayer: Player;

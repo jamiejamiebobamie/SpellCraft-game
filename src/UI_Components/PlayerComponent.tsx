@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Player } from './GameTypes';
+import { Player } from '../DataClasses/Player/Player';
 import styled from 'styled-components';
 
 const DuelistSideColumn = styled.div`
@@ -55,45 +55,25 @@ const FizzleContainer = styled.div`
     min-height: 1.5cqw; 
 `;
 
-const FizzleBadge = styled.div<{ key: string }>`
+const FizzleBadge = styled.div<{ key: number }>`
     color: #e67e22;
     font-size: 2.1cqw;
     padding-left: 1.59cqw;
 `;
 
-const DuelistUI = ({
-    healthAmt,
-    maxHealth,
-    maxFocus,
-    focusAmt,
-    fizzles,
-    avatarUrl,
-    direction
-    }: Player) => {
+const avatarUrl = "DuelistAvatarPlaceholder.png";
+
+const PlayerComponent = (player: Player) => {
     return (<DuelistSideColumn>
-        <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={direction} />
-        <BarBorder><BarFill $pct={(healthAmt / maxHealth) * 100} /></BarBorder>
+        <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={player.getDirection()} />
+        <BarBorder><BarFill $pct={player.getHealthPrct()} /></BarBorder>
         <FocusContainer>
-            {Array.from({ length: maxFocus }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={focusAmt} />)}
+            {Array.from({ length: player.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={player.getFocus()} />)}
         </FocusContainer>
         <FizzleContainer>
-            {fizzles.map(f => (<FizzleBadge key={f.id} />))}
+            {player.getFizzles().map((_, i) => (<FizzleBadge key={i} />))}
         </FizzleContainer>
-
-        {/* <div style={{ display: 'flex', padding: '.5cqw 5.75cqw', justifyContent: 'space-around', gap: '0.4cqw', alignItems: 'center' }}>
-            {Array.from({ length: duelistData.maxFocus }).map((_, i) => (
-                <div key={i} style={{
-                    width: '.75cqw', height: '.75cqw', borderRadius: '50%', border: '0.12cqw solid #777',
-                    background: i < duelistData.focusAmt ? '#6aadd9' : 'transparent', transition: 'background 0.2s'
-                }} />
-            ))}
-        </div>
-        <div style={{ height: '2.1cqw', display: 'flex', paddingLeft: '3.75cqw', gap: '0.4cqw', alignItems: 'center', minHeight: '1.5cqw' }}>
-            {duelistData.fizzles.map(f => (
-                <div key={f.id} style={{ color: '#e67e22', fontSize: '2.1cqw', paddingLeft: '1.59cqw' }}>❌</div>
-            ))}
-        </div> */}
     </DuelistSideColumn>);
 }
 
-export default DuelistUI;
+export default PlayerComponent;
