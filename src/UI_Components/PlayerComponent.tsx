@@ -59,11 +59,16 @@ const FizzleBadge = styled.div<{ key: number }>`
     color: #e67e22;
     font-size: 2.1cqw;
     padding-left: 1.59cqw;
+
+&::before {
+    content: '@';
+  }
 `;
 
 const avatarUrl = "DuelistAvatarPlaceholder.png";
 
 const PlayerComponent = (player: Player) => {
+    console.log({ player })
     return (<DuelistSideColumn>
         <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={player.getDirection()} />
         <BarBorder><BarFill $pct={player.getHealthPrct()} /></BarBorder>

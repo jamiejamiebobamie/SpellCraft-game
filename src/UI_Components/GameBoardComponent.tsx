@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { GameBoardController } from '../DataClasses/GameBoard/GameBoardController';
+import { GameBoard } from '../DataClasses/GameBoard/GameBoard';
 import { NPCPlayer, Player } from '../DataClasses/Player/Player'
 import styled from 'styled-components';
 import { Game } from '../DataClasses/Game';
@@ -18,10 +18,11 @@ const GridContainer = styled.div<{ $transparency: number, $isDisabled: boolean }
 const StyledCell = styled.div<{
     $isPlace: boolean;
     $isHighlighted: boolean;
-    $ownerColor?: string;
+    $spellOwnerColor?: string;
+    $isPlayerCell: boolean;
     $transparency: number;
 }>`
-  background: ${props => props.$isHighlighted ? '#ffffff' : '#d8d5d5'};
+  background: ${props => props.$isHighlighted ? '#ffffff' : props.$isPlayerCell ? '#686868' : '#d8d5d5'};
   border: 0.05cqw solid;
   aspect-ratio: 1 / 1;
   position: relative;
@@ -32,13 +33,13 @@ const StyledCell = styled.div<{
   transition: background 0.15s ease, border 0.15s ease;
   opacity: ${props => props.$transparency};
   &:hover {
-    background: #ffffff;// #2d3748;
+    background: #2d3748;// #ffffff;// #2d3748;
   }
 
 &::before {
-    ${props => props.$ownerColor && !props.$isPlace && `content: '♥';`}
+    ${props => props.$isPlayerCell && `content: '♥';`}
     font-size: 5.3cqw;
-    color: #e7e5e5;
+    color: #d8d5d5; // #676565;
   }
 `;
 
@@ -78,7 +79,7 @@ const CenterSpellToken = styled.div<{ $color: string }>`
 `;
 
 {/* COMPACT INTERACTIVE FLYOUT LOGGER */ }
-const GameBoardComponent = (rootGameStore: Game, gameBoard: GameBoardController, activePlayer: Player) => {
+const GameBoardComponent = (rootGameStore: Game, gameBoard: GameBoard, activePlayer: Player) => {
 
     return (<GridContainer $isDisabled={gameBoard.getIsClickDisabled()} $transparency={gameBoard.getBoardTransparencyAmt()}>
         {gameBoard.cells.map(c =>
@@ -86,7 +87,8 @@ const GameBoardComponent = (rootGameStore: Game, gameBoard: GameBoardController,
                 key={`${c.getCellIndex().i}_${c.getCellIndex().j}`}
                 $isPlace={c.getIsPlaceCell(activePlayer)}
                 $isHighlighted={c.getIsHighlighted()}
-                $ownerColor={c.getColor()}
+                $spellOwnerColor={c.getColor()}
+                $isPlayerCell={c.getIsPlayerCell()}
                 $transparency={c.getTransparencyAmt()}
                 onMouseEnter={() => gameBoard.getIsHoverDisabled() && gameBoard.hoverCell(c)}
                 onMouseLeave={() => gameBoard.hoverCell(null)}
@@ -99,7 +101,6 @@ const GameBoardComponent = (rootGameStore: Game, gameBoard: GameBoardController,
                 }}
             >
                 {c.badges.map((b, bIdx) => {
-                    // TO-DO: fix below positions
                     const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
                     return (
                         <BadgeElement

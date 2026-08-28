@@ -56,7 +56,7 @@ const GameText = styled.span<{ $color?: string; $size?: string; $weight?: string
 
 
 {/* COMPACT INTERACTIVE FLYOUT LOGGER */ }
-const GameLog = (logEntries: Array<GameLogEntry>) => {
+const GameLogComponent = (logEntries: Array<GameLogEntry>) => {
   const logEndRef = useRef<HTMLDivElement>(null);
   return (
     <SlidingLogContainer
@@ -73,4 +73,4 @@ const GameLog = (logEntries: Array<GameLogEntry>) => {
     </SlidingLogContainer>);
 }
 
-export default GameLog;
+export default GameLogComponent;

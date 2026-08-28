@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { SpellCanvasController } from '../DataClasses/SpellCanvas/SpellCanvasController';
+import { SpellCanvas } from '../DataClasses/SpellCanvas/SpellCanvas';
 import { Model } from '../DataClasses/NN_Model/Model';
 
 export const useCanvasSize = () => {
@@ -44,7 +44,7 @@ export const useCanvasSize = () => {
   return { canvasRef, ...size };
 };
 
-export default function SpellCanvasComponent(spellCanvasController: SpellCanvasController, model: Model) {
+export default function SpellCanvasComponent(spellCanvas: SpellCanvas, model: Model) {
   const { canvasRef, width, height } = useCanvasSize();
 
   // 1. Click & Hold starts the tracking loop
@@ -65,13 +65,13 @@ export default function SpellCanvasComponent(spellCanvasController: SpellCanvasC
       ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
     }
 
-    spellCanvasController.clearDrawing();
-    spellCanvasController.setIsDrawing(true);
+    spellCanvas.clearDrawing();
+    spellCanvas.setIsDrawing(true);
   };
 
   // 2. Track points continuously as long as the mouse is down
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!spellCanvasController.getIsDrawing()) return;
+    if (!spellCanvas.getIsDrawing()) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -86,16 +86,16 @@ export default function SpellCanvasComponent(spellCanvasController: SpellCanvasC
       ctx.stroke();
     }
 
-    spellCanvasController.addRawPoint(e.clientX, e.clientY);
+    spellCanvas.addRawPoint(e.clientX, e.clientY);
   };
 
   // 3. Releasing the click triggers your ONNX Matrix conversion instantly
   const handleMouseUp = async () => {
-    if (!spellCanvasController.getIsDrawing()) return;
-    spellCanvasController.setIsDrawing(false);
-    if (spellCanvasController.getNumPoints() == 0) return;
+    if (!spellCanvas.getIsDrawing()) return;
+    spellCanvas.setIsDrawing(false);
+    if (spellCanvas.getNumPoints() == 0) return;
 
-    const rawPoints = spellCanvasController.getRawPoints();
+    const rawPoints = spellCanvas.getRawPoints();
     model.runInference(rawPoints);
   };
 

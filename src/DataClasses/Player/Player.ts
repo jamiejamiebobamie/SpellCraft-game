@@ -1,7 +1,7 @@
 // Player.ts
 import { Fizzle } from './Fizzle';
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
-import { GameBoard } from '../GameBoard/GameBoardController';
+import { GameBoard } from '../GameBoard/GameBoard';
 import { Quicken } from '../PlacedSpells/Spell';
 
 export type NPCPlayerTurnMove = {

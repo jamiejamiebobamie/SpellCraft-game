@@ -1,7 +1,7 @@
 import { Player, NPCPlayer } from './Player/Player';
 import { GameLog } from './GameLog';
 import { GameStateProgressionPath } from './types';
-import { GameBoard } from './GameBoard/GameBoardController';
+import { GameBoard } from './GameBoard/GameBoard';
 
 export interface GameContext {
   activePlayer: Player;
@@ -69,7 +69,7 @@ export class PlayerDrawSpell extends GameState {
 
     // ALL / INIT:
     // 1. Hide GameBoard
-    this.context.gameBoard.disableBoard();
+    // this.context.gameBoard.disableBoard();
     // 2. Enable: 'doRightClick' and 'doLeftClick' and 'doEsc'. HANDLED with defined functions above... 
     // 3. Turn on 2D IK Wand Arm tracking (taken care of with: 'nextPlayer.setIsTurn(true, currentGlobalTurn);')
 

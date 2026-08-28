@@ -15,7 +15,7 @@ export interface Point {
     y: number;
 }
 
-export class SpellCanvasController {
+export class SpellCanvas {
     private isShowCanvas: boolean = false; // show/hide canvas
     private isDrawing: boolean = false; // controls adding points in React component
     private rawPoints: Point[] = [];

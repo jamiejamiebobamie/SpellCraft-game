@@ -1,10 +1,10 @@
 // Game.ts
-import { GameBoardController } from './GameBoard/GameBoardController';
+import { GameBoard } from './GameBoard/GameBoard';
 import { GameLog } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { GameState, GameContext, PlayerDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
-import { SpellCanvasController } from './SpellCanvas/SpellCanvasController'
+import { SpellCanvas } from './SpellCanvas/SpellCanvas'
 import { Player
   // , NPCPlayer
  } from './Player/Player';
@@ -12,12 +12,12 @@ import { CellIndex } from './types';
 
 export class Game {
   // Core Subsystem Managers
-  gameBoard!: GameBoardController;
+  gameBoard!: GameBoard;
   gameLog!: GameLog;
   placedSpells!: PlacedSpells;
   currentGameState!: GameState;
   model!: Model;
-  spellCanvas!: SpellCanvasController;
+  spellCanvas!: SpellCanvas;
   
   // Game Loop Properties
   players!: [Player, Player];
@@ -44,7 +44,7 @@ export class Game {
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout
-    this.gameBoard = new GameBoardController(humanPlayer, computerPlayer);
+    this.gameBoard = new GameBoard(humanPlayer, computerPlayer);
     
     // 4. Pass the fully initialized cell grid back to the AI context map
     // computerPlayer.gameBoardRef = this.gameBoard.cells;
@@ -56,7 +56,7 @@ export class Game {
     this.model = new Model();
     this.model.init();
 
-    this.spellCanvas = new SpellCanvasController();
+    this.spellCanvas = new SpellCanvas();
 
     // 6. Establish the global state context pointer map
     this.gameContext = {

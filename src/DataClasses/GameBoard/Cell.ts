@@ -23,18 +23,12 @@ export class Cell {
   transparencyAmt: number = 1.0; // Normalized: [0.0, 1.0]
 
   spell: Spell | null = null;
-  readonly badges: Array<Badge>;
+  badges: Array<Badge>;
 
   constructor(cellIndex: CellIndex) {
     this.cellIndex = cellIndex;
 
-    // Populate the badge array layout on initialization
-    this.badges = [
-      new DirectionSpeedBadge(),
-      new DmgHealthBadge(),
-      new UpdateOrderBadge(),
-      new RowShiftBadge()
-    ];
+    this.badges = [];
   }
 
   // --- Getters & Status Checks ---
@@ -87,12 +81,7 @@ export class Cell {
 
     if (spell) {
       // Sync spell stats directly down to the cell indicators
-      this.updateBadgeValues([
-        spell.speedDirection,
-        spell.dmgHealth,
-        0, // Update order placeholder
-        spell.rowShift
-      ]);
+      this.updateBadgeValues(spell);
       this.showBadges();
 
       // Update cell color mapping to match the spell's caster player identity color
@@ -145,16 +134,46 @@ export class Cell {
     });
   };
 
-  /**
-   * Accepts an ordered list of metrics to update child stats.
-   * Expects array sequence matching [Speed, Damage, Priority, RowShift]
-   */
-  updateBadgeValues = (values: Array<number>): void => {
-    this.badges.forEach((badge, index) => {
-      if (values[index] !== undefined) {
-        badge.updateValue(values[index]);
-      }
-    });
+  updateBadgeValues = (spell: Spell): void => {
+
+    /*
+    
+      badges need to be shown when spell occupies a cell
+
+      spell on cell determines:
+        badge values
+        badge order (dependent on spells 'speedDirection' value) in this.badges array
+        which badges are visible if badge value is zero (dependent on spell...)
+
+    */
+
+    const {
+      secondaryModifiers,
+      updateOrder,
+      speedDirection,
+      dmgHealth,
+      rowShift
+    } = spell.getBadgeValues();
+
+    const dmgHealthBadge = new DmgHealthBadge(dmgHealth, secondaryModifiers.includes('dmgHealth'));
+    const updateOrderBadge = new UpdateOrderBadge(updateOrder);
+    const rowShiftBadge = new RowShiftBadge(rowShift, secondaryModifiers.includes('rowShift'));
+    const speedDirectionBadge = new DirectionSpeedBadge(speedDirection, secondaryModifiers.includes('speedDirection'));
+
+    // speedDirection = 1 (going right)
+    this.badges = speedDirection > 0 ? [
+      dmgHealthBadge, // top-left
+      updateOrderBadge, // top-right
+      rowShiftBadge, // bottom-left
+      speedDirectionBadge // bottom-right
+    ] :
+      // speedDirection = -1 or 0 (going left/nowhere)
+      [
+        updateOrderBadge, // top-left
+        dmgHealthBadge, // top-right
+        speedDirectionBadge, // bottom-left
+        rowShiftBadge // bottom-right
+      ];
   };
 
   // --- Interaction Event Stubs ---

@@ -7,7 +7,7 @@ export type CellIndex = {
   j: number; // Column index
 };;
 
-export type SpellPropertyName = 'speedDirection' | 'dmgHealth' | 'rowShift';
+export type SpellPropertyName = 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder';
 
 export type RowShiftDirections = 1 | 0 |-1 | undefined;
 

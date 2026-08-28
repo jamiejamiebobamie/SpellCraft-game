@@ -1,6 +1,6 @@
 // PlacedSpells.ts
 import { Spell } from './Spell';
-import { GameBoard } from '../GameBoard/GameBoardController';
+import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex } from '../types';
 
 export class PlacedSpells {
@@ -16,12 +16,16 @@ export class PlacedSpells {
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates
     if (!this.spells.includes(spell)) {
+      spell.updatePropertyValue('updateOrder', this.spells.length);
       this.spells.push(spell);
     }
   };
 
   removeSpell = (spell: Spell): void => {
-    this.spells = this.spells.filter(s => s !== spell);
+    this.spells = this.spells.filter(s => s !== spell).map((s, i) => {
+      s.updatePropertyValue('updateOrder', i + 1);
+      return s;
+    });
   };
 
   // --- Batch Engine Turn Loop Update ---

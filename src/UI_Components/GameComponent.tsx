@@ -1,9 +1,9 @@
 
 import React from 'react';
 import PlayerComponent from './PlayerComponent';
-import GameLog from './GameLog';
 import SpellCanvasComponent from './SpellCanvasComponent';
 import GameBoardComponent from './GameBoardComponent';
+import GameLogComponent from './GameLogComponent';
 import { rootGameStore, controls } from '../DataClasses/store';
 import styled from 'styled-components';
 
@@ -17,11 +17,16 @@ const GameWrapper = styled.div`
   container-name: game-canvas;
   display: flex;
   flex-direction: row;
-  background: #d5d2d2;// transparent;// #111111;
+//   background: #d5d2d2;// transparent;// #111111;
   user-select: none;
   overflow: hidden;
   position: relative;
   border: 0.15cqw solid #2d2d2d;
+
+    background-image: url('UI_mockup.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 `;
 
 const MainColumn = styled.div`
@@ -34,7 +39,7 @@ const MainColumn = styled.div`
   overflow: hidden;
 `;
 
-export const Game = () => {
+export const GameComponent = () => {
     // PLAYERS - - 
     const p1 = rootGameStore.players[0];
     const p2 = rootGameStore.players[1];
@@ -69,9 +74,9 @@ export const Game = () => {
             {/* CENTER COLUMN: CANVAS GRID MATRIX */}
             <MainColumn>
                 {GameBoardComponent(rootGameStore, gameBoard, activePlayer)}
-                {GameLog(logEntries)}
+                {GameLogComponent(logEntries)}
             </MainColumn>
-            {/* RIGHT COLUMN: ENEMY BOSS */}
+            {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
             {PlayerComponent(p2)}
         </GameWrapper>
     );

@@ -1,18 +1,12 @@
-/*
+import { SpellPropertyName } from '../types';
 
-different placed spells require different 'isHideIfZero' values
-different placed spells are destroyed when their states reach zero
-(examples: ether destroyed if dmg == 0, but speedDirection can reach 0 and the spell will remain on board)
-player needs to see the 0 speedDirection Badge value on the cell...
-
-TO-DO:
-1. update 'setSpell' method on 'Cell' class to update the Badge's 'isHideIfZero' accordingly
-2. implement "stat destruction" after spell collision due to stats reaching zero (dependent on spell type)
-3. implement 'updateOrder' to show on Cell Badge. update the updateOrder when the placedSpells are added or removed.
-updateOrder = spells index in "PlacedSpelld"
-
-*/
-
+export type BadgeValues = {
+  secondaryModifiers: Array<SpellPropertyName>;
+  updateOrder: number;
+  speedDirection: number;
+  dmgHealth: number;
+  rowShift: number;
+}
 
 // Badge.ts
 export abstract class Badge {
@@ -28,7 +22,8 @@ export abstract class Badge {
   protected readonly negativeColor = '#FF0000'; // Red
   protected readonly neutralColor = '#FFFFFF';  // White
 
-  constructor(isVisibleIfZero: boolean, backgroundIcon: string) {
+  constructor(value: number, isVisibleIfZero: boolean, backgroundIcon: string) {
+    this.value = value;
     this.isVisibleIfZero = isVisibleIfZero;
     this.backgroundIcon = backgroundIcon;
     this.color = this.neutralColor;
@@ -82,33 +77,30 @@ export abstract class Badge {
   };
 }
 
-// BadgeSubclasses.ts
-// import { Badge } from './Badge';
-
 export class DirectionSpeedBadge extends Badge {
-  constructor() {
+  constructor(value: number, isVisibleIfZero: boolean) {
     // defaults: hide if zero, custom speed icon asset string
-    super(false, 'icon-speed-arrow'); 
+    super(value, isVisibleIfZero, 'icon-speed-arrow');
   }
 }
 
 export class DmgHealthBadge extends Badge {
-  constructor() {
+  constructor(value: number, isVisibleIfZero: boolean) {
     // defaults: always show if zero (crucial stat), custom heart icon
-    super(true, 'icon-heart-shield'); 
+    super(value, isVisibleIfZero, 'icon-heart-shield');
   }
 }
 
 export class UpdateOrderBadge extends Badge {
-  constructor() {
+  constructor(value: number) {
     // defaults: hide if zero, priority/clock tracking icon
-    super(false, 'icon-clock-priority');
+    super(value, false, 'icon-clock-priority');
   }
 }
 
 export class RowShiftBadge extends Badge {
-  constructor() {
+  constructor(value: number, isVisibleIfZero: boolean) {
     // defaults: hide if zero, lane dynamic shift indicator icon
-    super(false, 'icon-lane-shift');
+    super(value, isVisibleIfZero, 'icon-lane-shift');
   }
 }

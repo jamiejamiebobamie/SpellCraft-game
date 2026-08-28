@@ -1,3 +1,3 @@
-import { Game } from './UI_Components/Game';
+import { GameComponent } from './UI_Components/GameComponent';
 
-export const App = () => <Game />
+export const App = () => <GameComponent />

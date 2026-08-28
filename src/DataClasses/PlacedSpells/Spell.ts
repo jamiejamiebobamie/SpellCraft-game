@@ -1,6 +1,7 @@
 // Spell.ts
 import { CellIndex, SpellPropertyName, RowShiftDirections } from '../types';
 import { Player } from '../Player/Player';
+import { BadgeValues } from '../GameBoard/Badge';
 
 export abstract class Spell {
   // Constants & Core Properties
@@ -10,16 +11,22 @@ export abstract class Spell {
   cellIndex: CellIndex | null = null; // Starts as null (attached to cursor) until placed
 
   // Modifiers with strict min/max limits
+  updateOrder: number = 0;
   speedDirection: number = 0;
   dmgHealth: number = 0;
   rowShift: number = 0;
 
   // Stat Limits (Enforcing Min/Max values)
   protected readonly limits = {
+    updateOrder: { min: 1, max: 1000 },
     speedDirection: { min: -3, max: 3 },
     dmgHealth: { min: -3, max: 3 },
     rowShift: { min: -3, max: 3 }
   };
+
+  // determines if value is shown if zero
+  readonly primaryModifiers: Array<SpellPropertyName> = [];
+  readonly secondaryModifiers: Array<SpellPropertyName> = [];
 
   constructor(spellName: string, caster: Player) {
     this.spellName = spellName;
@@ -33,6 +40,15 @@ export abstract class Spell {
     return this.spellName;
   };
 
+  getBadgeValues = (): BadgeValues => {
+    return {
+      secondaryModifiers: this.secondaryModifiers,
+      updateOrder: this.updateOrder,
+      speedDirection: this.speedDirection,
+      dmgHealth: this.dmgHealth,
+      rowShift: this.rowShift
+    }
+  }
 
   getCellIndex = (): CellIndex | null => {
     return this.cellIndex;
@@ -119,6 +135,10 @@ export abstract class Spell {
 export class Phlegm extends Spell {
   protected static readonly focusCost: number = 1;
 
+
+  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
+  secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
+
   constructor(caster: Player) {
     super('Phlegm', caster);
     this.dmgHealth = -1; // Heal for 1 Health
@@ -147,6 +167,9 @@ export class Phlegm extends Spell {
 export class Ether extends Spell {
   protected static readonly focusCost: number = 2;
 
+  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth'];
+  secondaryModifiers: Array<SpellPropertyName>  = ['rowShift', 'speedDirection'];
+
   constructor(caster: Player) {
     super('Ether', caster);
     this.dmgHealth = 3; // Higher magic damage
@@ -161,7 +184,7 @@ export class Ether extends Spell {
   isModifierValueInvalid = (): boolean => {
     return this.dmgHealth <= 0;
   }
-  
+
   getFocusCost = (): number => {
     return Ether.focusCost;
   }
@@ -169,6 +192,9 @@ export class Ether extends Spell {
 
 export class Gyre extends Spell {
   protected static readonly focusCost: number = 1;
+
+  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'rowShift'];
+  secondaryModifiers: Array<SpellPropertyName>  = ['dmgHealth', 'speedDirection'];
 
   constructor(caster: Player, rowShift: RowShiftDirections) {
     super('Gyre', caster);
@@ -185,7 +211,7 @@ export class Gyre extends Spell {
   isModifierValueInvalid = (): boolean => {
     return this.rowShift == 0;
   }
-  
+
   getFocusCost = (): number => {
     return Gyre.focusCost;
   }
@@ -193,6 +219,9 @@ export class Gyre extends Spell {
 
 export class Quicken extends Spell {
   protected static readonly focusCost: number = 1;
+
+  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth', 'speedDirection',];
+  secondaryModifiers: Array<SpellPropertyName>  = ['rowShift'];
 
   constructor(caster: Player) {
     super('Quicken', caster);
