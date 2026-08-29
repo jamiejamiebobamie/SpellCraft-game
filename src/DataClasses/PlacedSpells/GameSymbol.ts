@@ -17,7 +17,7 @@ export class GameSymbol {
     ['star', Ether],
     ['triangle', Gyre],
     ['diamond', Gyre]
-  ])
+  ]);
     private static readonly ROW_SHIFT_LOOKUP = new Map<InferenceString, RowShiftDirections>([
     ['line', 0],
     ['circle', 0],
@@ -75,7 +75,7 @@ export class GameSymbol {
       // Calculate how much focus is missing
       const difference = this.focusCost - this.caster.getFocus();
 
-      this.caster.depleteFocus();
+      this.caster.depleteFocusToZero();
       this.caster.decrementHealth(difference); // Health covers the remaining resource debt
     }
   };

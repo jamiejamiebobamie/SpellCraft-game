@@ -5,9 +5,10 @@ import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { GameState, GameContext, PlayerDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas'
-import { Player
+import {
+  Player
   // , NPCPlayer
- } from './Player/Player';
+} from './Player/Player';
 import { CellIndex } from './types';
 
 export class Game {
@@ -18,7 +19,7 @@ export class Game {
   currentGameState!: GameState;
   model!: Model;
   spellCanvas!: SpellCanvas;
-  
+
   // Game Loop Properties
   players!: [Player, Player];
   gameTurn: number = 0;
@@ -45,7 +46,7 @@ export class Game {
 
     // 3. Initialize the static bounding cell board layout
     this.gameBoard = new GameBoard(humanPlayer, computerPlayer);
-    
+
     // 4. Pass the fully initialized cell grid back to the AI context map
     // computerPlayer.gameBoardRef = this.gameBoard.cells;
 
@@ -112,8 +113,8 @@ export class Game {
    * Leverages explicit action keys rather than risky dynamic method invocation strings.
    */
   updatePlayer = (
-    player: Player, 
-    action: 'decrementHealth' | 'decrementFocus' | 'setIsTurn', 
+    player: Player,
+    action: 'decrementHealth' | 'decrementFocus' | 'setIsTurn' | 'addFizzle',
     param: number | boolean
   ): void => {
     switch (action) {
@@ -126,12 +127,30 @@ export class Game {
       case 'setIsTurn':
         if (typeof param === 'boolean') player.setIsTurn(param, this.gameTurn);
         break;
+      case 'addFizzle':
+        if (typeof param === 'boolean') player.addFizzle(this.gameTurn);
+        break;
     }
   };
 
   placeSpellOnBoard = (cellIndex: CellIndex): void => {
     this.gameBoard.setSpellAt(cellIndex, this.placedSpells.getTop());
     // TO-DO: need to 'move' spell once after placement according to its direction and speed
+  }
+
+  hideGameBoard = (): void => {
+    this.gameBoard.disableBoard();
+  }
+
+  enableGameBoard = (): void => {
+    this.gameBoard.enableBoard();
+  }
+
+  runInference = async (): Promise<void> => {
+    const rawPoints = this.spellCanvas.getRawPoints();
+    const result = await this.model.runInference(rawPoints);
+
+    this.appendToLog(result, 'black')
   }
 
   /**

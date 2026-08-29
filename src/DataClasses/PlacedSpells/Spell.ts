@@ -139,10 +139,11 @@ export class Phlegm extends Spell {
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
-  constructor(caster: Player) {
+  constructor(caster: Player, cellIndex: CellIndex | null = null) {
     super('Phlegm', caster);
     this.dmgHealth = -1; // Heal for 1 Health
     this.rowShift = 0;
+    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -170,9 +171,10 @@ export class Ether extends Spell {
   primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName>  = ['rowShift', 'speedDirection'];
 
-  constructor(caster: Player) {
+  constructor(caster: Player, cellIndex: CellIndex | null = null) {
     super('Ether', caster);
     this.dmgHealth = 3; // Higher magic damage
+    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -196,10 +198,11 @@ export class Gyre extends Spell {
   primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'rowShift'];
   secondaryModifiers: Array<SpellPropertyName>  = ['dmgHealth', 'speedDirection'];
 
-  constructor(caster: Player, rowShift: RowShiftDirections) {
+  constructor(caster: Player, rowShift: RowShiftDirections, cellIndex: CellIndex | null = null) {
     super('Gyre', caster);
     this.dmgHealth = 2;
     this.rowShift = rowShift || 0; // Alters movement tracks
+    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -223,10 +226,11 @@ export class Quicken extends Spell {
   primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth', 'speedDirection',];
   secondaryModifiers: Array<SpellPropertyName>  = ['rowShift'];
 
-  constructor(caster: Player) {
+  constructor(caster: Player, cellIndex: CellIndex | null = null) {
     super('Quicken', caster);
     this.speedDirection *= 2; // twice as fast
     this.dmgHealth = 1;
+    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {

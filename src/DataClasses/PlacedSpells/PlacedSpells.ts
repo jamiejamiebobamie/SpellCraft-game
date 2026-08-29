@@ -16,6 +16,9 @@ export class PlacedSpells {
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates
     if (!this.spells.includes(spell)) {
+      // ISSUE: player draws spell, spell is on cursor (not board) before he places the spell on board/.
+      // player can cancel spell before he places it...
+      // FIX: do not add spell to this.spells until placed on board...
       spell.updatePropertyValue('updateOrder', this.spells.length);
       this.spells.push(spell);
     }

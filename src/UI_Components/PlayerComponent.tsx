@@ -1,7 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Player } from '../DataClasses/Player/Player';
 import styled from 'styled-components';
+
+
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -16,9 +18,8 @@ const DuelistSideColumn = styled.div`
 `;
 
 const AvatarFrame = styled.img<{ $direction: number }>`
-transform: scale(${props => props.$direction}, 1);
+  transform: scale(${props => props.$direction}, 1);
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
-//   border-radius: 0.5cqw; border: 0.15cqw solid #333;
 `;
 
 const BarBorder = styled.div`
@@ -67,18 +68,22 @@ const FizzleBadge = styled.div<{ key: number }>`
 
 const avatarUrl = "DuelistAvatarPlaceholder.png";
 
-const PlayerComponent = (player: Player) => {
-    console.log({ player })
-    return (<DuelistSideColumn>
-        <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={player.getDirection()} />
-        <BarBorder><BarFill $pct={player.getHealthPrct()} /></BarBorder>
-        <FocusContainer>
-            {Array.from({ length: player.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={player.getFocus()} />)}
-        </FocusContainer>
-        <FizzleContainer>
-            {player.getFizzles().map((_, i) => (<FizzleBadge key={i} />))}
-        </FizzleContainer>
-    </DuelistSideColumn>);
+const PlayerComponent = (playerSnap: Player) => {
+  // TO-DO: (1) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
+  // TO-DO: (1) green white or blue flash, and (2) floating modifier text on positive health gain
+  // TO-DO: Hide PlayerComponent when the other person is casting. Also dim/make darker the background img of GameWrapper.
+  const [isDamaged, setIsDamaged] = useState(false);
+  console.log({ isDamaged })
+  return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
+      <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={playerSnap.getDirection()} />
+    <BarBorder><BarFill $pct={playerSnap.getHealthPrct()} /></BarBorder>
+    <FocusContainer>
+      {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}
+    </FocusContainer>
+    <FizzleContainer>
+      {playerSnap.getFizzles().map((_, i) => (<FizzleBadge key={i} />))}
+    </FizzleContainer>
+  </DuelistSideColumn>);
 }
 
 export default PlayerComponent;

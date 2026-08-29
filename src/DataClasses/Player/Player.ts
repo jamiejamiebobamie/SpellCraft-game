@@ -109,9 +109,9 @@ export class Player {
   };
 
   /**
-   * Deducts focus points. Pass a negative number to regenerate focus.
+   * Reduces focus to zero.
    */
-  depleteFocus = (): void => {
+  depleteFocusToZero = (): void => {
     this.focusAmt = 0;
   }
 
@@ -120,7 +120,8 @@ export class Player {
    */
   addFizzle = (currentGlobalTurn: number): void => {
 
-    this.decrementFocus(1);
+    // TO-DO: if a fizzle causes focus lost, then it should be handled explicitly where addFizzle is called
+    // this.decrementFocus(1);
 
     // Instantiate using the current global turn and a custom duration limit
     this.fizzles.push(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS));

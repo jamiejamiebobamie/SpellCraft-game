@@ -72,6 +72,7 @@ export class PlayerDrawSpell extends GameState {
     // this.context.gameBoard.disableBoard();
     // 2. Enable: 'doRightClick' and 'doLeftClick' and 'doEsc'. HANDLED with defined functions above... 
     // 3. Turn on 2D IK Wand Arm tracking (taken care of with: 'nextPlayer.setIsTurn(true, currentGlobalTurn);')
+    // TO-DO: Implement IK wand arm movement for left and right
 
     // 'HappyPath' -> 'doLeftClick'
     // 4. Left click DOWN: do drawing, Left click UP: trigger state change and pass inference string (ie, 'doLeftClick')
@@ -175,6 +176,7 @@ export class NPCDrawSpell extends GameState {
     // ALL / INIT:
     // 1. Hide GameBoard
     // 2. Disable: 'doRightClick' and 'doLeftClick'
+    // TO-DO: implement "follow hard-coded points" for drawing shape and having arm follow it
     // 3. Turn on 2D IK Wand Arm tracking for NPC (taken care of with: 'nextPlayer.setIsTurn(true, currentGlobalTurn);')
     // 4. Determine AI Logic... DrawSpell or Skip/End turn.
 

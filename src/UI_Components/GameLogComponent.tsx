@@ -1,7 +1,8 @@
 
-import React, { useRef } from 'react';
-import { GameLogEntry } from '../DataClasses/GameLog';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { GameLog, GameLogEntry } from '../DataClasses/GameLog';
 import styled from 'styled-components';
+import { useSnapshot } from 'valtio';
 
 const SlidingLogContainer = styled.div`
   position: absolute;
@@ -11,7 +12,7 @@ const SlidingLogContainer = styled.div`
   height: 7%;
   background: #F1E9D2;// rgba(12, 12, 12, 0.96);
   border-top: 0.2cqw solid #c3b091;//#333;
-
+  opacity: .9;
   // border: 0.05cqw solid;
   border-radius: 0.5cqw;
   display: flex;
@@ -24,12 +25,14 @@ const SlidingLogContainer = styled.div`
   &:hover {
     height: 50%;
   }
+    // height: 50%;
+
 `;
 
 const LogScrollArea = styled.div`
   flex-grow: 1;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;//-reverse;
   gap: 0.4cqw;
   overflow-y: hidden;
   overflow-x: hidden;
@@ -54,21 +57,35 @@ const GameText = styled.span<{ $color?: string; $size?: string; $weight?: string
   font-weight: ${props => props.$weight || 'bold'};
 `;
 
-
 {/* COMPACT INTERACTIVE FLYOUT LOGGER */ }
-const GameLogComponent = (logEntries: Array<GameLogEntry>) => {
+const GameLogComponent = (gameLog: GameLog) => {
+  const snap = useSnapshot(gameLog);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToLatestLogEntry = () => logEndRef?.current?.scrollIntoView();
+
+  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    // Only trigger if the height property finished animating
+    if (e.propertyName === 'height') {
+      scrollToLatestLogEntry();
+    }
+  };
+
+  const numEntries = snap?.getNumLogs();
+  useEffect(() => { scrollToLatestLogEntry()}, [numEntries]);
+
   return (
     <SlidingLogContainer
-      onMouseLeave={() => logEndRef?.current?.scrollTo(0, 0)}
+      // onMouseLeave={scrollToLatestLogEntry}
+      onTransitionEnd={handleTransitionEnd}
     >
       <LogScrollArea>
-        <div ref={logEndRef} />
-        {logEntries.map((entry, i) => (
+        {snap.logEntries.map((entry: GameLogEntry, i: number) => (
           <LogEntry key={i}>
             <GameText $color={entry.color} $size="1.1cqw">{entry.text}</GameText>
           </LogEntry>
         ))}
+        <div ref={logEndRef} />
       </LogScrollArea>
     </SlidingLogContainer>);
 }

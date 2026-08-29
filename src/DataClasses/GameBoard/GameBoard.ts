@@ -12,7 +12,7 @@ export class GameBoard {
   readonly numPlacementCells: number = 2;  // Column depth allowing spell spawning
 
   static readonly HIDDEN_TRANSPARENCY_AMT = .3;
-  static readonly SHOWN_TRANSPARENCY_AMT = .8;
+  static readonly SHOWN_TRANSPARENCY_AMT = .9;
 
   // Board Data Layers
   readonly cells: Array<Cell> = [];
@@ -20,7 +20,7 @@ export class GameBoard {
   // Interactive Overrides
   private isClickDisabled: boolean = false;
   private isHoverDisabled: boolean = false;
-  private transparencyAmt: number = 1.0;
+  private transparencyAmt: number = GameBoard.SHOWN_TRANSPARENCY_AMT;
 
   // Trackers
   hoveredCell: Cell | null = null;

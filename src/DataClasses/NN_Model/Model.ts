@@ -77,8 +77,6 @@ export class Model {
             return normalizedPoint;
         }), epsilon);
 
-        console.log(`RDP Compression: Reduced points from ${rawPoints.length} to ${simplifiedPoints.length}`);
-
         if (this.session) {
             const result = await this.runSpellInference(simplifiedPoints, this.session);
             return result;

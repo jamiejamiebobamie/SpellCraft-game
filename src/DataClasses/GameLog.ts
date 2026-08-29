@@ -10,6 +10,10 @@ export class GameLog {
   // HTML DOM ID configuration used for scrolling container reference
   private static readonly CONTAINER_DOM_ID = 'game-log-scroll-container';
 
+  getNumLogs = (): number => {
+    return this.logEntries.length;
+  };
+
   // --- Methods (Arrow functions to safely preserve 'this' context) ---
 
   clearAllEntries = (): void => {
@@ -23,7 +27,7 @@ export class GameLog {
   appendEntry = (text: string, color: string = '#FFFFFF'): void => {
 
     this.logEntries.push({ text, color });
-    
+
     // Optional: Auto-scroll to the bottom immediately after a log append
     // Wrap in a microtask timeout to let React finish rendering the new DOM item first
     setTimeout(this.scrollToBottom, 0);

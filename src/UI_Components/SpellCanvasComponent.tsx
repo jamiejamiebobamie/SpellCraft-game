@@ -1,6 +1,20 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { SpellCanvas } from '../DataClasses/SpellCanvas/SpellCanvas';
 import { Model } from '../DataClasses/NN_Model/Model';
+import { Game } from '../DataClasses/Game';
+import styled from 'styled-components';
+import { useSnapshot } from 'valtio';
+
+const CanvasContainer = styled.div<{ $isShowCanvas: boolean }>`
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    z-index: 30;
+    overflow: hidden;
+    flex-direction: column;
+    align-items: center;
+    display: ${props => props.$isShowCanvas ? 'flex' : 'none'};
+`;
 
 export const useCanvasSize = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,8 +58,9 @@ export const useCanvasSize = () => {
   return { canvasRef, ...size };
 };
 
-export default function SpellCanvasComponent(spellCanvas: SpellCanvas, model: Model) {
+export default function SpellCanvasComponent(rootGameStore: Game, spellCanvas: SpellCanvas, model: Model) {
   const { canvasRef, width, height } = useCanvasSize();
+  const snap = useSnapshot(spellCanvas);
 
   // 1. Click & Hold starts the tracking loop
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -95,22 +110,13 @@ export default function SpellCanvasComponent(spellCanvas: SpellCanvas, model: Mo
     spellCanvas.setIsDrawing(false);
     if (spellCanvas.getNumPoints() == 0) return;
 
-    const rawPoints = spellCanvas.getRawPoints();
-    model.runInference(rawPoints);
+    rootGameStore.runInference();
   };
 
+  const isShowCanvas = snap.getIsShowCanvas();
 
   return (
-    <div style={{
-      width: "100%",
-      height: "100%",
-      position: 'absolute',
-      zIndex: 30,
-      display: 'flex',
-      overflow: 'hidden',
-      flexDirection: 'column',
-      alignItems: 'center'
-    }}>
+    <CanvasContainer $isShowCanvas={isShowCanvas}>
       <canvas
         ref={canvasRef}
         width={!!width ? width : 100}
@@ -127,6 +133,6 @@ export default function SpellCanvasComponent(spellCanvas: SpellCanvas, model: Mo
           touchAction: 'none'
         }}
       />
-    </div>
+    </CanvasContainer>
   );
 }
