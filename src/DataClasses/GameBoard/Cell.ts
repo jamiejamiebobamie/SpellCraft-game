@@ -13,9 +13,9 @@ export class Cell {
   // Properties
   playerOfPlacementCell: Player | null = null;
   playerCellOwner: Player | null = null;
-  private isHighlighted: boolean = false;
+  isHighlighted: boolean = false;
   backgroundIcon: string = 'default-bg';
-  color: string = '#transparent';
+  color: string = '';
   cellIndex: CellIndex;
 
   isClickDisabled: boolean = false;
@@ -88,7 +88,7 @@ export class Cell {
       this.setColor(spell.caster.getColor());
     } else {
       this.hideBadges();
-      this.setColor('#transparent');
+      this.setColor('');
     }
   };
 
@@ -174,6 +174,8 @@ export class Cell {
         speedDirectionBadge, // bottom-left
         rowShiftBadge // bottom-right
       ];
+
+      console.log({ spellName: spell.getSpellName(), badges: this.badges })
   };
 
   // --- Interaction Event Stubs ---

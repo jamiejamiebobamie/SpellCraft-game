@@ -94,8 +94,7 @@ export class GameBoard {
     return cell ? cell.getSpell() : null;
   };
 
-  setSpellAt = (index: CellIndex, spell: Spell | null): void => {
-    const cell = this.getCellAt(index);
+  setSpellAt = (spell: Spell | null, cell: Cell): void => {
     if (cell) {
       cell.setSpell(spell);
     }

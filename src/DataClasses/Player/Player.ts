@@ -134,7 +134,7 @@ export class Player {
   doBacklash = (): void => {
     this.decrementHealth(Player.BACKLASH_DAMAGE);
     this.fizzles = []; // Wipe historical fizzles clean after punishing
-    console.warn(`Backlash triggered! Damage dealt.`);
+    console.log(`Backlash triggered! Damage dealt.`);
   };
 
   /**

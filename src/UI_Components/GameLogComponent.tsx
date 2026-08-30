@@ -2,64 +2,98 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameLog, GameLogEntry } from '../DataClasses/GameLog';
 import styled from 'styled-components';
-import { useSnapshot } from 'valtio';
+
+// /*
+//   position: absolute;
+//   bottom: 0;
+//   left: 0;
+//   right: 0;
+//   height: 7%;
+//   background: #F1E9D2;
+//   border-top: 0.2cqw solid #c3b091;
+//   opacity: .9;
+//   border-radius: 0.5cqw;
+//   display: flex;
+//   flex-direction: column;
+//   z-index: 20;
+
+//   /* 🚀 FIX 1: Split transitions so opening delays, but closing shrinks instantly */
+//   transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0.5s; 
+
+//   &:hover {
+//     height: 50%;
+//     /* Instantly collapse back down without the 0.5s delay when leaving */
+//     transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0s; 
+//   }
+
+// */
+
 
 const SlidingLogContainer = styled.div`
-  position: absolute;
+
+    position: absolute;
+  
+  /* 🚀 FIX 1: Set a hardwired bottom coordinate anchor.
+     This isolates it completely from the parent's 'justify-content' layout rules. */
   bottom: 0;
   left: 0;
   right: 0;
-  height: 7%;
-  background: #F1E9D2;// rgba(12, 12, 12, 0.96);
-  border-top: 0.2cqw solid #c3b091;//#333;
+  
+  /* 🚀 FIX 2: Swap layout percentages to absolute cqw context 
+     so height tracking maps cleanly alongside your grid boundaries */
+  height: 4cqw; 
+  background: #F1E9D2;
+  border-top: 0.2cqw solid #c3b091;
   opacity: .9;
-  // border: 0.05cqw solid;
   border-radius: 0.5cqw;
   display: flex;
   flex-direction: column;
-  transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: 0.5s; /* Delays the slide-up for half a second */
-  z-index: 20;
-  //   padding: 1cqw;
+  
+  /* Smooth transitions */
+  transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0.5s;
+  z-index: 31;
 
   &:hover {
-    height: 50%;
+    height: 25cqw; /* Grows cleanly upward without squeezing the board grid */
+    transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0s;
   }
-    // height: 50%;
-
 `;
 
 const LogScrollArea = styled.div`
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;//-reverse;
-  gap: 0.4cqw;
-  overflow-y: hidden;
-  overflow-x: hidden;
+flex-grow: 1;
+display: flex;
+flex-direction: column;
+gap: 0.4cqw;
+overflow-y: hidden;
+overflow-x: hidden;
+scrollbar-gutter: stable; 
 
-  &:hover {
-    overflow-y: auto;
-  }
+&:hover {
+  overflow-y: auto;
+}
 `;
 
-const LogEntry = styled.div<{ key: number }>`
-      display: flex;
-     border-bottom: 1px solid #c3b091;// #141414;
-     padding: 0.1cqw 0 .1cqw 3cqw;
-     justify-content: flex-start;
-     width: 100%;
+const LogEntry = styled.div`
+  display: flex;
+  border-bottom: 1px solid #c3b091;
+  padding: 0.1cqw 0 0.1cqw 3cqw;
+  justify-content: flex-start;
+  width: 100%;
 `;
 
 const GameText = styled.span<{ $color?: string; $size?: string; $weight?: string }>`
-  color: ${props => props.$color || '#cccccc'};
-  font-size: ${props => props.$size || '1.3cqw'};
-  font-family: monospace;
-  font-weight: ${props => props.$weight || 'bold'};
+color: ${ props => props.$color || '#cccccc' };
+font-size: ${ props => props.$size || '1.3cqw' };
+font-family: monospace;
+font-weight: ${ props => props.$weight || 'bold' };
 `;
 
-{/* COMPACT INTERACTIVE FLYOUT LOGGER */ }
-const GameLogComponent = (gameLog: GameLog) => {
-  const snap = useSnapshot(gameLog);
+interface GameBoardComponentProps {
+  gameLogSnap: GameLog;
+}
+
+/* COMPACT INTERACTIVE FLYOUT LOGGER */
+const GameLogComponent = ({ gameLogSnap }: GameBoardComponentProps) => {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToLatestLogEntry = () => logEndRef?.current?.scrollIntoView();
@@ -71,8 +105,8 @@ const GameLogComponent = (gameLog: GameLog) => {
     }
   };
 
-  const numEntries = snap?.getNumLogs();
-  useEffect(() => { scrollToLatestLogEntry()}, [numEntries]);
+  const numEntries = gameLogSnap?.getNumLogs();
+  useEffect(() => { scrollToLatestLogEntry() }, [numEntries]);
 
   return (
     <SlidingLogContainer
@@ -80,7 +114,7 @@ const GameLogComponent = (gameLog: GameLog) => {
       onTransitionEnd={handleTransitionEnd}
     >
       <LogScrollArea>
-        {snap.logEntries.map((entry: GameLogEntry, i: number) => (
+        {gameLogSnap.logEntries.map((entry: GameLogEntry, i: number) => (
           <LogEntry key={i}>
             <GameText $color={entry.color} $size="1.1cqw">{entry.text}</GameText>
           </LogEntry>

@@ -1,26 +1,28 @@
 
 import React from 'react';
+import styled from 'styled-components';
 import { GameBoard } from '../DataClasses/GameBoard/GameBoard';
 import { NPCPlayer, Player } from '../DataClasses/Player/Player'
-import { PlacedSpellsComponent } from './PlacedSpellsComponent';
-import styled from 'styled-components';
 import { Game } from '../DataClasses/Game';
-import { PlacedSpells } from '../DataClasses/PlacedSpells/PlacedSpells';
+import { SpellComponent } from './SpellComponent';
 import { useSnapshot } from 'valtio';
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
   bottom:  12.5cqw;
   opacity: ${props => props.$transparency};
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 1s ease-in-out;
   pointer-events: ${props => props.$isDisabled ? 'none' : 'auto'}
 `;
 
-const GridContainer = styled.div<{ $transparency: number, $isDisabled: boolean }>`
+const GridContainer = styled.div`
   display: grid;
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(7, 1fr);
 `;
+
+
+//   background: ${props => !!props.$spellOwnerColor ? props.$spellOwnerColor : props.$isPlayerCell ? '#bcb9b9' : '#c7c2c2'};
 
 const StyledCell = styled.div<{
     $isPlace: boolean;
@@ -28,25 +30,42 @@ const StyledCell = styled.div<{
     $spellOwnerColor?: string;
     $isPlayerCell: boolean;
     $transparency: number;
+    $isPlacingGameSymbol: boolean;
+    $i: number;
+    $j: number;
+    $maxI: number;
+    $maxJ: number;
+    $numPlacementCells: number;
 }>`
-  background: ${props => props.$isHighlighted ? '#ffffff' : props.$isPlayerCell ? '#686868' : '#d8d5d5'};
+  background: ${props => props.$isPlayerCell ? '#bcb9b9' : '#c7c2c2'};
+  ${props => props.$isHighlighted && `filter: brightness(1.1);`}
   border: 0.05cqw solid;
+  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid #dbd668;'}
+  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid #dbd668;'}
+  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid #dbd668;'}
+  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid #dbd668;'}
+
   aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease, border 0.15s ease;
+  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
+  transition: opacity, background 1s ease, border 0.15s ease;
   opacity: ${props => props.$transparency};
+//   transition: opacity 1s ease-in-out;
   &:hover {
-    background: #2d3748;// #ffffff;// #2d3748;
+   ${props => (props.$isPlacingGameSymbol && props.$isPlace || !props.$isPlacingGameSymbol)
+        && `filter: brightness(1.2);`};
   }
+
+    cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
+
 
 &::before {
     ${props => props.$isPlayerCell && `content: '♥';`}
     font-size: 5.3cqw;
-    color: #d8d5d5; // #676565;
+    color: #d8d5d5;
   }
 `;
 
@@ -57,6 +76,7 @@ const BadgeElement = styled.div<{ $position: string; $color: string; $opacity: n
   font-weight: bold;
   color: ${props => props.$color};
   opacity: ${props => props.$opacity};
+  transition: opacity 1s ease-in-out;
   display: flex;
   align-items: center;
   background: rgba(0,0,0,0.7);
@@ -69,41 +89,71 @@ const BadgeElement = styled.div<{ $position: string; $color: string; $opacity: n
   ${props => props.$position === 'bottom-right' && 'bottom: 0.2cqw; right: 0.2cqw;'}
 `;
 
-const GameBoardComponent = (rootGameStore: Game, gameBoard: GameBoard, activePlayer: Player, placedSpells: PlacedSpells) => {
-    // TO-DO: fix badges not showing. sometimes they show but only on CellIndex 0,0
-    // TO-DO: fix badges to show proper icons and values, with correct positions in the cell.
-    const gameBoardSnap = useSnapshot(gameBoard);
-    const isDisabled = gameBoardSnap.getIsClickDisabled();
+// This container perfectly clones your board's grid structure
+const GridOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through to cells below */
+  
+  /* Mirroring your exact grid configuration */
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: repeat(7, 1fr);
+`;
+
+interface GameBoardComponentProps {
+    rootGameStore: Game;
+}
+
+const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
+    const snap = useSnapshot(rootGameStore);
+    const isPlacingGameSymbol = !!snap.getGameSymbolIcon();
+    const isDisabled = snap.gameBoard.getIsClickDisabled();
+    const isHumanActivePlayer = !(snap.getActivePlayer() instanceof NPCPlayer);
+    let numPlacementCells = snap.gameBoard.numPlacementCells;
     return (
-        <BoardWrapper  $isDisabled={isDisabled} $transparency={gameBoardSnap.getBoardTransparencyAmt()}>
-            {PlacedSpellsComponent(placedSpells)}
-            <GridContainer $isDisabled={isDisabled} $transparency={gameBoardSnap.getBoardTransparencyAmt()}>
-                {gameBoard.cells.map(c =>
+        <BoardWrapper $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
+            <GridOverlay>
+                {snap.placedSpells.spells.map(
+                    (_, i) =>
+                        <SpellComponent spell={rootGameStore.placedSpells.spells[i]} />
+                )}
+            </GridOverlay>
+            <GridContainer>
+                {snap.gameBoard.cells.map(c =>
                     <StyledCell
                         key={`${c.getCellIndex().i}_${c.getCellIndex().j}`}
-                        $isPlace={c.getIsPlaceCell(activePlayer)}
-                        $isHighlighted={c.getIsHighlighted()}
+                        $maxI={GameBoard.NUM_ROWS - 1}
+                        $maxJ={snap.getActivePlayer().getDirection() == 1 ? numPlacementCells - 1 : GameBoard.NUM_COLS - 1}
+                        $i={c.getCellIndex().i}
+                        $j={c.getCellIndex().j}
+                        $numPlacementCells={snap.gameBoard.numPlacementCells}
+                        $isPlace={snap.isCanPlaceGameSymbolOn(c)}
+                        $isHighlighted={
+                            isPlacingGameSymbol && isHumanActivePlayer ?
+                                snap.isCanPlaceGameSymbolOn(c)
+                                : c.getIsHighlighted()}
                         $spellOwnerColor={c.getColor()}
                         $isPlayerCell={c.getIsPlayerCell()}
                         $transparency={c.getTransparencyAmt()}
-                        onMouseEnter={() => gameBoard.getIsHoverDisabled() && gameBoard.hoverCell(c)}
-                        onMouseLeave={() => gameBoard.hoverCell(null)}
-                        onClick={() => {
-                            if (c.getIsPlaceCell(activePlayer) && c.getIsFree()
-                                && !(activePlayer instanceof NPCPlayer) // TESTING
-                            ) {
-                                rootGameStore.placeSpellOnBoard(c.getCellIndex())
-                            }
-                        }}
+                        $isPlacingGameSymbol={isPlacingGameSymbol}
+                        onMouseEnter={() => rootGameStore.gameBoard.getIsHoverDisabled() && rootGameStore.gameBoard.hoverCell(c)}
+                        onMouseLeave={() => rootGameStore.gameBoard.hoverCell(null)}
+                        onClick={() => rootGameStore.placeSpellOnBoard(c)}
                     >
                         {c.badges.map((b, bIdx) => {
                             const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+                            // TO-DO: fix badges not showing. sometimes they show but only on CellIndex 0,0
+                            // TO-DO: fix badges to show proper icons and values, with correct positions in the cell.
                             return (
                                 <BadgeElement
                                     key={bIdx}
                                     $position={positions[bIdx]}
                                     $color={b.color}
-                                    $opacity={b.transparencyAmt}
+                                    $opacity={1}//b.transparencyAmt}
                                 >
                                     <span>{b.backgroundIcon}</span>
                                     {b.value !== 0 || b.isVisibleIfZero ? <span>{b.value}</span> : null}

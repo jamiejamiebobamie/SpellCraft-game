@@ -2,26 +2,32 @@
 import { CellIndex, SpellPropertyName, RowShiftDirections } from '../types';
 import { Player } from '../Player/Player';
 import { BadgeValues } from '../GameBoard/Badge';
+import { proxy } from 'valtio';
 
 export abstract class Spell {
   // Constants & Core Properties
   readonly spellName: string;
   readonly caster: Player;
   protected static readonly focusCost: number = 0;
-  cellIndex: CellIndex | null = null; // Starts as null (attached to cursor) until placed
+  cellIndex!: CellIndex;
+  readonly key!: string;
+  isRemove: boolean = false;
+  isPlaced: boolean = false;
 
   // Modifiers with strict min/max limits
   updateOrder: number = 0;
   speedDirection: number = 0;
   dmgHealth: number = 0;
   rowShift: number = 0;
+  upDown: number = 0;
 
   // Stat Limits (Enforcing Min/Max values)
-  protected readonly limits = {
+  readonly limits = {
     updateOrder: { min: 1, max: 1000 },
     speedDirection: { min: -3, max: 3 },
     dmgHealth: { min: -3, max: 3 },
-    rowShift: { min: -3, max: 3 }
+    rowShift: { min: -3, max: 3 },
+    upDown: { min: -3, max: 3 }
   };
 
   // determines if value is shown if zero
@@ -32,6 +38,7 @@ export abstract class Spell {
     this.spellName = spellName;
     this.caster = caster;
     this.speedDirection = caster.getDirection();
+    this.key = String(Math.random());
   }
 
   // --- Getters & Setters (Using arrow functions to preserve 'this' context) ---
@@ -39,6 +46,10 @@ export abstract class Spell {
   getSpellName = (): string => {
     return this.spellName;
   };
+
+  getCaster = (): Player => {
+    return this.caster;
+  }
 
   getBadgeValues = (): BadgeValues => {
     return {
@@ -50,13 +61,29 @@ export abstract class Spell {
     }
   }
 
-  getCellIndex = (): CellIndex | null => {
+  getCellIndex = (): CellIndex => {
     return this.cellIndex;
   };
 
-  setCellIndex = (cellIndex: CellIndex | null): void => {
-    this.cellIndex = cellIndex;
+  setCellIndex = (cellIndex: CellIndex): void => {
+    this.cellIndex = proxy(cellIndex);
   };
+
+  getIsPlaced = (): boolean => {
+    return this.isPlaced;
+  }
+
+  setIsPlaced = (isPlaced: boolean): void => {
+    this.isPlaced = isPlaced;
+  }
+
+  getIsRemove = (): boolean => {
+    return this.isRemove;
+  }
+
+  markSpellForRemoval = (): void => {
+    this.isRemove = true;
+  }
 
   // Dynamic Property Accessors (Safe from 'this' context loss)
   getPropertyValue = (propertyName: SpellPropertyName): number => {
@@ -78,15 +105,20 @@ export abstract class Spell {
   /**
    * Moves the spell on the board based on its speedDirection and rowShift modifiers.
    */
-  move = (): void => {
-    if (!this.cellIndex) return; // Cannot move if attached to cursor
-
-    // Example grid movement logic
-    this.cellIndex = {
-      i: this.cellIndex.i + this.rowShift,// + this.speedDirection,
-      j: this.cellIndex.j + this.speedDirection//+ this.rowShift
-    };
+  moveHorizontally = (): void => {
+    this.cellIndex = proxy({
+      i: this.cellIndex.i,
+      j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
+    });
   };
+
+  moveVertically = (): void => {
+    this.cellIndex = proxy({
+      i: this.cellIndex.i - this.upDown,
+      j: this.cellIndex.j
+    });
+    this.upDown = 0;
+  }
 
   /**
    * Called when this spell moves onto a cell containing another spell.
@@ -96,20 +128,20 @@ export abstract class Spell {
     otherSpell.conferModifierTo(this);
 
     // Destroy the other spell by removing it from the board
-    otherSpell.setCellIndex(null);
+    otherSpell.markSpellForRemoval();
   };
 
   /**
    * Called when this spell moves onto an opposing player's cell.
    */
   resolvePlayerCollision = (otherPlayer: Player): void => {
-    if (otherPlayer !== this.caster) {
+    // if (otherPlayer !== this.caster) {
       // Apply damage (or healing if dmgHealth is negative)
       otherPlayer.decrementHealth(this.dmgHealth)
 
       // Consume/destroy this spell after collision
-      this.setCellIndex(null);
-    }
+      this.markSpellForRemoval()
+    // }
   };
 
   /**
@@ -128,6 +160,7 @@ export abstract class Spell {
    */
   abstract isModifierValueInvalid(): boolean;
   abstract getFocusCost(): number;
+  abstract getModifierLogText(consumingSpell: Spell): string;
 }
 
 // Subclasses
@@ -139,17 +172,18 @@ export class Phlegm extends Spell {
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
-  constructor(caster: Player, cellIndex: CellIndex | null = null) {
+  constructor(caster: Player) {
     super('Phlegm', caster);
     this.dmgHealth = -1; // Heal for 1 Health
-    this.rowShift = 0;
-    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
-    // Detract from dmgHealth
-    const currentDmgHealth = targetSpell.getPropertyValue('dmgHealth');
-    targetSpell.updatePropertyValue('dmgHealth', currentDmgHealth + this.dmgHealth);
+
+    if (targetSpell.getSpellName() == 'Phlegm') {
+      // Add to heal
+      const currentDmgHealth = targetSpell.getPropertyValue('dmgHealth');
+      targetSpell.updatePropertyValue('dmgHealth', currentDmgHealth + this.dmgHealth);
+    }
 
     // Reverse direction of spell movement
     const currentSpeed = targetSpell.getPropertyValue('speedDirection');
@@ -163,18 +197,25 @@ export class Phlegm extends Spell {
   getFocusCost = (): number => {
     return Phlegm.focusCost;
   }
+
+  getModifierLogText = (consumingSpell: Spell): string => {
+    if (consumingSpell.getSpellName() == 'Phlegm') {
+      return 'been reversed and become more powerful!'
+    } else {
+      return 'been reversed!'
+    }
+  }
 }
 
 export class Ether extends Spell {
   protected static readonly focusCost: number = 2;
 
-  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth'];
-  secondaryModifiers: Array<SpellPropertyName>  = ['rowShift', 'speedDirection'];
+  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
+  secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
-  constructor(caster: Player, cellIndex: CellIndex | null = null) {
+  constructor(caster: Player) {
     super('Ether', caster);
     this.dmgHealth = 3; // Higher magic damage
-    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -190,25 +231,29 @@ export class Ether extends Spell {
   getFocusCost = (): number => {
     return Ether.focusCost;
   }
+
+  getModifierLogText = (): string => {
+    return 'been become more powerful!'
+  }
 }
 
 export class Gyre extends Spell {
   protected static readonly focusCost: number = 1;
 
-  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'rowShift'];
-  secondaryModifiers: Array<SpellPropertyName>  = ['dmgHealth', 'speedDirection'];
+  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'rowShift'];
+  secondaryModifiers: Array<SpellPropertyName> = ['dmgHealth', 'speedDirection'];
 
-  constructor(caster: Player, rowShift: RowShiftDirections, cellIndex: CellIndex | null = null) {
+  constructor(caster: Player) {
     super('Gyre', caster);
-    this.dmgHealth = 2;
-    this.rowShift = rowShift || 0; // Alters movement tracks
-    this.cellIndex = cellIndex;
+    this.dmgHealth = 1;
+    this.rowShift = 1;//rowShift || 0; // Alters movement tracks
+    // TO-DO: train new model on triangle and square...
+    // TO-DO: implement (1) base abstract Gyre class -> (2) Gyre Up and Gyre Down classes... 
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
     // Gyre adds a lane/row shifting vector to the consuming spell
-    const currentShift = targetSpell.getPropertyValue('rowShift');
-    targetSpell.updatePropertyValue('rowShift', currentShift + this.rowShift);
+    targetSpell.updatePropertyValue('upDown', this.rowShift);
   };
 
   isModifierValueInvalid = (): boolean => {
@@ -218,25 +263,33 @@ export class Gyre extends Spell {
   getFocusCost = (): number => {
     return Gyre.focusCost;
   }
+
+  getModifierLogText = (): string => {
+    if (this.rowShift < 0) {
+      return 'been sent skyward by gale force winds!'
+    } else if (this.rowShift > 0) {
+      return 'been thrown downward by powerful winds!'
+    } else {
+      return 'been cancelled out by an opposing force!'
+    }
+  }
 }
 
 export class Quicken extends Spell {
   protected static readonly focusCost: number = 1;
 
-  primaryModifiers: Array<SpellPropertyName>  = ['updateOrder', 'dmgHealth', 'speedDirection',];
-  secondaryModifiers: Array<SpellPropertyName>  = ['rowShift'];
+  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth', 'speedDirection',];
+  secondaryModifiers: Array<SpellPropertyName> = ['rowShift'];
 
-  constructor(caster: Player, cellIndex: CellIndex | null = null) {
+  constructor(caster: Player) {
     super('Quicken', caster);
-    this.speedDirection *= 2; // twice as fast
     this.dmgHealth = 1;
-    this.cellIndex = cellIndex;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
     // Quicken drastically increases the velocity of the consuming spell
     const currentSpeed = targetSpell.getPropertyValue('speedDirection');
-    targetSpell.updatePropertyValue('speedDirection', currentSpeed + this.speedDirection);
+    targetSpell.updatePropertyValue('speedDirection', currentSpeed + 1 * Math.sign(currentSpeed));
   };
 
   isModifierValueInvalid = (): boolean => {
@@ -245,5 +298,9 @@ export class Quicken extends Spell {
 
   getFocusCost = (): number => {
     return Quicken.focusCost;
+  }
+
+  getModifierLogText = (): string => {
+    return 'has been sped up!'
   }
 }

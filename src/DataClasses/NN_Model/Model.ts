@@ -1,4 +1,5 @@
 import * as ort from 'onnxruntime-web';
+import { InferenceString } from '../types';
 
 /*
   
@@ -29,7 +30,7 @@ export class Model {
     private session: ort.InferenceSession | null = null;
 
     // Define the human-readable labels matching your Python `labels` dictionary
-    private static readonly SPELL_LABELS: Record<number, string> = {
+    private static readonly SPELL_LABELS: Record<number, InferenceString> = {
         0: 'circle',
         1: 'star',
         2: 'diamond',
@@ -56,7 +57,7 @@ export class Model {
     }
 
     // Methods
-    public async runInference(rawPoints: Array<Point>): Promise<string> {
+    public async runInference(rawPoints: Array<Point>): Promise<InferenceString> {
         // Run RDP to strip out hand jitter and keep sharp geometric vertexes
         // Adjust epsilon (0.01 - 0.05 is standard for a 0.0 to 1.0 normalized canvas space)
         const epsilon = .005;
@@ -82,7 +83,7 @@ export class Model {
             return result;
         } else {
             console.log({ session: this.session });
-            return '';
+            return 'squiggle';
         }
 
     }
@@ -96,7 +97,7 @@ export class Model {
     private async runSpellInference(
         points: { x: number; y: number }[],
         session: ort.InferenceSession
-    ): Promise<string> {
+    ): Promise<InferenceString> {
 
         // 1. Create a flat 1D array of 80 elements (representing a 1x40x2 matrix)
         // Python test_sample array has exactly 40 elements, with zero-padding at the end
@@ -135,18 +136,17 @@ export class Model {
             }
 
             // 7. Map the index directly to your text names
-            const recognizedSpell = Model.SPELL_LABELS[predictedIndex] || 'unknown';
+            const recognizedSpell = Model.SPELL_LABELS[predictedIndex] || 'squiggle';
             console.log(`ONNX Predicted Probabilities:`, Array.from(outputData));
             console.log(`Recognized Shape: ${recognizedSpell}`);
             console.log({ feeds, outputs, session });
-
 
             return recognizedSpell;
 
         } catch (error) {
             console.error("Failed to run the ONNX model web inference:", error);
             //   throw error;
-            return '';
+            return 'squiggle';
         }
     }
 

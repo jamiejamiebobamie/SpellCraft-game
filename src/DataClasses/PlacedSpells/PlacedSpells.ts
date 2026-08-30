@@ -2,11 +2,13 @@
 import { Spell } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex } from '../types';
+import { proxy } from 'valtio';
+import { GameLog } from '../GameLog';
 
 export class PlacedSpells {
   // Properties
-  spells: Array<Spell> = [];
-
+  spells: Array<Spell> = proxy([]);
+  private static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 500;
   // --- Core Array Utilities ---
 
   getTop = (): Spell | null => {
@@ -19,38 +21,76 @@ export class PlacedSpells {
       // ISSUE: player draws spell, spell is on cursor (not board) before he places the spell on board/.
       // player can cancel spell before he places it...
       // FIX: do not add spell to this.spells until placed on board...
-      spell.updatePropertyValue('updateOrder', this.spells.length);
+      spell.updatePropertyValue('updateOrder', this.spells.length + 1);
       this.spells.push(spell);
     }
   };
 
   removeSpell = (spell: Spell): void => {
-    this.spells = this.spells.filter(s => s !== spell).map((s, i) => {
-      s.updatePropertyValue('updateOrder', i + 1);
-      return s;
-    });
+    spell.markSpellForRemoval();
+    let count = 1;
+    this.spells.forEach(s => {
+      if (s != spell) {
+        s.updatePropertyValue('updateOrder', count);
+        count++;
+      }
+    })
   };
 
+  removeInvalidSpells = (): void => {
+    // Secondary Cleanup: Filter out any remaining phantom items that lost board references
+    const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
+    markedForRemoval.forEach(s => {
+      const i = this.spells.indexOf(s);
+      if (i != -1) this.spells.splice(i, 1);
+    })
+  }
+
   // --- Batch Engine Turn Loop Update ---
+
+  /**
+   * 2. The Async Generator function
+   * @param items An array of items to iterate through
+   * @param delayTime The delay time in milliseconds (can be dynamically changed outside)
+   */
+  async* timedIterator<T>(
+    items: T[],
+    delayTime: number // Wrapped in an object so reference updates pass through
+  ): AsyncGenerator<T, void, unknown> {
+    const wait = (ms: number): Promise<void> =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+    for (const item of items) {
+      // Wait for the current duration specified in your configuration variable
+      await wait(delayTime);
+
+      // Yield the item to the loop consuming it
+      yield item;
+    }
+  }
+
+  getRangedArray = (range: number): Array<number> => {
+    return Array(range).fill(0).map((_, i) => i);
+  }
 
   /**
    * Batch updates all active spells on the board cell track.
    * Handles sub-stepping movements to calculate step-by-step collisions accurately.
    */
-  updateSpells = (gameBoard: GameBoard): void => {
-    // Loop backwards through the collection if you intend to filter/splice 
-    // destroyed spells safely within the same evaluation pass.
-    for (let i = 0; i < this.spells.length; i++) {
-      const spell = this.spells[i];
-      this.updateSpell(gameBoard, spell);
-    }
+  updateSpells = async (gameBoard: GameBoard, gameLog: GameLog): Promise<void> => {
 
-    // Secondary Cleanup: Filter out any remaining phantom items that lost board references
-    this.spells = this.spells.filter(spell => spell.getCellIndex() !== null);
+    const spellRange = this.getRangedArray(this.spells.length);
+    // Consume the async generator
+    for await (const i of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+      this.updateSpell(gameBoard, gameLog, this.spells[i]);
+    }
+    // // Cleanup: Filter out any remaining phantom items that lost board references
+    // this.removeInvalidSpells();
   };
 
-  // called above and also (TO-DO:) after placing a spell on the board for the first time
-  updateSpell(gameBoard: GameBoard, spell: Spell): void {
+  // called in 'updateSpells' and after placing a spell on the board for the first time
+  updateSpell = async (gameBoard: GameBoard, gameLog: GameLog, spell: Spell): Promise<void> => {
+    if (spell.getIsRemove()) return;
+
     const currentCellIndex = spell.getCellIndex();
 
     // Skip evaluation if the spell has already been swept or lacks a grid home
@@ -69,33 +109,35 @@ export class PlacedSpells {
 
     let spellDestroyedDuringMove = false;
 
-    // Sub-step movement loop for collision precision
-    for (let j = 0; j < numMoves; j++) {
+    const moves = this.getRangedArray(numMoves);
+    for await (const j of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
       // 1. Advance the internal coordinates of the spell instance
-      spell.move();
-
-      const newCellIndex = spell.getCellIndex();
+      spell.moveHorizontally();
+      let nextCellIndex = spell.getCellIndex();
 
       // Safety check: verify if the move pushed the projectile off the map entirely
-      if (!newCellIndex || gameBoard.getIsOffBoardAt({ i: newCellIndex.i, j: newCellIndex.j })) {
+      if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
         this.removeSpell(spell);
-        spell.setCellIndex(null);
         spellDestroyedDuringMove = true;
+        gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c')
         break; // Stop evaluating sub-steps for this spell
       }
 
       // Map coordinates cleanly to rows (i) and columns (j)
-      const targetCellIndex: CellIndex = { i: newCellIndex.i, j: newCellIndex.j };
-      const cell = gameBoard.getCellAt(targetCellIndex);
+      let targetCellIndex: CellIndex = { i: nextCellIndex.i, j: nextCellIndex.j };
+      let cell = gameBoard.getCellAt(targetCellIndex);
 
       if (!cell) continue;
 
       // 2. Check for Endzone Opponent Base collisions first
       if (cell.getIsPlayerCell()) {
         const owner = cell.getCellOwner();
-        if (owner && owner !== spell.caster) {
+        if (spell.getIsPlaced() && owner) {
           // Apply damage or player impacts
+
+          spell.getPropertyValue('dmgHealth')
           spell.resolvePlayerCollision(owner);
+          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Player1' : 'Player2'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
           this.removeSpell(spell);
           spellDestroyedDuringMove = true;
           break; // Projectile exploded against opponent base
@@ -103,23 +145,49 @@ export class PlacedSpells {
       }
 
       // 3. Check for Projectile-on-Projectile Collisions
-      if (!cell.getIsFree()) {
+      while (!!cell && !cell.getIsFree()) {
         const otherSpell = cell.getSpell();
         if (otherSpell && otherSpell !== spell) {
           // spell consumes otherSpell and absorbs its properties
           spell.resolveSpellCollision(otherSpell);
 
+          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has consumed ${otherSpell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${otherSpell.getSpellName()} spell.`, '#b2077c')
+          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has ${otherSpell.getModifierLogText(spell)}`, '#b2077c')
+
           // Clean up the consumed spell out of our batch engine registry
           this.removeSpell(otherSpell);
 
-          // check if spell has invalid stats that requires removal
-          if (spell.isModifierValueInvalid()) {
+          // Clear cell of the removed spell
+          cell.setSpell(null);
+
+          // Do vertical movement if otherSpell was 'Gyre'
+          spell.moveVertically();
+          // ^^ causes Spells to have invalid CellIndexes... TO-DO: have transparent cells surrounding the visible cells
+
+          nextCellIndex = spell.getCellIndex();
+
+          // Safety check: verify if the move pushed the projectile off the map entirely
+          if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
             this.removeSpell(spell);
             spellDestroyedDuringMove = true;
-            break; // Projectile exploded against opponent base
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c')
+            break; // Stop evaluating sub-steps for this spell
           }
+
+          // Map coordinates cleanly to rows (i) and columns (j)
+          targetCellIndex = { i: nextCellIndex.i, j: nextCellIndex.j };
+          cell = gameBoard.getCellAt(targetCellIndex);
+
+          // check if spell has invalid stats that requires removal
+          // if (spell.isModifierValueInvalid()) {
+          //   this.removeSpell(spell);
+          //   spellDestroyedDuringMove = true;
+          //   break; // Projectile exploded against opponent base
+          // }
         }
       }
+
+      if (!cell) continue;
 
       // 4. Update board map link context on the final step
       const isLastSpellMove = j + 1 === numMoves;
@@ -127,6 +195,7 @@ export class PlacedSpells {
         cell.setSpell(spell);
       }
     }
+    // Cleanup: Filter out any remaining phantom items that lost board references
+    // this.removeInvalidSpells();
   }
 }
-

@@ -2,15 +2,16 @@
 import { SpellConstructor, InferenceString, RowShiftDirections } from '../types';
 import { Player } from '../Player/Player';
 import { Spell, Phlegm, Ether, Gyre, Quicken } from './Spell';
+import { proxy } from 'valtio';
 
 export class GameSymbol {
-  private readonly caster: Player;
-  private focusCost: number = 0;
+  symbolName!: InferenceString;
+  readonly caster: Player;
 
   // Stores the recipe/class constructor rather than an already instantiated object
   private SpellClass: SpellConstructor | null = null;
 
-  private static readonly FIZZLE_INFERENCES = ['square', 'squiggle'];
+  static readonly FIZZLE_INFERENCES = ['square', 'squiggle'];
   private static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
     ['line', Quicken],
     ['circle', Phlegm],
@@ -18,16 +19,25 @@ export class GameSymbol {
     ['triangle', Gyre],
     ['diamond', Gyre]
   ]);
-    private static readonly ROW_SHIFT_LOOKUP = new Map<InferenceString, RowShiftDirections>([
+  static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
+    ['line', 'Quicken'],
+    ['circle', 'Phlegm'],
+    ['star', 'Ether'],
+    ['triangle', 'Gyre'], // TO-DO: implement flipped icon for triangles
+    ['diamond', 'Gyre']
+  ]);
+
+  private static readonly ROW_SHIFT_LOOKUP = new Map<InferenceString, RowShiftDirections>([
     ['line', 0],
     ['circle', 0],
     ['star', 0],
-    ['triangle', -1],
-    ['diamond', 1]
+    ['triangle', 1],
+    ['diamond', -1]
   ])
 
-  constructor(caster: Player) {
+  constructor(symbolName: InferenceString, caster: Player) {
     this.caster = caster;
+    this.symbolName = symbolName;
   }
 
   setSpellClass(SpellClass: SpellConstructor) {
@@ -40,40 +50,41 @@ export class GameSymbol {
    * 
    * @param strokeLength The length or duration of the player's drawing gesture
    */
-  instantiateSpell = (inference: InferenceString, currentGlobalTurn: number): Spell | null => {
+  instantiateSpell = (currentGlobalTurn: number): Spell | null => {
     // Validate drawing and do fizzle if invalid
-    if (GameSymbol.FIZZLE_INFERENCES.includes(inference)) {
+    if (GameSymbol.FIZZLE_INFERENCES.includes(this.symbolName)) {
       this.caster.addFizzle(currentGlobalTurn);
+      this.caster.decrementFocus(1);
       return null;
     }
 
-    this.SpellClass = GameSymbol.SPELL_LOOKUP.get(inference) || null;
+    this.SpellClass = GameSymbol.SPELL_LOOKUP.get(this.symbolName) || null;
 
     if (!this.SpellClass) {
       // something went wrong... treat it like a Fizzle
       this.caster.addFizzle(currentGlobalTurn);
+      this.caster.decrementFocus(1);
       return null;
     }
 
-    let rowShift: RowShiftDirections = GameSymbol.ROW_SHIFT_LOOKUP.get(inference) || 0;
-    const spell = new this.SpellClass(this.caster, rowShift);
-    this.focusCost = spell.getFocusCost();
+    const spell = new this.SpellClass(this.caster);
+    let focusCost: number = spell.getFocusCost();
 
-    this.incurPlayerCostForSpell();
+    this.incurPlayerCostForSpell(focusCost);
 
     // Spawn the fresh spell instance tied to the caster
-    return spell;
+    return proxy(spell);
   };
 
   /**
    * Deducts focus resource. Converts focus deficit into direct health damage.
    */
-  incurPlayerCostForSpell = (): void => {
-    if (this.caster.getFocus() >= this.focusCost) {
-      this.caster.decrementFocus(this.focusCost);
+  incurPlayerCostForSpell = (focusCost: number): void => {
+    if (this.caster.getFocus() >= focusCost) {
+      this.caster.decrementFocus(focusCost);
     } else {
       // Calculate how much focus is missing
-      const difference = this.focusCost - this.caster.getFocus();
+      const difference = focusCost - this.caster.getFocus();
 
       this.caster.depleteFocusToZero();
       this.caster.decrementHealth(difference); // Health covers the remaining resource debt

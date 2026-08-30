@@ -64,7 +64,7 @@ export class PlayerDrawSpell extends GameState {
   };
 
   runStateLogic = (currentGlobalTurn: number): void => {
-    this.updateGameLog(`${this.context.activePlayer.color} Player drawing gesture...`, '#3b82f6');
+    this.updateGameLog(`Player drawing gesture...`, '#3b82f6');
     // Code hook: Prompt drawing Canvas UI block interaction
 
     // ALL / INIT:

@@ -58,9 +58,13 @@ export const useCanvasSize = () => {
   return { canvasRef, ...size };
 };
 
-export default function SpellCanvasComponent(rootGameStore: Game, spellCanvas: SpellCanvas, model: Model) {
+interface GameBoardComponentProps {
+  rootGameStore: Game;
+}
+
+export default function SpellCanvasComponent({ rootGameStore }: GameBoardComponentProps) {
   const { canvasRef, width, height } = useCanvasSize();
-  const snap = useSnapshot(spellCanvas);
+  const snap = useSnapshot(rootGameStore.spellCanvas);
 
   // 1. Click & Hold starts the tracking loop
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -80,13 +84,13 @@ export default function SpellCanvasComponent(rootGameStore: Game, spellCanvas: S
       ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
     }
 
-    spellCanvas.clearDrawing();
-    spellCanvas.setIsDrawing(true);
+    rootGameStore.spellCanvas.clearDrawing();
+    rootGameStore.spellCanvas.setIsDrawing(true);
   };
 
   // 2. Track points continuously as long as the mouse is down
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!spellCanvas.getIsDrawing()) return;
+    if (!rootGameStore.spellCanvas.getIsDrawing()) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -101,14 +105,14 @@ export default function SpellCanvasComponent(rootGameStore: Game, spellCanvas: S
       ctx.stroke();
     }
 
-    spellCanvas.addRawPoint(e.clientX, e.clientY);
+    rootGameStore.spellCanvas.addRawPoint(e.clientX, e.clientY);
   };
 
   // 3. Releasing the click triggers your ONNX Matrix conversion instantly
   const handleMouseUp = async () => {
-    if (!spellCanvas.getIsDrawing()) return;
-    spellCanvas.setIsDrawing(false);
-    if (spellCanvas.getNumPoints() == 0) return;
+    if (!rootGameStore.spellCanvas.getIsDrawing()) return;
+    rootGameStore.spellCanvas.setIsDrawing(false);
+    if (rootGameStore.spellCanvas.getNumPoints() == 0) return;
 
     rootGameStore.runInference();
   };

@@ -1,15 +1,18 @@
 // Game.ts
 import { GameBoard } from './GameBoard/GameBoard';
+import { Cell } from './GameBoard/Cell';
 import { GameLog } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
-import { GameState, GameContext, PlayerDrawSpell } from './GameStates';
+import { GameState, GameContext, PlayerDrawSpell, NPCDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
-import { SpellCanvas } from './SpellCanvas/SpellCanvas'
+import { SpellCanvas } from './SpellCanvas/SpellCanvas';
+import { Spell } from './PlacedSpells/Spell';
+import { GameSymbol } from './PlacedSpells/GameSymbol';
 import {
+  NPCPlayer,
   Player
   // , NPCPlayer
 } from './Player/Player';
-import { CellIndex } from './types';
 
 export class Game {
   // Core Subsystem Managers
@@ -19,6 +22,7 @@ export class Game {
   currentGameState!: GameState;
   model!: Model;
   spellCanvas!: SpellCanvas;
+  gameSymbol!: GameSymbol | null;
 
   // Game Loop Properties
   players!: [Player, Player];
@@ -58,6 +62,7 @@ export class Game {
     this.model.init();
 
     this.spellCanvas = new SpellCanvas();
+    this.gameSymbol = null;
 
     // 6. Establish the global state context pointer map
     this.gameContext = {
@@ -133,9 +138,71 @@ export class Game {
     }
   };
 
-  placeSpellOnBoard = (cellIndex: CellIndex): void => {
-    this.gameBoard.setSpellAt(cellIndex, this.placedSpells.getTop());
-    // TO-DO: need to 'move' spell once after placement according to its direction and speed
+  updatePlayerTurn = () => {
+
+    // Swap current turn pointers
+    const nextPlayer = this.gameContext.opposingPlayer;
+    const previousPlayer = this.gameContext.activePlayer;
+
+    this.gameContext.activePlayer = nextPlayer;
+    this.gameContext.opposingPlayer = previousPlayer;
+    this.gameTurn += 1
+
+    previousPlayer.setIsTurn(false, this.gameTurn);
+    nextPlayer.setIsTurn(true, this.gameTurn);
+
+    this.gameTurn % 2 == 0 && this.regenFocus();
+  }
+
+  getActivePlayer = (): Player => {
+    return this.gameContext.activePlayer;
+  }
+
+  isCanPlaceGameSymbolOn = (cell: Cell): boolean => {
+    const isHumanActivePlayer = !(this.gameContext.activePlayer instanceof NPCPlayer)
+    const isPlacingGameSymbol = !!this.gameSymbol;
+    return isPlacingGameSymbol && isHumanActivePlayer && cell.getIsFree() && cell.getIsPlaceCell(this.gameContext.activePlayer);
+  }
+
+  regenFocus = () => {
+    this.appendToLog('You and your opponent have regained some focus.', '#3b82f6');
+    this.players.forEach(p => p.decrementFocus(-1));
+  }
+
+  placeSpellOnBoard = async (cell: Cell): Promise<void> => {
+    if (this.isCanPlaceGameSymbolOn(cell)) {
+      this.placedSpells.removeInvalidSpells();
+      const spell = this.gameSymbol?.instantiateSpell(this.gameTurn);
+      this.gameSymbol = null;
+
+      if (spell instanceof Spell) {
+        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, '#3b82f6');
+        spell.setCellIndex(cell.getCellIndex());
+        this.placedSpells.addSpell(spell);
+        this.gameBoard.setSpellAt(spell, cell);
+        this.gameBoard.setIsClickDisabled(true);
+        // uses a generator/iterator
+        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
+        spell.setIsPlaced(true);
+        // this.placedSpells.removeInvalidSpells();
+      }
+
+      if (this.placedSpells.spells.length > 1) {
+        // uses a generator/iterator
+        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+      }
+      
+      this.gameBoard.setIsClickDisabled(false);
+      this.updatePlayerTurn();
+      // this.hideGameBoard();
+      this.spellCanvas.toggleShowCanvas();
+    }
+  }
+
+  getGameSymbolIcon = (): string => {
+    if (!this.gameSymbol) return ''
+    const spellName = GameSymbol.SPELL_NAME_LOOKUP.get(this.gameSymbol.symbolName)
+    return spellName ? `spell-icons/${spellName}Icon_mockup.png` : '';
   }
 
   hideGameBoard = (): void => {
@@ -150,8 +217,20 @@ export class Game {
     const rawPoints = this.spellCanvas.getRawPoints();
     const result = await this.model.runInference(rawPoints);
 
-    this.appendToLog(result, 'black')
+    if (GameSymbol.FIZZLE_INFERENCES.includes(result)) {
+      this.appendToLog(`You drew an unknown spell! And gained a Fizzle`, 'black');
+      this.appendToLog(`Don't get 3 Fizzles...`, 'black');
+      this.gameSymbol = new GameSymbol(result, this.getActivePlayer()); //null;
+      this.gameSymbol.instantiateSpell(this.gameTurn);
+    } else {
+      const spellName = GameSymbol.SPELL_NAME_LOOKUP.get(result);
+      this.appendToLog(`You drew ${spellName}!`, 'black');
+      this.gameSymbol = new GameSymbol(result, this.getActivePlayer()); //null;
+    }
+    this.spellCanvas.toggleShowCanvas();
+    this.enableGameBoard();
   }
+
 
   /**
    * Steps the turn cycle forward. Called by the Finite State Machine 

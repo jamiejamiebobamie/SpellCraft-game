@@ -1,4 +1,4 @@
-import { Spell } from './PlacedSpells/Spell';
+import { Phlegm, Quicken, Ether, Gyre } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
 
 // types
@@ -7,11 +7,11 @@ export type CellIndex = {
   j: number; // Column index
 };;
 
-export type SpellPropertyName = 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder';
+export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder';
 
 export type RowShiftDirections = 1 | 0 |-1 | undefined;
 
-export type SpellConstructor = new (caster: Player, rowShift?: RowShiftDirections) => Spell;
+export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | Gyre;
 
 export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle';
 
