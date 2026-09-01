@@ -13,6 +13,7 @@ export abstract class Spell {
   readonly key!: string;
   isRemove: boolean = false;
   isPlaced: boolean = false;
+  spellIconUrl: string = '';
 
   // Modifiers with strict min/max limits
   updateOrder: number = 0;
@@ -24,9 +25,9 @@ export abstract class Spell {
   // Stat Limits (Enforcing Min/Max values)
   readonly limits = {
     updateOrder: { min: 1, max: 1000 },
-    speedDirection: { min: -3, max: 3 },
-    dmgHealth: { min: -3, max: 3 },
-    rowShift: { min: -3, max: 3 },
+    speedDirection: { min: -4, max: 4 },
+    dmgHealth: { min: -5, max: 5 },
+    rowShift: { min: -1, max: 1 },
     upDown: { min: -3, max: 3 }
   };
 
@@ -46,6 +47,10 @@ export abstract class Spell {
   getSpellName = (): string => {
     return this.spellName;
   };
+
+  getSpellIcon = (): string => {
+    return this.spellIconUrl;
+  }
 
   getCaster = (): Player => {
     return this.caster;
@@ -114,7 +119,7 @@ export abstract class Spell {
 
   moveVertically = (): void => {
     this.cellIndex = proxy({
-      i: this.cellIndex.i - this.upDown,
+      i: this.cellIndex.i - this.rowShift,//this.upDown,
       j: this.cellIndex.j
     });
     this.upDown = 0;
@@ -175,6 +180,7 @@ export class Phlegm extends Spell {
   constructor(caster: Player) {
     super('Phlegm', caster);
     this.dmgHealth = -1; // Heal for 1 Health
+    this.spellIconUrl = 'spell-icons/PhlegmIcon_mockup.png';
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -216,9 +222,14 @@ export class Ether extends Spell {
   constructor(caster: Player) {
     super('Ether', caster);
     this.dmgHealth = 3; // Higher magic damage
+    this.spellIconUrl = 'spell-icons/EtherIcon_mockup.png';
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
+    if (targetSpell.getSpellName() == 'Phlegm') {
+      return; // do not make Phlegm positive dmgHealth
+    }
+
     // Ether boosts the damage of the spell that consumed it
     const currentDmg = targetSpell.getPropertyValue('dmgHealth');
     targetSpell.updatePropertyValue('dmgHealth', currentDmg + this.dmgHealth);
@@ -232,13 +243,14 @@ export class Ether extends Spell {
     return Ether.focusCost;
   }
 
-  getModifierLogText = (): string => {
-    return 'been become more powerful!'
+  getModifierLogText = (consumingSpell: Spell): string => {
+    return consumingSpell.getSpellName() == 'Phlegm' ? 'continued to ooze!' : 'been become more powerful!'
   }
 }
 
 export abstract class Gyre extends Spell {
-  protected static readonly focusCost: number = 1;
+  protected static readonly focusCost: number = 0;
+  spellIconUrl = 'spell-icons/GyreUpIcon_mockup.png';
 
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'rowShift'];
   secondaryModifiers: Array<SpellPropertyName> = ['dmgHealth', 'speedDirection'];
@@ -248,9 +260,17 @@ export abstract class Gyre extends Spell {
     this.dmgHealth = 1;
   }
 
+  moveHorizontally = (): void => {
+    this.cellIndex = proxy({
+      i: this.cellIndex.i + this.rowShift,
+      j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
+    });
+  };
+
   conferModifierTo = (targetSpell: Spell): void => {
     // Gyre adds a lane/row shifting vector to the consuming spell
-    targetSpell.updatePropertyValue('upDown', this.rowShift);
+    // targetSpell.updatePropertyValue('upDown', this.rowShift);
+    targetSpell.updatePropertyValue('rowShift', this.rowShift);
   };
 
   isModifierValueInvalid = (): boolean => {
@@ -276,6 +296,7 @@ export class GyreUp extends Gyre {
   constructor(caster: Player) {
     super(caster);
     this.rowShift = 1;
+    // this.spellIconUrl = 'spell-icons/GyreUpIcon_mockup.png';
   }
 }
 
@@ -283,6 +304,7 @@ export class GyreDown extends Gyre {
   constructor(caster: Player) {
     super(caster);
     this.rowShift = -1;
+    // this.spellIconUrl = 'spell-icons/GyreDownIcon_mockup.png';
   }
 }
 
@@ -295,12 +317,13 @@ export class Quicken extends Spell {
   constructor(caster: Player) {
     super('Quicken', caster);
     this.dmgHealth = 1;
+    this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
     // Quicken drastically increases the velocity of the consuming spell
     const currentSpeed = targetSpell.getPropertyValue('speedDirection');
-    targetSpell.updatePropertyValue('speedDirection', currentSpeed + 1 * Math.sign(currentSpeed));
+    targetSpell.updatePropertyValue('speedDirection', currentSpeed + Math.abs(this.speedDirection) * Math.sign(currentSpeed));
   };
 
   isModifierValueInvalid = (): boolean => {

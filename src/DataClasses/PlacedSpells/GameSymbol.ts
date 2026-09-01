@@ -25,8 +25,8 @@ export class GameSymbol {
     ['line', 'Quicken'],
     ['circle', 'Phlegm'],
     ['star', 'Ether'],
-    ['triangle', 'GyreDown'],
-    ['diamond', 'GyreUp']
+    ['triangle', 'Gyre'],
+    ['diamond', 'Gyre']
   ]);
 
   constructor(symbolName: InferenceString, caster: Player) {

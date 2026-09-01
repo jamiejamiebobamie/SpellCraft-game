@@ -76,6 +76,8 @@ export class Model {
 
         const maxDistance = this.findMaxDistance(rawPoints);
 
+        if(maxDistance < 30) return 'squiggle'; // too short 
+
         const simplifiedPoints = this.ramerDouglasPeucker(rawPoints.map(p => {
             const normalizedPoint: Point = {
                 x: (p.x - minXY.x) / maxDistance,
@@ -88,7 +90,7 @@ export class Model {
             const result = await this.runSpellInference(simplifiedPoints, this.session);
             return result;
         } else {
-            console.log({ session: this.session });
+            // console.log({ session: this.session });
             return 'squiggle';
         }
 
@@ -143,9 +145,9 @@ export class Model {
 
             // 7. Map the index directly to your text names
             const recognizedSpell = Model.SPELL_LABELS[predictedIndex] || 'squiggle';
-            console.log(`ONNX Predicted Probabilities:`, Array.from(outputData));
-            console.log(`Recognized Shape: ${recognizedSpell}`);
-            console.log({ feeds, outputs, session });
+            // console.log(`ONNX Predicted Probabilities:`, Array.from(outputData));
+            // console.log(`Recognized Shape: ${recognizedSpell}`);
+            // console.log({ feeds, outputs, session });
 
             return recognizedSpell;
         } catch (error) {

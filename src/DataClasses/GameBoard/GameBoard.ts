@@ -137,13 +137,13 @@ export class GameBoard {
   enableBoard = (): void => {
     this.setIsClickDisabled(false);
     this.setIsHoverDisabled(false);
-    this.setBoardTransparencyAmt(GameBoard.SHOWN_TRANSPARENCY_AMT)
+    // this.setBoardTransparencyAmt(GameBoard.SHOWN_TRANSPARENCY_AMT)
   }
 
   disableBoard = (): void => {
     this.setIsClickDisabled(true);
     this.setIsHoverDisabled(true);
-    this.setBoardTransparencyAmt(GameBoard.HIDDEN_TRANSPARENCY_AMT)
+    // this.setBoardTransparencyAmt(GameBoard.HIDDEN_TRANSPARENCY_AMT)
   }
 
   // --- Note: Handling hoveredCell and clickedCell updates ---
@@ -156,7 +156,31 @@ export class GameBoard {
   };
 
   hoverCell = (cell: Cell | null): void => {
+    // console.log({ cell })
+    // return;
+    const oldHoveredCell = this.hoveredCell;
     this.hoveredCell = cell;
-    if (cell) cell.onHover();
+
+    // turn off any path that was highlighted
+    if (oldHoveredCell)
+      this.cells.forEach(c => c.setIsHighlighted(false));
+
+    // turn on new cells for path
+    if (cell) {
+      const spell = cell.getSpell();
+      if (!spell) return;
+      const numMoves = Math.abs(spell.getPropertyValue('speedDirection'));
+      const sign = Math.sign(spell.getPropertyValue('speedDirection'));
+      const rowShift = Math.sign(spell.getPropertyValue('rowShift'));
+
+
+      const { i, j } = cell.getCellIndex();
+      for (let k = 0; k < numMoves; k++) {
+        const pathCell = this.getCellAt({ i: i + rowShift, j: j + k * sign + 1 * sign });
+        if(pathCell) pathCell.setIsHighlighted(true);
+      }
+    }
+
+    if (cell) cell.onHover(); // does nothing atm...
   };
 }

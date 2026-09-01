@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
-import styled from 'styled-components';
 import { IK_ArmComponent } from './IK_ArmComponent';
+import styled from 'styled-components';
+
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -92,7 +93,7 @@ const PlayerComponent = ({ playerSnap, playerAvatarRef, isTurn }: PlayerComponen
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    {/* {isTurn && <IK_ArmComponent avatarRef={playerAvatarRef} direction={playerSnap.getDirection()} />} */}
+    {isTurn &&<IK_ArmComponent avatarRef={playerAvatarRef} direction={playerSnap.getDirection()} />}
     <AvatarFrame ref={playerAvatarRef} src={avatarUrl} alt={avatarUrl} $direction={playerSnap.getDirection()} />
     <BarBorder><BarFill $pct={playerSnap.getHealthPrct()} /></BarBorder>
     <FocusContainer>

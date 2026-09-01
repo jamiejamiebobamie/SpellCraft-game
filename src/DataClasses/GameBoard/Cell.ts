@@ -175,13 +175,14 @@ export class Cell {
         rowShiftBadge // bottom-right
       ];
 
-      console.log({ spellName: spell.getSpellName(), badges: this.badges })
+      // console.log({ spellName: spell.getSpellName(), badges: this.badges })
   };
 
   // --- Interaction Event Stubs ---
 
   onHover = (): void => {
     if (this.isHoverDisabled) return;
+    // console.log({ cellIndex: this.cellIndex })
     // Engine hook placeholder: compute highlighting paths, show valid moves, etc.
   };
 

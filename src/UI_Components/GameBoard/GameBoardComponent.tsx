@@ -33,6 +33,7 @@ const StyledCell = styled.div<{
     $maxI: number;
     $maxJ: number;
     $numPlacementCells: number;
+    $isOccupied: boolean;
 }>`
   background: ${props => props.$isPlayerCell ? '#bcb9b9' : '#c7c2c2'};
   ${props => props.$isHighlighted && `filter: brightness(1.1);`}
@@ -47,14 +48,14 @@ const StyledCell = styled.div<{
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
   transition: opacity, background 1s ease, border 0.15s ease;
   opacity: ${props => props.$transparency};
   &:hover {
    ${props => (props.$isPlacingGameSymbol && props.$isPlace || !props.$isPlacingGameSymbol)
         && `filter: brightness(1.2);`};
   }
-  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
+
+  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : props.$isOccupied ? 'help' : 'inherit'};
 
   &::before {
     ${props => props.$isPlayerCell && `content: '♥';`}
@@ -120,9 +121,10 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                 )}
             </GridOverlay>
             <GridContainer>
-                {snap.gameBoard.cells.map(c =>
+                {snap.gameBoard.cells.map((c,i) =>
                     <StyledCell
                         key={`${c.getCellIndex().i}_${c.getCellIndex().j}`}
+                        data-click-type="board-cell"
                         $maxI={GameBoard.NUM_ROWS - 1}
                         $maxJ={snap.getActivePlayer().getDirection() == 1 ? numPlacementCells - 1 : GameBoard.NUM_COLS - 1}
                         $i={c.getCellIndex().i}
@@ -130,15 +132,18 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                         $numPlacementCells={snap.gameBoard.numPlacementCells}
                         $isPlace={snap.isCanPlaceGameSymbolOn(c)}
                         $isHighlighted={
-                            isPlacingGameSymbol && isHumanActivePlayer ?
-                                snap.isCanPlaceGameSymbolOn(c)
-                                : c.getIsHighlighted()}
+                            (isPlacingGameSymbol && isHumanActivePlayer &&
+                                snap.isCanPlaceGameSymbolOn(c))
+                                || c.getIsHighlighted()}
                         $spellOwnerColor={c.getColor()}
+                        $isOccupied={!c.getIsFree()}
                         $isPlayerCell={c.getIsPlayerCell()}
                         $transparency={c.getTransparencyAmt()}
                         $isPlacingGameSymbol={isPlacingGameSymbol}
-                        onMouseEnter={() => rootGameStore.gameBoard.getIsHoverDisabled() && rootGameStore.gameBoard.hoverCell(c)}
-                        onMouseLeave={() => rootGameStore.gameBoard.hoverCell(null)}
+                        onMouseEnter={() => 
+                            // rootGameStore.getIsHoverDisabled() && 
+                            rootGameStore.setHoveredGameboardCell(c)}
+                        onMouseLeave={() => rootGameStore.setHoveredGameboardCell(null)}
                         onClick={() => rootGameStore.placeSpellOnBoard(c)}
                     >
                         {c.badges.map((b, bIdx) => {

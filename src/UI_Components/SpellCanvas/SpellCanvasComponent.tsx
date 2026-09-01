@@ -9,7 +9,7 @@ const CanvasContainer = styled.div<{ $isShowCanvas: boolean }>`
     width: 100%;
     height: 100%;
     position: absolute;
-    z-index: 30;
+    z-index: 50;
     overflow: hidden;
     flex-direction: column;
     align-items: center;
@@ -101,6 +101,10 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
     const clientY = e.clientY - rect.top;
 
     if (ctx) {
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#6366f1'; // Spell trial path color
       ctx.lineTo(clientX, clientY);
       ctx.stroke();
     }
@@ -109,13 +113,13 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
   };
 
   // 3. Releasing the click triggers your ONNX Matrix conversion instantly
-  const handleMouseUp = async () => {
-    if (!rootGameStore.spellCanvas.getIsDrawing()) return;
-    rootGameStore.spellCanvas.setIsDrawing(false);
-    if (rootGameStore.spellCanvas.getNumPoints() == 0) return;
+  // const handleMouseUp = async () => {
+  //   if (!rootGameStore.spellCanvas.getIsDrawing()) return;
+  //   rootGameStore.spellCanvas.setIsDrawing(false);
+  //   if (rootGameStore.spellCanvas.getNumPoints() == 0) return;
 
-    rootGameStore.runInference();
-  };
+  //   rootGameStore.runInference();
+  // };
 
   const isShowCanvas = snap.getIsShowCanvas();
 
@@ -125,10 +129,10 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
         ref={canvasRef}
         width={!!width ? width : 100}
         height={!!height ? height : 100}
-        onMouseDown={handleMouseDown}
+        // onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp} // Prevents sticking if cursor wanders out
+        // onMouseUp={handleMouseUp}
+        // onMouseLeave={handleMouseUp} // Prevents sticking if cursor wanders out
         style={{
           width: '100%',
           height: '100%',

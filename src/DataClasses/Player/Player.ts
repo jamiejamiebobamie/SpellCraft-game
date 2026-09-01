@@ -24,7 +24,7 @@ export class Player {
   private static readonly MAX_HEALTH_AMT = 5;
   private static readonly MAX_FOCUS_AMT = 4;
   private static readonly MAX_FIZZLES_BEFORE_BACKLASH = 3;
-  private static readonly BACKLASH_DAMAGE = 20;
+  private static readonly BACKLASH_DAMAGE = 1;
   private static readonly FIZZLE_LIFETIME_TURNS = 3; // How long a fizzle tracks on a player
 
   constructor(direction: -1 | 1, color: string) {
@@ -131,7 +131,7 @@ export class Player {
   doBacklash = (): void => {
     this.decrementHealth(Player.BACKLASH_DAMAGE);
     this.fizzles = []; // Wipe historical fizzles clean after punishing
-    console.log(`Backlash triggered! Damage dealt.`);
+    // console.log(`Backlash triggered! Damage dealt.`);
   };
 
   /**
@@ -202,7 +202,7 @@ export class NPCPlayer extends Player {
 
     // Execute the chosen AI action
     if (chosenMove.isSkip || !chosenMove.symbol) {
-      console.log(`${this.color} NPC chose to pass.`);
+      // console.log(`${this.color} NPC chose to pass.`);
       this.setIsTurn(false, currentGlobalTurn);
       return;
     }

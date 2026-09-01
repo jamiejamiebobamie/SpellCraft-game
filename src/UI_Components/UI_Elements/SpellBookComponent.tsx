@@ -1,21 +1,17 @@
 import React from 'react';
-import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
+import AutomaticSpellCanvasComponent from '../SpellCanvas/AutomaticSpellCanvasComponent';
+import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
+import { Game } from '../../DataClasses/Game'
+import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
+import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
-import { GameSymbol } from '../DataClasses/PlacedSpells/GameSymbol';
-import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 
 // 2. The Main Absolute Anchor in the Top-Right Corner
 const MenuAnchor = styled.div`
   position: absolute;
   top: 2cqw;   
   right: 4cqw; 
-  z-index: 31;
-  
-  /* 
-    Crucial change: No flexbox layout here. 
-    The container will now naturally shrink wrap to match the size 
-    of its only non-absolute child: the TriggerBox.
-  */
+  z-index: 35;
 `;
 
 // 3. The Visual Trigger Element (The main box you hover over)
@@ -88,11 +84,9 @@ const CanvasContainer = styled.div`
   position: relative;
   width: 6cqw;
   height: 6cqw;
-  // object-fit: cover;
   border-radius: 4px;
   background-color: transparent;// #444; /* Fallback placeholder color */
   transition: transform 0.2s ease, border-color 0.2s ease;
-  // padding-top: 1cqw;
 `;
 
 // Each Individual Slide-Out Column Group
@@ -108,8 +102,12 @@ const ColumnGroup = styled.div`
 }
 `;
 
-export default function SpellBookComponent() {
-  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).map(([inferenceString, spellName]) => <ColumnGroup>
+interface SpellBookComponentProps {
+  rootGameStore: Game;
+}
+
+export default function SpellBookComponent({ rootGameStore }: SpellBookComponentProps) {
+  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0,4).map(([inferenceString, spellName]) => <ColumnGroup>
     <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} alt="SpellImg" />
     <CanvasContainer>
       <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} />
@@ -117,7 +115,8 @@ export default function SpellBookComponent() {
   </ColumnGroup>)
 
   return (
-    <MenuAnchor>
+    <MenuAnchor
+      data-click-type="ui-buttons">
       {/* TO-DO: add spell book icon */}
       <TriggerBox><div>Spell</div><div>Book</div></TriggerBox>
       <SlidingTray>

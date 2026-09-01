@@ -5,8 +5,10 @@ import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
 import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
 import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
-import GameLogComponent from './GameLogComponent';
-import SpellBookComponent from './SpellBookComponent';
+import GameLogComponent from './GameLog/GameLogComponent';
+import SpellBookComponent from './UI_Elements/SpellBookComponent';
+import EndTurnButtonComponent from './UI_Elements/EndTurnButtonComponent';
+import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
 import { rootGameStore, controls } from '../DataClasses/store';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
@@ -115,27 +117,57 @@ export const GameComponent = () => {
       ref={zoneRef}
       $isPlacingGameSymbol={!!gameSymbolIcon}
       onMouseMove={handleMouseMove}
-      onMouseDown={(e) => {
-        if (e.button === 2) {
-          rootGameStore.appendToLog("Right Click Canvas Logged", "#888");
-          rootGameStore.spellCanvas.toggleShowCanvas();
-          rootGameStore.spellCanvas.getIsShowCanvas() ? rootGameStore.hideGameBoard() : rootGameStore.enableGameBoard();
+      onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        const isUiButton = target.closest('[data-click-type="ui-buttons"]');
+        // console.log({ isUiButton });
+        if (isUiButton || rootGameStore.getIsClickDisabled() || !rootGameStore.getIsHumanPlayerTurn() || rootGameStore.getIsDrawing()) return;
+        if (rootGameStore.getIsPlacing() && !rootGameStore.getIsGameBoardDisabled()) {
+          const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
+          if (isClickOutsideGameBoard) {
+            rootGameStore.cancelPlacingSymbol();
+          }
+        } else {
+          rootGameStore.beginDrawing();
         }
-      }}>
+      }}
+      // onMouseDown={() => {
+
+      // }}
+      onMouseUp={() => {
+        if (!rootGameStore.getIsDrawing()) return;
+        rootGameStore.endDrawing();
+        rootGameStore.runInference();
+      }}
+      onMouseLeave={() => {
+        if (!rootGameStore.getIsDrawing()) return;
+        rootGameStore.endDrawing();
+        rootGameStore.runInference();
+      }}
+    >
       <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
-      {<SpellBookComponent />}
+      <SpellBookComponent rootGameStore={rootGameStore} />
+      <EndTurnButtonComponent rootGameStore={rootGameStore} />
+      <ClockFaceComponent
+        clockSpeed={.05}
+        onMinuteHandLap={() => {
+          rootGameStore.disableGameBoard();
+          rootGameStore.updatePlacedSpells();
+          rootGameStore.regenFocus();
+          rootGameStore.enableGameBoard();
+        }} />
       {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'30cqw'} drawSpeed={.6} isLooped={false} /> */}
       {/* have SpellCanvasComponent to allow for GameBoard cells hover -> have isDrawing = true on click and show canvas (if player's turn and not-NPC) */}
       <SpellCanvasComponent rootGameStore={rootGameStore} />
       {/* LEFT COLUMN: PLAYER */}
-      <PlayerComponent isTurn={snap?.getActivePlayer()?.getDirection() == 1} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
+      <PlayerComponent rootGameStore={rootGameStore} isTurn={snap?.getIsTurn(1)} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
       {/* CENTER COLUMN: CANVAS GRID MATRIX */}
       <MainColumn>
         <GameBoardComponent rootGameStore={rootGameStore} />
-        <GameLogComponent gameLogSnap={snap.gameLog} />
+        <GameLogComponent rootGameStore={rootGameStore} />
       </MainColumn>
       {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-      <PlayerComponent isTurn={snap?.getActivePlayer()?.getDirection() == -1} playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
+      <PlayerComponent isTurn={snap?.getIsTurn(-1)} playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
     </GameWrapper>
   );
 };

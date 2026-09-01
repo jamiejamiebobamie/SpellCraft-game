@@ -1,7 +1,7 @@
 // Game.ts
 import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
-import { GameLog } from './GameLog';
+import { GameLog, GameLogEntry } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { GameState, GameContext, PlayerDrawSpell, NPCDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
@@ -13,6 +13,7 @@ import {
   Player
   // , NPCPlayer
 } from './Player/Player';
+import { CellIndex } from './types';
 
 export class Game {
   // Core Subsystem Managers
@@ -28,6 +29,9 @@ export class Game {
   players!: [Player, Player];
   gameTurn: number = 0;
   gameContext!: GameContext;
+  isClickDisabled: boolean = false;
+  isHoverDisabled: boolean = false;
+  hoveredSpell: Spell | null = null;
 
   constructor() {
     this.init();
@@ -137,6 +141,18 @@ export class Game {
         break;
     }
   };
+  
+  getIsGameBoardDisabled = (): boolean => {
+    return this.gameBoard.getIsClickDisabled();
+  }
+
+  enableGameBoard = (): void => {
+    this.gameBoard.enableBoard();
+  }
+
+  disableGameBoard = (): void => {
+    this.gameBoard.disableBoard();
+  }
 
   updatePlayerTurn = () => {
 
@@ -151,7 +167,8 @@ export class Game {
     previousPlayer.setIsTurn(false, this.gameTurn);
     nextPlayer.setIsTurn(true, this.gameTurn);
 
-    this.gameTurn % 2 == 0 && this.regenFocus();
+    // this.gameTurn % 2 == 0 && 
+    // this.regenFocus();
   }
 
   getActivePlayer = (): Player => {
@@ -164,6 +181,10 @@ export class Game {
     return isPlacingGameSymbol && isHumanActivePlayer && cell.getIsFree() && cell.getIsPlaceCell(this.gameContext.activePlayer);
   }
 
+  getLogEntries = (): Array<GameLogEntry> => {
+    return this.gameLog.logEntries;
+  };
+
   regenFocus = () => {
     this.appendToLog('You and your opponent have regained some focus.', '#3b82f6');
     this.players.forEach(p => p.decrementFocus(-1));
@@ -174,31 +195,30 @@ export class Game {
       this.placedSpells.removeInvalidSpells();
       const spell = this.gameSymbol?.instantiateSpell(this.gameTurn);
       this.gameSymbol = null;
-
       if (spell instanceof Spell) {
         this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, '#3b82f6');
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
-        this.gameBoard.setIsClickDisabled(true);
-        // uses a generator/iterator
+        this.setIsClickDisabled(true);
         await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
-        // this.placedSpells.removeInvalidSpells();
+        this.setIsClickDisabled(false);
       }
-
-      if (this.placedSpells.spells.length > 1) {
-        // uses a generator/iterator
-        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
-      }
-      
-      // TO-DO: allow for multiple spells drawn/placed per turn...
-      // create "End Turn" button
-      this.gameBoard.setIsClickDisabled(false);
-      this.updatePlayerTurn();
-      // this.hideGameBoard();
-      this.spellCanvas.toggleShowCanvas();
     }
+  }
+
+  getIsTurn = (playerDirection: number): boolean => {
+    return !this.isClickDisabled && this.getActivePlayer()?.getDirection() == playerDirection
+  }
+
+  updatePlacedSpells = async () => {
+    // this.disableGameBoard();
+    if (this.placedSpells.spells.length > 1) {
+      // uses a generator/iterator
+      await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+    }
+    // this.enableGameBoard();
   }
 
   getGameSymbolIcon = (): string => {
@@ -207,16 +227,70 @@ export class Game {
     return spellName ? `spell-icons/${spellName}Icon_mockup.png` : '';
   }
 
+  getIsHumanPlayerTurn = () => {
+    return !(this.gameContext.activePlayer instanceof NPCPlayer);
+  }
+
+  beginDrawing = (): void => {
+    this.spellCanvas.setIsShowCanvas(true);
+    this.spellCanvas.setIsDrawing(true);
+  }
+
+  endDrawing = (): void => {
+    this.spellCanvas.setIsShowCanvas(false);
+    this.spellCanvas.setIsDrawing(false);
+  }
+
+  getIsDrawing = (): boolean => {
+    return this.spellCanvas.getIsDrawing();
+  }
+
+  getIsClickDisabled = (): boolean => {
+    return this.isClickDisabled;
+  }
+
+  setIsClickDisabled = (isClickDisabled: boolean): void => {
+    this.isClickDisabled = isClickDisabled;
+  }
+
+  getIsHoverDisabled = (): boolean => {
+    return this.isHoverDisabled;
+  }
+
+  setIsHoverDisabled = (isHoverDisabled: boolean): void => {
+    this.isHoverDisabled = isHoverDisabled;
+  }
+
+  getHoveredSpell = (): Spell | null => {
+    return this.gameBoard.hoveredCell?.getSpell() || null;
+  }
+
+  // getHoveredCellPath = (): Array<CellIndex> => {
+  //   return this.gameBoard.getHoveredCellPath();
+  // }
+
+  setHoveredGameboardCell = (cell: Cell | null): void => {
+    // console.log({ i })
+    this.gameBoard.hoverCell(cell);
+  }
+
+  getIsPlacing = (): boolean => {
+    return this.gameSymbol != null;
+  }
+
+  cancelPlacingSymbol = (): void => {
+    this.gameSymbol = null;
+  }
+
+  // TO-DO: fix this...
   hideGameBoard = (): void => {
     this.gameBoard.disableBoard();
   }
 
-  enableGameBoard = (): void => {
-    this.gameBoard.enableBoard();
-  }
-
   runInference = async (): Promise<void> => {
+    if (this.spellCanvas.getNumPoints() == 0) return;
     const rawPoints = this.spellCanvas.getRawPoints();
+    this.spellCanvas.clearDrawing();
     const result = await this.model.runInference(rawPoints);
 
     if (GameSymbol.FIZZLE_INFERENCES.includes(result)) {
@@ -229,10 +303,7 @@ export class Game {
       this.appendToLog(`You drew ${spellName}!`, 'black');
       this.gameSymbol = new GameSymbol(result, this.getActivePlayer()); //null;
     }
-    this.spellCanvas.toggleShowCanvas();
-    this.enableGameBoard();
   }
-
 
   /**
    * Steps the turn cycle forward. Called by the Finite State Machine 
