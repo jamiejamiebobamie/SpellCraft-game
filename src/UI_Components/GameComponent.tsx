@@ -1,13 +1,14 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import PlayerComponent from './PlayerComponent';
-import SpellCanvasComponent from './SpellCanvasComponent';
-import GameBoardComponent from './GameBoardComponent';
+import PlayerComponent from './Player/PlayerComponent';
+import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
+import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
+import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
+import GameBoardComponent from './GameBoard/GameBoardComponent';
 import GameLogComponent from './GameLogComponent';
 import SpellBookComponent from './SpellBookComponent';
 import { rootGameStore, controls } from '../DataClasses/store';
 import styled from 'styled-components';
-import { Ether, Gyre, Phlegm, Quicken } from '../DataClasses/PlacedSpells/Spell';
 import { useSnapshot } from 'valtio';
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
@@ -82,6 +83,9 @@ const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
 export const GameComponent = () => {
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
+  const player1AvatarRef = useRef<HTMLImageElement | null>(null);
+  const player2AvatarRef = useRef<HTMLImageElement | null>(null);
+
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Added React MouseEvent typing to handle DOM positional calculations safely
@@ -90,10 +94,11 @@ export const GameComponent = () => {
 
     // Calculate mouse position relative to this specific container
     const rect = zoneRef.current.getBoundingClientRect();
-    setMouseCoords({
+    const mouseCoords = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
-    });
+    }
+    setMouseCoords(mouseCoords);
   };
 
   // TESTING...
@@ -104,8 +109,7 @@ export const GameComponent = () => {
   const playerTwoSnap = useSnapshot(rootGameStore.players[1]);
   // - - - - - - 
 
-  // console.log({ snap, gameSymbolIcon });
-
+  // TO-DO: resolve Typescript-only type error here
   return (
     <GameWrapper
       ref={zoneRef}
@@ -115,24 +119,23 @@ export const GameComponent = () => {
         if (e.button === 2) {
           rootGameStore.appendToLog("Right Click Canvas Logged", "#888");
           rootGameStore.spellCanvas.toggleShowCanvas();
-          console.log('right click!')
-           rootGameStore.spellCanvas.getIsShowCanvas() ? rootGameStore.hideGameBoard() : rootGameStore.enableGameBoard();
+          rootGameStore.spellCanvas.getIsShowCanvas() ? rootGameStore.hideGameBoard() : rootGameStore.enableGameBoard();
         }
       }}>
       <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
       {<SpellBookComponent />}
+      {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'30cqw'} drawSpeed={.6} isLooped={false} /> */}
+      {/* have SpellCanvasComponent to allow for GameBoard cells hover -> have isDrawing = true on click and show canvas (if player's turn and not-NPC) */}
       <SpellCanvasComponent rootGameStore={rootGameStore} />
       {/* LEFT COLUMN: PLAYER */}
-      {/* TO-DO: resolve Typescript-only type error here */}
-      <PlayerComponent playerSnap={playerOneSnap} />
+      <PlayerComponent isTurn={snap?.getActivePlayer()?.getDirection() == 1} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
       {/* CENTER COLUMN: CANVAS GRID MATRIX */}
       <MainColumn>
         <GameBoardComponent rootGameStore={rootGameStore} />
         <GameLogComponent gameLogSnap={snap.gameLog} />
       </MainColumn>
       {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-      {/* TO-DO: resolve Typescript-only type error here */}
-      <PlayerComponent playerSnap={playerTwoSnap} />
+      <PlayerComponent isTurn={snap?.getActivePlayer()?.getDirection() == -1} playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
     </GameWrapper>
   );
 };

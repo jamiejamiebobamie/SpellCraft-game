@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Spell } from '../DataClasses/PlacedSpells/Spell'
+import { Spell } from '../../DataClasses/PlacedSpells/Spell'
 import { useSnapshot } from 'valtio';
 
 
@@ -49,20 +49,20 @@ interface SpellComponentProps {
 
 export const SpellComponent = ({ spell }: SpellComponentProps) => {
   const spellSnap = useSnapshot(spell);
-  const spellName = spellSnap.getSpellName();
-  const cellIndex = spellSnap.getCellIndex();
+  const spellName = spellSnap?.getSpellName();
+  const cellIndex = spellSnap?.getCellIndex();
   // CSS Grid tracks are 1-indexed, so add 1 to 0-indexed indices
-  const gridRow = cellIndex.i + 1;
-  const gridCol = cellIndex.j + 1;
+  const gridRow = cellIndex?.i + 1;
+  const gridCol = cellIndex?.j + 1;
   const color = spellSnap?.getCaster()?.getColor() || '';
   return (
     <SpellIcon
-      key={spellSnap.key}
+      key={spellSnap?.key}
       $gridRow={gridRow}
       $gridCol={gridCol}
-      $isRemove={spellSnap.getIsRemove()}
+      $isRemove={spellSnap?.getIsRemove()}
       $color={color}
-      $url={`spell-icons/${spellName}Icon_mockup.png`}
+      $url={`spell-icons/${spellName == 'Gyre' ? spellSnap?.rowShift > 0 ? `${spellName}Up` : `${spellName}Down` : spellName}Icon_mockup.png`}
     />
   );
 };

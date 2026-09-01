@@ -30,13 +30,19 @@ export class Model {
     private session: ort.InferenceSession | null = null;
 
     // Define the human-readable labels matching your Python `labels` dictionary
-    private static readonly SPELL_LABELS: Record<number, InferenceString> = {
-        0: 'circle',
-        1: 'star',
-        2: 'diamond',
-        3: 'line',
-        4: 'squiggle'
-    };
+
+    // sequential7.onnx:
+    // private static readonly SPELL_LABELS: Record<number, InferenceString> = {
+    //     0: 'circle',
+    //     1: 'star',
+    //     2: 'diamond',
+    //     3: 'line',
+    //     4: 'squiggle'
+    // };
+
+    // sequential8.onnx
+    private static readonly SPELL_LABELS: Record<number, InferenceString> = { 0: 'circle', 1: 'square', 2: 'star', 3: 'triangle', 4: 'diamond', 5: 'line', 6: 'squiggle' }
+
 
     public async init(): Promise<void> {
         if (!this.session) {
@@ -47,7 +53,7 @@ export class Model {
 
     private async loadModel(): Promise<ort.InferenceSession | null> {
         try {
-            const net = await ort.InferenceSession.create('./models/sequential7.onnx');
+            const net = await ort.InferenceSession.create('./models/sequential8.onnx');
             console.log("Spell model loaded successfully!");
             return net;
         } catch (e) {
@@ -142,7 +148,6 @@ export class Model {
             console.log({ feeds, outputs, session });
 
             return recognizedSpell;
-
         } catch (error) {
             console.error("Failed to run the ONNX model web inference:", error);
             //   throw error;

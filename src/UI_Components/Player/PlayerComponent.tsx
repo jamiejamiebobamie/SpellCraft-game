@@ -1,19 +1,18 @@
 
 import React, { useState } from 'react';
-import { Player } from '../DataClasses/Player/Player';
+import { Player } from '../../DataClasses/Player/Player';
 import styled from 'styled-components';
-
-
+import { IK_ArmComponent } from './IK_ArmComponent';
 
 const DuelistSideColumn = styled.div`
   flex: 1;
   background: transparent;// #161616;
   padding: 1.5cqw;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   gap: 1cqw;
-//   border: 1px solid #222;
   z-index: 10;
 `;
 
@@ -81,17 +80,20 @@ const FizzleBadge = styled.div<{ key: number }>`
 const avatarUrl = "DuelistAvatarPlaceholder.png";
 
 type PlayerComponentProps = {
-  playerSnap: Player
+  playerSnap: Player;
+  playerAvatarRef: HTMLImageElement | null;
+  isTurn: boolean;
 }
 
-const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerSnap, playerAvatarRef, isTurn }: PlayerComponentProps) => {
   // TO-DO: (1) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
   // TO-DO: (1) green white or blue flash, and (2) floating modifier text on positive health gain
   // TO-DO: Hide PlayerComponent when the other person is casting. Also dim/make darker the background img of GameWrapper.
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    <AvatarFrame src={avatarUrl} alt={avatarUrl} $direction={playerSnap.getDirection()} />
+    {/* {isTurn && <IK_ArmComponent avatarRef={playerAvatarRef} direction={playerSnap.getDirection()} />} */}
+    <AvatarFrame ref={playerAvatarRef} src={avatarUrl} alt={avatarUrl} $direction={playerSnap.getDirection()} />
     <BarBorder><BarFill $pct={playerSnap.getHealthPrct()} /></BarBorder>
     <FocusContainer>
       {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}

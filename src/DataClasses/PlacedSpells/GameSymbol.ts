@@ -1,7 +1,7 @@
 // Symbol.ts
-import { SpellConstructor, InferenceString, RowShiftDirections } from '../types';
+import { SpellConstructor, InferenceString } from '../types';
 import { Player } from '../Player/Player';
-import { Spell, Phlegm, Ether, Gyre, Quicken } from './Spell';
+import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
 import { proxy } from 'valtio';
 
 export class GameSymbol {
@@ -12,28 +12,22 @@ export class GameSymbol {
   private SpellClass: SpellConstructor | null = null;
 
   static readonly FIZZLE_INFERENCES = ['square', 'squiggle'];
+
   private static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
     ['line', Quicken],
     ['circle', Phlegm],
     ['star', Ether],
-    ['triangle', Gyre],
-    ['diamond', Gyre]
+    ['diamond', GyreUp],
+    ['triangle', GyreDown]
   ]);
+
   static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
     ['line', 'Quicken'],
     ['circle', 'Phlegm'],
     ['star', 'Ether'],
-    ['triangle', 'Gyre'], // TO-DO: implement flipped icon for triangles
-    ['diamond', 'Gyre']
+    ['triangle', 'GyreDown'],
+    ['diamond', 'GyreUp']
   ]);
-
-  private static readonly ROW_SHIFT_LOOKUP = new Map<InferenceString, RowShiftDirections>([
-    ['line', 0],
-    ['circle', 0],
-    ['star', 0],
-    ['triangle', 1],
-    ['diamond', -1]
-  ])
 
   constructor(symbolName: InferenceString, caster: Player) {
     this.caster = caster;

@@ -120,9 +120,6 @@ export class Player {
    */
   addFizzle = (currentGlobalTurn: number): void => {
 
-    // TO-DO: if a fizzle causes focus lost, then it should be handled explicitly where addFizzle is called
-    // this.decrementFocus(1);
-
     // Instantiate using the current global turn and a custom duration limit
     this.fizzles.push(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS));
 
@@ -184,7 +181,7 @@ export class NPCPlayer extends Player {
     const shouldSkip = Math.random() > 0.8;
     return {
       isSkip: shouldSkip,
-      symbol: shouldSkip ? null : new GameSymbol(this, 15, Quicken)
+      symbol: shouldSkip ? null : new GameSymbol('squiggle', this)
     };
   };
 
@@ -211,7 +208,7 @@ export class NPCPlayer extends Player {
     }
 
     // Attempt to invoke the spell matching the decision choice
-    const spawnedSpell = chosenMove.symbol.instantiateSpell('squiggle', currentGlobalTurn);
+    const spawnedSpell = chosenMove.symbol.instantiateSpell(currentGlobalTurn);
 
     if (!spawnedSpell) {
       // If the AI failed the roll/gesture, log it on the player profile

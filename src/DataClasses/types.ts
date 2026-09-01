@@ -1,4 +1,4 @@
-import { Phlegm, Quicken, Ether, Gyre } from './PlacedSpells/Spell';
+import { Phlegm, Quicken, Ether, GyreUp, GyreDown } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
 
 // types
@@ -11,7 +11,7 @@ export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'row
 
 export type RowShiftDirections = 1 | 0 |-1 | undefined;
 
-export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | Gyre;
+export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | GyreUp | GyreDown;
 
 export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle';
 

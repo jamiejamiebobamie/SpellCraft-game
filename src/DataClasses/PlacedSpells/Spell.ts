@@ -136,11 +136,11 @@ export abstract class Spell {
    */
   resolvePlayerCollision = (otherPlayer: Player): void => {
     // if (otherPlayer !== this.caster) {
-      // Apply damage (or healing if dmgHealth is negative)
-      otherPlayer.decrementHealth(this.dmgHealth)
+    // Apply damage (or healing if dmgHealth is negative)
+    otherPlayer.decrementHealth(this.dmgHealth)
 
-      // Consume/destroy this spell after collision
-      this.markSpellForRemoval()
+    // Consume/destroy this spell after collision
+    this.markSpellForRemoval()
     // }
   };
 
@@ -237,7 +237,7 @@ export class Ether extends Spell {
   }
 }
 
-export class Gyre extends Spell {
+export abstract class Gyre extends Spell {
   protected static readonly focusCost: number = 1;
 
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'rowShift'];
@@ -246,9 +246,6 @@ export class Gyre extends Spell {
   constructor(caster: Player) {
     super('Gyre', caster);
     this.dmgHealth = 1;
-    this.rowShift = 1;//rowShift || 0; // Alters movement tracks
-    // TO-DO: train new model on triangle and square...
-    // TO-DO: implement (1) base abstract Gyre class -> (2) Gyre Up and Gyre Down classes... 
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
@@ -272,6 +269,20 @@ export class Gyre extends Spell {
     } else {
       return 'been cancelled out by an opposing force!'
     }
+  }
+}
+
+export class GyreUp extends Gyre {
+  constructor(caster: Player) {
+    super(caster);
+    this.rowShift = 1;
+  }
+}
+
+export class GyreDown extends Gyre {
+  constructor(caster: Player) {
+    super(caster);
+    this.rowShift = -1;
   }
 }
 

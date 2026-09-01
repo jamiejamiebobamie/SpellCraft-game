@@ -1,6 +1,8 @@
 import React from 'react';
+import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
 import styled from 'styled-components';
-
+import { GameSymbol } from '../DataClasses/PlacedSpells/GameSymbol';
+import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 
 // 2. The Main Absolute Anchor in the Top-Right Corner
 const MenuAnchor = styled.div`
@@ -31,7 +33,7 @@ const TriggerBox = styled.div`
   z-index: 3; /* Sits higher than the tray */
   position: relative; /* Gives it local z-index priority */
   cursor: pointer;
-  background-image: url("spell-icons/GyreIcon_mockup.png");
+  background-image: url("spell-icons/EtherIcon_mockup.png");
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
@@ -81,42 +83,46 @@ const SquareImage = styled.img`
   padding-top: 1cqw;
 `;
 
+const CanvasContainer = styled.div`
+  display: flex;
+  position: relative;
+  width: 6cqw;
+  height: 6cqw;
+  // object-fit: cover;
+  border-radius: 4px;
+  background-color: transparent;// #444; /* Fallback placeholder color */
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  // padding-top: 1cqw;
+`;
+
 // Each Individual Slide-Out Column Group
 const ColumnGroup = styled.div`
   display: flex;
+  position: relative;
   flex-direction: column;
   gap: 1cqw;
-  &:hover ${SquareImage} {
-    transform: scale(1.25);
-    cursor: pointer;
-  }
-
+  &:hover ${SquareImage},
+  &:hover  ${CanvasContainer} {
+  transform: scale(1.25);
+  cursor: pointer;
+}
 `;
 
 export default function SpellBookComponent() {
-    return (
-        <MenuAnchor>
-            {/* TO-DO: add spell book icon */}
-            <TriggerBox><div>Spell</div><div>Book</div></TriggerBox>
-            <SlidingTray>
-                {/* TO-DO: add Star, Line, Circle, Diamond/Triangle icons */}
-                <ColumnGroup>
-                    <SquareImage src="spell-icons/EtherIcon_mockup.png" alt="Action 1" />
-                    <SquareImage src="spell-icons/EtherIcon_mockup.png" alt="Action 1" />
-                </ColumnGroup>
-                <ColumnGroup>
-                    <SquareImage src="spell-icons/GyreIcon_mockup.png" alt="Action 3" />
-                    <SquareImage src="spell-icons/GyreIcon_mockup.png" alt="Action 3" />
-                </ColumnGroup>
-                <ColumnGroup>
-                    <SquareImage src="spell-icons/QuickenIcon_mockup.png" alt="Action 5" />
-                    <SquareImage src="spell-icons/QuickenIcon_mockup.png" alt="Action 5" />
-                </ColumnGroup>
-                <ColumnGroup>
-                    <SquareImage src="spell-icons/PhlegmIcon_mockup.png" alt="Action 5" />
-                    <SquareImage src="spell-icons/PhlegmIcon_mockup.png" alt="Action 5" />
-                </ColumnGroup>
-            </SlidingTray>
-        </MenuAnchor >
-    );
+  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).map(([inferenceString, spellName]) => <ColumnGroup>
+    <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} alt="SpellImg" />
+    <CanvasContainer>
+      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} />
+    </CanvasContainer>
+  </ColumnGroup>)
+
+  return (
+    <MenuAnchor>
+      {/* TO-DO: add spell book icon */}
+      <TriggerBox><div>Spell</div><div>Book</div></TriggerBox>
+      <SlidingTray>
+        {spells}
+      </SlidingTray>
+    </MenuAnchor >
+  );
 }

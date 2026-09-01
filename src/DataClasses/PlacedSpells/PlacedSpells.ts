@@ -162,7 +162,8 @@ export class PlacedSpells {
 
           // Do vertical movement if otherSpell was 'Gyre'
           spell.moveVertically();
-          // ^^ causes Spells to have invalid CellIndexes... TO-DO: have transparent cells surrounding the visible cells
+          // ^^ causes Spells to have invalid CellIndexes... 
+          // TO-DO: have transparent cells surrounding the visible cells (transparent cell "Gutters")
 
           nextCellIndex = spell.getCellIndex();
 

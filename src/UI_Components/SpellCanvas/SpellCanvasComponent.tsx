@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { SpellCanvas } from '../DataClasses/SpellCanvas/SpellCanvas';
-import { Model } from '../DataClasses/NN_Model/Model';
-import { Game } from '../DataClasses/Game';
+import { SpellCanvas } from '../../DataClasses/SpellCanvas/SpellCanvas';
+import { Model } from '../../DataClasses/NN_Model/Model';
+import { Game } from '../../DataClasses/Game';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
 

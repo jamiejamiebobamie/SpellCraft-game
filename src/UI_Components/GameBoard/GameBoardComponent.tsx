@@ -1,9 +1,9 @@
 
 import React from 'react';
 import styled from 'styled-components';
-import { GameBoard } from '../DataClasses/GameBoard/GameBoard';
-import { NPCPlayer, Player } from '../DataClasses/Player/Player'
-import { Game } from '../DataClasses/Game';
+import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
+import { NPCPlayer } from '../../DataClasses/Player/Player'
+import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { useSnapshot } from 'valtio';
 
@@ -20,9 +20,6 @@ const GridContainer = styled.div`
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(7, 1fr);
 `;
-
-
-//   background: ${props => !!props.$spellOwnerColor ? props.$spellOwnerColor : props.$isPlayerCell ? '#bcb9b9' : '#c7c2c2'};
 
 const StyledCell = styled.div<{
     $isPlace: boolean;
@@ -53,16 +50,13 @@ const StyledCell = styled.div<{
   cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
   transition: opacity, background 1s ease, border 0.15s ease;
   opacity: ${props => props.$transparency};
-//   transition: opacity 1s ease-in-out;
   &:hover {
    ${props => (props.$isPlacingGameSymbol && props.$isPlace || !props.$isPlacingGameSymbol)
         && `filter: brightness(1.2);`};
   }
+  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
 
-    cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : 'inherit'};
-
-
-&::before {
+  &::before {
     ${props => props.$isPlayerCell && `content: '♥';`}
     font-size: 5.3cqw;
     color: #d8d5d5;
@@ -108,6 +102,9 @@ interface GameBoardComponentProps {
     rootGameStore: Game;
 }
 
+// TO-DO: enable hover over cells -> show occupying spells stats in game log area
+// TO-DO: spell movement enhancement: spell movement is digital/staccato and needs to be smooth and "analog"
+// see if flex-order(i) allows for transition property and if so if it works horizontally and vertically
 const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
     const snap = useSnapshot(rootGameStore);
     const isPlacingGameSymbol = !!snap.getGameSymbolIcon();

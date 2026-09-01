@@ -192,6 +192,8 @@ export class Game {
         await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
       }
       
+      // TO-DO: allow for multiple spells drawn/placed per turn...
+      // create "End Turn" button
       this.gameBoard.setIsClickDisabled(false);
       this.updatePlayerTurn();
       // this.hideGameBoard();

@@ -277,7 +277,7 @@ export class SpellCollision extends GameState {
     // ALL / INIT:
     // 1. Show GameBoard
     // 2. Disable: 'doRightClick' and 'doLeftClick'
-    // 3. TO-DO: use async await with a generator function to step through the forLoop of PlaceSpells.updateSpells (eg. stagger the updates to show spell collisions and reactions)
+    // 3. use async await with a generator function to step through the forLoop of PlaceSpells.updateSpells (eg. stagger the updates to show spell collisions and reactions)
     // 4. CHANGE STATE TO: PostSymbolResolution
 
     // this.updateGameLog('Advancing layout track projectile layers...', '#c084fc');
