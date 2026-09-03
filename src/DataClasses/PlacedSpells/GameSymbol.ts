@@ -24,9 +24,9 @@ export class GameSymbol {
   static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
     ['line', 'Quicken'],
     ['circle', 'Phlegm'],
+    ['diamond', 'Gyre'],
     ['star', 'Ether'],
     ['triangle', 'Gyre'],
-    ['diamond', 'Gyre']
   ]);
 
   constructor(symbolName: InferenceString, caster: Player) {

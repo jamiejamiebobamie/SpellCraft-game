@@ -147,7 +147,7 @@ export const GameComponent = () => {
     >
       <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
       <SpellBookComponent rootGameStore={rootGameStore} />
-      <EndTurnButtonComponent rootGameStore={rootGameStore} />
+      {/* <EndTurnButtonComponent rootGameStore={rootGameStore} /> */}
       <ClockFaceComponent
         clockSpeed={.05}
         onMinuteHandLap={() => {
@@ -156,7 +156,7 @@ export const GameComponent = () => {
           rootGameStore.regenFocus();
           rootGameStore.enableGameBoard();
         }} />
-      {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'30cqw'} drawSpeed={.6} isLooped={false} /> */}
+      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} />
       {/* have SpellCanvasComponent to allow for GameBoard cells hover -> have isDrawing = true on click and show canvas (if player's turn and not-NPC) */}
       <SpellCanvasComponent rootGameStore={rootGameStore} />
       {/* LEFT COLUMN: PLAYER */}

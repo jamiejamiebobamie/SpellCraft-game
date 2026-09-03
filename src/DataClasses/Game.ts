@@ -48,8 +48,8 @@ export class Game {
     this.appendToLog('Initializing new mystical duel...', '#a78bfa');
 
     // 2. Spawn fresh data layers for both players
-    const humanPlayer = new Player(1, '#3b82f6'); // Heading right
-    const computerPlayer = new Player(-1, '#ef4444'); //new NPCPlayer(-1, '#ef4444', []); // Heading left (grid reference mapped below)
+    const humanPlayer = new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png'); // Heading right
+    const computerPlayer = new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png'); //new NPCPlayer(-1, '#ef4444', []); // Heading left (grid reference mapped below)
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout

@@ -15,11 +15,57 @@ const DuelistSideColumn = styled.div`
   justify-content: flex-end;
   gap: 1cqw;
   z-index: 10;
+  pointer-events: none;
 `;
 
-const AvatarFrame = styled.img<{ $direction: number }>`
+const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   transform: scale(${props => props.$direction}, 1);
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
+  // background-image: url(${props => props.$src});
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+  position: relative;
+`;
+
+const AvatarHead = styled.div<{ $src: string }>`
+  position: absolute;
+  top: 0cqw;
+  left: 5.8cqw;
+  width: 4.5cqw;
+  aspect-ratio: 186/411; 
+  background-image: url(${props => props.$src});
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  z-index: 2;
+`;
+
+const AvatarRightArm = styled.div<{ $src: string }>`
+  position: absolute;
+  top: 13.3cqw;
+  left: .25cqw;
+  width: 4cqw;
+  aspect-ratio: 168/215; 
+  background-image: url(${props => props.$src});
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  z-index: 2;
+`;
+
+const AvatarRobe = styled.div<{ $src: string }>`
+  position: absolute;
+  top: 7.75cqw;
+  left: 2.4cqw;
+  width: 13cqw;
+  aspect-ratio: 544/657; 
+  background-image: url(${props => props.$src});
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  z-index: 4;
 `;
 
 const BarBorder = styled.div`
@@ -78,8 +124,6 @@ const FizzleBadge = styled.div<{ key: number }>`
     }
 `;
 
-const avatarUrl = "DuelistAvatarPlaceholder.png";
-
 type PlayerComponentProps = {
   playerSnap: Player;
   playerAvatarRef: HTMLImageElement | null;
@@ -93,8 +137,14 @@ const PlayerComponent = ({ playerSnap, playerAvatarRef, isTurn }: PlayerComponen
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    {isTurn &&<IK_ArmComponent avatarRef={playerAvatarRef} direction={playerSnap.getDirection()} />}
-    <AvatarFrame ref={playerAvatarRef} src={avatarUrl} alt={avatarUrl} $direction={playerSnap.getDirection()} />
+    {/* {isTurn && */}
+    {/* } */}
+    <AvatarFrame ref={playerAvatarRef} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+      <AvatarHead $src={playerSnap.avatarHeadUrl} />
+      <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />
+      <AvatarRobe $src={playerSnap.avatarRobeUrl} />
+      <IK_ArmComponent playerSnap={playerSnap} direction={playerSnap.getDirection()} />
+    </AvatarFrame>
     <BarBorder><BarFill $pct={playerSnap.getHealthPrct()} /></BarBorder>
     <FocusContainer>
       {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}

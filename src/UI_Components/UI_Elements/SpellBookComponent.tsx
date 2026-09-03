@@ -10,7 +10,7 @@ import styled from 'styled-components';
 const MenuAnchor = styled.div`
   position: absolute;
   top: 2cqw;   
-  right: 4cqw; 
+  left: 4cqw; 
   z-index: 35;
 `;
 
@@ -48,15 +48,15 @@ const SlidingTray = styled.div`
   */
   position: absolute;
   top: 0;
-  right: 100%; /* Positions the right edge of the tray against the left edge of the anchor */
-  padding-right: 1.5cqw; /* Creates the spacing gap from the TriggerBox */
+  left: 100%; /* Positions the right edge of the tray against the left edge of the anchor */
+  padding-left: 1.5cqw; /* Creates the spacing gap from the TriggerBox */
   
   z-index: 2; 
   
   /* Start completely hidden behind the TriggerBox */
-  transform: translateX(100%); 
+  transform: translateX(-100%); 
   opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+  transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
   pointer-events: none; 
 
   /* Trigger slide-out when the user hovers over the MenuAnchor */

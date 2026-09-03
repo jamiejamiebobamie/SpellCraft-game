@@ -13,6 +13,15 @@ export class Player {
   // Constants
   readonly direction: -1 | 1; // -1 (going left) or 1 (going right)
   readonly color: string;     // Hex code
+  readonly avatarUrl!: string;
+
+  readonly avatarRightArmUrl: string = './player_avatars/RightArm.png';
+  readonly avatarWandHandUrl: string = './player_avatars/WandHand.png';
+  readonly avatarForearmUrl: string = './player_avatars/Forearm.png';
+
+  readonly avatarHeadUrl: string = './player_avatars/Head1.png';
+  readonly avatarRobeUrl: string = './player_avatars/Robe1a.png';
+  readonly avatarBicepUrl: string = './player_avatars/Bicep1.png';
 
   // State
   healthAmt: number = 5;
@@ -27,9 +36,10 @@ export class Player {
   private static readonly BACKLASH_DAMAGE = 1;
   private static readonly FIZZLE_LIFETIME_TURNS = 3; // How long a fizzle tracks on a player
 
-  constructor(direction: -1 | 1, color: string) {
+  constructor(direction: -1 | 1, color: string, avatarUrl: string) {
     this.direction = direction;
     this.color = color;
+    this.avatarUrl = avatarUrl;
   }
 
   // --- Getters ---
@@ -152,67 +162,70 @@ export class Player {
 }
 
 export class NPCPlayer extends Player {
-  gameBoardRef: GameBoard;
-  difficulty: number; // Dynamic slider integer: [1, 10]
+  // gameBoardRef: GameBoard;
+  // difficulty: number; // Dynamic slider integer: [1, 10]
+  readonly avatarHeadUrl: string = './player_avatars/Head2.png';
+  readonly avatarRobeUrl: string = './player_avatars/Robe2a.png';
+  readonly avatarBicepUrl: string = './player_avatars/Bicep2.png';
 
-  constructor(direction: -1 | 1, color: string, gameBoardRef: GameBoard, difficulty: number = 6) {
-    super(direction, color);
-    this.gameBoardRef = gameBoardRef;
+  constructor(direction: -1 | 1, color: string, avatarUrl: string){//, gameBoardRef: GameBoard, difficulty: number = 6) {
+    super(direction, color, avatarUrl);
+    // this.gameBoardRef = gameBoardRef;
 
     // Clamp difficulty constructor fallback strictly to valid bounds
-    this.difficulty = Math.max(1, Math.min(10, difficulty));
+    // this.difficulty = Math.max(1, Math.min(10, difficulty));
   }
 
-  /**
-   * Analyzes board positioning vectors to make the optimal competitive choice.
-   */
-  getIdealMove = (): NPCPlayerTurnMove => {
-    // Engine hook placeholder: evaluate row vectors, open targets, or threats
-    return {
-      isSkip: false,
-      symbol: new GameSymbol(this, 25, Quicken)
-    };
-  };
+  // /**
+  //  * Analyzes board positioning vectors to make the optimal competitive choice.
+  //  */
+  // getIdealMove = (): NPCPlayerTurnMove => {
+  //   // Engine hook placeholder: evaluate row vectors, open targets, or threats
+  //   return {
+  //     isSkip: false,
+  //     symbol: new GameSymbol(this, 25, Quicken)
+  //   };
+  // };
 
-  /**
-   * Completely ignores board state and generates a randomized turn option.
-   */
-  getRandomMove = (): NPCPlayerTurnMove => {
-    const shouldSkip = Math.random() > 0.8;
-    return {
-      isSkip: shouldSkip,
-      symbol: shouldSkip ? null : new GameSymbol('squiggle', this)
-    };
-  };
+  // /**
+  //  * Completely ignores board state and generates a randomized turn option.
+  //  */
+  // getRandomMove = (): NPCPlayerTurnMove => {
+  //   const shouldSkip = Math.random() > 0.8;
+  //   return {
+  //     isSkip: shouldSkip,
+  //     symbol: shouldSkip ? null : new GameSymbol('squiggle', this)
+  //   };
+  // };
 
-  /**
-   * Evaluates AI intent probability thresholds based on the difficulty variable.
-   */
-  doMove = (currentGlobalTurn: number): void => {
-    // Produce a ceiling integer match between 1 and 10
-    const roll = Math.ceil(Math.random() * 10);
+  // /**
+  //  * Evaluates AI intent probability thresholds based on the difficulty variable.
+  //  */
+  // doMove = (currentGlobalTurn: number): void => {
+  //   // Produce a ceiling integer match between 1 and 10
+  //   const roll = Math.ceil(Math.random() * 10);
 
-    let chosenMove: NPCPlayerTurnMove;
+  //   let chosenMove: NPCPlayerTurnMove;
 
-    if (this.difficulty <= roll) {
-      chosenMove = this.getRandomMove();
-    } else {
-      chosenMove = this.getIdealMove();
-    }
+  //   if (this.difficulty <= roll) {
+  //     chosenMove = this.getRandomMove();
+  //   } else {
+  //     chosenMove = this.getIdealMove();
+  //   }
 
-    // Execute the chosen AI action
-    if (chosenMove.isSkip || !chosenMove.symbol) {
-      // console.log(`${this.color} NPC chose to pass.`);
-      this.setIsTurn(false, currentGlobalTurn);
-      return;
-    }
+  //   // Execute the chosen AI action
+  //   if (chosenMove.isSkip || !chosenMove.symbol) {
+  //     // console.log(`${this.color} NPC chose to pass.`);
+  //     this.setIsTurn(false, currentGlobalTurn);
+  //     return;
+  //   }
 
-    // Attempt to invoke the spell matching the decision choice
-    const spawnedSpell = chosenMove.symbol.instantiateSpell(currentGlobalTurn);
+  //   // Attempt to invoke the spell matching the decision choice
+  //   const spawnedSpell = chosenMove.symbol.instantiateSpell(currentGlobalTurn);
 
-    if (!spawnedSpell) {
-      // If the AI failed the roll/gesture, log it on the player profile
-      this.addFizzle(currentGlobalTurn);
-    }
-  };
+  //   if (!spawnedSpell) {
+  //     // If the AI failed the roll/gesture, log it on the player profile
+  //     this.addFizzle(currentGlobalTurn);
+  //   }
+  // };
 }
