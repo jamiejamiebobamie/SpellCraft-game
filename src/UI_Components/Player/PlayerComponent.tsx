@@ -91,15 +91,12 @@ type PlayerComponentProps = {
   isTurn: boolean;
 }
 
-const PlayerComponent = ({ playerSnap, playerAvatarRef, isTurn }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerSnap, playerAvatarRef }: PlayerComponentProps) => {
   // TO-DO: (1) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
   // TO-DO: (1) green white or blue flash, and (2) floating modifier text on positive health gain
-  // TO-DO: Hide PlayerComponent when the other person is casting. Also dim/make darker the background img of GameWrapper.
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    {/* {isTurn && */}
-    {/* } */}
     <AvatarFrame ref={playerAvatarRef} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
       <AvatarRobe $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $src={playerSnap.avatarHeadUrl} />

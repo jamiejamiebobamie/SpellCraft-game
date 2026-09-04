@@ -113,6 +113,12 @@ export class GameBoard {
     return this.isHoverDisabled;
   };
 
+  getFreeNpcPlacementCell = (npcPlayer: Player): Cell => {
+    const npcPlaceCells = this.cells.filter(c => c.getIsFree() && c.getIsPlaceCell(npcPlayer));
+    const rand = Math.floor(Math.random() * npcPlaceCells.length);
+    return npcPlaceCells[rand]
+  }
+
   // --- Interaction Configurations ---
 
   setIsClickDisabled = (isDisabled: boolean): void => {

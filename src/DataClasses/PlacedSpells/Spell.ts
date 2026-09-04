@@ -214,14 +214,14 @@ export class Phlegm extends Spell {
 }
 
 export class Ether extends Spell {
-  protected static readonly focusCost: number = 2;
+  protected static readonly focusCost: number = 1;
 
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
   constructor(caster: Player) {
     super('Ether', caster);
-    this.dmgHealth = 3; // Higher magic damage
+    this.dmgHealth = 2; // Higher magic damage
     this.spellIconUrl = 'spell-icons/EtherIcon_mockup.png';
   }
 

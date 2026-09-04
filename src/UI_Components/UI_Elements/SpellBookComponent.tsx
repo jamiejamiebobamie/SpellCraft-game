@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import AutomaticSpellCanvasComponent from '../SpellCanvas/AutomaticSpellCanvasComponent';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
-import { Game } from '../../DataClasses/Game'
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
-import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
 
 // 2. The Main Absolute Anchor in the Top-Right Corner
@@ -109,11 +107,7 @@ const ColumnGroup = styled.div`
 }
 `;
 
-interface SpellBookComponentProps {
-  rootGameStore: Game;
-}
-
-export default function SpellBookComponent({ rootGameStore }: SpellBookComponentProps) {
+export default function SpellBookComponent() {
   const [isHovered, setIsHovered] = useState(false);
   const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0,4).map(([inferenceString, spellName]) => <ColumnGroup>
     <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} alt="SpellImg" />
@@ -128,7 +122,6 @@ export default function SpellBookComponent({ rootGameStore }: SpellBookComponent
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       >
-      {/* TO-DO: add spell book icon */}
       <TriggerBox><div style={{ paddingTop: '.5cqw' }}>Spell</div><div>Book</div></TriggerBox>
       <SlidingTray>
         {spells}

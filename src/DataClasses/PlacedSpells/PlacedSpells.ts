@@ -17,24 +17,27 @@ export class PlacedSpells {
 
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates
-    if (!this.spells.includes(spell)) {
-      // ISSUE: player draws spell, spell is on cursor (not board) before he places the spell on board/.
-      // player can cancel spell before he places it...
-      // FIX: do not add spell to this.spells until placed on board...
-      spell.updatePropertyValue('updateOrder', this.spells.length + 1);
-      this.spells.push(spell);
+    if (!this.spells.includes(spell)) { // TESTING: FIFO priority ordering
+      this.spells.unshift(spell);
+      let count: number = 1;
+      this.spells.forEach(s => {
+        if (!s.isRemove) {
+          s.updatePropertyValue('updateOrder', count);
+          count++;
+        }
+      });
     }
   };
 
   removeSpell = (spell: Spell): void => {
-    spell.markSpellForRemoval();
+    spell.markSpellForRemoval(); // TESTING: FIFO priority ordering
     let count = 1;
     this.spells.forEach(s => {
-      if (s != spell) {
+      if (!s.isRemove) {
         s.updatePropertyValue('updateOrder', count);
         count++;
       }
-    })
+    });
   };
 
   removeInvalidSpells = (): void => {

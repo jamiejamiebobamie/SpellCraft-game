@@ -2,7 +2,7 @@
 import { Fizzle } from './Fizzle';
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
 import { GameBoard } from '../GameBoard/GameBoard';
-import { Quicken } from '../PlacedSpells/Spell';
+import { InferenceString } from '../types';
 
 export type NPCPlayerTurnMove = {
   isSkip: boolean;
@@ -28,6 +28,7 @@ export class Player {
   focusAmt: number = 4;
   isTurn: boolean = false;
   fizzles: Array<Fizzle> = [];
+  checkGameOverCallback!: Function;
 
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 5;
@@ -36,10 +37,11 @@ export class Player {
   private static readonly BACKLASH_DAMAGE = 1;
   private static readonly FIZZLE_LIFETIME_TURNS = 3; // How long a fizzle tracks on a player
 
-  constructor(direction: -1 | 1, color: string, avatarUrl: string) {
+  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function) {
     this.direction = direction;
     this.color = color;
     this.avatarUrl = avatarUrl;
+    this.checkGameOverCallback = checkGameOverCallback;
   }
 
   // --- Getters ---
@@ -107,6 +109,7 @@ export class Player {
     this.healthAmt -= healthDecrement;
     // clamp values between 0 and max
     this.healthAmt = Math.min(Math.max(this.healthAmt, 0), Player.MAX_HEALTH_AMT);
+    this.checkGameOverCallback();
   };
 
   /**
@@ -162,18 +165,21 @@ export class Player {
 }
 
 export class NPCPlayer extends Player {
-  // gameBoardRef: GameBoard;
-  // difficulty: number; // Dynamic slider integer: [1, 10]
+  gameBoardRef: GameBoard;
+  castSpeed!: number;
+  npcPlaceSpellOnBoard!: Function;
+  castingLoopInterval: number | null = null;
+
   readonly avatarHeadUrl: string = './player_avatars/Head2.png';
   readonly avatarRobeUrl: string = './player_avatars/Robe2a.png';
   readonly avatarBicepUrl: string = './player_avatars/Bicep2.png';
 
-  constructor(direction: -1 | 1, color: string, avatarUrl: string){//, gameBoardRef: GameBoard, difficulty: number = 6) {
-    super(direction, color, avatarUrl);
-    // this.gameBoardRef = gameBoardRef;
-
-    // Clamp difficulty constructor fallback strictly to valid bounds
-    // this.difficulty = Math.max(1, Math.min(10, difficulty));
+  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function, gameBoardRef: GameBoard, castSpeed: number, npcPlaceSpellOnBoard: Function) {//, gameBoardRef: GameBoard, difficulty: number = 6) {
+    super(direction, color, avatarUrl, checkGameOverCallback);
+    this.gameBoardRef = gameBoardRef;
+    this.castSpeed = castSpeed;
+    this.npcPlaceSpellOnBoard = npcPlaceSpellOnBoard;
+    console.log({ castSpeed });
   }
 
   // /**
@@ -187,16 +193,48 @@ export class NPCPlayer extends Player {
   //   };
   // };
 
-  // /**
-  //  * Completely ignores board state and generates a randomized turn option.
-  //  */
-  // getRandomMove = (): NPCPlayerTurnMove => {
-  //   const shouldSkip = Math.random() > 0.8;
-  //   return {
-  //     isSkip: shouldSkip,
-  //     symbol: shouldSkip ? null : new GameSymbol('squiggle', this)
-  //   };
-  // };
+  /**
+   * Completely ignores board state and generates a randomized turn option.
+   */
+  getRandomMove = (): InferenceString => {
+
+    // export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle';
+
+    /*
+
+      TO-DO:
+    
+      1. if out of focus -> cast diamonds and triangles
+        1a. place in middle heart cell
+        1b. possibly speed up cast time (slightly) to seem more frantic
+      
+      2. if low on health -> cast circle on cell then circle on same cell again to heal
+
+      3. if incoming line or star spells from opponent -> cast circle in that "lane" to reverse
+
+      4. cast line then star in same lane -> creates sped-up star
+
+      5. if out of focus -> skip turn to regain stamina
+
+    
+    */
+
+    let GAME_SYMBOLS: Array<InferenceString> = [ 'line', 'circle', 'star', 'line', 'circle', 'star']//, ...GameSymbol.FIZZLE_INFERENCES]
+    if (this.focusAmt == 0) {
+      GAME_SYMBOLS = ['diamond', 'triangle', 'diamond', 'triangle']//, ...GameSymbol.FIZZLE_INFERENCES]
+    }
+    const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
+    const inferenceString = GAME_SYMBOLS[rand];
+    return inferenceString;
+  };
+
+  startCastingLoop = (): void => {
+    this.castingLoopInterval = setInterval(() => {
+      const inferenceString = this.getRandomMove();
+      const gameSymbol = new GameSymbol(inferenceString, this);
+      this.npcPlaceSpellOnBoard(gameSymbol);
+    }, this.castSpeed);
+  }
 
   // /**
   //  * Evaluates AI intent probability thresholds based on the difficulty variable.

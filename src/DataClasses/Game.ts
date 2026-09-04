@@ -9,6 +9,7 @@ import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
 import { NPCPlayer, Player } from './Player/Player';
+import { proxy } from 'valtio';
 
 export const GameOverStatus = {
   BothDead: 0,
@@ -29,6 +30,8 @@ export class Game {
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameSymbol!: GameSymbol | null;
+  clockSpeed: number = .05;
+
 
   // Game Loop Properties
   players!: [Player, Player];
@@ -54,8 +57,8 @@ export class Game {
     this.appendToLog('Initializing new mystical duel...', '#a78bfa');
 
     // 2. Spawn fresh data layers for both players
-    const humanPlayer = new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png'); // Heading right
-    const computerPlayer = new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png'); //new NPCPlayer(-1, '#ef4444', []); // Heading left (grid reference mapped below)
+    const humanPlayer = proxy(new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png', this.checkIfIsGameOver)); // Heading right
+    const computerPlayer = proxy(new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png', this.checkIfIsGameOver, this.gameBoard, this.clockSpeed * 100000, this.npcPlaceSpellOnBoard)); // this.clockSpeed = .05, 0.05 * 100000 = 5000 milliseconds
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout
@@ -91,6 +94,8 @@ export class Game {
     // 7. Fire up the start of the human player turn phase machine
     humanPlayer.setIsTurn(true, this.gameTurn);
     this.gameContext.changeState(new PlayerDrawSpell(this.gameContext));
+
+    computerPlayer.startCastingLoop();
   };
 
   resetGame = (): void => {
@@ -134,7 +139,10 @@ export class Game {
   ): void => {
     switch (action) {
       case 'decrementHealth':
-        if (typeof param === 'number') player.decrementHealth(param);
+        if (typeof param === 'number') {
+          player.decrementHealth(param);
+          this.checkIfIsGameOver();
+        }
         break;
       case 'decrementFocus':
         if (typeof param === 'number') player.decrementFocus(param);
@@ -147,7 +155,7 @@ export class Game {
         break;
     }
   };
-  
+
   getIsGameBoardDisabled = (): boolean => {
     return this.gameBoard.getIsClickDisabled();
   }
@@ -184,7 +192,7 @@ export class Game {
   isCanPlaceGameSymbolOn = (cell: Cell): boolean => {
     const isHumanActivePlayer = !(this.gameContext.activePlayer instanceof NPCPlayer)
     const isPlacingGameSymbol = !!this.gameSymbol;
-    return isPlacingGameSymbol && isHumanActivePlayer && cell.getIsFree() && cell.getIsPlaceCell(this.gameContext.activePlayer);
+    return isPlacingGameSymbol && isHumanActivePlayer && cell.getIsFree() && cell.getIsPlaceCell(this.players[0]);
   }
 
   getLogEntries = (): Array<GameLogEntry> => {
@@ -206,10 +214,26 @@ export class Game {
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
-        this.setIsClickDisabled(true);
-        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
+        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
         spell.setIsPlaced(true);
-        this.setIsClickDisabled(false);
+      }
+    }
+  }
+
+  npcPlaceSpellOnBoard = async (gameSymbol: GameSymbol): Promise<void> => {
+    const cell = this.gameBoard.getFreeNpcPlacementCell(this.players[1]);
+    if (cell.getIsFree() && cell.getIsPlaceCell(this.players[1])) {
+      this.placedSpells.removeInvalidSpells();
+      const spell = gameSymbol.instantiateSpell(this.gameTurn);
+      if (spell instanceof Spell) {
+        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, '#3b82f6');
+        spell.setCellIndex(cell.getCellIndex());
+        this.placedSpells.addSpell(spell);
+        this.gameBoard.setSpellAt(spell, cell);
+        // this.setIsClickDisabled(true);
+        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+        spell.setIsPlaced(true);
+        // this.setIsClickDisabled(false);
       }
     }
   }
@@ -317,10 +341,40 @@ export class Game {
    */
   incrementGameTurn = (): void => {
     this.gameTurn += 1;
-    this.appendToLog(`--- Global Turn Wheel Advanced to Cycle [${this.gameTurn}] ---`, '#6b7280');
   };
 
-  setGameOver = (status: GameOver ): void => {
-    this.gameOver = status; 
+  getCurrentGameTurn = (): number => {
+    return this.gameTurn;
+  };
+
+  setGameOver = (status: GameOver): void => {
+    this.gameOver = status;
+  }
+
+  //CHECK FOR GAME OVER CONDITION...
+  checkIfIsGameOver = (): void => {
+    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+    const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
+    switch (deadPlayers.length) {
+      case 2:
+        this.gameOver = GameOverStatus.BothDead;
+        break;
+      case 1:
+        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
+        break;
+    }
+
+    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
+    if (!deadPlayers.length) {
+
+      const MINUTES_HAND = 12;
+      const HOURS_HAND = 6;
+      const SUNRISE = MINUTES_HAND * HOURS_HAND;
+      const isSunrise = this.gameTurn > SUNRISE;
+
+      if (isSunrise) {
+        this.gameOver = GameOverStatus.TimesUp
+      }
+    }
   }
 }

@@ -11,9 +11,9 @@ export class GameSymbol {
   // Stores the recipe/class constructor rather than an already instantiated object
   private SpellClass: SpellConstructor | null = null;
 
-  static readonly FIZZLE_INFERENCES = ['square', 'squiggle'];
+  static readonly FIZZLE_INFERENCES: Array<InferenceString> = ['square', 'squiggle'];
 
-  private static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
+  static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
     ['line', Quicken],
     ['circle', Phlegm],
     ['star', Ether],
