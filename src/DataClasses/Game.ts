@@ -8,12 +8,17 @@ import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
-import {
-  NPCPlayer,
-  Player
-  // , NPCPlayer
-} from './Player/Player';
-import { CellIndex } from './types';
+import { NPCPlayer, Player } from './Player/Player';
+
+export const GameOverStatus = {
+  BothDead: 0,
+  PlayerWon: 1,
+  NpcWon: 2,
+  TimesUp: 3,
+} as const;
+
+// Create a type out of the object if needed
+export type GameOver = typeof GameOverStatus[keyof typeof GameOverStatus]; // "UP" | "DOWN"
 
 export class Game {
   // Core Subsystem Managers
@@ -32,6 +37,7 @@ export class Game {
   isClickDisabled: boolean = false;
   isHoverDisabled: boolean = false;
   hoveredSpell: Spell | null = null;
+  gameOver: GameOver | null = null;
 
   constructor() {
     this.init();
@@ -313,4 +319,8 @@ export class Game {
     this.gameTurn += 1;
     this.appendToLog(`--- Global Turn Wheel Advanced to Cycle [${this.gameTurn}] ---`, '#6b7280');
   };
+
+  setGameOver = (status: GameOver ): void => {
+    this.gameOver = status; 
+  }
 }

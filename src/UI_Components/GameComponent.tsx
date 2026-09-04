@@ -8,10 +8,12 @@ import GameBoardComponent from './GameBoard/GameBoardComponent';
 import GameLogComponent from './GameLog/GameLogComponent';
 import SpellBookComponent from './UI_Elements/SpellBookComponent';
 import EndTurnButtonComponent from './UI_Elements/EndTurnButtonComponent';
+import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
 import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
 import { rootGameStore, controls } from '../DataClasses/store';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
+import { GameOver, GameOverStatus } from '../DataClasses/Game';
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   margin: 0 auto; 
@@ -89,6 +91,7 @@ export const GameComponent = () => {
   const player2AvatarRef = useRef<HTMLImageElement | null>(null);
 
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [sunriseProgress, setSunriseProgress] = useState<number>(0);
 
   // Added React MouseEvent typing to handle DOM positional calculations safely
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -113,9 +116,11 @@ export const GameComponent = () => {
 
   // TO-DO: resolve Typescript-only type error here
   return (
-    <GameWrapper
-      ref={zoneRef}
-      $isPlacingGameSymbol={!!gameSymbolIcon}
+    <>
+      {/* <PixieDustCanvas /> */}
+      <GameWrapper
+        ref={zoneRef}
+        $isPlacingGameSymbol={!!gameSymbolIcon}
       onMouseMove={handleMouseMove}
       onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
         const target = e.target as HTMLElement;
@@ -131,9 +136,6 @@ export const GameComponent = () => {
           rootGameStore.beginDrawing();
         }
       }}
-      // onMouseDown={() => {
-
-      // }}
       onMouseUp={() => {
         if (!rootGameStore.getIsDrawing()) return;
         rootGameStore.endDrawing();
@@ -144,30 +146,43 @@ export const GameComponent = () => {
         rootGameStore.endDrawing();
         rootGameStore.runInference();
       }}
-    >
-      <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
-      <SpellBookComponent rootGameStore={rootGameStore} />
-      {/* <EndTurnButtonComponent rootGameStore={rootGameStore} /> */}
-      <ClockFaceComponent
-        clockSpeed={.05}
+      >
+        <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
+        <SpellBookComponent rootGameStore={rootGameStore} />
+        <ClockFaceComponent
+        clockSpeed={1}
         onMinuteHandLap={() => {
-          rootGameStore.disableGameBoard();
           rootGameStore.updatePlacedSpells();
+          // CHECK FOR GAME OVER CONDITION...
+          // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+          // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
+          setSunriseProgress(progress => {
+            const MINUTES_HAND = 12;
+            const HOURS_HAND = 6;
+            const SUNRISE = MINUTES_HAND * HOURS_HAND;
+
+            const isSunrise = progress + 1 > SUNRISE;
+            console.log({ progress: progress+ 1, isSunrise, SUNRISE });
+            if (isSunrise) {
+              console.log({ isSunrise }, 'game over');
+              rootGameStore.setGameOver(GameOverStatus.TimesUp);
+            }
+            return progress + 1;
+          })
           rootGameStore.regenFocus();
-          rootGameStore.enableGameBoard();
-        }} />
-      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} />
-      {/* have SpellCanvasComponent to allow for GameBoard cells hover -> have isDrawing = true on click and show canvas (if player's turn and not-NPC) */}
-      <SpellCanvasComponent rootGameStore={rootGameStore} />
-      {/* LEFT COLUMN: PLAYER */}
-      <PlayerComponent rootGameStore={rootGameStore} isTurn={snap?.getIsTurn(1)} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
-      {/* CENTER COLUMN: CANVAS GRID MATRIX */}
-      <MainColumn>
-        <GameBoardComponent rootGameStore={rootGameStore} />
-        <GameLogComponent rootGameStore={rootGameStore} />
-      </MainColumn>
-      {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-      <PlayerComponent isTurn={snap?.getIsTurn(-1)} playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
-    </GameWrapper>
+        }} /> 
+        {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
+        <SpellCanvasComponent rootGameStore={rootGameStore} />
+        {/* LEFT COLUMN: PLAYER */}
+        <PlayerComponent rootGameStore={rootGameStore} isTurn={snap?.getIsTurn(1)} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
+        {/* CENTER COLUMN: CANVAS GRID MATRIX */}
+        <MainColumn>
+          <GameBoardComponent rootGameStore={rootGameStore} />
+          <GameLogComponent rootGameStore={rootGameStore} />
+        </MainColumn>
+        {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
+        <PlayerComponent isTurn={snap?.getIsTurn(-1)} playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
+      </GameWrapper>
+    </>
   );
 };

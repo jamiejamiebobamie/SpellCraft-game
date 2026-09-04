@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
+import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
 import styled from 'styled-components';
 
 // 4. Styled Components with transform pivots
@@ -13,61 +14,6 @@ position: absolute; /* Changed from fixed */
   overflow: visible;
 `;
 
-type IK_Props = {
-  $src: string;
-  $angle: number;
-}
-
-const AvatarBicep = styled.div<IK_Props>`
-  position: absolute;
-
-  top: 7.7cqw;
-  left: 9cqw;
-  
-  width: 6.05cqw;
-  aspect-ratio: 255/149; 
-  
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-
-  transform-origin: .75cqw 1.5cqw;
-  transform: rotate(${props => props.$angle}deg);
-
-  transform-style: preserve-3d; 
-`;
-
-const AvatarForearm = styled.div<IK_Props>`
-  position: absolute;
-  top: .1cqw;
-  left: 4cqw;
-  width: 3.3cqw;
-  aspect-ratio: 150/80; 
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  overflow: visible;
-  transform-origin: 1cqw 1.5cqw;
-  transform: translateZ(-1px) rotate(${props => props.$angle}deg);
-`;
-
-const AvatarWandHand = styled.div<IK_Props>`
-  position: absolute;
-  top: -.5cqw;
-  left: 2.8cqw;
-  width: 7.8cqw;
-  aspect-ratio: 320/101; 
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  z-index: 2;
-  transform-origin: .2cqw .8cqw;
-  transform: rotate(${props => props.$angle}deg);
-`;
-
 // 5. Component Props
 interface IKArmComponentProps {
   avatarRef: React.RefObject<HTMLImageElement | null>;
@@ -79,10 +25,6 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
   const bicepRef = useRef<HTMLImageElement | null>(null);
   const handRef = useRef<HTMLImageElement | null>(null);
   const [theta, setTheta] = useState<Array<number>>([]);
-
-  useEffect(() => {
-    console.log({ theta });
-  }, [theta])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -112,12 +54,12 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
       if (diffAngle < -Math.PI) diffAngle += 2 * Math.PI;
 
       // 4. Convert to degrees
-      const theta = diffAngle * 180 / Math.PI;// / 3;
+      const theta = diffAngle * 180 / Math.PI;
 
-      if (Math.abs(theta) < 120){
-        const thetaSixth = theta / 6;
-        const thetaThird = theta / 3;
-        const thetaHalf = theta / 2;
+      if (Math.abs(theta) < 120) {
+        const thetaSixth = theta / 6; // shoulder
+        const thetaThird = theta / 3; // elbow
+        const thetaHalf = theta / 2; // wrist
 
         setTheta([thetaSixth, thetaThird, thetaHalf]);
       }

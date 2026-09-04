@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { IK_ArmComponent } from './IK_ArmComponent';
+import { AvatarRobe, AvatarHead, AvatarRightArm } from './CharacterParts';
 import styled from 'styled-components';
-
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -27,45 +27,6 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   background-position: center;
   z-index: 1;
   position: relative;
-`;
-
-const AvatarHead = styled.div<{ $src: string }>`
-  position: absolute;
-  top: 0cqw;
-  left: 5.8cqw;
-  width: 4.5cqw;
-  aspect-ratio: 186/411; 
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  z-index: 2;
-`;
-
-const AvatarRightArm = styled.div<{ $src: string }>`
-  position: absolute;
-  top: 13.3cqw;
-  left: .25cqw;
-  width: 4cqw;
-  aspect-ratio: 168/215; 
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  z-index: 2;
-`;
-
-const AvatarRobe = styled.div<{ $src: string }>`
-  position: absolute;
-  top: 7.75cqw;
-  left: 2.4cqw;
-  width: 13cqw;
-  aspect-ratio: 544/657; 
-  background-image: url(${props => props.$src});
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  z-index: 4;
 `;
 
 const BarBorder = styled.div`
@@ -140,10 +101,11 @@ const PlayerComponent = ({ playerSnap, playerAvatarRef, isTurn }: PlayerComponen
     {/* {isTurn && */}
     {/* } */}
     <AvatarFrame ref={playerAvatarRef} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
-      <AvatarHead $src={playerSnap.avatarHeadUrl} />
-      <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />
-      <AvatarRobe $src={playerSnap.avatarRobeUrl} />
-      <IK_ArmComponent playerSnap={playerSnap} direction={playerSnap.getDirection()} />
+      <AvatarRobe $src={playerSnap.avatarRobeUrl}>
+        <AvatarHead $src={playerSnap.avatarHeadUrl} />
+        <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />
+        <IK_ArmComponent playerSnap={playerSnap} direction={playerSnap.getDirection()} />
+      </AvatarRobe>
     </AvatarFrame>
     <BarBorder><BarFill $pct={playerSnap.getHealthPrct()} /></BarBorder>
     <FocusContainer>

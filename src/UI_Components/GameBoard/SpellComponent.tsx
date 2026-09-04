@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio';
 
 
 // Individual piece styled component
-const SpellIcon = styled.div<{ $gridRow: number; $gridCol: number, $url: string, $isRemove: boolean, $color: string }>`
+const SpellIcon = styled.div<{ $gridRow: number; $gridCol: number, $url: string, $isRemove: boolean, $color: string, $direction: number }>`
 
 
   /* Position the piece inside the specific grid cell */
@@ -37,6 +37,8 @@ const SpellIcon = styled.div<{ $gridRow: number; $gridCol: number, $url: string,
 
   ${props => props.$isRemove && `animation: fade-loop 1s ease-in-out forwards;`}
 
+  transform: scaleX(${props => props.$direction});
+
   @keyframes fade-loop {
   from {
     opacity: 1;
@@ -66,6 +68,7 @@ export const SpellComponent = ({ spell }: SpellComponentProps) => {
       $gridCol={gridCol}
       $isRemove={spellSnap?.getIsRemove()}
       $color={color}
+      $direction={Math.sign(spellSnap.getPropertyValue('speedDirection'))}
       $url={`spell-icons/${spellName}Icon_mockup.png`}
     />
   );

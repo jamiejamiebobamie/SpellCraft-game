@@ -109,3 +109,11 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+@font-face {
+  font-family: 'EnchantedLand';
+  src: url('/fonts/Enchanted Land.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; 
+}

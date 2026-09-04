@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AutomaticSpellCanvasComponent from '../SpellCanvas/AutomaticSpellCanvasComponent';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { Game } from '../../DataClasses/Game'
@@ -9,31 +9,37 @@ import styled from 'styled-components';
 // 2. The Main Absolute Anchor in the Top-Right Corner
 const MenuAnchor = styled.div`
   position: absolute;
-  top: 2cqw;   
+  top: 3cqw;   
   left: 4cqw; 
   z-index: 35;
 `;
 
 // 3. The Visual Trigger Element (The main box you hover over)
 const TriggerBox = styled.div`
-  width: 8cqw;
-  height: 8cqw;
-  border-radius: 8px;
+  width: 6cqw;
+  aspect-ratio: 58/73;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   color: white;
   font-weight: bold;
   font-size: 2cqw;
   z-index: 3; /* Sits higher than the tray */
   position: relative; /* Gives it local z-index priority */
   cursor: pointer;
-  background-image: url("spell-icons/EtherIcon_mockup.png");
+  background-image: url("spell-icons/spellbook-icon.png");
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
   filter: drop-shadow(2px 2px 4px black);
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 2.5cqw;
+  color: #ff8d80;
+  transition: filter, transform 1s;
+  ${MenuAnchor}:hover & {
+    transform: skewX(5deg) skewY(-15deg) rotateX(45deg) scaleY(1.5) translateY(1cqw);
+    filter: drop-shadow(0px 0px 10px white);
+  }
 `;
 
 // 4. The Tray holding the columns (Now uses absolute positioning)
@@ -69,24 +75,25 @@ const SlidingTray = styled.div`
 
 // The Square Images inside the columns
 const SquareImage = styled.img`
-  width: 6cqw;
-  height: 6cqw;
+  width: 4cqw;
+  height: 4cqw;
   object-fit: cover;
   border-radius: 4px;
   background-color: transparent;// #444; /* Fallback placeholder color */
   border: 0;// 1px solid #666;
   transition: transform 0.2s ease, border-color 0.2s ease;
-  padding-top: 1cqw;
+  padding: 1cqw;
 `;
 
 const CanvasContainer = styled.div`
   display: flex;
   position: relative;
-  width: 6cqw;
-  height: 6cqw;
+  width: 4cqw;
+  height: 4cqw;
   border-radius: 4px;
   background-color: transparent;// #444; /* Fallback placeholder color */
   transition: transform 0.2s ease, border-color 0.2s ease;
+  padding: 1cqw;
 `;
 
 // Each Individual Slide-Out Column Group
@@ -107,18 +114,22 @@ interface SpellBookComponentProps {
 }
 
 export default function SpellBookComponent({ rootGameStore }: SpellBookComponentProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0,4).map(([inferenceString, spellName]) => <ColumnGroup>
     <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} alt="SpellImg" />
     <CanvasContainer>
-      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} />
+      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isHovered} />
     </CanvasContainer>
   </ColumnGroup>)
 
   return (
     <MenuAnchor
-      data-click-type="ui-buttons">
+      data-click-type="ui-buttons"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      >
       {/* TO-DO: add spell book icon */}
-      <TriggerBox><div>Spell</div><div>Book</div></TriggerBox>
+      <TriggerBox><div style={{ paddingTop: '.5cqw' }}>Spell</div><div>Book</div></TriggerBox>
       <SlidingTray>
         {spells}
       </SlidingTray>

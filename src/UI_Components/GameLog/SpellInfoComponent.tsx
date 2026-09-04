@@ -93,7 +93,6 @@ const SpellInfoComponent = (hoveredSpell: SpellData) => (
         <StatValue $size="1.1cqw" $color="#227093">{hoveredSpell.speed}</StatValue>
       </StatRow>
     </StatsContainer>
-
     <IconContainer>
       <SpellIcon src={hoveredSpell.iconUrl} alt="Spell Icon" />
     </IconContainer>
