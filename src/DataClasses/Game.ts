@@ -9,6 +9,7 @@ import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
 import { NPCPlayer, Player } from './Player/Player';
+import { InferenceString } from './types';
 import { proxy } from 'valtio';
 
 export const GameOverStatus = {
@@ -200,21 +201,20 @@ export class Game {
   };
 
   regenFocus = () => {
-    this.appendToLog('You and your opponent have regained some focus.', '#3b82f6');
     this.players.forEach(p => p.decrementFocus(-1));
   }
 
   placeSpellOnBoard = async (cell: Cell): Promise<void> => {
     if (this.isCanPlaceGameSymbolOn(cell)) {
-      this.placedSpells.removeInvalidSpells();
+      // this.placedSpells.removeInvalidSpells();
       const spell = this.gameSymbol?.instantiateSpell(this.gameTurn);
       this.gameSymbol = null;
       if (spell instanceof Spell) {
-        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, '#3b82f6');
+        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, this.players[0].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
-        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
       }
     }
@@ -223,15 +223,15 @@ export class Game {
   npcPlaceSpellOnBoard = async (gameSymbol: GameSymbol): Promise<void> => {
     const cell = this.gameBoard.getFreeNpcPlacementCell(this.players[1]);
     if (cell.getIsFree() && cell.getIsPlaceCell(this.players[1])) {
-      this.placedSpells.removeInvalidSpells();
+      // this.placedSpells.removeInvalidSpells();
       const spell = gameSymbol.instantiateSpell(this.gameTurn);
       if (spell instanceof Spell) {
-        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, '#3b82f6');
+        this.appendToLog(`Your opponents has cast a ${spell.getSpellName()} spell!`, this.players[1].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
         // this.setIsClickDisabled(true);
-        await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
         // this.setIsClickDisabled(false);
       }
@@ -243,12 +243,10 @@ export class Game {
   }
 
   updatePlacedSpells = async () => {
-    // this.disableGameBoard();
-    if (this.placedSpells.spells.length > 1) {
-      // uses a generator/iterator
-      await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
-    }
-    // this.enableGameBoard();
+    this.disableGameBoard();
+    // uses a generator/iterator
+    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
+    this.enableGameBoard();
   }
 
   getGameSymbolIcon = (): string => {
@@ -322,59 +320,64 @@ export class Game {
     const rawPoints = this.spellCanvas.getRawPoints();
     this.spellCanvas.clearDrawing();
     const result = await this.model.runInference(rawPoints);
+    this.instantiateSpellFromInferenceString(result);
+  }
 
-    if (GameSymbol.FIZZLE_INFERENCES.includes(result)) {
-      this.appendToLog(`You drew an unknown spell! And gained a Fizzle`, 'black');
-      this.appendToLog(`Don't get 3 Fizzles...`, 'black');
-      this.gameSymbol = new GameSymbol(result, this.getActivePlayer()); //null;
-      this.gameSymbol.instantiateSpell(this.gameTurn);
+  instantiateSpellFromInferenceString = (inferenceString: InferenceString): void => {
+  if (GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)) {
+    if (this.players[0].getFizzleCount() == 3) {
+      this.appendToLog(`The spellcasting gods recoil at your malfeasance. BACKLASH!`, 'purple');
     } else {
-      const spellName = GameSymbol.SPELL_NAME_LOOKUP.get(result);
-      this.appendToLog(`You drew ${spellName}!`, 'black');
-      this.gameSymbol = new GameSymbol(result, this.getActivePlayer()); //null;
+      this.appendToLog(`You drew an unknown spell! And gained a Fizzle.`, 'purple');
     }
+    this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
+    this.gameSymbol.instantiateSpell(this.gameTurn);
+  } else {
+    this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
+  }
+}
+
+
+/**
+ * Steps the turn cycle forward. Called by the Finite State Machine 
+ * once the full round-trip execution phase resolves.
+ */
+incrementGameTurn = (): void => {
+  this.gameTurn += 1;
+};
+
+getCurrentGameTurn = (): number => {
+  return this.gameTurn;
+};
+
+setGameOver = (status: GameOver): void => {
+  this.gameOver = status;
+}
+
+//CHECK FOR GAME OVER CONDITION...
+checkIfIsGameOver = (): void => {
+  // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+  const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
+  switch (deadPlayers.length) {
+    case 2:
+      this.gameOver = GameOverStatus.BothDead;
+      break;
+    case 1:
+      this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
+      break;
   }
 
-  /**
-   * Steps the turn cycle forward. Called by the Finite State Machine 
-   * once the full round-trip execution phase resolves.
-   */
-  incrementGameTurn = (): void => {
-    this.gameTurn += 1;
-  };
+  // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
+  if (!deadPlayers.length) {
 
-  getCurrentGameTurn = (): number => {
-    return this.gameTurn;
-  };
+    const MINUTES_HAND = 12;
+    const HOURS_HAND = 6;
+    const SUNRISE = MINUTES_HAND * HOURS_HAND;
+    const isSunrise = this.gameTurn > SUNRISE;
 
-  setGameOver = (status: GameOver): void => {
-    this.gameOver = status;
-  }
-
-  //CHECK FOR GAME OVER CONDITION...
-  checkIfIsGameOver = (): void => {
-    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
-    const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
-    switch (deadPlayers.length) {
-      case 2:
-        this.gameOver = GameOverStatus.BothDead;
-        break;
-      case 1:
-        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
-        break;
-    }
-
-    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
-    if (!deadPlayers.length) {
-
-      const MINUTES_HAND = 12;
-      const HOURS_HAND = 6;
-      const SUNRISE = MINUTES_HAND * HOURS_HAND;
-      const isSunrise = this.gameTurn > SUNRISE;
-
-      if (isSunrise) {
-        this.gameOver = GameOverStatus.TimesUp
-      }
+    if (isSunrise) {
+      this.gameOver = GameOverStatus.TimesUp
     }
   }
+}
 }

@@ -8,8 +8,10 @@ import {
   RowShiftBadge
 } from '../GameBoard/Badge';
 import { Player } from '../Player/Player';
+import { UniqueId } from '../UniqeId';
 
-export class Cell {
+
+export class Cell extends UniqueId {
   // Properties
   playerOfPlacementCell: Player | null = null;
   playerCellOwner: Player | null = null;
@@ -26,8 +28,8 @@ export class Cell {
   badges: Array<Badge>;
 
   constructor(cellIndex: CellIndex) {
+    super();
     this.cellIndex = cellIndex;
-
     this.badges = [];
   }
 

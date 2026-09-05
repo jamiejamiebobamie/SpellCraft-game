@@ -2,9 +2,10 @@
 import { SpellConstructor, InferenceString } from '../types';
 import { Player } from '../Player/Player';
 import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
+import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
-export class GameSymbol {
+export class GameSymbol extends UniqueId {
   symbolName!: InferenceString;
   readonly caster: Player;
 
@@ -30,6 +31,7 @@ export class GameSymbol {
   ]);
 
   constructor(symbolName: InferenceString, caster: Player) {
+    super();
     this.caster = caster;
     this.symbolName = symbolName;
   }

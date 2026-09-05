@@ -1,10 +1,13 @@
+import { UniqueId } from '../UniqeId';
+
 // Fizzle.ts
-export class Fizzle {
+export class Fizzle extends UniqueId {
   // Constants assigned at creation
   readonly turnCreated: number;
   readonly numTurnsUntilRemoved: number;
 
   constructor(currentTurn: number, lifetimeTurns: number = 3) {
+    super();
     this.turnCreated = currentTurn;
     this.numTurnsUntilRemoved = lifetimeTurns;
   }

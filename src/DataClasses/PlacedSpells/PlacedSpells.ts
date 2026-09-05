@@ -17,10 +17,11 @@ export class PlacedSpells {
 
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates
-    if (!this.spells.includes(spell)) { // TESTING: FIFO priority ordering
-      this.spells.unshift(spell);
+    if (!this.spells.includes(spell)) { 
+      // this.spells.unshift(spell); // TESTING: FIFO priority ordering
+      this.spells.push(spell);
       let count: number = 1;
-      this.spells.forEach(s => {
+      this.spells.forEach(s => { 
         if (!s.isRemove) {
           s.updatePropertyValue('updateOrder', count);
           count++;
@@ -41,7 +42,6 @@ export class PlacedSpells {
   };
 
   removeInvalidSpells = (): void => {
-    // Secondary Cleanup: Filter out any remaining phantom items that lost board references
     const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
     markedForRemoval.forEach(s => {
       const i = this.spells.indexOf(s);
@@ -87,7 +87,7 @@ export class PlacedSpells {
       this.updateSpell(gameBoard, gameLog, this.spells[i]);
     }
     // // Cleanup: Filter out any remaining phantom items that lost board references
-    // this.removeInvalidSpells();
+    this.removeInvalidSpells();
   };
 
   // called in 'updateSpells' and after placing a spell on the board for the first time
@@ -165,9 +165,7 @@ export class PlacedSpells {
 
           // Do vertical movement if otherSpell was 'Gyre'
           spell.moveVertically();
-          // ^^ causes Spells to have invalid CellIndexes... 
-          // TO-DO: have transparent cells surrounding the visible cells (transparent cell "Gutters")
-
+          
           nextCellIndex = spell.getCellIndex();
 
           // Safety check: verify if the move pushed the projectile off the map entirely

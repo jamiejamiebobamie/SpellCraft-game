@@ -2,6 +2,7 @@ import { Player, NPCPlayer } from './Player/Player';
 import { GameLog } from './GameLog';
 import { GameStateProgressionPath } from './types';
 import { GameBoard } from './GameBoard/GameBoard';
+import { UniqueId } from './UniqeId';
 
 export interface GameContext {
   activePlayer: Player;
@@ -14,12 +15,13 @@ export interface GameContext {
   changeState: (newState: GameState) => void;
 }
 
-export abstract class GameState {
+export abstract class GameState extends UniqueId {
   protected context: GameContext;
   protected activeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   protected progressionPath: GameStateProgressionPath = null;
 
   constructor(context: GameContext) {
+    super();
     this.context = context;
   }
 

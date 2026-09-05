@@ -1,29 +1,46 @@
 
-import React from 'react';
-import styled from 'styled-components';
+import React, { useRef } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
-import { NPCPlayer } from '../../DataClasses/Player/Player'
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { useSnapshot } from 'valtio';
+import styled, { css, keyframes } from 'styled-components';
+
+const skewWobble = keyframes`
+  0%, 1% {
+    transform: skewX(-4deg);      /* Sliding fast through the center... */
+  }
+  53%, 55% {
+    transform: skewX(4deg);      /* Slides right back through the center without stopping */
+  }
+  99%,100% {
+    transform: skewX(-4deg);      /* Drops back to center to complete the wave loop */
+  }
+`;
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
-  bottom:  12.5cqw;
+  bottom:  18cqw;
   opacity: ${props => props.$transparency};
   transition: opacity 1s ease-in-out;
   pointer-events: ${props => props.$isDisabled ? 'none' : 'auto'}
 `;
 
-const GridContainer = styled.div`
+const GridContainer = styled.div<{ $isWobbling: boolean }>`
   display: grid;
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(7, 1fr);
+    ${props =>
+        props.$isWobbling &&
+        css`
+      animation: ${skewWobble} 5s ease-in-out infinite;
+    `}
 `;
 
 const StyledCell = styled.div<{
     $isPlace: boolean;
     $isHighlighted: boolean;
+    $isDisabled: boolean;
     $spellOwnerColor?: string;
     $isPlayerCell: boolean;
     $transparency: number;
@@ -35,13 +52,13 @@ const StyledCell = styled.div<{
     $numPlacementCells: number;
     $isOccupied: boolean;
 }>`
-  background: ${props => props.$isPlayerCell ? '#bcb9b9' : '#c7c2c2'};
+  background: ${props => props.$isPlayerCell ? '#bcb9b943' : '#c7c2c23c'};
   ${props => props.$isHighlighted && `filter: brightness(1.1);`}
   border: 0.05cqw solid;
-  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid #dbd668;'}
-  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid #dbd668;'}
-  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid #dbd668;'}
-  ${props => (props.$isPlacingGameSymbol && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid #dbd668;'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid #dbd668;'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid #dbd668;'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid #dbd668;'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid #dbd668;'}
 
   aspect-ratio: 1 / 1;
   position: relative;
@@ -51,11 +68,11 @@ const StyledCell = styled.div<{
   transition: opacity, background 1s ease, border 0.15s ease;
   opacity: ${props => props.$transparency};
   &:hover {
-   ${props => (props.$isPlacingGameSymbol && props.$isPlace || !props.$isPlacingGameSymbol)
+   ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace || !props.$isDisabled && !props.$isPlacingGameSymbol)
         && `filter: brightness(1.2);`};
   }
 
-  cursor: ${props => props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : props.$isOccupied ? 'help' : 'inherit'};
+  cursor: ${props => !props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : props.$isOccupied ? 'help' : 'inherit'};
 
   &::before {
     ${props => props.$isPlayerCell && `content: '♥';`}
@@ -63,6 +80,7 @@ const StyledCell = styled.div<{
     color: #d8d5d5;
   }
 `;
+
 
 const BadgeElement = styled.div<{ $position: string; $color: string; $opacity: number }>`
   position: absolute;
@@ -84,45 +102,31 @@ const BadgeElement = styled.div<{ $position: string; $color: string; $opacity: n
   ${props => props.$position === 'bottom-right' && 'bottom: 0.2cqw; right: 0.2cqw;'}
 `;
 
-// This container perfectly clones your board's grid structure
-const GridOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none; /* Let clicks pass through to cells below */
-  
-  /* Mirroring your exact grid configuration */
-  display: grid;
-  grid-template-rows: repeat(3, 1fr);
-  grid-template-columns: repeat(7, 1fr);
-`;
 
 interface GameBoardComponentProps {
     rootGameStore: Game;
 }
 
-// TO-DO: spell movement enhancement: spell movement is digital/staccato and needs to be smooth and "analog"
-// see if flex-order(i) allows for transition property and if so if it works horizontally and vertically
 const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
-    const snap = useSnapshot(rootGameStore);
-    const isPlacingGameSymbol = !!snap.getGameSymbolIcon();
-    const isDisabled = snap.gameBoard.getIsClickDisabled();
-    const isHumanActivePlayer = !(snap.getActivePlayer() instanceof NPCPlayer);
+    const gridOverlayRef = useRef<HTMLDivElement | null>(null);
+    const snap = useSnapshot<Game>(rootGameStore);
+    const isPlacingGameSymbol: boolean = !!snap.getGameSymbolIcon();
+    const isDisabled: boolean = snap.gameBoard.getIsClickDisabled();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     return (
-        <BoardWrapper $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
-            <GridOverlay>
-                {snap.placedSpells.spells.map(
-                    (_, i) =>
-                        <SpellComponent spell={rootGameStore.placedSpells.spells[i]} />
-                )}
-            </GridOverlay>
-            <GridContainer>
-                {snap.gameBoard.cells.map((c,i) =>
+        <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
+            {snap.placedSpells.spells.map(
+                (s, i) =>
+                    <SpellComponent
+                        key={s.id}
+                        gridOverlayRef={gridOverlayRef}
+                        spell={rootGameStore.placedSpells.spells[i]}
+                    />
+            )}
+            <GridContainer $isWobbling={isDisabled}>
+                {snap.gameBoard.cells.map(c =>
                     <StyledCell
-                        key={`${c.getCellIndex().i}_${c.getCellIndex().j}`}
+                        key={c.id}
                         data-click-type="board-cell"
                         $maxI={GameBoard.NUM_ROWS - 1}
                         $maxJ={snap.getActivePlayer().getDirection() == 1 ? numPlacementCells - 1 : GameBoard.NUM_COLS - 1}
@@ -131,28 +135,28 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                         $numPlacementCells={snap.gameBoard.numPlacementCells}
                         $isPlace={snap.isCanPlaceGameSymbolOn(c)}
                         $isHighlighted={
-                            (isPlacingGameSymbol && isHumanActivePlayer &&
-                                snap.isCanPlaceGameSymbolOn(c))
-                                || c.getIsHighlighted()}
+                            (isPlacingGameSymbol && snap.isCanPlaceGameSymbolOn(c))
+                            || c.getIsHighlighted()}
                         $spellOwnerColor={c.getColor()}
                         $isOccupied={!c.getIsFree()}
                         $isPlayerCell={c.getIsPlayerCell()}
+                        $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}
                         $isPlacingGameSymbol={isPlacingGameSymbol}
-                        onMouseEnter={() => 
+                        onMouseEnter={() =>
                             // rootGameStore.getIsHoverDisabled() && 
                             rootGameStore.setHoveredGameboardCell(c)}
                         onMouseLeave={() => rootGameStore.setHoveredGameboardCell(null)}
                         onClick={() => rootGameStore.placeSpellOnBoard(c)}
                     >
-                        {/* {c.badges.map((b, bIdx) => {
+                        {c.badges.map((b, i) => {
                             const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
                             // TO-DO: fix badges not showing. sometimes they show but only on CellIndex 0,0
                             // TO-DO: fix badges to show proper icons and values, with correct positions in the cell.
                             return (
                                 <BadgeElement
-                                    key={bIdx}
-                                    $position={positions[bIdx]}
+                                    key={b.id}
+                                    $position={positions[i]}
                                     $color={b.color}
                                     $opacity={1}//b.transparencyAmt}
                                 >
@@ -160,7 +164,7 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                                     {b.value !== 0 || b.isVisibleIfZero ? <span>{b.value}</span> : null}
                                 </BadgeElement>
                             );
-                        })} */}
+                        })}
                     </StyledCell>
                 )}
             </GridContainer>

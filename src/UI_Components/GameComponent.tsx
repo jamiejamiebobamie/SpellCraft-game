@@ -47,9 +47,10 @@ const MainColumn = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   position: relative;
-  overflow: hidden;
+  // overflow: hidden;
 `;
 
+// TO-DO: figure out why UI is not updating/re-rendering w/o mouse scroll... (valtio)
 
 interface ResponsiveCursorProps {
   $x: number;
@@ -153,21 +154,8 @@ export const GameComponent = () => {
         <ClockFaceComponent
         clockSpeed={rootGameStore.clockSpeed}
         onMinuteHandLap={() => {
-
-          /*
-          
-            CONSIDER:
-              - updating the board only when a new spell is placed on the board
-              - instead of LIFO (earlier spells have update priority over later spells), have FIFO update order
-              
-              ^^^ adds tension to gameplay(?) the quickest/latest caster is given advantage and also causes the game to progress 
-                  would remove the "clock" from the gameplay loop... ?? maybe not.
-                  clock: adds time limit to the match and returns focus
-
-                  focus = limiting factor to player cast speed beyond physical limitations of drawing spells
-
-          */
-          // rootGameStore.updatePlacedSpells();
+  
+          rootGameStore.updatePlacedSpells();
           rootGameStore.incrementGameTurn();
           rootGameStore.checkIfIsGameOver();
           rootGameStore.regenFocus();

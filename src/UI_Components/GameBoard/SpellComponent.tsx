@@ -1,71 +1,82 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { Spell } from '../../DataClasses/PlacedSpells/Spell'
 import { useSnapshot } from 'valtio';
+import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 
+// Pass highly dynamic props (x, y, direction) into .attrs() so they become inline styles
+const SpellIcon = styled.div.attrs<{ $x: number; $y: number; $direction: number }>(props => ({
+  style: {
+    left: `${props.$x}px`,
+    top: `${props.$y}px`,
+    transform: `translate(-50%, -50%) scaleX(${props.$direction})`,
+  },
+})) <{ $url: string; $isRemove: boolean; $color: string }>`
+  position: absolute;
 
-// Individual piece styled component
-const SpellIcon = styled.div<{ $gridRow: number; $gridCol: number, $url: string, $isRemove: boolean, $color: string, $direction: number }>`
-
-
-  /* Position the piece inside the specific grid cell */
-  grid-row: ${props => props.$gridRow};
-  grid-column: ${props => props.$gridCol};
-
-  /* Center the piece asset inside its designated grid cell */
-  justify-self: center;
-  align-self: center;
-
-  /* Your custom piece styling */
+  /* Static dimensions and styles */
   width: 4.2cqw;
   height: 4.2cqw;
   border-radius: 50%;
-  // pointer-events: auto; /* Re-enable pointer events for the piece itself */
-
   pointer-events: none;
-
-  /* Animates smooth transitions across grid tracks */
-  transition: all 0.25s ease-in-out; 
+  z-index: 1;
 
   background-image: url(${props => props.$url});
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  z-index: 1;
 
-  ${props => `filter: drop-shadow(0px 0px 5px ${props.$color});`}
+  /* Your transitions will now work flawlessly because the properties above change smoothly */
+  transition: 
+    transform 1s ease-in-out, 
+    filter 1s ease-in-out, 
+    top 1s ease-in-out, 
+    left 1s ease-in-out, 
+    opacity 1s ease-in-out;
 
+  filter: drop-shadow(0px 0px 5px ${props => props.$color});
+
+  /* Keep this only if you want the fade-loop to override the opacity transition upon removal */
   ${props => props.$isRemove && `animation: fade-loop 1s ease-in-out forwards;`}
 
-  transform: scaleX(${props => props.$direction});
-
   @keyframes fade-loop {
-  from {
-    opacity: 1;
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
-  to {
-    opacity: 0;
-  }
+`;
+
+type CoordsXY = {
+  x: number;
+  y: number;
 }
 
-`;
 interface SpellComponentProps {
   spell: Spell;
+  gridOverlayRef: HTMLDivElement | null;
 }
-
-export const SpellComponent = ({ spell }: SpellComponentProps) => {
+export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) => {
   const spellSnap = useSnapshot(spell);
   const spellName = spellSnap?.getSpellName();
   const cellIndex = spellSnap?.getCellIndex();
-  // CSS Grid tracks are 1-indexed, so add 1 to 0-indexed indices
-  const gridRow = cellIndex?.i + 1;
-  const gridCol = cellIndex?.j + 1;
   const color = spellSnap?.getCaster()?.getColor() || '';
+  const getCoordsXY = useCallback((): CoordsXY => {
+    const coords = { x: 0, y: 0 }
+    console.log({ gridOverlayRef })
+    if (!!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
+      const { width, height } = gridOverlayRef.current.getBoundingClientRect();
+      const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width;
+      const y = ((cellIndex.i + 1) * 2 - 1) / (GameBoard.NUM_ROWS * 2) * height;
+      coords.x = x;
+      coords.y = y;
+    }
+    return coords
+  }, [cellIndex]);
+
+  const coords: CoordsXY = getCoordsXY();
   return (
     <SpellIcon
-      key={spellSnap?.key}
-      $gridRow={gridRow}
-      $gridCol={gridCol}
+      $x={coords.x}
+      $y={coords.y}
       $isRemove={spellSnap?.getIsRemove()}
       $color={color}
       $direction={Math.sign(spellSnap.getPropertyValue('speedDirection'))}
@@ -73,5 +84,3 @@ export const SpellComponent = ({ spell }: SpellComponentProps) => {
     />
   );
 };
-
-      // $url={`spell-icons/${spellName == 'Gyre' ? spellSnap?.rowShift > 0 ? `${spellName}Up` : `${spellName}Down` : spellName}Icon_mockup.png`}

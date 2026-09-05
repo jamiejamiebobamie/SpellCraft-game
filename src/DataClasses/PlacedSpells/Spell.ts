@@ -1,10 +1,11 @@
 // Spell.ts
-import { CellIndex, SpellPropertyName, RowShiftDirections } from '../types';
+import { CellIndex, SpellPropertyName } from '../types';
 import { Player } from '../Player/Player';
 import { BadgeValues } from '../GameBoard/Badge';
+import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
-export abstract class Spell {
+export abstract class Spell extends UniqueId {
   // Constants & Core Properties
   readonly spellName: string;
   readonly caster: Player;
@@ -36,6 +37,7 @@ export abstract class Spell {
   readonly secondaryModifiers: Array<SpellPropertyName> = [];
 
   constructor(spellName: string, caster: Player) {
+    super();
     this.spellName = spellName;
     this.caster = caster;
     this.speedDirection = caster.getDirection();
@@ -262,7 +264,7 @@ export abstract class Gyre extends Spell {
 
   moveHorizontally = (): void => {
     this.cellIndex = proxy({
-      i: this.cellIndex.i + this.rowShift,
+      i: this.cellIndex.i,//this.cellIndex.j % 2 == 0 ? this.cellIndex.i : this.cellIndex.i + this.rowShift,
       j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
     });
   };
@@ -304,7 +306,6 @@ export class GyreDown extends Gyre {
   constructor(caster: Player) {
     super(caster);
     this.rowShift = -1;
-    // this.spellIconUrl = 'spell-icons/GyreDownIcon_mockup.png';
   }
 }
 

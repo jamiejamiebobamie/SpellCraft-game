@@ -3,6 +3,7 @@ import AutomaticSpellCanvasComponent from '../SpellCanvas/AutomaticSpellCanvasCo
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
 import styled from 'styled-components';
+import { rootGameStore } from '../../DataClasses/store';
 
 // 2. The Main Absolute Anchor in the Top-Right Corner
 const MenuAnchor = styled.div`
@@ -81,6 +82,7 @@ const SquareImage = styled.img`
   border: 0;// 1px solid #666;
   transition: transform 0.2s ease, border-color 0.2s ease;
   padding: 1cqw;
+  pointer-events: none;
 `;
 
 const CanvasContainer = styled.div`
@@ -92,6 +94,7 @@ const CanvasContainer = styled.div`
   background-color: transparent;// #444; /* Fallback placeholder color */
   transition: transform 0.2s ease, border-color 0.2s ease;
   padding: 1cqw;
+  pointer-events: none;
 `;
 
 // Each Individual Slide-Out Column Group
@@ -104,24 +107,31 @@ const ColumnGroup = styled.div`
   &:hover  ${CanvasContainer} {
   transform: scale(1.25);
   cursor: pointer;
+  pointer-events: auto;
 }
 `;
 
 export default function SpellBookComponent() {
   const [isHovered, setIsHovered] = useState(false);
-  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0,4).map(([inferenceString, spellName]) => <ColumnGroup>
-    <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} alt="SpellImg" />
-    <CanvasContainer>
-      <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isHovered} />
-    </CanvasContainer>
-  </ColumnGroup>)
+  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0, 4).map(([inferenceString, spellName]) => (
+    <ColumnGroup
+      onClick={() => {
+        if (!rootGameStore.getIsPlacing())
+          rootGameStore.instantiateSpellFromInferenceString(inferenceString);
+      }}
+    >
+      <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} draggable="false" alt="SpellImg" />
+      <CanvasContainer>
+        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isHovered} />
+      </CanvasContainer>
+    </ColumnGroup>))
 
   return (
     <MenuAnchor
       data-click-type="ui-buttons"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      >
+    >
       <TriggerBox><div style={{ paddingTop: '.5cqw' }}>Spell</div><div>Book</div></TriggerBox>
       <SlidingTray>
         {spells}

@@ -2,6 +2,7 @@
 import { Fizzle } from './Fizzle';
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
 import { GameBoard } from '../GameBoard/GameBoard';
+import { UniqueId } from '../UniqeId';
 import { InferenceString } from '../types';
 
 export type NPCPlayerTurnMove = {
@@ -9,7 +10,7 @@ export type NPCPlayerTurnMove = {
   symbol: GameSymbol | null;
 };
 
-export class Player {
+export class Player extends UniqueId {
   // Constants
   readonly direction: -1 | 1; // -1 (going left) or 1 (going right)
   readonly color: string;     // Hex code
@@ -38,6 +39,7 @@ export class Player {
   private static readonly FIZZLE_LIFETIME_TURNS = 3; // How long a fizzle tracks on a player
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function) {
+    super();
     this.direction = direction;
     this.color = color;
     this.avatarUrl = avatarUrl;
@@ -143,8 +145,7 @@ export class Player {
 
   doBacklash = (): void => {
     this.decrementHealth(Player.BACKLASH_DAMAGE);
-    this.fizzles = []; // Wipe historical fizzles clean after punishing
-    // console.log(`Backlash triggered! Damage dealt.`);
+    this.fizzles.splice(0);
   };
 
   /**

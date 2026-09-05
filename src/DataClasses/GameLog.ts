@@ -1,51 +1,29 @@
-export type GameLogEntry = {
-  text: string;
-  color: string;
+import { proxy } from "valtio";
+import { UniqueId } from "./UniqeId";
+
+export class GameLogEntry extends UniqueId {
+  text!: string;
+  color!: string;
+
+  constructor(text: string, color: string) {
+    super();
+    this.text = text;
+    this.color = color;
+  }
 };
 
 export class GameLog {
-  // Properties
-  logEntries: Array<GameLogEntry> = [];
-
-  // HTML DOM ID configuration used for scrolling container reference
-  private static readonly CONTAINER_DOM_ID = 'game-log-scroll-container';
+  logEntries: Array<GameLogEntry> = proxy([]);
 
   getNumLogs = (): number => {
     return this.logEntries.length;
   };
 
-  // --- Methods (Arrow functions to safely preserve 'this' context) ---
-
   clearAllEntries = (): void => {
-    this.logEntries = [];
+    this.logEntries.splice(0);
   };
 
-  /**
-   * Safe data-layer wrapper that pushes an item into the array tracker.
-   * If wrapped in Valtio, mutating this list immediately triggers updates in React.
-   */
   appendEntry = (text: string, color: string = '#FFFFFF'): void => {
-
-    this.logEntries.push({ text, color });
-
-    // Optional: Auto-scroll to the bottom immediately after a log append
-    // Wrap in a microtask timeout to let React finish rendering the new DOM item first
-    setTimeout(this.scrollToBottom, 0);
-  };
-
-  /**
-   * Safely locates the text container element inside the browser layout 
-   * and smoothly transitions the user view downward.
-   */
-  scrollToBottom = (): void => {
-    if (typeof window === 'undefined') return; // Safe guard for node-based testing environments
-
-    const container = document.getElementById(GameLog.CONTAINER_DOM_ID);
-    if (container) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
+    this.logEntries.push(proxy(new GameLogEntry(text, color)));
   };
 }

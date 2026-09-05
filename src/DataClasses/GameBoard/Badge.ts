@@ -1,4 +1,5 @@
 import { SpellPropertyName } from '../types';
+import { UniqueId } from '../UniqeId';
 
 export type BadgeValues = {
   secondaryModifiers: Array<SpellPropertyName>;
@@ -9,7 +10,7 @@ export type BadgeValues = {
 }
 
 // Badge.ts
-export abstract class Badge {
+export abstract class Badge extends UniqueId {
   value: number = 0;
   isVisibleIfZero: boolean;
   transparencyAmt: number = 1.0; // 0.0 to 1.0
@@ -23,6 +24,7 @@ export abstract class Badge {
   protected readonly neutralColor = '#FFFFFF';  // White
 
   constructor(value: number, isVisibleIfZero: boolean, backgroundIcon: string) {
+    super();
     this.value = value;
     this.isVisibleIfZero = isVisibleIfZero;
     this.backgroundIcon = backgroundIcon;

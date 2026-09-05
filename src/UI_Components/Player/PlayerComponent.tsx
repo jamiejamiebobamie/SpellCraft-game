@@ -63,7 +63,7 @@ const FizzleContainer = styled.div`
     min-height: 1.5cqw; 
 `;
 
-const FizzleBadge = styled.div<{ key: number }>`
+const FizzleBadge = styled.div`
     color: #9076c4;
     font-size: 2.1cqw;
     padding-left: 1.59cqw;
@@ -109,7 +109,7 @@ const PlayerComponent = ({ playerSnap, playerAvatarRef }: PlayerComponentProps) 
       {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}
     </FocusContainer>
     <FizzleContainer>
-      {playerSnap.getFizzles().map((_, i) => (<FizzleBadge key={i} />))}
+      {playerSnap.getFizzles().map(f => (<FizzleBadge key={f.id} />))}
     </FizzleContainer>
   </DuelistSideColumn>);
 }
