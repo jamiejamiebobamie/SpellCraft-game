@@ -17,11 +17,11 @@ export class PlacedSpells {
 
   addSpell = (spell: Spell): void => {
     // Prevent adding duplicates
-    if (!this.spells.includes(spell)) { 
+    if (!this.spells.includes(spell)) {
       // this.spells.unshift(spell); // TESTING: FIFO priority ordering
       this.spells.push(spell);
       let count: number = 1;
-      this.spells.forEach(s => { 
+      this.spells.forEach(s => {
         if (!s.isRemove) {
           s.updatePropertyValue('updateOrder', count);
           count++;
@@ -29,6 +29,10 @@ export class PlacedSpells {
       });
     }
   };
+
+  reset = (): void => {
+    this.spells.splice(0);
+  }
 
   removeSpell = (spell: Spell): void => {
     spell.markSpellForRemoval(); // TESTING: FIFO priority ordering
@@ -132,21 +136,6 @@ export class PlacedSpells {
 
       if (!cell) continue;
 
-      // 2. Check for Endzone Opponent Base collisions first
-      if (cell.getIsPlayerCell()) {
-        const owner = cell.getCellOwner();
-        if (spell.getIsPlaced() && owner) {
-          // Apply damage or player impacts
-
-          spell.getPropertyValue('dmgHealth')
-          spell.resolvePlayerCollision(owner);
-          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Player1' : 'Player2'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
-          this.removeSpell(spell);
-          spellDestroyedDuringMove = true;
-          break; // Projectile exploded against opponent base
-        }
-      }
-
       // 3. Check for Projectile-on-Projectile Collisions
       while (!!cell && !cell.getIsFree()) {
         const otherSpell = cell.getSpell();
@@ -154,8 +143,8 @@ export class PlacedSpells {
           // spell consumes otherSpell and absorbs its properties
           spell.resolveSpellCollision(otherSpell);
 
-          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has consumed ${otherSpell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${otherSpell.getSpellName()} spell.`, '#b2077c')
-          gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has ${otherSpell.getModifierLogText(spell)}`, '#b2077c')
+          // gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has consumed ${otherSpell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${otherSpell.getSpellName()} spell.`, '#b2077c')
+          // gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell has ${otherSpell.getModifierLogText(spell)}`, '#b2077c')
 
           // Clean up the consumed spell out of our batch engine registry
           this.removeSpell(otherSpell);
@@ -165,7 +154,7 @@ export class PlacedSpells {
 
           // Do vertical movement if otherSpell was 'Gyre'
           spell.moveVertically();
-          
+
           nextCellIndex = spell.getCellIndex();
 
           // Safety check: verify if the move pushed the projectile off the map entirely
@@ -190,6 +179,29 @@ export class PlacedSpells {
       }
 
       if (!cell) continue;
+
+
+      // 2. Check for Endzone Opponent Base collisions first
+      if (cell.getIsPlayerCell()) {
+        const owner = cell.getCellOwner();
+        if (spell.getIsPlaced() && owner) {
+          // Apply damage or player impacts
+
+          const direction = Math.sign(spell.getPropertyValue('speedDirection'));
+          // Check to see if the spell did not reverse direction at last spell collision
+          if (direction != owner.getDirection()) {
+            spell.getPropertyValue('dmgHealth')
+            spell.resolvePlayerCollision(owner);
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Player1' : 'Player2'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
+            this.removeSpell(spell);
+            spellDestroyedDuringMove = true;
+            break; // Projectile exploded against opponent base
+          }
+
+
+        }
+      }
+
 
       // 4. Update board map link context on the final step
       const isLastSpellMove = j + 1 === numMoves;

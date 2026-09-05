@@ -13,6 +13,6 @@ export type RowShiftDirections = 1 | 0 |-1 | undefined;
 
 export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | GyreUp | GyreDown;
 
-export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle';
+export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle' | 'SKIP'; // 'SKIP' for NPC AI
 
 export type GameStateProgressionPath = 'HappyPath' | 'UnHappyPath' | 'AltPath' | 'Esc' | null;

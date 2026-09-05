@@ -9,6 +9,7 @@ import {
 } from '../GameBoard/Badge';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
+import { proxy } from 'valtio';
 
 
 export class Cell extends UniqueId {
@@ -30,7 +31,7 @@ export class Cell extends UniqueId {
   constructor(cellIndex: CellIndex) {
     super();
     this.cellIndex = cellIndex;
-    this.badges = [];
+    this.badges = proxy([]);
   }
 
   // --- Getters & Status Checks ---
@@ -135,6 +136,16 @@ export class Cell extends UniqueId {
       }
     });
   };
+
+  reset = (): void => {
+
+  this.isHighlighted = false;
+
+  this.isClickDisabled = false;
+  this.isHoverDisabled = false;
+  this.spell = null;
+  this.badges.splice(0);
+  }
 
   updateBadgeValues = (spell: Spell): void => {
 

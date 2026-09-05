@@ -12,7 +12,7 @@ const SlidingLogContainer = styled.div<{ $isPlacedSpellInfo: boolean }>`
   left: 0;
   right: 0;
   
-  height: 4cqw; 
+  height: 12cqw; 
   background: #F1E9D2;
   border-top: 0.2cqw solid #c3b091;
   opacity: .9;
@@ -25,7 +25,7 @@ const SlidingLogContainer = styled.div<{ $isPlacedSpellInfo: boolean }>`
   z-index: 31;
 
   &:hover {
-    height: 12cqw; /* Grows cleanly upward without squeezing the board grid */
+    height: 17cqw; /* Grows cleanly upward without squeezing the board grid */
     transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0s;
   }
 

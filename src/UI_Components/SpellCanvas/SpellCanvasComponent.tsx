@@ -137,7 +137,6 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
           width: '100%',
           height: '100%',
           display: 'block',
-          cursor: 'crosshair',
           touchAction: 'none'
         }}
       />

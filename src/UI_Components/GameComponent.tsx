@@ -114,7 +114,7 @@ export const GameComponent = () => {
   const playerTwoSnap = useSnapshot(rootGameStore.players[1]);
   // - - - - - - 
 
-  useEffect(() => {console.log(snap.gameOver)},[snap.gameOver])
+  useEffect(() => { console.log(snap.gameOver) }, [snap.gameOver])
 
   // TO-DO: resolve Typescript-only type error here
   return (
@@ -123,43 +123,42 @@ export const GameComponent = () => {
       <GameWrapper
         ref={zoneRef}
         $isPlacingGameSymbol={!!gameSymbolIcon}
-      onMouseMove={handleMouseMove}
-      onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
-        const target = e.target as HTMLElement;
-        const isUiButton = target.closest('[data-click-type="ui-buttons"]');
-        // console.log({ isUiButton });
-        if (isUiButton || rootGameStore.getIsClickDisabled() || !rootGameStore.getIsHumanPlayerTurn() || rootGameStore.getIsDrawing()) return;
-        if (rootGameStore.getIsPlacing() && !rootGameStore.getIsGameBoardDisabled()) {
-          const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
-          if (isClickOutsideGameBoard) {
-            rootGameStore.cancelPlacingSymbol();
+        onMouseMove={handleMouseMove}
+        onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
+          const target = e.target as HTMLElement;
+          const isUiButton = target.closest('[data-click-type="ui-buttons"]');
+          // console.log({ isUiButton });
+          if (isUiButton || rootGameStore.getIsClickDisabled() || !rootGameStore.getIsHumanPlayerTurn() || rootGameStore.getIsDrawing()) return;
+          if (rootGameStore.getIsPlacing() && !rootGameStore.getIsGameBoardDisabled()) {
+            const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
+            if (isClickOutsideGameBoard) {
+              rootGameStore.cancelPlacingSymbol();
+            }
+          } else {
+            rootGameStore.beginDrawing();
           }
-        } else {
-          rootGameStore.beginDrawing();
-        }
-      }}
-      onMouseUp={() => {
-        if (!rootGameStore.getIsDrawing()) return;
-        rootGameStore.endDrawing();
-        rootGameStore.runInference();
-      }}
-      onMouseLeave={() => {
-        if (!rootGameStore.getIsDrawing()) return;
-        rootGameStore.endDrawing();
-        rootGameStore.runInference();
-      }}
+        }}
+        onMouseUp={() => {
+          if (!rootGameStore.getIsDrawing()) return;
+          rootGameStore.endDrawing();
+          rootGameStore.runInference();
+        }}
+        onMouseLeave={() => {
+          if (!rootGameStore.getIsDrawing()) return;
+          rootGameStore.endDrawing();
+          rootGameStore.runInference();
+        }}
       >
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
         <ClockFaceComponent
-        clockSpeed={rootGameStore.clockSpeed}
-        onMinuteHandLap={() => {
-  
-          rootGameStore.updatePlacedSpells();
-          rootGameStore.incrementGameTurn();
-          rootGameStore.checkIfIsGameOver();
-          rootGameStore.regenFocus();
-        }} /> 
+          clockSpeed={rootGameStore.getClockSpeed()}
+          onMinuteHandLap={async () => {
+            await rootGameStore.updatePlacedSpells();
+            rootGameStore.incrementGameTurn();
+            rootGameStore.checkIfIsGameOver();
+            rootGameStore.regenFocus();
+          }} />
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}

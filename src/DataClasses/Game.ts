@@ -7,9 +7,9 @@ import { GameState, GameContext, PlayerDrawSpell, NPCDrawSpell } from './GameSta
 import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
-import { GameSymbol } from './PlacedSpells/GameSymbol';
+import { GameSymbol, NpcPlaceSpellOnBoardFunc } from './PlacedSpells/GameSymbol';
 import { NPCPlayer, Player } from './Player/Player';
-import { InferenceString } from './types';
+import { CellIndex, InferenceString } from './types';
 import { proxy } from 'valtio';
 
 export const GameOverStatus = {
@@ -31,7 +31,7 @@ export class Game {
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameSymbol!: GameSymbol | null;
-  clockSpeed: number = .05;
+  clockSpeed: number = .055;
 
 
   // Game Loop Properties
@@ -59,11 +59,15 @@ export class Game {
 
     // 2. Spawn fresh data layers for both players
     const humanPlayer = proxy(new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png', this.checkIfIsGameOver)); // Heading right
-    const computerPlayer = proxy(new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png', this.checkIfIsGameOver, this.gameBoard, this.clockSpeed * 100000, this.npcPlaceSpellOnBoard)); // this.clockSpeed = .05, 0.05 * 100000 = 5000 milliseconds
+    const computerPlayer = proxy(new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png', this.checkIfIsGameOver, this.clockSpeed * 50000, this.npcPlaceSpellOnBoard)); // this.clockSpeed = .05, 0.05 * 100000 = 5000 milliseconds
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout
     this.gameBoard = new GameBoard(humanPlayer, computerPlayer);
+
+    computerPlayer.setGameBoard(this.gameBoard);
+
+    computerPlayer.setAppendToLogMethod(this.appendToLog);
 
     // 4. Pass the fully initialized cell grid back to the AI context map
     // computerPlayer.gameBoardRef = this.gameBoard.cells;
@@ -100,7 +104,18 @@ export class Game {
   };
 
   resetGame = (): void => {
-    this.init(); // Reuse the baseline path cleanly
+    this.clearLog();
+    this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
+    this.appendToLog('Initializing new mystical duel...', '#a78bfa');
+    this.players.forEach(p => p.reset());
+    this.placedSpells.reset();
+    this.gameBoard.reset();
+    this.gameTurn = 0;
+    this.gameSymbol = null;
+    this.hoveredSpell = null;
+    this.gameOver = null;
+    this.isClickDisabled = false;
+    this.isHoverDisabled = false;
   };
 
   // --- GameLog Delegation Wrappers ---
@@ -201,7 +216,7 @@ export class Game {
   };
 
   regenFocus = () => {
-    this.players.forEach(p => p.decrementFocus(-1));
+    this.players.forEach(p => p.decrementFocus(-2));
   }
 
   placeSpellOnBoard = async (cell: Cell): Promise<void> => {
@@ -210,28 +225,30 @@ export class Game {
       const spell = this.gameSymbol?.instantiateSpell(this.gameTurn);
       this.gameSymbol = null;
       if (spell instanceof Spell) {
-        this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, this.players[0].getColor());
-        spell.setCellIndex(cell.getCellIndex());
-        this.placedSpells.addSpell(spell);
-        this.gameBoard.setSpellAt(spell, cell);
-        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
-        spell.setIsPlaced(true);
-      }
-    }
-  }
-
-  npcPlaceSpellOnBoard = async (gameSymbol: GameSymbol): Promise<void> => {
-    const cell = this.gameBoard.getFreeNpcPlacementCell(this.players[1]);
-    if (cell.getIsFree() && cell.getIsPlaceCell(this.players[1])) {
-      // this.placedSpells.removeInvalidSpells();
-      const spell = gameSymbol.instantiateSpell(this.gameTurn);
-      if (spell instanceof Spell) {
-        this.appendToLog(`Your opponents has cast a ${spell.getSpellName()} spell!`, this.players[1].getColor());
+        // this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, this.players[0].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
         // this.setIsClickDisabled(true);
-        await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
+        // await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
+        spell.setIsPlaced(true);
+        // this.setIsClickDisabled(false);
+      }
+    }
+  }
+
+  npcPlaceSpellOnBoard: NpcPlaceSpellOnBoardFunc = async (gameSymbol: GameSymbol, cellRowIndex?: number): Promise<void> => {
+    const cell = this.gameBoard.getFreeNpcPlacementCell(this.players[1], cellRowIndex);
+    // this.appendToLog(`${gameSymbol.symbolName} ${cell.getCellIndex().i} ${cell.getCellIndex().j} ${cellRowIndex} isFree ${cell.getIsFree() && cell.getIsPlaceCell(this.players[1])} isPlace ${cell.getIsFree() && cell.getIsPlaceCell(this.players[1])}`, 'black');
+    if (cell.getIsFree() && cell.getIsPlaceCell(this.players[1])) {
+      const spell = gameSymbol.instantiateSpell(this.gameTurn);
+      if (spell instanceof Spell) {
+        // this.appendToLog(`Your opponents has cast a ${spell.getSpellName()} spell!`, this.players[1].getColor());
+        spell.setCellIndex(cell.getCellIndex());
+        this.placedSpells.addSpell(spell);
+        this.gameBoard.setSpellAt(spell, cell);
+        // this.setIsClickDisabled(true);
+        // await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
         // this.setIsClickDisabled(false);
       }
@@ -240,6 +257,10 @@ export class Game {
 
   getIsTurn = (playerDirection: number): boolean => {
     return !this.isClickDisabled && this.getActivePlayer()?.getDirection() == playerDirection
+  }
+
+  getClockSpeed = (): number => {
+    return this.getIsGameBoardDisabled() ? 0 : this.clockSpeed;
   }
 
   updatePlacedSpells = async () => {
@@ -324,60 +345,63 @@ export class Game {
   }
 
   instantiateSpellFromInferenceString = (inferenceString: InferenceString): void => {
-  if (GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)) {
-    if (this.players[0].getFizzleCount() == 3) {
-      this.appendToLog(`The spellcasting gods recoil at your malfeasance. BACKLASH!`, 'purple');
+    if (GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)) {
+      if (this.players[0].getFizzleCount() == 3) {
+        this.appendToLog(`The spellcasting gods recoil at your malfeasance. BACKLASH!`, 'purple');
+      } else {
+        this.appendToLog(`You drew an unknown spell! And gained a Fizzle.`, 'purple');
+      }
+      this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
+      this.gameSymbol.instantiateSpell(this.gameTurn);
     } else {
-      this.appendToLog(`You drew an unknown spell! And gained a Fizzle.`, 'purple');
-    }
-    this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
-    this.gameSymbol.instantiateSpell(this.gameTurn);
-  } else {
-    this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
-  }
-}
-
-
-/**
- * Steps the turn cycle forward. Called by the Finite State Machine 
- * once the full round-trip execution phase resolves.
- */
-incrementGameTurn = (): void => {
-  this.gameTurn += 1;
-};
-
-getCurrentGameTurn = (): number => {
-  return this.gameTurn;
-};
-
-setGameOver = (status: GameOver): void => {
-  this.gameOver = status;
-}
-
-//CHECK FOR GAME OVER CONDITION...
-checkIfIsGameOver = (): void => {
-  // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
-  const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
-  switch (deadPlayers.length) {
-    case 2:
-      this.gameOver = GameOverStatus.BothDead;
-      break;
-    case 1:
-      this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
-      break;
-  }
-
-  // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
-  if (!deadPlayers.length) {
-
-    const MINUTES_HAND = 12;
-    const HOURS_HAND = 6;
-    const SUNRISE = MINUTES_HAND * HOURS_HAND;
-    const isSunrise = this.gameTurn > SUNRISE;
-
-    if (isSunrise) {
-      this.gameOver = GameOverStatus.TimesUp
+      this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
     }
   }
-}
+
+
+  /**
+   * Steps the turn cycle forward. Called by the Finite State Machine 
+   * once the full round-trip execution phase resolves.
+   */
+  incrementGameTurn = (): void => {
+    this.gameTurn += 1;
+    this.players.forEach(p => p.updateFizzles(this.gameTurn))
+  };
+
+  getCurrentGameTurn = (): number => {
+    return this.gameTurn;
+  };
+
+  setGameOver = (status: GameOver): void => {
+    this.gameOver = status;
+  }
+
+  //CHECK FOR GAME OVER CONDITION...
+  checkIfIsGameOver = (): void => {
+    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+    const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
+    switch (deadPlayers.length) {
+      case 2:
+        this.gameOver = GameOverStatus.BothDead;
+        break;
+      case 1:
+        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
+        break;
+    }
+
+    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
+    if (!deadPlayers.length) {
+
+      const MINUTES_HAND = 12;
+      const HOURS_HAND = 6;
+      const SUNRISE = MINUTES_HAND * HOURS_HAND;
+      const isSunrise = this.gameTurn > SUNRISE;
+
+      if (isSunrise) {
+        this.gameOver = GameOverStatus.TimesUp
+      }
+    }
+
+    if (this.gameOver) this.resetGame(); // TESTING
+  }
 }

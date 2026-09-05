@@ -113,10 +113,69 @@ export class GameBoard {
     return this.isHoverDisabled;
   };
 
-  getFreeNpcPlacementCell = (npcPlayer: Player): Cell => {
-    const npcPlaceCells = this.cells.filter(c => c.getIsFree() && c.getIsPlaceCell(npcPlayer));
+  getFreeNpcPlacementCell = (npcPlayer: Player, rowIndex?: number): Cell => {
+    const npcPlaceCells = this.cells.filter(c =>
+      c.getIsFree() &&
+      c.getIsPlaceCell(npcPlayer) &&
+      (rowIndex != undefined ?
+        c.getCellIndex().i == rowIndex
+        : true));
     const rand = Math.floor(Math.random() * npcPlaceCells.length);
-    return npcPlaceCells[rand]
+    return npcPlaceCells[rand];
+  }
+
+  npcGetFutureSpellCollisionRow = (): number => {
+
+    const unguardedRows: Array<number> = [0, 0, 0];
+
+    const incomingSpells: Array<Spell> = this.npcGetIncomingSpells();
+    const outgoingSpells: Array<Spell> = this.npcGetOutgoingSpells();
+
+    incomingSpells.forEach(s => {
+      unguardedRows[s.getCellIndex().i] += 1;
+    });
+
+    outgoingSpells.forEach(s => {
+      unguardedRows[s.getCellIndex().i] -= 1;
+    });
+
+    /* how close (j) and how fast (speedDirection) the spell is travelling <-- not accounting for these things... */
+
+    const entry = unguardedRows.find(n => n > 0);
+    return entry != undefined ? unguardedRows.indexOf(entry) : -1;
+  }
+
+  npcGetHealingRow = (): number | undefined => {
+
+    const healingRows: Set<number> = new Set()
+
+    const outgoingSpells: Array<Spell> = this.npcGetOutgoingSpells();
+    outgoingSpells.filter(s => s.getPropertyValue('dmgHealth') < 0).map(s => healingRows.add(s.getCellIndex().i));
+
+    return Array.from(healingRows.keys())[0];
+  }
+
+  npcGetIncomingSpells = (): Array<Spell> => {
+    return this.cells.filter(c => {
+      if (c.getIsFree()) return false;
+      const spell = c.getSpell();
+      if (!spell) return false;
+      const speedDirection = spell.getPropertyValue('speedDirection');
+      const dmgHealth = spell.getPropertyValue('dmgHealth');
+      const isMovingRight = speedDirection > 0;
+      return isMovingRight && dmgHealth > 0;
+    }).map(c => c.getSpell()).filter(s => s != null);
+  }
+
+  npcGetOutgoingSpells = (): Array<Spell> => {
+    return this.cells.filter(c => {
+      if (c.getIsFree()) return false;
+      const spell = c.getSpell();
+      if (!spell) return false;
+      const speedDirection = spell.getPropertyValue('speedDirection');
+      const isMovingLeft = speedDirection < 0;
+      return isMovingLeft;
+    }).map(c => c.getSpell()).filter(s => s != null);
   }
 
   // --- Interaction Configurations ---
@@ -139,6 +198,15 @@ export class GameBoard {
     this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
     this.cells.forEach(cell => cell.setTransparencyAmt(this.transparencyAmt));
   };
+
+  reset = (): void => {
+    this.isHoverDisabled = false;
+    this.isClickDisabled = false;
+    this.transparencyAmt = GameBoard.SHOWN_TRANSPARENCY_AMT;
+    this.hoveredCell = null;
+    this.clickedCell = null;
+    this.cells.forEach(c => c.reset())
+  }
 
   enableBoard = (): void => {
     this.setIsClickDisabled(false);
@@ -183,7 +251,7 @@ export class GameBoard {
       const { i, j } = cell.getCellIndex();
       for (let k = 0; k < numMoves; k++) {
         const pathCell = this.getCellAt({ i: i + rowShift, j: j + k * sign + 1 * sign });
-        if(pathCell) pathCell.setIsHighlighted(true);
+        if (pathCell) pathCell.setIsHighlighted(true);
       }
     }
 

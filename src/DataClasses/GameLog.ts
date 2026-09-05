@@ -24,6 +24,9 @@ export class GameLog {
   };
 
   appendEntry = (text: string, color: string = '#FFFFFF'): void => {
+    if (this.logEntries.length > 25) {
+      this.logEntries.splice(0, 1);
+    }
     this.logEntries.push(proxy(new GameLogEntry(text, color)));
   };
 }

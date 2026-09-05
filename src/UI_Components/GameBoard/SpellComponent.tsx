@@ -28,11 +28,11 @@ const SpellIcon = styled.div.attrs<{ $x: number; $y: number; $direction: number 
 
   /* Your transitions will now work flawlessly because the properties above change smoothly */
   transition: 
-    transform 1s ease-in-out, 
-    filter 1s ease-in-out, 
-    top 1s ease-in-out, 
-    left 1s ease-in-out, 
-    opacity 1s ease-in-out;
+    transform 2s ease-in-out, 
+    // filter 1s ease-in-out, 
+    top .5s ease-in-out, 
+    left .5s ease-in-out, 
+    opacity 4s ease-in-out;
 
   filter: drop-shadow(0px 0px 5px ${props => props.$color});
 
@@ -61,7 +61,6 @@ export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) =
   const color = spellSnap?.getCaster()?.getColor() || '';
   const getCoordsXY = useCallback((): CoordsXY => {
     const coords = { x: 0, y: 0 }
-    console.log({ gridOverlayRef })
     if (!!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
       const { width, height } = gridOverlayRef.current.getBoundingClientRect();
       const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width;

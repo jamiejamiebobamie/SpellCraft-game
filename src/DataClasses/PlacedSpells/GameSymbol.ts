@@ -5,6 +5,8 @@ import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
+export type NpcPlaceSpellOnBoardFunc = (gameSymbol: GameSymbol, cellRowIndex?: number) => Promise<void>;
+
 export class GameSymbol extends UniqueId {
   symbolName!: InferenceString;
   readonly caster: Player;

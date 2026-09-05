@@ -6,7 +6,7 @@ export class Fizzle extends UniqueId {
   readonly turnCreated: number;
   readonly numTurnsUntilRemoved: number;
 
-  constructor(currentTurn: number, lifetimeTurns: number = 3) {
+  constructor(currentTurn: number, lifetimeTurns: number = 12) { // remove one every in-game "hour"
     super();
     this.turnCreated = currentTurn;
     this.numTurnsUntilRemoved = lifetimeTurns;

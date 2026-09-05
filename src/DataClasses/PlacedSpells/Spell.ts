@@ -121,7 +121,7 @@ export abstract class Spell extends UniqueId {
 
   moveVertically = (): void => {
     this.cellIndex = proxy({
-      i: this.cellIndex.i - this.rowShift,//this.upDown,
+      i: this.cellIndex.i + this.upDown,// this.rowShift,//this.upDown,
       j: this.cellIndex.j
     });
     this.upDown = 0;
@@ -216,7 +216,7 @@ export class Phlegm extends Spell {
 }
 
 export class Ether extends Spell {
-  protected static readonly focusCost: number = 1;
+  protected static readonly focusCost: number = 2;
 
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
@@ -259,20 +259,26 @@ export abstract class Gyre extends Spell {
 
   constructor(caster: Player) {
     super('Gyre', caster);
-    this.dmgHealth = 1;
+    this.dmgHealth = 0;
   }
 
   moveHorizontally = (): void => {
     this.cellIndex = proxy({
-      i: this.cellIndex.i,//this.cellIndex.j % 2 == 0 ? this.cellIndex.i : this.cellIndex.i + this.rowShift,
+      i: this.cellIndex.i ,//this.cellIndex.j % 2 == 0 ? this.cellIndex.i : this.cellIndex.i + this.rowShift,
       j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
     });
+    // if(this.cellIndex.j % 2 == 0){
+    //   this.speedDirection *= -1;
+    // } 
+    // else {
+    //   this.rowShift *= -1;
+    // }
   };
 
   conferModifierTo = (targetSpell: Spell): void => {
     // Gyre adds a lane/row shifting vector to the consuming spell
-    // targetSpell.updatePropertyValue('upDown', this.rowShift);
-    targetSpell.updatePropertyValue('rowShift', this.rowShift);
+    targetSpell.updatePropertyValue('upDown', this.rowShift);
+    // targetSpell.updatePropertyValue('rowShift', this.rowShift);
   };
 
   isModifierValueInvalid = (): boolean => {
@@ -297,7 +303,7 @@ export abstract class Gyre extends Spell {
 export class GyreUp extends Gyre {
   constructor(caster: Player) {
     super(caster);
-    this.rowShift = 1;
+    this.rowShift = -1;
     // this.spellIconUrl = 'spell-icons/GyreUpIcon_mockup.png';
   }
 }
@@ -305,7 +311,7 @@ export class GyreUp extends Gyre {
 export class GyreDown extends Gyre {
   constructor(caster: Player) {
     super(caster);
-    this.rowShift = -1;
+    this.rowShift = 1;
   }
 }
 
@@ -319,6 +325,7 @@ export class Quicken extends Spell {
     super('Quicken', caster);
     this.dmgHealth = 1;
     this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
+    this.speedDirection *= 2;
   }
 
   conferModifierTo = (targetSpell: Spell): void => {

@@ -149,7 +149,7 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                         onMouseLeave={() => rootGameStore.setHoveredGameboardCell(null)}
                         onClick={() => rootGameStore.placeSpellOnBoard(c)}
                     >
-                        {c.badges.map((b, i) => {
+                        {/* {c.badges.map((b, i) => {
                             const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
                             // TO-DO: fix badges not showing. sometimes they show but only on CellIndex 0,0
                             // TO-DO: fix badges to show proper icons and values, with correct positions in the cell.
@@ -164,7 +164,7 @@ const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
                                     {b.value !== 0 || b.isVisibleIfZero ? <span>{b.value}</span> : null}
                                 </BadgeElement>
                             );
-                        })}
+                        })} */}
                     </StyledCell>
                 )}
             </GridContainer>

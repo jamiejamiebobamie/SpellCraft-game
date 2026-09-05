@@ -1,6 +1,6 @@
 // Player.ts
 import { Fizzle } from './Fizzle';
-import { GameSymbol } from '../PlacedSpells/GameSymbol'
+import { GameSymbol, NpcPlaceSpellOnBoardFunc } from '../PlacedSpells/GameSymbol'
 import { GameBoard } from '../GameBoard/GameBoard';
 import { UniqueId } from '../UniqeId';
 import { InferenceString } from '../types';
@@ -36,7 +36,7 @@ export class Player extends UniqueId {
   private static readonly MAX_FOCUS_AMT = 4;
   private static readonly MAX_FIZZLES_BEFORE_BACKLASH = 3;
   private static readonly BACKLASH_DAMAGE = 1;
-  private static readonly FIZZLE_LIFETIME_TURNS = 3; // How long a fizzle tracks on a player
+  private static readonly FIZZLE_LIFETIME_TURNS = 12; // How long a fizzle tracks on a player
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function) {
     super();
@@ -148,6 +148,13 @@ export class Player extends UniqueId {
     this.fizzles.splice(0);
   };
 
+
+  reset = (): void => {
+    this.healthAmt = 5;
+    this.focusAmt = 4;
+    this.fizzles.splice(0);
+  }
+
   /**
    * Decrements lifetime ticks on active tracking fizzles and removes expired ones.
    */
@@ -165,106 +172,94 @@ export class Player extends UniqueId {
   };
 }
 
+
 export class NPCPlayer extends Player {
-  gameBoardRef: GameBoard;
+  gameBoard: GameBoard | null = null;
   castSpeed!: number;
-  npcPlaceSpellOnBoard!: Function;
+  npcPlaceSpellOnBoard!: NpcPlaceSpellOnBoardFunc;
   castingLoopInterval: number | null = null;
+  appendToLog: Function | null = null;
 
   readonly avatarHeadUrl: string = './player_avatars/Head2.png';
   readonly avatarRobeUrl: string = './player_avatars/Robe2a.png';
   readonly avatarBicepUrl: string = './player_avatars/Bicep2.png';
 
-  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function, gameBoardRef: GameBoard, castSpeed: number, npcPlaceSpellOnBoard: Function) {//, gameBoardRef: GameBoard, difficulty: number = 6) {
+  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function, castSpeed: number, npcPlaceSpellOnBoard: NpcPlaceSpellOnBoardFunc) {//, gameBoardRef: GameBoard, difficulty: number = 6) {
     super(direction, color, avatarUrl, checkGameOverCallback);
-    this.gameBoardRef = gameBoardRef;
+
     this.castSpeed = castSpeed;
     this.npcPlaceSpellOnBoard = npcPlaceSpellOnBoard;
-    console.log({ castSpeed });
   }
 
-  // /**
-  //  * Analyzes board positioning vectors to make the optimal competitive choice.
-  //  */
-  // getIdealMove = (): NPCPlayerTurnMove => {
-  //   // Engine hook placeholder: evaluate row vectors, open targets, or threats
-  //   return {
-  //     isSkip: false,
-  //     symbol: new GameSymbol(this, 25, Quicken)
-  //   };
-  // };
+  setGameBoard = (gameBoard: GameBoard): void => {
+    this.gameBoard = gameBoard;
+  }
 
-  /**
-   * Completely ignores board state and generates a randomized turn option.
-   */
-  getRandomMove = (): InferenceString => {
+  getMove = (): [InferenceString, number?] => {
+    const isHasFocus = this.focusAmt > 1;
 
-    // export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle';
+    if (this.gameBoard != null) {
+      const i = this.gameBoard.npcGetFutureSpellCollisionRow();
+      const isIncomingSpell = i != -1;
 
-    /*
+      // REFLECT spell BACK!
+      if (isIncomingSpell && isHasFocus) {
+        return ['circle', i];
+      }
 
-      TO-DO:
-    
-      1. if out of focus -> cast diamonds and triangles
-        1a. place in middle heart cell
-        1b. possibly speed up cast time (slightly) to seem more frantic
-      
-      2. if low on health -> cast circle on cell then circle on same cell again to heal
+      // SHIFT spell OFF COURSE!
+      if (isIncomingSpell && !isHasFocus) {
+        const GAME_SYMBOLS: Array<InferenceString> = ['diamond', 'triangle']
+        const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
+        const inferenceString = GAME_SYMBOLS[rand];
+        return [inferenceString, i];
+      }
 
-      3. if incoming line or star spells from opponent -> cast circle in that "lane" to reverse
+      // HEAL!
+      // if (this.healthAmt < 4 && isHasFocus) {
+      //   const healingRowIndex = this.gameBoard.npcGetHealingRow();
+      //   return ['circle', healingRowIndex];
+      // }
 
-      4. cast line then star in same lane -> creates sped-up star
-
-      5. if out of focus -> skip turn to regain stamina
-
-    
-    */
-
-    let GAME_SYMBOLS: Array<InferenceString> = [ 'line', 'circle', 'star', 'line', 'circle', 'star']//, ...GameSymbol.FIZZLE_INFERENCES]
-    if (this.focusAmt == 0) {
-      GAME_SYMBOLS = ['diamond', 'triangle', 'diamond', 'triangle']//, ...GameSymbol.FIZZLE_INFERENCES]
     }
+
+    // SKIP
+    if (!isHasFocus) {
+      return ['SKIP']
+    }
+
+    // Do random damaging attack
+    let GAME_SYMBOLS: Array<InferenceString> = ['line', 'star']
     const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
     const inferenceString = GAME_SYMBOLS[rand];
-    return inferenceString;
+    return [inferenceString];
   };
+
+  doRandomMove = (): [InferenceString, number?] => {
+    // SKIP
+    if (this.focusAmt > 1) {
+      return ['SKIP']
+    }
+    // Do random spell with chance of fizzle and skip
+    let GAME_SYMBOLS: Array<InferenceString> = ['line', 'circle', 'star', 'triangle', 'diamond', 'squiggle', 'SKIP', 'SKIP', 'SKIP'];
+    const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
+    const inferenceString = GAME_SYMBOLS[rand];
+    return [inferenceString];
+  }
 
   startCastingLoop = (): void => {
     this.castingLoopInterval = setInterval(() => {
-      const inferenceString = this.getRandomMove();
-      const gameSymbol = new GameSymbol(inferenceString, this);
-      this.npcPlaceSpellOnBoard(gameSymbol);
+      const [inferenceString, cellRowIndex] = this.getMove();//Math.random() > .7 ? this.doRandomMove() : this.getMove();
+      // if (this.appendToLog)
+      //   this.appendToLog(`${inferenceString} ${cellRowIndex}`, 'black');
+      if (inferenceString != 'SKIP') {
+        const gameSymbol = new GameSymbol(inferenceString, this);
+        this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
+      }
     }, this.castSpeed);
   }
 
-  // /**
-  //  * Evaluates AI intent probability thresholds based on the difficulty variable.
-  //  */
-  // doMove = (currentGlobalTurn: number): void => {
-  //   // Produce a ceiling integer match between 1 and 10
-  //   const roll = Math.ceil(Math.random() * 10);
-
-  //   let chosenMove: NPCPlayerTurnMove;
-
-  //   if (this.difficulty <= roll) {
-  //     chosenMove = this.getRandomMove();
-  //   } else {
-  //     chosenMove = this.getIdealMove();
-  //   }
-
-  //   // Execute the chosen AI action
-  //   if (chosenMove.isSkip || !chosenMove.symbol) {
-  //     // console.log(`${this.color} NPC chose to pass.`);
-  //     this.setIsTurn(false, currentGlobalTurn);
-  //     return;
-  //   }
-
-  //   // Attempt to invoke the spell matching the decision choice
-  //   const spawnedSpell = chosenMove.symbol.instantiateSpell(currentGlobalTurn);
-
-  //   if (!spawnedSpell) {
-  //     // If the AI failed the roll/gesture, log it on the player profile
-  //     this.addFizzle(currentGlobalTurn);
-  //   }
-  // };
+  setAppendToLogMethod = (appendToLog: Function): void => {
+    this.appendToLog = appendToLog;
+  }
 }
