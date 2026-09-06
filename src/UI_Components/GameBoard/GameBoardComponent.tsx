@@ -1,22 +1,9 @@
 
-import React, { useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
-import { useSnapshot } from 'valtio';
-import styled, { css, keyframes } from 'styled-components';
-
-const skewWobble = keyframes`
-  0%, 1% {
-    transform: skewX(-4deg);      /* Sliding fast through the center... */
-  }
-  53%, 55% {
-    transform: skewX(4deg);      /* Slides right back through the center without stopping */
-  }
-  99%,100% {
-    transform: skewX(-4deg);      /* Drops back to center to complete the wave loop */
-  }
-`;
+import styled, { keyframes } from 'styled-components';
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
@@ -26,15 +13,15 @@ const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>
   pointer-events: ${props => props.$isDisabled ? 'none' : 'auto'}
 `;
 
-const GridContainer = styled.div<{ $isWobbling: boolean }>`
+type WobblePhase = -1 | 0 | 1;
+const GridContainer = styled.div<{ $wobblePhase: -1 | 0 | 1 }>`
   display: grid;
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(7, 1fr);
-    ${props =>
-        props.$isWobbling &&
-        css`
-      animation: ${skewWobble} 5s ease-in-out infinite;
-    `}
+  
+  /* The transition will smoothly catch the transform whenever the state changes */
+  transition: transform ${props => props.$wobblePhase != 0 ? 1 : .25}s ease-in-out;
+  transform: skewX(${props => props.$wobblePhase * 6}deg);
 `;
 
 const StyledCell = styled.div<{
@@ -114,6 +101,22 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
     const isPlacingGameSymbol: boolean = !!snap.getGameSymbolIcon();
     const isDisabled: boolean = snap.gameBoard.getIsClickDisabled();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
+    const intervalRef = useRef<number | undefined>(undefined);
+
+    const [wobblePhase, setWobblePhase] = useState<WobblePhase>(0);
+
+    useEffect(() => {
+        if (isDisabled) {
+            setWobblePhase(1);
+            intervalRef.current = setInterval(() => {
+                setWobblePhase(wp => wp == 1 ? -1 : 1);
+            }, 1000);
+        } else {
+            setWobblePhase(0);
+            clearInterval(intervalRef.current);
+        }
+    }, [isDisabled]);
+
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
             {snap.placedSpells.spells.map(
@@ -124,7 +127,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                         spell={rootGameStore.placedSpells.spells[i]}
                     />
             )}
-            <GridContainer $isWobbling={isDisabled}>
+            <GridContainer $wobblePhase={wobblePhase}>
                 {snap.gameBoard.cells.map(c =>
                     <StyledCell
                         key={c.id}

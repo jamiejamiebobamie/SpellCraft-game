@@ -11,7 +11,7 @@ import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
-
+// TO-DO: Cell hover speedDirection progress highlight is not working...
 export class Cell extends UniqueId {
   // Properties
   playerOfPlacementCell: Player | null = null;

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Spell } from '../../DataClasses/PlacedSpells/Spell'
 import { useSnapshot } from 'valtio';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
+import { PlacedSpells } from '../../DataClasses/PlacedSpells/PlacedSpells';
 
 // Pass highly dynamic props (x, y, direction) into .attrs() so they become inline styles
 const SpellIcon = styled.div.attrs<{ $x: number; $y: number; $direction: number }>(props => ({
@@ -26,23 +27,14 @@ const SpellIcon = styled.div.attrs<{ $x: number; $y: number; $direction: number 
   background-size: cover;
   background-position: center;
 
-  /* Your transitions will now work flawlessly because the properties above change smoothly */
   transition: 
-    transform 2s ease-in-out, 
-    // filter 1s ease-in-out, 
-    top .5s ease-in-out, 
-    left .5s ease-in-out, 
-    opacity 4s ease-in-out;
+    transform ${PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI/1000}s ease-in-out, 
+    top ${PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI/1000}s ease-in-out, 
+    left ${PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI/1000}s ease-in-out, 
+    opacity ${PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI/1000}s ease-in-out;
 
+  opacity: ${props => props.$isRemove ? 0 : 1};
   filter: drop-shadow(0px 0px 5px ${props => props.$color});
-
-  /* Keep this only if you want the fade-loop to override the opacity transition upon removal */
-  ${props => props.$isRemove && `animation: fade-loop 1s ease-in-out forwards;`}
-
-  @keyframes fade-loop {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
 `;
 
 type CoordsXY = {

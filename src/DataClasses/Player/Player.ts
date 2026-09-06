@@ -178,7 +178,7 @@ export class NPCPlayer extends Player {
   gameBoard: GameBoard | null = null;
   castSpeed!: number;
   npcPlaceSpellOnBoard!: NpcPlaceSpellOnBoardFunc;
-  castingLoopInterval: number | null = null;
+  castingLoopInterval: number | undefined = undefined;
   appendToLog: Function | null = null;
 
   readonly avatarHeadUrl: string = './player_avatars/Head2.png';
@@ -196,6 +196,22 @@ export class NPCPlayer extends Player {
     this.gameBoard = gameBoard;
   }
 
+  /*
+  
+    TO-DO:
+    implement "combos".
+    "combos" -> in a single turn, place lower priority spell on owner cell, place later priority spell "in front" to be consumed.
+  
+  
+    COMBOS: (1) phlegm + phlegm = +2 heal for self
+            (2) quicken + quicken = +4 speed
+            (3) star + quicken = +2 speed +2 dmg
+            (4) quicken + star = +2 speed +2 dmg
+
+    TO-DO: figure out if consumed spell modifiers stack and if not, why not...        
+
+  */ 
+ 
   getMove = (): [InferenceString, number?] => {
     const isHasFocus = this.focusAmt > 1;
 
@@ -258,6 +274,10 @@ export class NPCPlayer extends Player {
         this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
       }
     }, this.castSpeed);
+  }
+
+  stopCastingLoop = (): void => {
+    clearInterval(this.castingLoopInterval);
   }
 
   setAppendToLogMethod = (appendToLog: Function): void => {

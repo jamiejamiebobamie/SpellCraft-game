@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useReducer } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
 import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
 import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
@@ -10,10 +10,9 @@ import SpellBookComponent from './UI_Elements/SpellBookComponent';
 import EndTurnButtonComponent from './UI_Elements/EndTurnButtonComponent';
 import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
 import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
-import { rootGameStore, controls } from '../DataClasses/store';
+import { rootGameStore } from '../DataClasses/store';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
-import { GameOver, GameOverStatus } from '../DataClasses/Game';
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   margin: 0 auto; 
@@ -50,8 +49,6 @@ const MainColumn = styled.div`
   // overflow: hidden;
 `;
 
-// TO-DO: figure out why UI is not updating/re-rendering w/o mouse scroll... (valtio)
-
 interface ResponsiveCursorProps {
   $x: number;
   $y: number;
@@ -86,10 +83,12 @@ const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
 `;
 
 export const GameComponent = () => {
+  const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
-
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [clockSpeed, setClockspeed] = useState<number>(snap.CLOCK_SPEED);
+  const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
 
   // Added React MouseEvent typing to handle DOM positional calculations safely
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -105,14 +104,12 @@ export const GameComponent = () => {
   };
 
   // TESTING...
-  const snap = useSnapshot(rootGameStore);
   const gameSymbolIcon = snap.getGameSymbolIcon();
   // PLAYERS - - 
   const playerOneSnap = useSnapshot(rootGameStore.players[0]);
   const playerTwoSnap = useSnapshot(rootGameStore.players[1]);
   // - - - - - - 
 
-  // TO-DO: resolve Typescript-only type error here
   return (
     <>
       {/* <PixieDustCanvas /> */}
@@ -149,12 +146,17 @@ export const GameComponent = () => {
         <SpellBookComponent rootGameStore={rootGameStore} />
         <ClockFaceComponent
           rootGameStore={rootGameStore}
-          clockSpeed={snap.getClockSpeed()}
+          clockSpeed={clockSpeed}
           onMinuteHandLap={async () => {
-            await rootGameStore.updatePlacedSpells();
-            rootGameStore.incrementGameTurn();
-            rootGameStore.checkIfIsGameOver();
+            rootGameStore.pauseClock();
+            rootGameStore.disableGameBoard();
+            setClockspeed(rootGameStore.getClockSpeed());
+            await rootGameStore.updatePlacedSpells(forceUpdate);
+            rootGameStore.checkIfIsGameOver(forceUpdate);
             rootGameStore.regenFocus();
+            rootGameStore.enableGameBoard();
+            rootGameStore.unpauseClock();
+            setClockspeed(rootGameStore.getClockSpeed());
           }} />
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />

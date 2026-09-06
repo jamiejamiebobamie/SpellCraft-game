@@ -3,13 +3,13 @@ import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
 import { GameLog, GameLogEntry } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
-import { GameState, GameContext, PlayerDrawSpell, NPCDrawSpell } from './GameStates';
+import { GameState, GameContext, PlayerDrawSpell } from './GameStates';
 import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol, NpcPlaceSpellOnBoardFunc } from './PlacedSpells/GameSymbol';
 import { NPCPlayer, Player } from './Player/Player';
-import { CellIndex, InferenceString } from './types';
+import { InferenceString } from './types';
 import { proxy } from 'valtio';
 
 export const GameOverStatus = {
@@ -105,12 +105,9 @@ export class Game {
   };
 
   resetGame = (): void => {
-    this.clearLog();
-    this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
-    this.appendToLog('Initializing new mystical duel...', '#a78bfa');
-    this.players.forEach(p => p.reset());
     this.placedSpells.reset();
     this.gameBoard.reset();
+    this.players.forEach(p => p.reset());
     this.gameTurn = 0;
     this.gameSymbol = null;
     this.hoveredSpell = null;
@@ -118,6 +115,9 @@ export class Game {
     this.isClickDisabled = false;
     this.isHoverDisabled = false;
     this.minuteAngleAcc = 0;
+    this.clockSpeed = this.CLOCK_SPEED;
+    this.clearLog();
+    this.appendToLog('Initializing new mystical duel...', '#a78bfa');
   };
 
   // --- GameLog Delegation Wrappers ---
@@ -265,13 +265,9 @@ export class Game {
     return !this.isClickDisabled && this.getActivePlayer()?.getDirection() == playerDirection
   }
 
-  updatePlacedSpells = async () => {
-    this.pauseClock();
-    this.disableGameBoard();
+  updatePlacedSpells = async (forceUpdate: Function) => {
     // uses a generator/iterator
-    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
-    this.enableGameBoard();
-    this.unpauseClock();
+    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog, forceUpdate);
   }
 
   getClockSpeed = (): number => {
@@ -394,7 +390,7 @@ export class Game {
   }
 
   //CHECK FOR GAME OVER CONDITION...
-  checkIfIsGameOver = (): void => {
+  checkIfIsGameOver = (forceUpdate: Function): void => {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
     switch (deadPlayers.length) {
@@ -419,6 +415,17 @@ export class Game {
       }
     }
 
-    if (this.gameOver) this.resetGame(); // TESTING
+    if (this.gameOver) { // TESTING
+      const computerPlayer = this.players[1] as NPCPlayer;
+      computerPlayer.stopCastingLoop();
+      this.pauseClock();
+      this.disableGameBoard();
+      this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
+      setTimeout(() => {
+        this.resetGame();
+        computerPlayer.startCastingLoop();
+        forceUpdate();
+      }, 4500);
+    }
   }
 }

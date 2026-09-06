@@ -91,8 +91,8 @@ type PlayerComponentProps = {
 }
 
 const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
-  // TO-DO: (1) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
-  // TO-DO: (1) green white or blue flash, and (2) floating modifier text on positive health gain
+  // TO-DO: (1) (dmg:) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
+  // TO-DO: (1) (heal:) green white or blue flash, and (2) floating modifier text on positive health gain
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>

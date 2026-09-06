@@ -8,7 +8,7 @@ import { GameLog } from '../GameLog';
 export class PlacedSpells {
   // Properties
   spells: Array<Spell> = proxy([]);
-  private static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 200;
+  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 500;
   // --- Core Array Utilities ---
 
   getTop = (): Spell | null => {
@@ -35,7 +35,7 @@ export class PlacedSpells {
   }
 
   removeSpell = (spell: Spell): void => {
-    spell.markSpellForRemoval(); // TESTING: FIFO priority ordering
+    spell.markSpellForRemoval();
     let count = 1;
     this.spells.forEach(s => {
       if (!s.isRemove) {
@@ -79,17 +79,21 @@ export class PlacedSpells {
     return Array(range).fill(0).map((_, i) => i);
   }
 
+
+  // TO-DO: figure out why some spells are able to bypass each other on the same row...
+
   /**
    * Batch updates all active spells on the board cell track.
    * Handles sub-stepping movements to calculate step-by-step collisions accurately.
    */
-  updateSpells = async (gameBoard: GameBoard, gameLog: GameLog): Promise<void> => {
+  updateSpells = async (gameBoard: GameBoard, gameLog: GameLog, forceUpdate: Function): Promise<void> => {
 
     const spellRange = this.getRangedArray(this.spells.length);
     // Consume the async generator
     for await (const i of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
-      this.updateSpell(gameBoard, gameLog, this.spells[i]);
+      this.updateSpell(gameBoard, gameLog, this.spells[i], forceUpdate);
     }
+    // TO-DO: call this outside of (and after) 'updateSpells' to allow for slow fade on collision with Players...
     // // Cleanup: Filter out any remaining phantom items that lost board references
     this.removeInvalidSpells();
 
@@ -103,7 +107,7 @@ export class PlacedSpells {
   }
 
   // called in 'updateSpells' and after placing a spell on the board for the first time
-  updateSpell = async (gameBoard: GameBoard, gameLog: GameLog, spell: Spell): Promise<void> => {
+  updateSpell = async (gameBoard: GameBoard, gameLog: GameLog, spell: Spell, forceUpdate: Function): Promise<void> => {
     if (spell.getIsRemove()) return;
 
     const currentCellIndex = spell.getCellIndex();
@@ -128,13 +132,15 @@ export class PlacedSpells {
     for await (const j of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
       // 1. Advance the internal coordinates of the spell instance
       spell.moveHorizontally();
+      forceUpdate();
       let nextCellIndex = spell.getCellIndex();
 
       // Safety check: verify if the move pushed the projectile off the map entirely
       if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
         this.removeSpell(spell);
         spellDestroyedDuringMove = true;
-        gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c')
+        gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
+        forceUpdate();
         break; // Stop evaluating sub-steps for this spell
       }
 
@@ -156,12 +162,14 @@ export class PlacedSpells {
 
           // Clean up the consumed spell out of our batch engine registry
           this.removeSpell(otherSpell);
+          forceUpdate();
 
           // Clear cell of the removed spell
           cell.setSpell(null);
 
           // Do vertical movement if otherSpell was 'Gyre'
           spell.moveVertically();
+          forceUpdate();
 
           nextCellIndex = spell.getCellIndex();
 
@@ -171,6 +179,7 @@ export class PlacedSpells {
             spellDestroyedDuringMove = true;
             gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
             cell = null;
+            forceUpdate();
             break; // Stop evaluating sub-steps for this spell
           }
 
@@ -204,6 +213,7 @@ export class PlacedSpells {
             gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Player1' : 'Player2'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
             this.removeSpell(spell);
             spellDestroyedDuringMove = true;
+            forceUpdate();
             break; // Projectile exploded against opponent base
           }
         }
@@ -215,6 +225,7 @@ export class PlacedSpells {
       if (isLastSpellMove && !spellDestroyedDuringMove) {
         cell.setSpell(spell);
       }
+      forceUpdate();
     }
     // Cleanup: Filter out any remaining phantom items that lost board references
     // this.removeInvalidSpells();
