@@ -3,6 +3,7 @@ import { CellIndex } from '../types';
 import { Cell } from './Cell';
 import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
+import { proxy } from 'valtio';
 
 export class GameBoard {
   // Config Constants
@@ -37,7 +38,7 @@ export class GameBoard {
   private initializeGrid = (p1: Player, p2: Player): void => {
     for (let i = 0; i < GameBoard.NUM_ROWS; i++) {
       for (let j = 0; j < GameBoard.NUM_COLS; j++) {
-        const cell = new Cell({ j, i }); // Map (j, i) matching coordinate logic
+        const cell = proxy(new Cell({ j, i })); // Map (j, i) matching coordinate logic
 
         // 1. Assign Home-Bases / Player Owners (First columns vs Last columns)
         if (j < this.numPlayerCells) {

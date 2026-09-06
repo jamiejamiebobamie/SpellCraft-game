@@ -8,7 +8,7 @@ import { GameLog } from '../GameLog';
 export class PlacedSpells {
   // Properties
   spells: Array<Spell> = proxy([]);
-  private static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 500;
+  private static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 200;
   // --- Core Array Utilities ---
 
   getTop = (): Spell | null => {
@@ -92,7 +92,15 @@ export class PlacedSpells {
     }
     // // Cleanup: Filter out any remaining phantom items that lost board references
     this.removeInvalidSpells();
+
+    // add extra time for CSS to update
+    await this.pauseForCssUpdates();
   };
+
+  pauseForCssUpdates = async (): Promise<void> => {
+    const spellRange = this.getRangedArray(this.spells.length);
+    for await (const _ of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
+  }
 
   // called in 'updateSpells' and after placing a spell on the board for the first time
   updateSpell = async (gameBoard: GameBoard, gameLog: GameLog, spell: Spell): Promise<void> => {
@@ -161,7 +169,8 @@ export class PlacedSpells {
           if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
             this.removeSpell(spell);
             spellDestroyedDuringMove = true;
-            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c')
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
+            cell = null;
             break; // Stop evaluating sub-steps for this spell
           }
 
@@ -197,8 +206,6 @@ export class PlacedSpells {
             spellDestroyedDuringMove = true;
             break; // Projectile exploded against opponent base
           }
-
-
         }
       }
 

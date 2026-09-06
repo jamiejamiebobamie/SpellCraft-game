@@ -32,7 +32,8 @@ export class Game {
   spellCanvas!: SpellCanvas;
   gameSymbol!: GameSymbol | null;
   clockSpeed: number = .055;
-
+  readonly CLOCK_SPEED: number = .055;
+  minuteAngleAcc: number = 0;
 
   // Game Loop Properties
   players!: [Player, Player];
@@ -53,7 +54,7 @@ export class Game {
    */
   init = (): void => {
     // 1. Create a fresh instance of the Logger
-    this.gameLog = new GameLog();
+    this.gameLog = proxy(new GameLog());
     this.clearLog();
     this.appendToLog('Initializing new mystical duel...', '#a78bfa');
 
@@ -63,7 +64,7 @@ export class Game {
     this.players = [humanPlayer, computerPlayer];
 
     // 3. Initialize the static bounding cell board layout
-    this.gameBoard = new GameBoard(humanPlayer, computerPlayer);
+    this.gameBoard = proxy(new GameBoard(humanPlayer, computerPlayer));
 
     computerPlayer.setGameBoard(this.gameBoard);
 
@@ -73,13 +74,13 @@ export class Game {
     // computerPlayer.gameBoardRef = this.gameBoard.cells;
 
     // 5. Reset projectile tracking layer
-    this.placedSpells = new PlacedSpells();
+    this.placedSpells = proxy(new PlacedSpells());
     this.gameTurn = 0;
 
-    this.model = new Model();
+    this.model = proxy(new Model());
     this.model.init();
 
-    this.spellCanvas = new SpellCanvas();
+    this.spellCanvas = proxy(new SpellCanvas());
     this.gameSymbol = null;
 
     // 6. Establish the global state context pointer map
@@ -116,6 +117,7 @@ export class Game {
     this.gameOver = null;
     this.isClickDisabled = false;
     this.isHoverDisabled = false;
+    this.minuteAngleAcc = 0;
   };
 
   // --- GameLog Delegation Wrappers ---
@@ -182,6 +184,10 @@ export class Game {
 
   disableGameBoard = (): void => {
     this.gameBoard.disableBoard();
+  }
+
+  incrementMinuteAngleAcc = (incr: number) => {
+    this.minuteAngleAcc += incr;
   }
 
   updatePlayerTurn = () => {
@@ -259,15 +265,25 @@ export class Game {
     return !this.isClickDisabled && this.getActivePlayer()?.getDirection() == playerDirection
   }
 
-  getClockSpeed = (): number => {
-    return this.getIsGameBoardDisabled() ? 0 : this.clockSpeed;
-  }
-
   updatePlacedSpells = async () => {
+    this.pauseClock();
     this.disableGameBoard();
     // uses a generator/iterator
     await this.placedSpells.updateSpells(this.gameBoard, this.gameLog);
     this.enableGameBoard();
+    this.unpauseClock();
+  }
+
+  getClockSpeed = (): number => {
+    return this.clockSpeed;
+  }
+
+  pauseClock = (): void => {
+    this.clockSpeed = 0;
+  }
+
+  unpauseClock = (): void => {
+    this.clockSpeed = this.CLOCK_SPEED;
   }
 
   getGameSymbolIcon = (): string => {
@@ -344,6 +360,7 @@ export class Game {
     this.instantiateSpellFromInferenceString(result);
   }
 
+  // for human player only
   instantiateSpellFromInferenceString = (inferenceString: InferenceString): void => {
     if (GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)) {
       if (this.players[0].getFizzleCount() == 3) {
@@ -351,10 +368,10 @@ export class Game {
       } else {
         this.appendToLog(`You drew an unknown spell! And gained a Fizzle.`, 'purple');
       }
-      this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
+      this.gameSymbol = proxy(new GameSymbol(inferenceString, this.players[0]));
       this.gameSymbol.instantiateSpell(this.gameTurn);
     } else {
-      this.gameSymbol = new GameSymbol(inferenceString, this.players[0]);
+      this.gameSymbol = proxy(new GameSymbol(inferenceString, this.players[0]));
     }
   }
 

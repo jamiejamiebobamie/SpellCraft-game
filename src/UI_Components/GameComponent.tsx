@@ -88,8 +88,6 @@ const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
 export const GameComponent = () => {
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
-  const player1AvatarRef = useRef<HTMLImageElement | null>(null);
-  const player2AvatarRef = useRef<HTMLImageElement | null>(null);
 
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -113,8 +111,6 @@ export const GameComponent = () => {
   const playerOneSnap = useSnapshot(rootGameStore.players[0]);
   const playerTwoSnap = useSnapshot(rootGameStore.players[1]);
   // - - - - - - 
-
-  useEffect(() => { console.log(snap.gameOver) }, [snap.gameOver])
 
   // TO-DO: resolve Typescript-only type error here
   return (
@@ -152,7 +148,8 @@ export const GameComponent = () => {
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
         <ClockFaceComponent
-          clockSpeed={rootGameStore.getClockSpeed()}
+          rootGameStore={rootGameStore}
+          clockSpeed={snap.getClockSpeed()}
           onMinuteHandLap={async () => {
             await rootGameStore.updatePlacedSpells();
             rootGameStore.incrementGameTurn();
@@ -162,14 +159,14 @@ export const GameComponent = () => {
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
-        <PlayerComponent rootGameStore={rootGameStore} playerSnap={playerOneSnap} playerAvatarRef={player1AvatarRef} />
+        <PlayerComponent playerSnap={playerOneSnap} />
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
-          <GameBoardComponent rootGameStore={rootGameStore} />
-          <GameLogComponent rootGameStore={rootGameStore} />
+          <GameBoardComponent snap={snap} rootGameStore={rootGameStore} />
+          <GameLogComponent snap={snap} rootGameStore={rootGameStore} />
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-        <PlayerComponent playerSnap={playerTwoSnap} playerAvatarRef={player2AvatarRef} />
+        <PlayerComponent playerSnap={playerTwoSnap} />
       </GameWrapper>
     </>
   );

@@ -65,27 +65,23 @@ font-weight: ${props => props.$weight || 'bold'};
 `;
 
 interface GameBoardComponentProps {
+  readonly snap: Game;
   rootGameStore: Game;
 }
 
 /* COMPACT INTERACTIVE FLYOUT LOGGER */
-const GameLogComponent = ({ rootGameStore }: GameBoardComponentProps) => {
-  const snap = useSnapshot(rootGameStore);
+const GameLogComponent = ({ snap, rootGameStore }: GameBoardComponentProps) => {
+  // const snap = useSnapshot(rootGameStore);
   const hoveredSpell = snap?.getHoveredSpell();
-
   const logEndRef = useRef<HTMLDivElement>(null);
-
   const scrollToLatestLogEntry = () => logEndRef?.current?.scrollIntoView();
-
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
     // Only trigger if the height property finished animating
     if (e.propertyName === 'height') {
       scrollToLatestLogEntry();
     }
   };
-
   const numEntries = rootGameStore.gameLog?.getNumLogs();
-
   useEffect(() => {
     // Only scroll if we are showing the logs, not the spell info
     if (!hoveredSpell) scrollToLatestLogEntry();

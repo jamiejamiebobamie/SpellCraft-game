@@ -88,17 +88,15 @@ const FizzleBadge = styled.div`
 
 type PlayerComponentProps = {
   playerSnap: Player;
-  playerAvatarRef: HTMLImageElement | null;
-  isTurn: boolean;
 }
 
-const PlayerComponent = ({ playerSnap, playerAvatarRef }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
   // TO-DO: (1) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
   // TO-DO: (1) green white or blue flash, and (2) floating modifier text on positive health gain
   const [isDamaged, setIsDamaged] = useState(false);
   // console.log({ isDamaged })
   return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    <AvatarFrame ref={playerAvatarRef} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+    <AvatarFrame $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
       <AvatarRobe $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $src={playerSnap.avatarHeadUrl} />
         <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />

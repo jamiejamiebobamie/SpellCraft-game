@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { Game } from '../../DataClasses/Game';
 
 // 2. The Main Absolute Anchor in the Top-Right Corner
 const MenuAnchor = styled.div`
   position: absolute;
-  top: 2cqw;   
-  right: 45cqw; 
+  top: 5cqw;   
+  left: 45cqw; 
   z-index: 31;
   background-color: black;
   pointer-events: none;
@@ -16,32 +17,33 @@ const MenuAnchor = styled.div`
 
 // Simple styled wrapper to orient the rotation center perfectly
 const ClockWrapper = styled.div`
-  width: 6cqw;
-  height: 6cqw;
+  width: 9cqw;
+  height: 9cqw;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
 interface ClockFaceComponentProps {
+  rootGameStore: Game;
   clockSpeed?: number;      // Higher numbers = faster rotation (e.g., 1 to 5)
   onMinuteHandLap?: () => void; // Triggered every time the minute hand passes 12
 }
 
-export default function ClockFaceComponent({ 
-  clockSpeed = 1, 
-  onMinuteHandLap 
+export default function ClockFaceComponent({
+  rootGameStore,
+  clockSpeed = 1,
+  onMinuteHandLap
 }: ClockFaceComponentProps) {
-  
+
   // Track continuous rotation angles to avoid snapping animations at 360
   const [angles, setAngles] = useState({ minute: 0, hour: 0 });
-  
+
   // Use references to bypass React state delays within the animation loop
   const requestRef = useRef<number | null>(null);
-  const minuteAngleRef = useRef<number>(0);
   const callbackRef = useRef(onMinuteHandLap);
 
-  const callBackTriggerAngle = 30; // 360 for callback to trigger every hour.
+  const callBackTriggerAngle = 30; // 360 for callback to trigger every hour, 30 to trigger every 1/12th hour
 
   // Keep callback reference updated with latest parental closures
   useEffect(() => {
@@ -50,14 +52,18 @@ export default function ClockFaceComponent({
 
   useEffect(() => {
     const updateClockPhysics = () => {
+      let minuteAngleAcc = rootGameStore.minuteAngleAcc;
+
       // Calculate previous full laps before changing the angle
-      const previousLaps = Math.floor(minuteAngleRef.current / callBackTriggerAngle);
-      
+      const previousLaps = Math.floor(minuteAngleAcc / callBackTriggerAngle);
+
+      minuteAngleAcc += clockSpeed;
+
       // Advance minute hand based on speed multiplier
-      minuteAngleRef.current += clockSpeed;
-      
+      rootGameStore.incrementMinuteAngleAcc(clockSpeed);
+
       // Calculate current full laps
-      const currentLaps = Math.floor(minuteAngleRef.current / callBackTriggerAngle);
+      const currentLaps = Math.floor(minuteAngleAcc / callBackTriggerAngle);
 
       // Trigger custom callback if a full turn boundary was crossed
       if (currentLaps > previousLaps && callbackRef.current) {
@@ -65,10 +71,10 @@ export default function ClockFaceComponent({
       }
 
       // Calculate relative hour position matching exactly 1/12th ratio
-      const hourAngle = minuteAngleRef.current / 12;
+      const hourAngle = minuteAngleAcc / 12;
 
       setAngles({
-        minute: minuteAngleRef.current,
+        minute: minuteAngleAcc,
         hour: hourAngle
       });
 
@@ -91,7 +97,7 @@ export default function ClockFaceComponent({
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
           {/* Clock Outer Rim */}
           <circle cx="50" cy="50" r="46" fill="#F1E9D2" stroke="#c3b091" strokeWidth="4" />
-          
+
           {/* Hour Tick Markers */}
           {[...Array(12)].map((_, i) => (
             <line
@@ -103,17 +109,17 @@ export default function ClockFaceComponent({
           ))}
 
           {/* Hour Hand (Thicker, Shorter) */}
-          <line 
-            x1="50" y1="50" x2="50" y2="28" 
+          <line
+            x1="50" y1="50" x2="50" y2="28"
             stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round"
-            transform={`rotate(${angles.hour} 50 50)`} 
+            transform={`rotate(${angles.hour} 50 50)`}
           />
-          
+
           {/* Minute Hand (Thinner, Longer) */}
-          <line 
-            x1="50" y1="50" x2="50" y2="16" 
+          <line
+            x1="50" y1="50" x2="50" y2="16"
             stroke="#5c4d37" strokeWidth="3.5" strokeLinecap="round"
-            transform={`rotate(${angles.minute} 50 50)`} 
+            transform={`rotate(${angles.minute} 50 50)`}
           />
 
           {/* Center Pin */}

@@ -4,6 +4,7 @@ import { GameSymbol, NpcPlaceSpellOnBoardFunc } from '../PlacedSpells/GameSymbol
 import { GameBoard } from '../GameBoard/GameBoard';
 import { UniqueId } from '../UniqeId';
 import { InferenceString } from '../types';
+import { proxy } from 'valtio';
 
 export type NPCPlayerTurnMove = {
   isSkip: boolean;
@@ -136,7 +137,7 @@ export class Player extends UniqueId {
   addFizzle = (currentGlobalTurn: number): void => {
 
     // Instantiate using the current global turn and a custom duration limit
-    this.fizzles.push(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS));
+    this.fizzles.push(proxy(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS)));
 
     if (this.fizzles.length > Player.MAX_FIZZLES_BEFORE_BACKLASH) {
       this.doBacklash();
@@ -253,7 +254,7 @@ export class NPCPlayer extends Player {
       // if (this.appendToLog)
       //   this.appendToLog(`${inferenceString} ${cellRowIndex}`, 'black');
       if (inferenceString != 'SKIP') {
-        const gameSymbol = new GameSymbol(inferenceString, this);
+        const gameSymbol = proxy(new GameSymbol(inferenceString, this));
         this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
       }
     }, this.castSpeed);

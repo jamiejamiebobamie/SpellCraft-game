@@ -16,7 +16,6 @@ position: absolute; /* Changed from fixed */
 
 // 5. Component Props
 interface IKArmComponentProps {
-  avatarRef: React.RefObject<HTMLImageElement | null>;
   direction: number;
   playerSnap: Player;
 }

@@ -105,11 +105,12 @@ const BadgeElement = styled.div<{ $position: string; $color: string; $opacity: n
 
 interface GameBoardComponentProps {
     rootGameStore: Game;
+    readonly snap: Game;
 }
 
-const GameBoardComponent = ({ rootGameStore }: GameBoardComponentProps) => {
+const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) => {
     const gridOverlayRef = useRef<HTMLDivElement | null>(null);
-    const snap = useSnapshot<Game>(rootGameStore);
+    // const snap = useSnapshot<Game>(rootGameStore);
     const isPlacingGameSymbol: boolean = !!snap.getGameSymbolIcon();
     const isDisabled: boolean = snap.gameBoard.getIsClickDisabled();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
