@@ -152,7 +152,7 @@ export class Game {
    */
   updatePlayer = (
     player: Player,
-    action: 'decrementHealth' | 'decrementFocus' | 'setIsTurn' | 'addFizzle',
+    action: 'decrementHealth' | 'decrementFocus' | 'setIsTurn',
     param: number | boolean
   ): void => {
     switch (action) {
@@ -167,9 +167,6 @@ export class Game {
         break;
       case 'setIsTurn':
         if (typeof param === 'boolean') player.setIsTurn(param, this.gameTurn);
-        break;
-      case 'addFizzle':
-        if (typeof param === 'boolean') player.addFizzle(this.gameTurn);
         break;
     }
   };
@@ -203,8 +200,6 @@ export class Game {
     previousPlayer.setIsTurn(false, this.gameTurn);
     nextPlayer.setIsTurn(true, this.gameTurn);
 
-    // this.gameTurn % 2 == 0 && 
-    // this.regenFocus();
   }
 
   getActivePlayer = (): Player => {
@@ -222,23 +217,19 @@ export class Game {
   };
 
   regenFocus = () => {
-    this.players.forEach(p => p.decrementFocus(-2));
+    this.players.forEach(p => p.decrementFocus(p.getFocusRegenAmt()));
   }
 
   placeSpellOnBoard = async (cell: Cell): Promise<void> => {
     if (this.isCanPlaceGameSymbolOn(cell)) {
-      // this.placedSpells.removeInvalidSpells();
-      const spell = this.gameSymbol?.instantiateSpell(this.gameTurn);
+      const spell = this.gameSymbol?.instantiateSpell();
       this.gameSymbol = null;
       if (spell instanceof Spell) {
         // this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, this.players[0].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
-        // this.setIsClickDisabled(true);
-        // await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
-        // this.setIsClickDisabled(false);
       }
     }
   }
@@ -247,16 +238,13 @@ export class Game {
     const cell = this.gameBoard.getFreeNpcPlacementCell(this.players[1], cellRowIndex);
     // this.appendToLog(`${gameSymbol.symbolName} ${cell.getCellIndex().i} ${cell.getCellIndex().j} ${cellRowIndex} isFree ${cell.getIsFree() && cell.getIsPlaceCell(this.players[1])} isPlace ${cell.getIsFree() && cell.getIsPlaceCell(this.players[1])}`, 'black');
     if (cell.getIsFree() && cell.getIsPlaceCell(this.players[1])) {
-      const spell = gameSymbol.instantiateSpell(this.gameTurn);
+      const spell = gameSymbol.instantiateSpell();
       if (spell instanceof Spell) {
         // this.appendToLog(`Your opponents has cast a ${spell.getSpellName()} spell!`, this.players[1].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
-        // this.setIsClickDisabled(true);
-        // await this.placedSpells.updateSpell(this.gameBoard, this.gameLog, spell);
         spell.setIsPlaced(true);
-        // this.setIsClickDisabled(false);
       }
     }
   }
@@ -358,19 +346,14 @@ export class Game {
 
   // for human player only
   instantiateSpellFromInferenceString = (inferenceString: InferenceString): void => {
+    this.gameSymbol = proxy(new GameSymbol(inferenceString, this.players[0]));
     if (GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)) {
-      if (this.players[0].getFizzleCount() == 3) {
-        this.appendToLog(`The spellcasting gods recoil at your malfeasance. BACKLASH!`, 'purple');
-      } else {
-        this.appendToLog(`You drew an unknown spell! And gained a Fizzle.`, 'purple');
-      }
-      this.gameSymbol = proxy(new GameSymbol(inferenceString, this.players[0]));
-      this.gameSymbol.instantiateSpell(this.gameTurn);
-    } else {
-      this.gameSymbol = proxy(new GameSymbol(inferenceString, this.players[0]));
+      // do backlash <focus / health> decrement
+      this.gameSymbol.instantiateSpell();
+      // reset gameSymbol
+      this.gameSymbol = null;
     }
   }
-
 
   /**
    * Steps the turn cycle forward. Called by the Finite State Machine 
@@ -378,7 +361,6 @@ export class Game {
    */
   incrementGameTurn = (): void => {
     this.gameTurn += 1;
-    this.players.forEach(p => p.updateFizzles(this.gameTurn))
   };
 
   getCurrentGameTurn = (): number => {

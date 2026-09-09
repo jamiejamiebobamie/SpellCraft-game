@@ -4,6 +4,7 @@ import { Player } from '../Player/Player';
 import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
+import { rootGameStore } from '../store';
 
 export type NpcPlaceSpellOnBoardFunc = (gameSymbol: GameSymbol, cellRowIndex?: number) => Promise<void>;
 
@@ -48,11 +49,11 @@ export class GameSymbol extends UniqueId {
    * 
    * @param strokeLength The length or duration of the player's drawing gesture
    */
-  instantiateSpell = (currentGlobalTurn: number): Spell | null => {
+  instantiateSpell = (): Spell | null => {
     // Validate drawing and do fizzle if invalid
     if (GameSymbol.FIZZLE_INFERENCES.includes(this.symbolName)) {
-      this.caster.addFizzle(currentGlobalTurn);
-      this.caster.decrementFocus(1);
+      // BACKLASH!
+      this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
@@ -60,8 +61,8 @@ export class GameSymbol extends UniqueId {
 
     if (!this.SpellClass) {
       // something went wrong... treat it like a Fizzle
-      this.caster.addFizzle(currentGlobalTurn);
-      this.caster.decrementFocus(1);
+      // BACKLASH!
+      this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
@@ -84,6 +85,8 @@ export class GameSymbol extends UniqueId {
       // Calculate how much focus is missing
       const difference = focusCost - this.caster.getFocus();
 
+      // TO-DO: choreograph/convey "blood magic" to player...
+      rootGameStore.appendToLog(`You used your lifeforce to power your spells! Be careful!`,'#880808');
       this.caster.depleteFocusToZero();
       this.caster.decrementHealth(difference); // Health covers the remaining resource debt
     }

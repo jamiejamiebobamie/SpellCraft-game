@@ -139,7 +139,7 @@ export class PlacedSpells {
       if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
         this.removeSpell(spell);
         spellDestroyedDuringMove = true;
-        gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
+        gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
         forceUpdate();
         break; // Stop evaluating sub-steps for this spell
       }
@@ -177,7 +177,7 @@ export class PlacedSpells {
           if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
             this.removeSpell(spell);
             spellDestroyedDuringMove = true;
-            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
             cell = null;
             forceUpdate();
             break; // Stop evaluating sub-steps for this spell
@@ -210,7 +210,7 @@ export class PlacedSpells {
           if (direction != owner.getDirection()) {
             spell.getPropertyValue('dmgHealth')
             spell.resolvePlayerCollision(owner);
-            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Player1\'s' : 'Player2\'s'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Player1' : 'Player2'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ${spell.getPropertyValue('dmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Your' : 'Their'} for ${spell.getPropertyValue('dmgHealth') * (spell.getPropertyValue('dmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('dmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
             this.removeSpell(spell);
             spellDestroyedDuringMove = true;
             forceUpdate();
@@ -218,7 +218,6 @@ export class PlacedSpells {
           }
         }
       }
-
 
       // 4. Update board map link context on the final step
       const isLastSpellMove = j + 1 === numMoves;

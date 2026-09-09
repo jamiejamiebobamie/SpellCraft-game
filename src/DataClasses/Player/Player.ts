@@ -1,5 +1,4 @@
 // Player.ts
-import { Fizzle } from './Fizzle';
 import { GameSymbol, NpcPlaceSpellOnBoardFunc } from '../PlacedSpells/GameSymbol'
 import { GameBoard } from '../GameBoard/GameBoard';
 import { UniqueId } from '../UniqeId';
@@ -25,19 +24,28 @@ export class Player extends UniqueId {
   readonly avatarRobeUrl: string = './player_avatars/Robe1a.png';
   readonly avatarBicepUrl: string = './player_avatars/Bicep1.png';
 
-  // State
-  healthAmt: number = 5;
-  focusAmt: number = 4;
-  isTurn: boolean = false;
-  fizzles: Array<Fizzle> = [];
-  checkGameOverCallback!: Function;
-
   // Configuration Constants
-  private static readonly MAX_HEALTH_AMT = 5;
-  private static readonly MAX_FOCUS_AMT = 4;
-  private static readonly MAX_FIZZLES_BEFORE_BACKLASH = 3;
+  private static readonly MAX_HEALTH_AMT = 100;
+  // - - FOCUS - - - - - - -
+  private static readonly FOCUS_REGEN_AMT = -1; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
+  private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
+  // - - - - - - - - - - - -
+  /*
+    If player-drawn symbol is:
+      (1) too short or 
+      (2) if "runInference" finds it to be a "square" or "squiggle"
+    player spell is a "Fizzle" (a "whiff" / "oopsy").
+
+    Fizzles create a "Backlash," which decrements Focus as if the spell was successful.
+    If player has no Focus, Backlash causes damage to player health.
+  */
   private static readonly BACKLASH_DAMAGE = 1;
-  private static readonly FIZZLE_LIFETIME_TURNS = 12; // How long a fizzle tracks on a player
+  // State
+  healthAmt: number = Player.MAX_HEALTH_AMT;
+  focusAmt: number = Player.MAX_FOCUS_AMT;
+  isTurn: boolean = false;
+  checkGameOverCallback!: Function;
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function) {
     super();
@@ -57,16 +65,36 @@ export class Player extends UniqueId {
     return this.healthAmt;
   };
 
+  getMaxHealth = (): number => {
+    return Player.MAX_HEALTH_AMT;
+  };
+
   getHealthPrct = (): number => {
     return (this.healthAmt / Player.MAX_HEALTH_AMT) * 100
   }
 
+  getBacklashDmg = (): number => {
+    return Player.BACKLASH_DAMAGE;
+  }
+
+  // focus restored between turns
+  getFocusRegenAmt = (): number => {
+    return Player.FOCUS_REGEN_AMT;
+  };
+
+  // current amt of focus player has
   getFocus = (): number => {
     return this.focusAmt;
   };
 
+  // normal max or cap on focus
   getMaxFocus = (): number => {
     return Player.MAX_FOCUS_AMT;
+  };
+
+  // excess focus allowed above normal max
+  getMaxExcessFocus = (): number => {
+    return Player.MAX_EXCESS_FOCUS_AMT;
   };
 
   getColor = (): string => {
@@ -77,18 +105,6 @@ export class Player extends UniqueId {
     return this.direction;
   }
 
-  getFizzles = (): Array<Fizzle> => {
-    return this.fizzles;
-  }
-
-  getFizzleCount = (): number => {
-    return this.fizzles.length;
-  }
-
-  static getMaxFizzles = (): number => {
-    return Player.MAX_FIZZLES_BEFORE_BACKLASH;
-  }
-
   static getBacklashDmg = (): number => {
     return Player.BACKLASH_DAMAGE;
   }
@@ -96,13 +112,8 @@ export class Player extends UniqueId {
 
   // --- State Changers ---
 
-  setIsTurn = (isTurn: boolean, currentGlobalTurn: number): void => {
+  setIsTurn = (isTurn: boolean): void => {
     this.isTurn = isTurn;
-
-    // Automatically manage temporal states when a turn transitions
-    if (isTurn) {
-      this.updateFizzles(currentGlobalTurn);
-    }
   };
 
   /**
@@ -121,7 +132,7 @@ export class Player extends UniqueId {
   decrementFocus = (focusDecrement: number): void => {
     this.focusAmt -= focusDecrement;
     // clamp values between 0 and max
-    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT);
+    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT + Player.MAX_EXCESS_FOCUS_AMT);
   };
 
   /**
@@ -131,46 +142,10 @@ export class Player extends UniqueId {
     this.focusAmt = 0;
   }
 
-  /**
-   * Logs a new gesture drawing failure and instantly verifies if it triggers a Backlash.
-   */
-  addFizzle = (currentGlobalTurn: number): void => {
-
-    // Instantiate using the current global turn and a custom duration limit
-    this.fizzles.push(proxy(new Fizzle(currentGlobalTurn, Player.FIZZLE_LIFETIME_TURNS)));
-
-    if (this.fizzles.length > Player.MAX_FIZZLES_BEFORE_BACKLASH) {
-      this.doBacklash();
-    }
-  };
-
-  doBacklash = (): void => {
-    this.decrementHealth(Player.BACKLASH_DAMAGE);
-    this.fizzles.splice(0);
-  };
-
-
   reset = (): void => {
     this.healthAmt = 5;
     this.focusAmt = 4;
-    this.fizzles.splice(0);
   }
-
-  /**
-   * Decrements lifetime ticks on active tracking fizzles and removes expired ones.
-   */
-  /**
-   * Cleans up expired elements on turn boundaries.
-   */
-  updateFizzles = (currentGlobalTurn: number): void => {
-    // 1. Trigger the explicit remove hook for anything that is about to vanish
-    this.fizzles
-      .filter(fizzle => fizzle.getIsExpired(currentGlobalTurn))
-      .forEach(fizzle => fizzle.remove());
-
-    // 2. Keep only the active, unexpired fizzles
-    this.fizzles = this.fizzles.filter(fizzle => !fizzle.getIsExpired(currentGlobalTurn));
-  };
 }
 
 
@@ -210,8 +185,8 @@ export class NPCPlayer extends Player {
 
     TO-DO: figure out if consumed spell modifiers stack and if not, why not...        
 
-  */ 
- 
+  */
+
   getMove = (): [InferenceString, number?] => {
     const isHasFocus = this.focusAmt > 1;
 

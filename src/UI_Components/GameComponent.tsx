@@ -118,9 +118,9 @@ export const GameComponent = () => {
         $isPlacingGameSymbol={!!gameSymbolIcon}
         onMouseMove={handleMouseMove}
         onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
+          // TO-DO: fix issue with allowing drawing while placing game symbol (DISALLOW drawing while placing)
           const target = e.target as HTMLElement;
           const isUiButton = target.closest('[data-click-type="ui-buttons"]');
-          // console.log({ isUiButton });
           if (isUiButton || rootGameStore.getIsClickDisabled() || !rootGameStore.getIsHumanPlayerTurn() || rootGameStore.getIsDrawing()) return;
           if (rootGameStore.getIsPlacing() && !rootGameStore.getIsGameBoardDisabled()) {
             const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
