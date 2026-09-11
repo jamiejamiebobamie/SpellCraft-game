@@ -8,7 +8,7 @@ import styled from 'styled-components'
 
 const DuelistSideColumn = styled.div`
   flex: 1;
-  background: transparent;// #161616;
+  background: transparent;
   padding: 1.5cqw;
   position: relative;
   display: flex;
@@ -19,7 +19,7 @@ const DuelistSideColumn = styled.div`
   pointer-events: none;
 `;
 
-const AvatarFrame = styled.div<{ $direction: number, $src: string, $isDmg: boolean }>`
+const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   transform: scale(${props => props.$direction}, 1);
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
 
@@ -102,7 +102,6 @@ interface UseHealthbarProps {
   setCachedHealth: Dispatch<SetStateAction<number>>;
   healthRefTimeout: RefObject<number | null | undefined>;
   setHealthDiff: Dispatch<SetStateAction<number>>;
-  setIsDamaged: Dispatch<SetStateAction<boolean>>;
   ANIM_TIME: number;
 }
 
@@ -111,7 +110,6 @@ const useHealthbar = ({
   setCachedHealth,
   healthRefTimeout,
   setHealthDiff,
-  setIsDamaged,
   ANIM_TIME
 }: UseHealthbarProps) => {
   useEffect(() => {
@@ -122,11 +120,9 @@ const useHealthbar = ({
 
       const diff = healthAmt - oldCachedAmt;
       setHealthDiff(diff);
-      diff < 0 && setIsDamaged(true);
 
       healthRefTimeout.current = setTimeout(() => {
         setHealthDiff(0);
-        setIsDamaged(false); // TO-DO: create separate diff and handle multiple dmgs between resets
       }, ANIM_TIME * 1000);
       return healthAmt;
     });
@@ -174,7 +170,7 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
   const ANIM_TIME = 5;
   const textModifierWidth = '10cqw';
   const textModifierHeight = '10cqw';
-  const textModifierFontSize = '2cqw';
+  const textModifierFontSize = '3cqw';
 
   const healthAmt = playerSnap.getHealth();
   const focusAmt = playerSnap.getFocus();
@@ -183,18 +179,16 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
   const healthRefTimeout = useRef<number | null | undefined>(0);
   const focusRefTimeout = useRef<number | null | undefined>(0);
 
-  const [isDamaged, setIsDamaged] = useState(false);
-
   const [_, setCachedHealth] = useState(playerSnap.getHealth());
   const [__, setCachedFocus] = useState(playerSnap.getFocus());
 
   const [healthDiff, setHealthDiff] = useState(0);
   const [focusDiff, setFocusDiff] = useState(0);
 
-  useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, setIsDamaged, ANIM_TIME });
+  useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
   useFocusDots({ focusAmt, setCachedFocus, focusRefTimeout, setFocusDiff, ANIM_TIME });
 
-  const avatar = (<AvatarFrame $isDmg={isDamaged} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+  const avatar = (<AvatarFrame $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
     {<ModifierTextComponent
       propertyName={'Health'}
       propertyValue={healthDiff}
@@ -224,11 +218,11 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
       $backgroundColor={'#44aac9'}
       $color={'white'}
     />}
-    <Damageable $isDmged={isDamaged}>
-      <AvatarRobe $src={playerSnap.avatarRobeUrl}>
-        <AvatarHead $src={playerSnap.avatarHeadUrl} />
-        <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />
-        <IK_ArmComponent playerSnap={playerSnap} direction={direction} />
+    <Damageable $healthDiff={healthDiff}>
+      <AvatarRobe $healthDiff={healthDiff} $src={playerSnap.avatarRobeUrl}>
+        <AvatarHead $healthDiff={healthDiff} $src={playerSnap.avatarHeadUrl} />
+        <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap.avatarRightArmUrl} />
+        <IK_ArmComponent healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
     </Damageable>
   </AvatarFrame>);
@@ -261,10 +255,15 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
     </>
   );
 
-  // TO-DO: have modifier text spawn from object pool... ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text. NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
-  // TO-DO: add (dmg:) red flash
-  // TO-DO: add (heal:) blue-green flash
-  // TO-DO: consider rise/fall anim based on +/-
+  /*
+  
+    TO-DO: have modifier text spawn from object pool...
+    ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text.
+    NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
+
+    TO-DO: consider rise/fall anim based on +/-
+
+  */ 
   return (<DuelistSideColumn>
     {avatar}
     {healthbar}

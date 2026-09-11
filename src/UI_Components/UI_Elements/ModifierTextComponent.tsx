@@ -43,6 +43,8 @@ const ModifierText = styled.div<{
     font-size: ${props => props.$fontSize};
     z-index: 50;
 
+    font-family: 'EnchantedLand', sans-serif;
+
     display: flex;
     align-self: center;
     align-items: center;
@@ -144,6 +146,6 @@ export const ModifierTextComponent = ({
         $contentColor={$contentColor}
         $color={$color}
         $animDuration={animTimeSecs}>
-        {propertyValue > 0 ? "+" : ""}{propertyValue}{' '}{propertyName}
+        {propertyValue > 0 ? "+" : ""}{propertyValue}{'  '}{propertyName}
     </ModifierText>
 }

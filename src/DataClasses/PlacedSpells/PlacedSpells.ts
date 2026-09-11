@@ -94,25 +94,18 @@ export class PlacedSpells {
    * Handles sub-stepping movements to calculate step-by-step collisions accurately.
    */
   updateSpells = async (gameBoard: GameBoard, gameLog: GameLog, forceUpdate: Function): Promise<void> => {
-
     const spellRange = this.getRangedArray(this.spells.length);
     // Consume the async generator
     for await (const i of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
       await this.updateSpell(gameBoard, gameLog, this.spells[i], forceUpdate);
     }
-
-    // await this.pauseForCssUpdates();
     gameBoard.setEmpoweredSpells();
-
-    // TO-DO: call this outside of (and after) 'updateSpells' to allow for slow fade on collision with Players...
-    // // Cleanup: Filter out any remaining phantom items that lost board references
-    this.removeInvalidSpells();
-    // await this.pauseForCssUpdates();
-
+    // Cleanup: Filter out any remaining phantom items that lost board references
     forceUpdate();
-
-    // add extra time for CSS to update
+    // Add extra time for CSS to update
     await this.pauseForCssUpdates();
+    this.removeInvalidSpells();
+    forceUpdate();
   };
 
   pauseForCssUpdates = async (): Promise<void> => {
@@ -125,37 +118,27 @@ export class PlacedSpells {
     if (spell.getIsRemove()) return;
 
     const currentCellIndex = spell.getCellIndex();
-
-    // Skip evaluation if the spell has already been swept or lacks a grid home
     if (!currentCellIndex) return;
 
     // Clear the spell's old starting track cell presence before it steps forward
     const startingCell = gameBoard.getCellAt({ i: currentCellIndex.i, j: currentCellIndex.j });
-    if (startingCell && startingCell.getSpell() === spell) { // handle spell that has a numMoves of 0(?)
+    if (startingCell && startingCell.getSpell() === spell) {
       startingCell.setSpell(null);
     }
 
     let spellDestroyedDuringMove = false;
 
-
-    // Extract raw speed (how many steps it must perform this tick)
-    // Note: your dynamic accessor checks for property name keys    
     const speed = spell.getPropertyValue('empoweredSpeedDirection');
     const numMoves = Math.abs(speed);
     const moves = this.getRangedArray(numMoves);
     for await (const j of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
-      // 1. Advance the internal coordinates of the spell instance
       spell.moveHorizontally();
       forceUpdate();
+
       let nextCellIndex = spell.getCellIndex();
-
-      // Safety check: verify if the move pushed the projectile off the map entirely
       if (spell.getIsRemove() || !nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
-        // this.removeSpell(spell);
         spell.markSpellForRemoval();
-
         spellDestroyedDuringMove = true;
-        // gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ricocheted out of sight!`, '#b2077c');
         forceUpdate();
         break; // Stop evaluating sub-steps for this spell
       }
@@ -163,17 +146,16 @@ export class PlacedSpells {
       // Map coordinates cleanly to rows (i) and columns (j)
       let targetCellIndex: CellIndex = { i: nextCellIndex.i, j: nextCellIndex.j };
       let cell = gameBoard.getCellAt(targetCellIndex);
-
       if (!cell) continue;
 
-      // 3. Check for Projectile-on-Projectile Collisions
+      // Check for Projectile-on-Projectile Collision
       while (!!cell && !cell.getIsFree()) {
-        console.log({ cell, name: spell.getSpellName() });
         const otherSpell = cell.getSpell();
         if (otherSpell && otherSpell !== spell) {
           const dmgHealth = spell.getPropertyValue('empoweredDmgHealth');
-          // spell consumes otherSpell and absorbs its properties
-          spell.resolveSpellCollision(otherSpell, dmgHealth); // TO-DO: fix bug when Gyre is consumed (multiple spells on one cell, spells appearing on board, but not hoverable...)
+          // Spell consumes otherSpell and absorbs its properties
+          spell.resolveSpellCollision(otherSpell, dmgHealth);
+          // TO-DO: fix bug when Gyre is consumed (multiple spells on one cell, spells appearing on board, but not hoverable...)
           forceUpdate();
 
           // Clear cell of the removed spell
@@ -184,7 +166,7 @@ export class PlacedSpells {
           const numVerticalMoves = Math.abs(upDown);
           const moves = this.getRangedArray(numVerticalMoves);
           for await (const _ of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
-            // Do vertical movement if otherSpell was 'Gyre'
+            // Do vertical movement if 'otherSpell' was Gyre
             spell.moveVertically();
             forceUpdate();
           }
@@ -206,39 +188,41 @@ export class PlacedSpells {
         }
       }
 
-      console.log({ cell, name: spell.getSpellName() });
-
       if (!cell) continue;
 
-
-      // 2. Check for Endzone Opponent Base collisions first
+      // Check for Projectile-on-Player Collision
       if (cell.getIsPlayerCell()) {
         const owner = cell.getCellOwner();
         if (spell.getIsPlaced() && owner) {
-          // Apply damage or player impacts
-
           const direction = Math.sign(spell.getPropertyValue('speedDirection'));
           // Check to see if the spell did not reverse direction at last spell collision
           if (!spell.getIsRemove() && direction != owner.getDirection()) {
+
+            // Move spell ONTO player avatar
+            const moves = this.getRangedArray(3);
+            for await (const _ of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+              // Do vertical movement if otherSpell was 'Gyre'
+              spell.moveHorizontally();
+              forceUpdate();
+            }
+
             const dmgHealth = spell.getPropertyValue('empoweredDmgHealth');
             spell.resolvePlayerCollision(owner, dmgHealth);
-            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'Your' : 'Their'} for ${spell.getPropertyValue('empoweredDmgHealth') * (spell.getPropertyValue('empoweredDmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
-            // this.removeSpell(spell);
+            spell.markSpellForRemoval();
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'you' : 'them'} for ${spell.getPropertyValue('empoweredDmgHealth') * (spell.getPropertyValue('empoweredDmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
             spellDestroyedDuringMove = true;
             forceUpdate();
-            break; // Projectile exploded against opponent base
+            break;
           }
         }
       }
 
-      // 4. Update board map link context on the final step
+      // Update board map link context on the final step
       const isLastSpellMove = j + 1 === numMoves;
       if (isLastSpellMove && !spellDestroyedDuringMove) {
         cell.setSpell(spell);
       }
       forceUpdate();
     }
-    // Cleanup: Filter out any remaining phantom items that lost board references
-    // this.removeInvalidSpells();
   }
 }

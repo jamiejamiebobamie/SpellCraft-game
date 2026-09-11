@@ -1,7 +1,19 @@
 
 import React from 'react';
 import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const popIn = keyframes`
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4); /* Scales up by 40% to grab attention */
+  }
+  100% {
+    transform: scale(1); /* Returns to normal size */
+  }
+`;
 
 const SpellBadge = styled.div<{
     $left?: string;
@@ -28,7 +40,8 @@ const SpellBadge = styled.div<{
 
     transform-style: preserve-3d;
 
-    transition: opacity 2s;
+    animation: ${popIn} 0.4s ease-out forwards;
+    transition: opacity 2s, transform 0.2s; 
 
     ${props => props.$left && `left: ${props.$left};`}
     ${props => props.$right && `right: ${props.$right};`}
@@ -45,7 +58,6 @@ const SpellBadge = styled.div<{
     position: absolute;
   }
 `;
-
 
 interface BadgeComponentProps {
     propertyName: string;

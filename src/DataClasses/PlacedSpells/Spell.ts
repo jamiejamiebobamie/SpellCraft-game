@@ -201,9 +201,6 @@ export abstract class Spell extends UniqueId {
   resolvePlayerCollision = (otherPlayer: Player, dmgHealth: number): void => {
     // Apply damage (or healing if dmgHealth is negative)
     otherPlayer.decrementHealth(dmgHealth)
-
-    // Consume/destroy this spell after collision
-    this.markSpellForRemoval()
   };
 
   getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => {
@@ -240,7 +237,7 @@ export class Phlegm extends Spell {
 
   constructor(caster: Player) {
     super('Phlegm', caster);
-    this.dmgHealth = -3; // Heal for 1 Health
+    this.dmgHealth = -5; // Heal for 1 Health
     this.spellIconUrl = 'spell-icons/PhlegmIcon_mockup.png';
   }
 
@@ -332,7 +329,7 @@ export abstract class Gyre extends Spell {
 
   constructor(caster: Player) {
     super('Gyre', caster);
-    this.dmgHealth = 1;
+    this.dmgHealth = 4;
     this.gyreLives = 4;
     this.empoweredColor = '#ddd8d8';
   }
@@ -420,7 +417,7 @@ export class Quicken extends Spell {
 
   constructor(caster: Player) {
     super('Quicken', caster);
-    this.dmgHealth = 1;
+    this.dmgHealth = 3;
     this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
     this.speedDirection *= 1;
     this.empoweredColor = '#16e0d6';
@@ -445,7 +442,7 @@ export class Quicken extends Spell {
     targetSpell.updatePropertyValue('speedDirection', currentSpeed + Math.abs(this.speedDirection) * Math.sign(currentSpeed));
 
     // buff for Gyre and Ether
-    if (!(this instanceof Phlegm)) {
+    if (!(targetSpell instanceof Phlegm)) {
       // conserve buffed dmgHealth if consumed spell has greater dmg than consumer
       const consumerDmgHealth = targetSpell.getPropertyValue('dmgHealth');
       if (this.dmgHealth > consumerDmgHealth) {

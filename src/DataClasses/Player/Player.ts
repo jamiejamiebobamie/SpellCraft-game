@@ -177,13 +177,10 @@ export class NPCPlayer extends Player {
     implement "combos".
     "combos" -> in a single turn, place lower priority spell on owner cell, place later priority spell "in front" to be consumed.
   
-  
     COMBOS: (1) phlegm + phlegm = +2 heal for self
             (2) quicken + quicken = +4 speed
             (3) star + quicken = +2 speed +2 dmg
             (4) quicken + star = +2 speed +2 dmg
-
-    TO-DO: figure out if consumed spell modifiers stack and if not, why not...        
 
   */
 

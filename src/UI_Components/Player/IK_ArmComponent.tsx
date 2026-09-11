@@ -18,9 +18,10 @@ position: absolute; /* Changed from fixed */
 interface IKArmComponentProps {
   direction: number;
   playerSnap: Player;
+  healthDiff: number;
 }
 
-export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction }) => {
+export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff }) => {
   const bicepRef = useRef<HTMLImageElement | null>(null);
   const handRef = useRef<HTMLImageElement | null>(null);
   const [theta, setTheta] = useState<Array<number>>([]);
@@ -69,9 +70,9 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
 
   return (
     <ArmOverlayContainer $direction={direction}>
-      <AvatarBicep ref={bicepRef} $src={playerSnap.avatarBicepUrl} $angle={theta[0] * direction}>
-        <AvatarForearm $src={playerSnap.avatarForearmUrl} $angle={theta[1] * direction}>
-          <AvatarWandHand ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
+      <AvatarBicep $healthDiff={healthDiff} ref={bicepRef} $src={playerSnap.avatarBicepUrl} $angle={theta[0] * direction}>
+        <AvatarForearm $healthDiff={healthDiff} $src={playerSnap.avatarForearmUrl} $angle={theta[1] * direction}>
+          <AvatarWandHand $healthDiff={healthDiff} ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
         </AvatarForearm>
       </AvatarBicep>
     </ArmOverlayContainer>
