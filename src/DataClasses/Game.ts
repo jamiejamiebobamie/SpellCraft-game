@@ -31,8 +31,9 @@ export class Game {
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameSymbol!: GameSymbol | null;
-  clockSpeed: number = .055;
-  readonly CLOCK_SPEED: number = .055;
+  // readonly CLOCK_SPEED: number = .055;
+  readonly CLOCK_SPEED: number = .025; // TESTING
+  clockSpeed: number = this.CLOCK_SPEED;
   minuteAngleAcc: number = 0;
 
   // Game Loop Properties
@@ -98,10 +99,10 @@ export class Game {
     };
 
     // 7. Fire up the start of the human player turn phase machine
-    humanPlayer.setIsTurn(true, this.gameTurn);
+    humanPlayer.setIsTurn(true);
     this.gameContext.changeState(new PlayerDrawSpell(this.gameContext));
 
-    computerPlayer.startCastingLoop();
+    // computerPlayer.startCastingLoop(); // TESTING
   };
 
   resetGame = (): void => {
@@ -172,7 +173,7 @@ export class Game {
   };
 
   getIsGameBoardDisabled = (): boolean => {
-    return this.gameBoard.getIsClickDisabled();
+    return this.gameBoard.getIsHoverDisabled();//getIsClickDisabled();
   }
 
   enableGameBoard = (): void => {
@@ -207,9 +208,7 @@ export class Game {
   }
 
   isCanPlaceGameSymbolOn = (cell: Cell): boolean => {
-    const isHumanActivePlayer = !(this.gameContext.activePlayer instanceof NPCPlayer)
-    const isPlacingGameSymbol = !!this.gameSymbol;
-    return isPlacingGameSymbol && isHumanActivePlayer && cell.getIsFree() && cell.getIsPlaceCell(this.players[0]);
+    return this.getIsPlacing() && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(this.players[0]);
   }
 
   getLogEntries = (): Array<GameLogEntry> => {
@@ -225,7 +224,6 @@ export class Game {
       const spell = this.gameSymbol?.instantiateSpell();
       this.gameSymbol = null;
       if (spell instanceof Spell) {
-        // this.appendToLog(`You have cast a ${spell.getSpellName()} spell!`, this.players[0].getColor());
         spell.setCellIndex(cell.getCellIndex());
         this.placedSpells.addSpell(spell);
         this.gameBoard.setSpellAt(spell, cell);
@@ -272,8 +270,8 @@ export class Game {
 
   getGameSymbolIcon = (): string => {
     if (!this.gameSymbol) return ''
-    const spellName = GameSymbol.SPELL_NAME_LOOKUP.get(this.gameSymbol.symbolName)
-    return spellName ? `spell-icons/${spellName}Icon_mockup.png` : '';
+    const SpellClass = GameSymbol.SPELL_LOOKUP.get(this.gameSymbol.symbolName)
+    return SpellClass ? `spell-icons/${SpellClass.name}Icon_mockup.png` : '';
   }
 
   getIsHumanPlayerTurn = () => {
@@ -319,7 +317,6 @@ export class Game {
   // }
 
   setHoveredGameboardCell = (cell: Cell | null): void => {
-    // console.log({ i })
     this.gameBoard.hoverCell(cell);
   }
 
@@ -405,7 +402,7 @@ export class Game {
       this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
       setTimeout(() => {
         this.resetGame();
-        computerPlayer.startCastingLoop();
+        // computerPlayer.startCastingLoop();
         forceUpdate();
       }, 4500);
     }

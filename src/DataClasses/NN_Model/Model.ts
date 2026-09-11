@@ -90,7 +90,6 @@ export class Model {
             const result = await this.runSpellInference(simplifiedPoints, this.session);
             return result;
         } else {
-            // console.log({ session: this.session });
             return 'squiggle';
         }
 
@@ -145,10 +144,6 @@ export class Model {
 
             // 7. Map the index directly to your text names
             const recognizedSpell = Model.SPELL_LABELS[predictedIndex] || 'squiggle';
-            // console.log(`ONNX Predicted Probabilities:`, Array.from(outputData));
-            // console.log(`Recognized Shape: ${recognizedSpell}`);
-            // console.log({ feeds, outputs, session });
-
             return recognizedSpell;
         } catch (error) {
             console.error("Failed to run the ONNX model web inference:", error);

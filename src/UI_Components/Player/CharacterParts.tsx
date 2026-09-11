@@ -17,22 +17,51 @@ export const shift = keyframes`
   50% { transform: translateX(2px) var(--extra-transform, ); }
 `;
 
+// 1. Shake from dmg taken
+export const shake = keyframes`
+  10%, 90% { transform: translate3d(-.25cqw, 0, 0) var(--extra-transform, ); }
+  20%, 80% { transform: translate3d(.5cqw, 0, 0) var(--extra-transform, ); }
+  30%, 50%, 70% { transform: translate3d(-.75cqw, 0, 0) var(--extra-transform, ); }
+  40%, 60% { transform: translate3d(.75cqw, 0, 0) var(--extra-transform, ); }
+`;
+
+export const noAnim = keyframes`
+  0%, 100% { var(--extra-transform, ); }
+`;
+
+// 2. Create the styled component
+export const Damageable = styled.div<{ $isDmged: boolean }>`
+  width: 100%;
+  height: 100%;
+  
+  ${props => props.$isDmged ? css`
+    animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
+  ` : css`
+    animation: ${noAnim} 0.1s cubic-bezier(.36,.07,.19,.97) both;
+  `}
+`;
+
 interface PartProps {
+  $src: string;
   $delay?: string;
   $speed?: string;
-  $src: string;
-   $angle?: number;
+  $angle?: number;
 }
 
-export const CharacterPart = styled.div<PartProps>`
+// TO-DO: fix styled-components warning...
+export const CharacterPart = styled.div.attrs<PartProps>(props => ({
+    style: {
+      backgroundImage: `url(${props.$src})`
+    }
+  }))`
   position: absolute;
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
   transform-style: preserve-3d; 
   will-change: transform;
-  background-image: url(${props => props.$src});
 `;
+  // background-image: url(${props => props.$src});
 
 export const AvatarRobe = styled(CharacterPart)`
   top: 7.75cqw;
@@ -76,7 +105,6 @@ export const AvatarRightArm = styled(CharacterPart)`
 
 
 export const AvatarBicep = styled(CharacterPart)`
-
   top: 0cqw;
   left: 6.6cqw;
   
@@ -100,7 +128,7 @@ export const AvatarForearm = styled(CharacterPart)`
   transform-origin: 1cqw 1.5cqw;
   --extra-transform: translateZ(-1px) rotate(${props => props.$angle}deg);
 
-    animation: ${sway} ${props => props.$speed || '3.2s'} ease-in-out infinite;
+  animation: ${sway} ${props => props.$speed || '3.2s'} ease-in-out infinite;
   animation-delay: ${props => props.$delay || '-1.1s'};
 `;
 

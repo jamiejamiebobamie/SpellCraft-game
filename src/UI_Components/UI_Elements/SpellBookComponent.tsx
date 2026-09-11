@@ -115,6 +115,7 @@ export default function SpellBookComponent() {
   const [isHovered, setIsHovered] = useState(false);
   const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0, 4).map(([inferenceString, spellName]) => (
     <ColumnGroup
+      key={spellName}
       onClick={() => {
         if (!rootGameStore.getIsPlacing())
           rootGameStore.instantiateSpellFromInferenceString(inferenceString);

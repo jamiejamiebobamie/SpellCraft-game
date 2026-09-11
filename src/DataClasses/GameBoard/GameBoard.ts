@@ -1,7 +1,7 @@
 // GameBoard.ts
-import { CellIndex } from '../types';
+import { CellIndex, SpellPropertyName } from '../types';
 import { Cell } from './Cell';
-import { Spell } from '../PlacedSpells/Spell';
+import { Spell, Ether, Phlegm, Quicken, Gyre } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { proxy } from 'valtio';
 
@@ -10,7 +10,7 @@ export class GameBoard {
   static readonly NUM_ROWS: number = 3;
   static readonly NUM_COLS: number = 7;
   readonly numPlayerCells: number = 1;     // Column size for endzones/home bases
-  readonly numPlacementCells: number = 2;  // Column depth allowing spell spawning
+  readonly numPlacementCells: number = 3;  // Column depth allowing spell spawning
 
   static readonly HIDDEN_TRANSPARENCY_AMT = .3;
   static readonly SHOWN_TRANSPARENCY_AMT = .9;
@@ -88,6 +88,10 @@ export class GameBoard {
     return this.cells[idx1D];
   };
 
+  addCellIndices = (cell1: CellIndex, cell2: CellIndex): CellIndex => {
+    return { i: cell1.i + cell2.i, j: cell1.j + cell2.j };
+  }
+
   // --- Spell Management Hooks ---
 
   getSpellAt = (index: CellIndex): Spell | null => {
@@ -98,8 +102,124 @@ export class GameBoard {
   setSpellAt = (spell: Spell | null, cell: Cell): void => {
     if (cell) {
       cell.setSpell(spell);
+      this.setEmpoweredSpells();
     }
   };
+
+  clearEmpoweredPngStatus = (params: { cell: Cell, spell: Spell | null }) => {
+    params.cell.setEmpoweredColor('');
+    if (!!params.spell) {
+      params.spell.setEmpoweredPng(0);
+    }
+  }
+
+  /*
+    Gets the spell's <property> given the board state.
+    "Empowered" spells are empowered due to their position relative to a group of the same spell type.
+    Their dmg values are summed and their speed values are collectively the max of the group.
+  */
+  getSpellProperty = (spell: Spell, spellProperty: SpellPropertyName): number => {
+    let propertyValue = spell.getPropertyValue(spellProperty);
+    if (!(spell instanceof Quicken || spell instanceof Gyre)) return propertyValue;
+
+    let doAction = (propVal1: number, propVal2: number): number => 0;
+    if (spellProperty == 'speedDirection') doAction = (propVal1: number, propVal2: number): number => Math.max(propVal1, propVal2);
+    if (spellProperty == 'dmgHealth') doAction = (propVal1: number, propVal2: number): number => propVal1 + propVal2;
+
+    const cellIndex = spell.getCellIndex();
+    const uniqueSpells = new Set<Spell>([spell]);
+
+    const recur = (cellIndexOffset: CellIndex, originalCellIndexOffset: CellIndex, lastValidSpell: Spell): void => {
+      if (lastValidSpell && spell.isConditionToEmpower(lastValidSpell)) uniqueSpells.add(lastValidSpell);
+      const ci = this.addCellIndices(cellIndex, cellIndexOffset);
+      const neighborCell = this.getCellAt(ci);
+      if (!neighborCell) {
+        return;
+      }
+      const neighborSpell = neighborCell.getSpell();
+      if (!neighborSpell) {
+        return;
+      }
+      const offset = this.addCellIndices(cellIndexOffset, originalCellIndexOffset);
+      recur(offset, originalCellIndexOffset, neighborSpell);
+      return;
+    }
+
+    const direction = spell.getEmpoweredDirection();
+    const cellIndexOffsets = spell.getEmpoweredNeighborIndexOffsets(direction);
+    const [offsetBackward, offsetForward] = cellIndexOffsets;
+    const backwardSpell = this.getCellAt(this.addCellIndices(cellIndex, offsetBackward))?.getSpell();
+    const forwardSpell = this.getCellAt(this.addCellIndices(cellIndex, offsetForward))?.getSpell();
+
+    !!backwardSpell && recur(offsetBackward, structuredClone(offsetBackward), backwardSpell)
+    !!forwardSpell && recur(offsetForward, structuredClone(offsetForward), forwardSpell);
+
+    propertyValue = Array.from(uniqueSpells).reduce((acc, spell) => {
+      const propertyValue = spell.getPropertyValue(spellProperty);
+      return doAction(acc, propertyValue);
+    }, 0);
+    return propertyValue;
+  }
+
+  setEmpoweredSpells = () => {
+    this.cells.forEach(cell => {
+      const spell = cell.getSpell();
+
+      if (!spell) {
+        this.clearEmpoweredPngStatus({ cell, spell: null });
+        return;
+      }
+
+      // Direction property ensures returned array is going from "back to front" based on given 'direction'.
+      const direction = spell.getEmpoweredDirection();
+      const cellIndexOffsets = spell.getEmpoweredNeighborIndexOffsets(direction);
+      if (!cellIndexOffsets.length) {
+        this.clearEmpoweredPngStatus({ cell, spell });
+        return;
+      }
+
+      // Clear current cell/spell before iterating and setting empoweredPng data.
+      // 'setConditionallyEmpoweredPng' requires default state intially.
+      this.clearEmpoweredPngStatus({ cell, spell });
+
+      const cellIndex = cell.getCellIndex();
+      const neighborSpells: Array<Spell | null> = cellIndexOffsets.map(offset => {
+        const ci = this.addCellIndices(cellIndex, offset);
+        const neighborCell = this.getCellAt(ci);
+        if (!neighborCell) return null;
+        const neighborSpell = neighborCell.getSpell();
+        if (!neighborSpell) return null;
+        return neighborSpell;
+      });
+
+      spell.setConditionallyEmpoweredPng(neighborSpells);
+
+      if (spell.getIsEmpowered()) {
+        cell.setEmpoweredColor(spell.getEmpoweredColor());
+      }
+    });
+
+    this.cells.forEach(cell => {
+      const spell = cell.getSpell();
+      if (!spell) return;
+
+      if (spell.getIsRemove()) {
+        spell.updatePropertyValue('empoweredDmgHealth', 0);
+        spell.updatePropertyValue('empoweredSpeedDirection', 0);
+      }
+
+      // Update "empowered" spell properties 
+      if (spell.getIsEmpowered()) {
+        const empoweredSpeedDirection = this.getSpellProperty(spell, 'speedDirection');
+        const empoweredDmgHealth = this.getSpellProperty(spell, 'dmgHealth');
+        spell.updatePropertyValue('empoweredDmgHealth', empoweredDmgHealth);
+        spell.updatePropertyValue('empoweredSpeedDirection', empoweredSpeedDirection);
+      } else {
+        spell.updatePropertyValue('empoweredDmgHealth', 0);
+        spell.updatePropertyValue('empoweredSpeedDirection', 0);
+      }
+    });
+  }
 
   getIsCellFreeAt = (index: CellIndex): boolean => {
     const cell = this.getCellAt(index);
@@ -210,13 +330,13 @@ export class GameBoard {
   }
 
   enableBoard = (): void => {
-    this.setIsClickDisabled(false);
+    // this.setIsClickDisabled(false);
     this.setIsHoverDisabled(false);
     // this.setBoardTransparencyAmt(GameBoard.SHOWN_TRANSPARENCY_AMT)
   }
 
   disableBoard = (): void => {
-    this.setIsClickDisabled(true);
+    // this.setIsClickDisabled(true);
     this.setIsHoverDisabled(true);
     // this.setBoardTransparencyAmt(GameBoard.HIDDEN_TRANSPARENCY_AMT)
   }
@@ -231,8 +351,6 @@ export class GameBoard {
   };
 
   hoverCell = (cell: Cell | null): void => {
-    // console.log({ cell })
-    // return;
     const oldHoveredCell = this.hoveredCell;
     this.hoveredCell = cell;
 
@@ -244,14 +362,12 @@ export class GameBoard {
     if (cell) {
       const spell = cell.getSpell();
       if (!spell) return;
-      const numMoves = Math.abs(spell.getPropertyValue('speedDirection'));
-      const sign = Math.sign(spell.getPropertyValue('speedDirection'));
-      const rowShift = Math.sign(spell.getPropertyValue('rowShift'));
-
+      const numMoves = Math.abs(spell.getPropertyValue('empoweredSpeedDirection'));
+      const sign = Math.sign(spell.getPropertyValue('empoweredSpeedDirection'));
 
       const { i, j } = cell.getCellIndex();
       for (let k = 0; k < numMoves; k++) {
-        const pathCell = this.getCellAt({ i: i + rowShift, j: j + k * sign + 1 * sign });
+        const pathCell = this.getCellAt({ i: i, j: j + k * sign + 1 * sign });
         if (pathCell) pathCell.setIsHighlighted(true);
       }
     }

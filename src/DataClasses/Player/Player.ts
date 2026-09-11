@@ -27,7 +27,7 @@ export class Player extends UniqueId {
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 100;
   // - - FOCUS - - - - - - -
-  private static readonly FOCUS_REGEN_AMT = -1; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly FOCUS_REGEN_AMT = -2; // amt of focus restored between turns (negative for "focusDecrement" method)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
   // - - - - - - - - - - - -
@@ -143,8 +143,8 @@ export class Player extends UniqueId {
   }
 
   reset = (): void => {
-    this.healthAmt = 5;
-    this.focusAmt = 4;
+    this.healthAmt = Player.MAX_HEALTH_AMT;
+    this.focusAmt = Player.MAX_FOCUS_AMT;
   }
 }
 
@@ -188,19 +188,24 @@ export class NPCPlayer extends Player {
   */
 
   getMove = (): [InferenceString, number?] => {
-    const isHasFocus = this.focusAmt > 1;
+    const isHasFocus = this.focusAmt > 0;
 
     if (this.gameBoard != null) {
       const i = this.gameBoard.npcGetFutureSpellCollisionRow();
       const isIncomingSpell = i != -1;
 
-      // REFLECT spell BACK!
-      if (isIncomingSpell && isHasFocus) {
-        return ['circle', i];
+      // SKIP
+      if (!isHasFocus) {
+        return ['SKIP']
       }
 
+      // REFLECT spell BACK!
+      // if (isIncomingSpell) {
+      //   return ['circle', i];
+      // }
+
       // SHIFT spell OFF COURSE!
-      if (isIncomingSpell && !isHasFocus) {
+      if (isIncomingSpell) {
         const GAME_SYMBOLS: Array<InferenceString> = ['diamond', 'triangle']
         const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
         const inferenceString = GAME_SYMBOLS[rand];
@@ -215,13 +220,8 @@ export class NPCPlayer extends Player {
 
     }
 
-    // SKIP
-    if (!isHasFocus) {
-      return ['SKIP']
-    }
-
     // Do random damaging attack
-    let GAME_SYMBOLS: Array<InferenceString> = ['line', 'star']
+    let GAME_SYMBOLS: Array<InferenceString> = ['triangle', 'diamond']//,'line', 'star']
     const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
     const inferenceString = GAME_SYMBOLS[rand];
     return [inferenceString];

@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { IK_ArmComponent } from './IK_ArmComponent';
-import { AvatarRobe, AvatarHead, AvatarRightArm } from './CharacterParts';
-import styled from 'styled-components';
+import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable } from './CharacterParts';
+import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
+import styled from 'styled-components'
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -18,9 +19,10 @@ const DuelistSideColumn = styled.div`
   pointer-events: none;
 `;
 
-const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
+const AvatarFrame = styled.div<{ $direction: number, $src: string, $isDmg: boolean }>`
   transform: scale(${props => props.$direction}, 1);
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
+
   /* Leave in for testing CharacterParts placement: */
   // background-image: url(${props => props.$src});
   /* - - - */
@@ -78,6 +80,7 @@ const FocusContainer = styled.div`
     gap: 0.4cqw;
     align-items: center;
     min-height: 1.1cqw; 
+    position: relative;
 `;
 
 const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number }>`
@@ -92,45 +95,180 @@ const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number }>`
 const ExcessFocusBadge = styled(FocusBadge)`
     ${props => props.$i < props.$focusAmt ? 'border: 0.12cqw solid #777;' : `border: 0; width: .87cqw; height: .87cqw;`}
 `;
+import { Dispatch, SetStateAction } from 'react';
+
+interface UseHealthbarProps {
+  healthAmt: number;
+  setCachedHealth: Dispatch<SetStateAction<number>>;
+  healthRefTimeout: RefObject<number | null | undefined>;
+  setHealthDiff: Dispatch<SetStateAction<number>>;
+  setIsDamaged: Dispatch<SetStateAction<boolean>>;
+  ANIM_TIME: number;
+}
+
+const useHealthbar = ({
+  healthAmt,
+  setCachedHealth,
+  healthRefTimeout,
+  setHealthDiff,
+  setIsDamaged,
+  ANIM_TIME
+}: UseHealthbarProps) => {
+  useEffect(() => {
+    setCachedHealth(oldCachedAmt => {
+
+      if (healthRefTimeout?.current)
+        clearTimeout(healthRefTimeout.current);
+
+      const diff = healthAmt - oldCachedAmt;
+      setHealthDiff(diff);
+      diff < 0 && setIsDamaged(true);
+
+      healthRefTimeout.current = setTimeout(() => {
+        setHealthDiff(0);
+        setIsDamaged(false); // TO-DO: create separate diff and handle multiple dmgs between resets
+      }, ANIM_TIME * 1000);
+      return healthAmt;
+    });
+  }, [healthAmt]);
+}
+interface UseFocusDotsProps {
+  focusAmt: number;
+  setCachedFocus: Dispatch<SetStateAction<number>>;
+  /* Clears linter rules for browser setTimeout trackers */
+  focusRefTimeout: RefObject<number | null | undefined>;
+  setFocusDiff: Dispatch<SetStateAction<number>>;
+  ANIM_TIME: number;
+}
+
+const useFocusDots = ({
+  focusAmt,
+  setCachedFocus,
+  focusRefTimeout,
+  setFocusDiff,
+  ANIM_TIME
+}: UseFocusDotsProps) => {
+  useEffect(() => {
+    setCachedFocus(oldCachedAmt => {
+
+      if (focusRefTimeout?.current)
+        clearTimeout(focusRefTimeout.current);
+
+      const diff = focusAmt - oldCachedAmt;
+      setFocusDiff(diff);
+
+      focusRefTimeout.current = setTimeout(() => {
+        setFocusDiff(0);
+      }, ANIM_TIME * 1000);
+
+      return focusAmt;
+    });
+  }, [focusAmt]);
+}
 
 type PlayerComponentProps = {
   playerSnap: Player;
 }
 
 const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
-  // TO-DO: (1) (dmg:) add avatar "shake", (2) red dmg flash, and (3) floating modifier text on negative health loss
-  // TO-DO: (1) (heal:) green white or blue flash, and (2) floating modifier text on positive health gain
+  const ANIM_TIME = 5;
+  const textModifierWidth = '10cqw';
+  const textModifierHeight = '10cqw';
+  const textModifierFontSize = '2cqw';
+
+  const healthAmt = playerSnap.getHealth();
+  const focusAmt = playerSnap.getFocus();
+  const direction = playerSnap.getDirection();
+
+  const healthRefTimeout = useRef<number | null | undefined>(0);
+  const focusRefTimeout = useRef<number | null | undefined>(0);
+
   const [isDamaged, setIsDamaged] = useState(false);
-  return (<DuelistSideColumn onClick={() => setIsDamaged(isDmg => !isDmg)}>
-    <AvatarFrame $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+
+  const [_, setCachedHealth] = useState(playerSnap.getHealth());
+  const [__, setCachedFocus] = useState(playerSnap.getFocus());
+
+  const [healthDiff, setHealthDiff] = useState(0);
+  const [focusDiff, setFocusDiff] = useState(0);
+
+  useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, setIsDamaged, ANIM_TIME });
+  useFocusDots({ focusAmt, setCachedFocus, focusRefTimeout, setFocusDiff, ANIM_TIME });
+
+  const avatar = (<AvatarFrame $isDmg={isDamaged} $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+    {<ModifierTextComponent
+      propertyName={'Health'}
+      propertyValue={healthDiff}
+      animTimeSecs={ANIM_TIME}
+      $opacityCondition={(v: number) => !!v ? .85 : 0}
+      $width={textModifierHeight}
+      $height={textModifierWidth}
+      $fontSize={textModifierFontSize}
+      $extraTransform={`scaleX(${direction})`}
+      $top={'50%'}
+      $left={'45%'}
+      $backgroundColor={healthDiff < 0 ? '#ee3737' : '#3bed8e'}
+      $color={'white'}
+    />}
+    {<ModifierTextComponent
+      propertyName={'Focus'}
+      propertyValue={focusDiff}
+      animTimeSecs={ANIM_TIME}
+      $opacityCondition={(v: number) => !!v ? .85 : 0}
+      $width={textModifierHeight}
+      $height={textModifierWidth}
+      $fontSize={textModifierFontSize}
+      $extraTransform={`scaleX(${direction})`}
+      $top={'50%'}
+      $left={'45%'}
+      // $backgroundColor={focusDiff < 0 ? '#8e25f7' : '#6bdcff'}
+      $backgroundColor={'#44aac9'}
+      $color={'white'}
+    />}
+    <Damageable $isDmged={isDamaged}>
       <AvatarRobe $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $src={playerSnap.avatarHeadUrl} />
         <AvatarRightArm $src={playerSnap.avatarRightArmUrl} />
-        <IK_ArmComponent playerSnap={playerSnap} direction={playerSnap.getDirection()} />
+        <IK_ArmComponent playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
-    </AvatarFrame>
-    <BarBorder>
-      <BarTextContainer>
-        <BarText>
-          {playerSnap.getHealth()}
-        </BarText>
-        <BarText>
-          {` / `}
-        </BarText>
-        <BarText>
-          {playerSnap.getMaxHealth()}
-        </BarText>
-      </BarTextContainer>
-      <BarFill $pct={playerSnap.getHealthPrct()} />
-    </BarBorder>
-    <FocusContainer>
-      {/* STORED FOCUS */}
-      {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}
-    </FocusContainer>
-    <FocusContainer>
-      {/* EXCESS STORED FOCUS */}
-      {Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} />)}
-    </FocusContainer>
+    </Damageable>
+  </AvatarFrame>);
+
+  const healthbar = (<BarBorder>
+    <BarTextContainer>
+      <BarText>
+        {playerSnap.getHealth()}
+      </BarText>
+      <BarText>
+        {` / `}
+      </BarText>
+      <BarText>
+        {playerSnap.getMaxHealth()}
+      </BarText>
+    </BarTextContainer>
+    <BarFill $pct={playerSnap.getHealthPrct()} />
+  </BarBorder>);
+
+  const focusDots = (
+    <>
+      <FocusContainer>
+        {/* STORED FOCUS */}
+        {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}
+      </FocusContainer>
+      <FocusContainer>
+        {/* EXCESS STORED FOCUS */}
+        {Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} />)}
+      </FocusContainer>
+    </>
+  );
+
+  // TO-DO: have modifier text spawn from object pool... ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text. NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
+  // TO-DO: add (dmg:) red flash
+  // TO-DO: add (heal:) blue-green flash
+  // TO-DO: consider rise/fall anim based on +/-
+  return (<DuelistSideColumn>
+    {avatar}
+    {healthbar}
+    {focusDots}
   </DuelistSideColumn>);
 }
 

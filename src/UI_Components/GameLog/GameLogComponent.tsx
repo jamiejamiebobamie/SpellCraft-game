@@ -97,9 +97,10 @@ const GameLogComponent = ({ snap, rootGameStore }: GameBoardComponentProps) => {
     >
       {hoveredSpell ? (<SpellInfoComponent
         updateOrder={hoveredSpell.getPropertyValue('updateOrder')}
+        // updateOrder={hoveredSpell.getPropertyValue('gyreLives')} // <- TESTING
         rowShift={hoveredSpell.getPropertyValue('rowShift')}
-        damage={hoveredSpell.getPropertyValue('dmgHealth')}
-        speed={Math.abs(hoveredSpell.getPropertyValue('speedDirection'))}
+        damage={hoveredSpell.getPropertyValue('empoweredDmgHealth')}
+        speed={Math.abs(hoveredSpell.getPropertyValue('empoweredSpeedDirection'))}
         iconUrl={hoveredSpell.getSpellIcon()}
       />) :
         <LogScrollArea>
