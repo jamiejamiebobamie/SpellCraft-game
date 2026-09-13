@@ -75,6 +75,13 @@ interface BadgeComponentProps {
     $color: string;
 }
 
+/*
+  TO-DO:
+    Consider "Consumed!" and "Deflected!" modifer text spawned when
+      a spell is consumed or if the consumer is "deflected" from consuming
+      a spell due to too-low 'dmgHealth' stat.
+      
+*/
 export const SpellBadgeComponent = ({
     propertyName,
     propertyValue,

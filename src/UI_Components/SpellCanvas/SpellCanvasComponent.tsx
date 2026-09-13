@@ -1,6 +1,4 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { SpellCanvas } from '../../DataClasses/SpellCanvas/SpellCanvas';
-import { Model } from '../../DataClasses/NN_Model/Model';
 import { Game } from '../../DataClasses/Game';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
@@ -66,29 +64,7 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
   const { canvasRef, width, height } = useCanvasSize();
   const snap = useSnapshot(rootGameStore.spellCanvas);
 
-  // 1. Click & Hold starts the tracking loop
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height); // Wipe old spell line
-      ctx.beginPath();
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#6366f1'; // Spell trial path color
-
-      const rect = canvas.getBoundingClientRect();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    }
-
-    rootGameStore.spellCanvas.clearDrawing();
-    rootGameStore.spellCanvas.setIsDrawing(true);
-  };
-
-  // 2. Track points continuously as long as the mouse is down
+  // Track points continuously as long as the mouse is down
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!rootGameStore.spellCanvas.getIsDrawing()) return;
     const canvas = canvasRef.current;
@@ -112,27 +88,14 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
     rootGameStore.spellCanvas.addRawPoint(e.clientX, e.clientY);
   };
 
-  // 3. Releasing the click triggers your ONNX Matrix conversion instantly
-  // const handleMouseUp = async () => {
-  //   if (!rootGameStore.spellCanvas.getIsDrawing()) return;
-  //   rootGameStore.spellCanvas.setIsDrawing(false);
-  //   if (rootGameStore.spellCanvas.getNumPoints() == 0) return;
-
-  //   rootGameStore.runInference();
-  // };
-
   const isShowCanvas = snap.getIsShowCanvas();
-
   return (
     <CanvasContainer $isShowCanvas={isShowCanvas}>
       <canvas
         ref={canvasRef}
         width={!!width ? width : 100}
         height={!!height ? height : 100}
-        // onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        // onMouseUp={handleMouseUp}
-        // onMouseLeave={handleMouseUp} // Prevents sticking if cursor wanders out
         style={{
           width: '100%',
           height: '100%',

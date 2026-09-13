@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
 import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
 import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
@@ -7,7 +7,6 @@ import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols'
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import GameLogComponent from './GameLog/GameLogComponent';
 import SpellBookComponent from './UI_Elements/SpellBookComponent';
-import EndTurnButtonComponent from './UI_Elements/EndTurnButtonComponent';
 import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
 import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
 import { rootGameStore } from '../DataClasses/store';
@@ -86,12 +85,27 @@ export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
+  const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [clockSpeed, setClockspeed] = useState<number>(snap.CLOCK_SPEED);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
 
+  const gameSymbolIcon = snap.getGameSymbolIcon();
+
+  useEffect(() => {
+    let animationFrameId: number;
+    const updateGameSymbol = () => {
+      setMouseCoords({ x: mousePos.current.x, y: mousePos.current.y });
+      animationFrameId = requestAnimationFrame(updateGameSymbol);
+    };
+
+    // if (gameSymbolIcon)
+    animationFrameId = requestAnimationFrame(updateGameSymbol);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameSymbolIcon]);
+
   // Added React MouseEvent typing to handle DOM positional calculations safely
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!zoneRef.current) return;
 
     // Calculate mouse position relative to this specific container
@@ -99,12 +113,13 @@ export const GameComponent = () => {
     const mouseCoords = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
-    }
-    setMouseCoords(mouseCoords);
-  };
+    };
+
+    mousePos.current = mouseCoords;
+    // setMouseCoords(mouseCoords);
+  }, []);
 
   // TESTING...
-  const gameSymbolIcon = snap.getGameSymbolIcon();
   // PLAYERS - - 
   const playerOneSnap = useSnapshot(rootGameStore.players[0]);
   const playerTwoSnap = useSnapshot(rootGameStore.players[1]);
@@ -145,29 +160,19 @@ export const GameComponent = () => {
         <SpellBookComponent rootGameStore={rootGameStore} />
         <ClockFaceComponent
           rootGameStore={rootGameStore}
-          clockSpeed={clockSpeed}
-          onMinuteHandLap={async () => {
-            rootGameStore.pauseClock();
-            rootGameStore.disableGameBoard();
-            setClockspeed(rootGameStore.getClockSpeed());
-            await rootGameStore.updatePlacedSpells(forceUpdate);
-            rootGameStore.checkIfIsGameOver(forceUpdate);
-            rootGameStore.regenFocus();
-            rootGameStore.enableGameBoard();
-            rootGameStore.unpauseClock();
-            setClockspeed(rootGameStore.getClockSpeed());
-          }} />
+          // clockSpeed={clockSpeed}
+          onMinuteHandLap={() => rootGameStore.endTurn(forceUpdate)} />
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
-        <PlayerComponent playerSnap={playerOneSnap} />
+        <PlayerComponent playerSnap={playerOneSnap} mousePosRef={mousePos} />
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
           <GameBoardComponent snap={snap} rootGameStore={rootGameStore} />
           <GameLogComponent snap={snap} rootGameStore={rootGameStore} />
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-        <PlayerComponent playerSnap={playerTwoSnap} />
+        <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos}  />
       </GameWrapper>
     </>
   );

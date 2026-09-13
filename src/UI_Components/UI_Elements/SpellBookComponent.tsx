@@ -5,7 +5,7 @@ import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbo
 import styled from 'styled-components';
 import { rootGameStore } from '../../DataClasses/store';
 
-// 2. The Main Absolute Anchor in the Top-Right Corner
+// The Main Absolute Anchor
 const MenuAnchor = styled.div`
   position: absolute;
   top: 3cqw;   
@@ -13,7 +13,7 @@ const MenuAnchor = styled.div`
   z-index: 35;
 `;
 
-// 3. The Visual Trigger Element (The main box you hover over)
+// The Visual Trigger Element
 const TriggerBox = styled.div`
   width: 6cqw;
   aspect-ratio: 58/73;
@@ -41,7 +41,7 @@ const TriggerBox = styled.div`
   }
 `;
 
-// 4. The Tray holding the columns (Now uses absolute positioning)
+// The Tray holding the columns
 const SlidingTray = styled.div`
   display: flex;
   flex-direction: row;
@@ -81,7 +81,7 @@ const SquareImage = styled.img`
   background-color: transparent;// #444; /* Fallback placeholder color */
   border: 0;// 1px solid #666;
   transition: transform 0.2s ease, border-color 0.2s ease;
-  padding: 1cqw;
+  padding: .5cqw;
   pointer-events: none;
 `;
 
@@ -91,9 +91,9 @@ const CanvasContainer = styled.div`
   width: 4cqw;
   height: 4cqw;
   border-radius: 4px;
-  background-color: transparent;// #444; /* Fallback placeholder color */
+  background-color: transparent;
   transition: transform 0.2s ease, border-color 0.2s ease;
-  padding: 1cqw;
+  padding: .5cqw;
   pointer-events: none;
 `;
 
@@ -102,7 +102,7 @@ const ColumnGroup = styled.div`
   display: flex;
   position: relative;
   flex-direction: column;
-  gap: 1cqw;
+  gap: .1cqw;
   &:hover ${SquareImage},
   &:hover  ${CanvasContainer} {
   transform: scale(1.25);
@@ -113,15 +113,15 @@ const ColumnGroup = styled.div`
 
 export default function SpellBookComponent() {
   const [isHovered, setIsHovered] = useState(false);
-  const spells = Array.from(GameSymbol.SPELL_NAME_LOOKUP.entries()).slice(0, 4).map(([inferenceString, spellName]) => (
+  const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => (
     <ColumnGroup
-      key={spellName}
+      key={spellClass.name}
       onClick={() => {
         if (!rootGameStore.getIsPlacing())
           rootGameStore.instantiateSpellFromInferenceString(inferenceString);
       }}
     >
-      <SquareImage src={`spell-icons/${spellName}Icon_mockup.png`} draggable="false" alt="SpellImg" />
+      <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
         <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isHovered} />
       </CanvasContainer>

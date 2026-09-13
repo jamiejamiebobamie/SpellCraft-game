@@ -1,5 +1,7 @@
 import styled, { keyframes, css } from 'styled-components';
 
+import { caughtInGyre } from '../GameBoard/SpellAnims';
+
 export const bob = keyframes`
   0%, 100% { transform: translateY(0px) var(--extra-transform, ); }
   50% { transform: translateY(-4px) var(--extra-transform, ); }
@@ -41,6 +43,7 @@ export const Damageable = styled.div<{ $healthDiff: number }>`
   `}
 `;
 
+
 interface PartProps {
   $src: string;
   $healthDiff: number;
@@ -58,7 +61,7 @@ export const CharacterPart = styled.div.attrs<PartProps>(props => ({
     '--part-delay': props.$delay || '0s',
     '--part-angle': props.$angle !== undefined ? `${props.$angle}deg` : '0deg'
   }
-}))<PartProps>`
+})) <PartProps>`
   position: absolute;
   background-repeat: no-repeat;
   background-size: cover;
@@ -166,7 +169,154 @@ export const AvatarForearm = styled(CharacterPart)`
   animation-iteration-count: infinite;
 `;
 
-export const AvatarWandHand = styled(CharacterPart)`
+// 2s
+export const castingGyre = keyframes`
+  0% {
+    /* Starting point: Center-neutral */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  12.5% {
+    /* Loop 1: Wrist tilts down and slightly forward, sweeping the air */
+    transform: var(--extra-transform) translate(0.04cqw, 0.05cqw) rotate(12deg);
+  }
+  25% {
+    /* Center crossover point of the figure-eight / circle */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  37.5% {
+    /* Loop 2: Wrist tilts up and slightly back, gathering the wind */
+    transform: var(--extra-transform) translate(-0.04cqw, -0.05cqw) rotate(-8deg);
+  }
+
+    50% {
+    /* Starting point: Center-neutral */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  62.5% {
+    /* Loop 1: Wrist tilts down and slightly forward, sweeping the air */
+    transform: var(--extra-transform) translate(0.04cqw, 0.05cqw) rotate(12deg);
+  }
+  75% {
+    /* Center crossover point of the figure-eight / circle */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  87.5% {
+    /* Loop 2: Wrist tilts up and slightly back, gathering the wind */
+    transform: var(--extra-transform) translate(-0.04cqw, -0.05cqw) rotate(-8deg);
+  }
+  100% {
+    /* Seamless loop back to start */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+`;
+
+// 2s
+export const castingLightning = keyframes`
+  0%, 100% {
+    /* Base resting position */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  8% {
+    /* Sharp micro-snap up and back */
+    transform: var(--extra-transform) translate(-0.03cqw, -0.04cqw) rotate(-4deg);
+  }
+  14% {
+    /* Sudden drop down, resisting the charge */
+    transform: var(--extra-transform) translate(0.02cqw, 0.05cqw) rotate(6deg);
+  }
+  22% {
+    /* Quick vibration snap left */
+    transform: var(--extra-transform) translate(-0.04cqw, 0.01cqw) rotate(-2deg);
+  }
+  30% {
+    /* Brief neutral recovery */
+    transform: var(--extra-transform) translate(0, 0) rotate(1deg);
+  }
+  38% {
+    /* Violent jerk forward and down */
+    transform: var(--extra-transform) translate(0.05cqw, 0.04cqw) rotate(8deg);
+  }
+  44% {
+    /* Instant recoil snap straight back up */
+    transform: var(--extra-transform) translate(-0.05cqw, -0.05cqw) rotate(-7deg);
+  }
+  56% {
+    /* Fast, tiny tremors */
+    transform: var(--extra-transform) translate(0.01cqw, -0.02cqw) rotate(2deg);
+  }
+  68% {
+    /* Another quick jolt to the right */
+    transform: var(--extra-transform) translate(0.04cqw, 0.02cqw) rotate(5deg);
+  }
+  78% {
+    /* Tension release, dropping low */
+    transform: var(--extra-transform) translate(-0.01cqw, 0.05cqw) rotate(-3deg);
+  }
+  90% {
+    /* Rapidly stabilizing tremor before the loop resets */
+    transform: var(--extra-transform) translate(0.02cqw, -0.01cqw) rotate(1deg);
+  }
+`;
+
+export const castingFireball = keyframes`
+  0% {
+    /* Base resting position - compressing the spark */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  20% {
+    /* Swelling: The fire expands. The hand is pushed slowly back and tilts down */
+    transform: var(--extra-transform) translate(-0.03cqw, 0.02cqw) rotate(5deg);
+  }
+  35% {
+    /* Heat Jitter: A micro-burst of solar flare energy shakes the wrist */
+    transform: var(--extra-transform) translate(-0.02cqw, 0.04cqw) rotate(7deg);
+  }
+  38% {
+    /* Fast counter-shiver */
+    transform: var(--extra-transform) translate(-0.04cqw, 0.01cqw) rotate(4deg);
+  }
+  55% {
+    /* Thermal Lift: The mass of the flame gets huge and floats upward, dragging the wand up */
+    transform: var(--extra-transform) translate(0.02cqw, -0.05cqw) rotate(-10deg);
+  }
+  75% {
+    /* Roiling: The sphere churns. The wrist rolls forward to keep it under control */
+    transform: var(--extra-transform) translate(0.05cqw, -0.02cqw) rotate(-4deg);
+  }
+  90% {
+    /* Heavy Compression: Squishing the magma down tightly right before the loop resets */
+    transform: var(--extra-transform) translate(0.01cqw, 0.03cqw) rotate(2deg);
+  }
+  100% {
+    /* Back to starting point */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+`;
+
+export const castingWaterReversal = keyframes`
+  0% {
+    /* Base resting position */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+  25% {
+    /* The Crest: Wrist arches up and forward, driving the top of the wheel */
+    transform: var(--extra-transform) translate(0.04cqw, -0.04cqw) rotate(8deg);
+  }
+  50% {
+    /* The Descent: Wrist pushes down and forward as the wheel rolls over */
+    transform: var(--extra-transform) translate(0.02cqw, 0.03cqw) rotate(4deg);
+  }
+  75% {
+    /* The Undertow: Wrist pulls low and back, gathering water from beneath */
+    transform: var(--extra-transform) translate(-0.04cqw, 0.05cqw) rotate(-6deg);
+  }
+  100% {
+    /* Smoothly climbing back up to complete the clockwise loop */
+    transform: var(--extra-transform) translate(0, 0) rotate(0deg);
+  }
+`;
+
+export const AvatarWandHand = styled(CharacterPart)<{ $isPlacingGyre?: boolean }>`
   top: -.5cqw;
   left: 2.5cqw;
   width: 7.8cqw;
@@ -176,7 +326,7 @@ export const AvatarWandHand = styled(CharacterPart)`
 
   --extra-transform: rotate(var(--part-angle));
 
-  animation-name: ${shift};
+  animation-name: ${props => props.$isPlacingGyre ? castingWaterReversal : shift};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 `;

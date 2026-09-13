@@ -1,4 +1,5 @@
 // Game.ts
+import { Dispatch } from 'react';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
 import { GameLog, GameLogEntry } from './GameLog';
@@ -32,7 +33,7 @@ export class Game {
   spellCanvas!: SpellCanvas;
   gameSymbol!: GameSymbol | null;
   // readonly CLOCK_SPEED: number = .055;
-  readonly CLOCK_SPEED: number = .025; // TESTING
+  readonly CLOCK_SPEED: number = 0;//.025; // TESTING
   clockSpeed: number = this.CLOCK_SPEED;
   minuteAngleAcc: number = 0;
 
@@ -102,7 +103,12 @@ export class Game {
     humanPlayer.setIsTurn(true);
     this.gameContext.changeState(new PlayerDrawSpell(this.gameContext));
 
-    // computerPlayer.startCastingLoop(); // TESTING
+    setTimeout(() => {
+      computerPlayer.doNextNpcMove(); // TESTING
+      computerPlayer.doNextNpcMove(); // TESTING
+      computerPlayer.doNextNpcMove(); // TESTING
+      computerPlayer.doNextNpcMove(); // TESTING
+    }, 1000);
   };
 
   resetGame = (): void => {
@@ -184,8 +190,16 @@ export class Game {
     this.gameBoard.disableBoard();
   }
 
-  incrementMinuteAngleAcc = (incr: number) => {
+  getMinuteAngleAcc = (): number => {
+    return this.minuteAngleAcc;
+  }
+
+  incrementMinuteAngleAcc = (incr: number): void => {
     this.minuteAngleAcc += incr;
+  }
+
+  resetMinuteAngleAcc = (): void => {
+    this.minuteAngleAcc = 0;
   }
 
   updatePlayerTurn = () => {
@@ -200,7 +214,6 @@ export class Game {
 
     previousPlayer.setIsTurn(false, this.gameTurn);
     nextPlayer.setIsTurn(true, this.gameTurn);
-
   }
 
   getActivePlayer = (): Player => {
@@ -267,6 +280,10 @@ export class Game {
   unpauseClock = (): void => {
     this.clockSpeed = this.CLOCK_SPEED;
   }
+
+  // setSpellMovementDelay = (delay: number) => {
+  //   this.placedSpells.setSpellMovementDelay(delay);
+  // }
 
   getGameSymbolIcon = (): string => {
     if (!this.gameSymbol) return ''
@@ -360,6 +377,26 @@ export class Game {
     this.gameTurn += 1;
   };
 
+  endTurn = async (forceUpdate: () => void): Promise<void> => {
+    forceUpdate();
+    // rootGameStore.pauseClock();
+    this.disableGameBoard();
+    // setClockspeed(rootGameStore.getClockSpeed());
+    await this.updatePlacedSpells(forceUpdate);
+    this.checkIfIsGameOver();
+    this.regenFocus();
+    this.enableGameBoard();
+    this.doNextNpcMove();
+    this.doNextNpcMove();
+    this.doNextNpcMove();
+    this.doNextNpcMove();
+
+    // rootGameStore.unpauseClock();
+    // setClockspeed(rootGameStore.getClockSpeed());
+
+    forceUpdate();
+  }
+
   getCurrentGameTurn = (): number => {
     return this.gameTurn;
   };
@@ -368,8 +405,13 @@ export class Game {
     this.gameOver = status;
   }
 
-  //CHECK FOR GAME OVER CONDITION...
-  checkIfIsGameOver = (forceUpdate: Function): void => {
+  doNextNpcMove = (): void => {
+    const computerPlayer = this.players[1] as NPCPlayer;
+    computerPlayer.doNextNpcMove();
+  }
+
+  // CHECK FOR GAME OVER CONDITION...
+  checkIfIsGameOver = (): void => {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
     switch (deadPlayers.length) {
@@ -396,14 +438,20 @@ export class Game {
 
     if (this.gameOver) { // TESTING
       const computerPlayer = this.players[1] as NPCPlayer;
-      computerPlayer.stopCastingLoop();
-      this.pauseClock();
+      // computerPlayer.stopCastingLoop();
+      // this.pauseClock();
       this.disableGameBoard();
       this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
+      this.resetMinuteAngleAcc();
       setTimeout(() => {
         this.resetGame();
         // computerPlayer.startCastingLoop();
-        forceUpdate();
+        computerPlayer.doNextNpcMove();
+        computerPlayer.doNextNpcMove();
+        computerPlayer.doNextNpcMove();
+        computerPlayer.doNextNpcMove();
+
+        // forceUpdate();
       }, 4500);
     }
   }

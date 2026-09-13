@@ -203,7 +203,7 @@ export class NPCPlayer extends Player {
 
       // SHIFT spell OFF COURSE!
       if (isIncomingSpell) {
-        const GAME_SYMBOLS: Array<InferenceString> = ['diamond', 'triangle']
+        const GAME_SYMBOLS: Array<InferenceString> = ['circle']//'star']//'line']//'diamond']//, 'triangle']
         const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
         const inferenceString = GAME_SYMBOLS[rand];
         return [inferenceString, i];
@@ -218,7 +218,7 @@ export class NPCPlayer extends Player {
     }
 
     // Do random damaging attack
-    let GAME_SYMBOLS: Array<InferenceString> = ['triangle', 'diamond']//,'line', 'star']
+    let GAME_SYMBOLS: Array<InferenceString> = ['star', 'line']//'diamond']//'triangle']//,'line', 'star']
     const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
     const inferenceString = GAME_SYMBOLS[rand];
     return [inferenceString];
@@ -246,6 +246,16 @@ export class NPCPlayer extends Player {
         this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
       }
     }, this.castSpeed);
+  }
+
+  doNextNpcMove = (): void => {
+    const [inferenceString, cellRowIndex] = this.getMove();//Math.random() > .7 ? this.doRandomMove() : this.getMove();
+    // if (this.appendToLog)
+    //   this.appendToLog(`${inferenceString} ${cellRowIndex}`, 'black');
+    if (inferenceString != 'SKIP') {
+      const gameSymbol = proxy(new GameSymbol(inferenceString, this));
+      this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
+    }
   }
 
   stopCastingLoop = (): void => {

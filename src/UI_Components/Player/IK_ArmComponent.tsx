@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, RefObject } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
 import styled from 'styled-components';
@@ -19,60 +19,82 @@ interface IKArmComponentProps {
   direction: number;
   playerSnap: Player;
   healthDiff: number;
+  mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
 }
 
-export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff }) => {
+export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff, mousePosRef }) => {
   const bicepRef = useRef<HTMLImageElement | null>(null);
   const handRef = useRef<HTMLImageElement | null>(null);
   const [theta, setTheta] = useState<Array<number>>([]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    let animationFrameId: number;
+
+    const updateArmIK = () => {
       if (!bicepRef.current || !handRef.current) return;
 
-      // 1. Find your avatar bounding rect bounds dynamically
+      const mouseLocation = mousePosRef?.current;
+      if (!mouseLocation) return;
 
+      // 1. Get the dynamic bounds
       const bicepRect = bicepRef.current.getBoundingClientRect();
-      const handRect = handRef.current.getBoundingClientRect();
 
-      const armOrigin = { x: bicepRect.x, y: bicepRect.y + bicepRect.height / 2 };
-      const armEnd = { x: handRect.left, y: bicepRect.y + bicepRect.height / 2 };
-      const mouseLocation = { x: e.clientX, y: e.clientY };
+      // Fix 1: Establish a fixed structural shoulder point on the screen.
+      // Do NOT use handRect here because the hand moving changes the math every frame.
+      const shoulderOrigin = {
+        x: bicepRect.x + (direction == -1 ? bicepRect.width : 0), // Use right edge if facing left
+        y: bicepRect.y + bicepRect.height / 2
+      };
 
-      const armVector = { x: armEnd.x - armOrigin.x, y: armEnd.y - armOrigin.y };
-      const targetVector = { x: mouseLocation.x - armOrigin.x, y: mouseLocation.y - armOrigin.y };
+      // Fix 2: Calculate target vector relative to a standard, static forward-facing vector (0 degrees)
+      // instead of comparing it to the currently moving arm vector.
+      const targetVector = {
+        x: mouseLocation.x - shoulderOrigin.x,
+        y: mouseLocation.y - shoulderOrigin.y
+      };
 
-      // 1. Calculate absolute angles for both vectors relative to the X axis
-      const angleArm = Math.atan2(armVector.y, armVector.x);
-      const angleTarget = Math.atan2(targetVector.y, targetVector.x);
+      // Fix 3: Implement a safety dead zone. If mouse is too close to the shoulder joint, ignore it.
+      const distanceToMouse = Math.hypot(targetVector.x, targetVector.y);
+      if (distanceToMouse < bicepRect.width/2) { // Adjust '20' (in pixels) depending on your asset size
+        animationFrameId = requestAnimationFrame(updateArmIK);
+        return;
+      }
 
-      // 2. Find the relative difference
-      let diffAngle = angleTarget - angleArm;
+      // 4. Invert the X axis if facing left, so 'forward' math remains unified
+      const normalizedTargetX = targetVector.x * direction;
 
-      // 3. Normalize to keep the angle strictly between -PI and PI (-180° and 180°)
-      if (diffAngle > Math.PI) diffAngle -= 2 * Math.PI;
-      if (diffAngle < -Math.PI) diffAngle += 2 * Math.PI;
+      // Fix 4: Directly get the absolute target angle relative to the horizon (X-axis)
+      let thetaRad = Math.atan2(targetVector.y, normalizedTargetX);
 
-      // 4. Convert to degrees
-      const theta = diffAngle * 180 / Math.PI;
+      // Convert directly to degrees
+      let theta = (thetaRad * 180) / Math.PI * direction;
 
-      if (Math.abs(theta) < 120) {
+      // If your avatar faces right, 0 degrees is directly forward. 
+      // Normalize theta to keep it relative to the forward rest position.
+      if (theta > 180) theta -= 360;
+      if (theta < -180) theta += 360;
+
+      // Apply your rotation safety clamps
+      if (Math.abs(theta) <= 119) {
         const thetaSixth = theta / 6; // shoulder
         const thetaThird = theta / 3; // elbow
-        const thetaHalf = theta / 2; // wrist
+        const thetaHalf = theta / 2;  // wrist
 
         setTheta([thetaSixth, thetaThird, thetaHalf]);
       }
+
+      animationFrameId = requestAnimationFrame(updateArmIK);
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+
+    animationFrameId = requestAnimationFrame(updateArmIK);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [direction]);
 
   return (
     <ArmOverlayContainer $direction={direction}>
       <AvatarBicep $healthDiff={healthDiff} ref={bicepRef} $src={playerSnap.avatarBicepUrl} $angle={theta[0] * direction}>
         <AvatarForearm $healthDiff={healthDiff} $src={playerSnap.avatarForearmUrl} $angle={theta[1] * direction}>
-          <AvatarWandHand $healthDiff={healthDiff} ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
+          <AvatarWandHand $speed={'2s'} $isPlacingGyre={true} $healthDiff={healthDiff} ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
         </AvatarForearm>
       </AvatarBicep>
     </ArmOverlayContainer>

@@ -20,9 +20,9 @@ export class GameSymbol extends UniqueId {
   static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
     ['line', Quicken],
     ['circle', Phlegm],
-    ['star', Ether],
     ['diamond', GyreUp],
-    ['triangle', GyreDown]
+    ['triangle', GyreDown],
+    ['star', Ether]
   ]);
 
   static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
@@ -53,7 +53,7 @@ export class GameSymbol extends UniqueId {
     // Validate drawing and do fizzle if invalid
     if (GameSymbol.FIZZLE_INFERENCES.includes(this.symbolName)) {
       // BACKLASH!
-      this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
+      // this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
@@ -62,7 +62,7 @@ export class GameSymbol extends UniqueId {
     if (!this.SpellClass) {
       // something went wrong... treat it like a Fizzle
       // BACKLASH!
-      this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
+      // this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
@@ -86,7 +86,7 @@ export class GameSymbol extends UniqueId {
       const difference = focusCost - this.caster.getFocus();
 
       // TO-DO: choreograph/convey "blood magic" to player...
-      rootGameStore.appendToLog(`You used your lifeforce to power your spells! Be careful!`,'#880808');
+      rootGameStore.appendToLog(`You used your lifeforce to power your spells! Be careful!`, '#880808');
       this.caster.depleteFocusToZero();
       this.caster.decrementHealth(difference); // Health covers the remaining resource debt
     }

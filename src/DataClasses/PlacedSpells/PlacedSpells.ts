@@ -8,7 +8,7 @@ import { GameLog } from '../GameLog';
 export class PlacedSpells {
   // Properties
   spells: Array<Spell> = proxy([]);
-  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 500;
+  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 300;
   // --- Core Array Utilities ---
 
   getTop = (): Spell | null => {
@@ -29,6 +29,10 @@ export class PlacedSpells {
       });
     }
   };
+
+  // setSpellMovementDelay = (delay: number) => {
+  //   PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI = delay;
+  // }
 
   reset = (): void => {
     this.spells.splice(0);
@@ -101,9 +105,9 @@ export class PlacedSpells {
     }
     gameBoard.setEmpoweredSpells();
     // Cleanup: Filter out any remaining phantom items that lost board references
-    forceUpdate();
+    // forceUpdate();
     // Add extra time for CSS to update
-    await this.pauseForCssUpdates();
+    // await this.pauseForCssUpdates();
     this.removeInvalidSpells();
     forceUpdate();
   };
@@ -115,7 +119,7 @@ export class PlacedSpells {
 
   // called in 'updateSpells' and after placing a spell on the board for the first time
   updateSpell = async (gameBoard: GameBoard, gameLog: GameLog, spell: Spell, forceUpdate: Function): Promise<void> => {
-    if (spell.getIsRemove()) return;
+    if (!spell || spell.getIsRemove()) return;
 
     const currentCellIndex = spell.getCellIndex();
     if (!currentCellIndex) return;
@@ -139,7 +143,7 @@ export class PlacedSpells {
       if (spell.getIsRemove() || !nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
         spell.markSpellForRemoval();
         spellDestroyedDuringMove = true;
-        forceUpdate();
+        // forceUpdate();
         break; // Stop evaluating sub-steps for this spell
       }
 
@@ -148,6 +152,13 @@ export class PlacedSpells {
       let cell = gameBoard.getCellAt(targetCellIndex);
       if (!cell) continue;
 
+      if (!!cell && !cell.getIsFree()) {
+        const otherSpell = cell.getSpell();
+        if (otherSpell && otherSpell.getIsRemove()) {
+          cell.setSpell(null); // <-- HACK... TO-DO: Have 'spell.markForRemoval' clear cell of spell...
+        }
+      }
+
       // Check for Projectile-on-Projectile Collision
       while (!!cell && !cell.getIsFree()) {
         const otherSpell = cell.getSpell();
@@ -155,12 +166,14 @@ export class PlacedSpells {
           const dmgHealth = spell.getPropertyValue('empoweredDmgHealth');
           // Spell consumes otherSpell and absorbs its properties
           spell.resolveSpellCollision(otherSpell, dmgHealth);
-          // TO-DO: fix bug when Gyre is consumed (multiple spells on one cell, spells appearing on board, but not hoverable...)
-          forceUpdate();
 
           // Clear cell of the removed spell
           if (otherSpell.getIsRemove())
             cell.setSpell(null);
+
+          // TO-DO: consider placing at end of movement loop to include outcome of vertical placements
+          gameBoard.setEmpoweredSpells();
+          forceUpdate();
 
           const upDown = spell.getPropertyValue('upDown');
           const numVerticalMoves = Math.abs(upDown);
@@ -178,7 +191,7 @@ export class PlacedSpells {
             spell.markSpellForRemoval();
             spellDestroyedDuringMove = true;
             cell = null;
-            forceUpdate();
+            // forceUpdate();
             break; // Stop evaluating sub-steps for this spell
           }
 
@@ -209,9 +222,9 @@ export class PlacedSpells {
             const dmgHealth = spell.getPropertyValue('empoweredDmgHealth');
             spell.resolvePlayerCollision(owner, dmgHealth);
             spell.markSpellForRemoval();
-            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'you' : 'them'} for ${spell.getPropertyValue('empoweredDmgHealth') * (spell.getPropertyValue('empoweredDmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
+            gameLog.appendEntry(`${spell.getCaster().getDirection() == 1 ? 'Your' : 'Their'} ${spell.getSpellName()} spell ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damaged' : 'healed'} ${owner.getDirection() == 1 ? 'you' : 'your opponent'} for ${spell.getPropertyValue('empoweredDmgHealth') * (spell.getPropertyValue('empoweredDmgHealth') > 0 ? 1 : -1)} ${spell.getPropertyValue('empoweredDmgHealth') > 0 ? 'damage' : 'health'}.`, '#b2077c')
             spellDestroyedDuringMove = true;
-            forceUpdate();
+            // forceUpdate();
             break;
           }
         }
@@ -222,7 +235,7 @@ export class PlacedSpells {
       if (isLastSpellMove && !spellDestroyedDuringMove) {
         cell.setSpell(spell);
       }
-      forceUpdate();
+      // forceUpdate();
     }
   }
 }

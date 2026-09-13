@@ -164,9 +164,10 @@ const useFocusDots = ({
 
 type PlayerComponentProps = {
   playerSnap: Player;
+  mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
 }
 
-const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
   const ANIM_TIME = 5;
   const textModifierWidth = '10cqw';
   const textModifierHeight = '10cqw';
@@ -222,7 +223,7 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
       <AvatarRobe $healthDiff={healthDiff} $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $healthDiff={healthDiff} $src={playerSnap.avatarHeadUrl} />
         <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap.avatarRightArmUrl} />
-        <IK_ArmComponent healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
+        <IK_ArmComponent mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
     </Damageable>
   </AvatarFrame>);
@@ -263,7 +264,7 @@ const PlayerComponent = ({ playerSnap }: PlayerComponentProps) => {
 
     TO-DO: consider rise/fall anim based on +/-
 
-  */ 
+  */
   return (<DuelistSideColumn>
     {avatar}
     {healthbar}

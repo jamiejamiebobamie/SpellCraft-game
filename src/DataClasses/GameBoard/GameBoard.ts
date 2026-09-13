@@ -235,12 +235,18 @@ export class GameBoard {
   };
 
   getFreeNpcPlacementCell = (npcPlayer: Player, rowIndex?: number): Cell => {
-    const npcPlaceCells = this.cells.filter(c =>
+    let npcPlaceCells = this.cells.filter(c =>
       c.getIsFree() &&
       c.getIsPlaceCell(npcPlayer) &&
       (rowIndex != undefined ?
         c.getCellIndex().i == rowIndex
         : true));
+    if (!npcPlaceCells.length) {
+      npcPlaceCells = this.cells.filter(c =>
+        c.getIsFree() &&
+        c.getIsPlaceCell(npcPlayer));
+    }
+
     const rand = Math.floor(Math.random() * npcPlaceCells.length);
     return npcPlaceCells[rand];
   }

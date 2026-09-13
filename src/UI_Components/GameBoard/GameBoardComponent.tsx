@@ -41,34 +41,87 @@ const StyledCell = styled.div<{
     $numPlacementCells: number;
     $isOccupied: boolean;
 }>`
- background-color: ${props => props.$empoweredSpellColor ? `color-mix(in oklab, ${props.$empoweredSpellColor}, ${props.$spellOwnerColor})` : props.$isPlayerCell ? '#bcb9b943' : '#c7c2c23c'};
-  ${props => props.$isHighlighted && `filter: brightness(1.1);`}
-  border: 0.05cqw solid;
-  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid #dbd668;'}
-  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid #dbd668;'}
-  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid #dbd668;'}
-  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid #dbd668;'}
+  /* 1. LIQUID GLASS BACKGROUND & BLUR */
+  /* Replaced opaque colors with semi-transparent ones to allow backdrop-filter to work */
+  background: ${props => props.$empoweredSpellColor 
+    ? `color-mix(in oklab, rgba(255, 255, 255, 0.15), color-mix(in oklab, ${props.$empoweredSpellColor}, ${props.$spellOwnerColor}))` 
+    : props.$isPlayerCell 
+      ? 'rgba(235, 235, 240, 0.18)' 
+      : 'rgba(200, 200, 210, 0.12)'};
 
+  /* The magic property: creates the refractive thick-glass distortion */
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+
+  /* 2. REFRACED GLASS BORDERS & DEPTH */
+  /* A very thin white-tinted border that acts as a shining edge highlight */
+  border: 0.05cqw solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),    /* Top inner light reflection */
+    inset 0 -1px 1px rgba(0, 0, 0, 0.1),         /* Bottom inner grounding shadow */
+    0 4px 12px rgba(0, 0, 0, 0.08);              /* Subtle ambient shadow onto elements below */
+
+  /* Game logic positioning borders (making them slightly emissive/neon glass) */
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid rgba(219, 214, 104, 0.9); box-shadow: inset 0 2px 4px rgba(219, 214, 104, 0.3);'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
+  ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
+
+  /* Layout and Sizing */
   aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity, background 1s ease, border 0.15s ease;
+  overflow: hidden; /* Keeps the gloss reflection element contained */
+  
+  /* Transitions */
+  transition: opacity 1s ease, background 0.3s ease, border 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
   opacity: ${props => props.$transparency};
+
+  /* 3. ENVIRONMENTAL GLASS HOVER EFFECT */
+  ${props => props.$isHighlighted && `
+    filter: brightness(1.25);
+    box-shadow: 
+      inset 0 1px 2px rgba(255, 255, 255, 0.6),
+      0 0 15px rgba(255, 255, 255, 0.2);
+  `}
+
   &:hover {
-   ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace || !props.$isDisabled && !props.$isPlacingGameSymbol)
-        && `filter: brightness(1.2);`};
+    ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace || !props.$isDisabled && !props.$isPlacingGameSymbol)
+      && `
+        filter: brightness(1.2);
+        box-shadow: 
+          inset 0 1px 2px rgba(255, 255, 255, 0.5),
+          0 6px 16px rgba(0, 0, 0, 0.12);
+      `};
   }
 
   cursor: ${props => !props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace ? 'pointer' : props.$isOccupied ? 'help' : 'inherit'};
 
+  /* 4. GLOSS SHIMMER LAYER (Liquid Surface Aspect) */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+  }
+
   &::before {
+    /* Kept your existing hearts code intact */
     ${props => props.$isPlayerCell && `content: '♥';`}
     font-size: 5.3cqw;
-    color: #d8d5d5;
+    color: rgba(216, 213, 213, 0.85); /* Slightly transparent to integrate with glass look */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    z-index: 1; /* Pushes content above the gloss highlight gradient */
   }
 `;
+
+
 
 interface GameBoardComponentProps {
     rootGameStore: Game;
