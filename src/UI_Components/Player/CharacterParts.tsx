@@ -1,6 +1,7 @@
 import styled, { keyframes, css } from 'styled-components';
 
 import { caughtInGyre } from '../GameBoard/SpellAnims';
+import { InferenceString } from '../../DataClasses/types';
 
 export const bob = keyframes`
   0%, 100% { transform: translateY(0px) var(--extra-transform, ); }
@@ -169,8 +170,7 @@ export const AvatarForearm = styled(CharacterPart)`
   animation-iteration-count: infinite;
 `;
 
-// 2s
-export const castingGyre = keyframes`
+export const castingDiamondOrTriangle = keyframes`
   0% {
     /* Starting point: Center-neutral */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);
@@ -211,7 +211,7 @@ export const castingGyre = keyframes`
 `;
 
 // 2s
-export const castingLightning = keyframes`
+export const castingLine = keyframes`
   0%, 100% {
     /* Base resting position */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);
@@ -257,8 +257,8 @@ export const castingLightning = keyframes`
     transform: var(--extra-transform) translate(0.02cqw, -0.01cqw) rotate(1deg);
   }
 `;
-
-export const castingFireball = keyframes`
+// TO-DO: check anims at different speeds. ('castingDiamondOrTriangle' and 'castingLine' should be fine...) adjust anims so that speed does not need to be changed per anim...
+export const castingStar = keyframes`
   0% {
     /* Base resting position - compressing the spark */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);
@@ -293,7 +293,7 @@ export const castingFireball = keyframes`
   }
 `;
 
-export const castingWaterReversal = keyframes`
+export const castingCircle = keyframes`
   0% {
     /* Base resting position */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);
@@ -316,7 +316,7 @@ export const castingWaterReversal = keyframes`
   }
 `;
 
-export const AvatarWandHand = styled(CharacterPart)<{ $isPlacingGyre?: boolean }>`
+export const AvatarWandHand = styled(CharacterPart)<{ $gameSymbol?: InferenceString }>`
   top: -.5cqw;
   left: 2.5cqw;
   width: 7.8cqw;
@@ -326,7 +326,7 @@ export const AvatarWandHand = styled(CharacterPart)<{ $isPlacingGyre?: boolean }
 
   --extra-transform: rotate(var(--part-angle));
 
-  animation-name: ${props => props.$isPlacingGyre ? castingWaterReversal : shift};
+  animation-name: ${props => props.$gameSymbol == 'line' ? castingLine : props.$gameSymbol == 'circle' ? castingCircle : props.$gameSymbol == 'triangle' || props.$gameSymbol == 'diamond' ? castingDiamondOrTriangle :  props.$gameSymbol == 'star' ? castingStar : shift};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 `;

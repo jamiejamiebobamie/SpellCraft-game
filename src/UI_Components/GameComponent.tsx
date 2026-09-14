@@ -9,6 +9,7 @@ import GameLogComponent from './GameLog/GameLogComponent';
 import SpellBookComponent from './UI_Elements/SpellBookComponent';
 import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
 import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
+import NpcDifficultyComponent from './UI_Elements/NpcDifficultyComponent';
 import { rootGameStore } from '../DataClasses/store';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
@@ -88,8 +89,9 @@ export const GameComponent = () => {
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
-
   const gameSymbolIcon = snap.getGameSymbolIcon();
+
+  snap.useGameplayKeyBindings(forceUpdate);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -98,7 +100,6 @@ export const GameComponent = () => {
       animationFrameId = requestAnimationFrame(updateGameSymbol);
     };
 
-    // if (gameSymbolIcon)
     animationFrameId = requestAnimationFrame(updateGameSymbol);
 
     return () => cancelAnimationFrame(animationFrameId);
@@ -141,8 +142,10 @@ export const GameComponent = () => {
             if (isClickOutsideGameBoard) {
               rootGameStore.cancelPlacingSymbol();
             }
-          } else {
+          } else if (rootGameStore.getHasFocus()) {
             rootGameStore.beginDrawing();
+          } else if (!rootGameStore.getHasFocus()) {
+            // TO-DO: show "flashing empty focus dots" for a moment 
           }
         }}
         onMouseUp={() => {
@@ -158,6 +161,7 @@ export const GameComponent = () => {
       >
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
+        <NpcDifficultyComponent />
         <ClockFaceComponent
           rootGameStore={rootGameStore}
           // clockSpeed={clockSpeed}
@@ -172,7 +176,7 @@ export const GameComponent = () => {
           <GameLogComponent snap={snap} rootGameStore={rootGameStore} />
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-        <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos}  />
+        <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos} />
       </GameWrapper>
     </>
   );

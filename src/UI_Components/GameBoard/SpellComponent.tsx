@@ -4,6 +4,7 @@ import { useSnapshot } from 'valtio';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { PlacedSpells } from '../../DataClasses/PlacedSpells/PlacedSpells';
 import { caughtInGyre } from "./SpellAnims"
+import { noAnim } from '../Player/CharacterParts';
 import styled from 'styled-components';
 
 // Controls movement across the board, "facing" direction, and "opacity fade" removal. 
@@ -42,7 +43,8 @@ const SpellVisual = styled.div<{ $url: string; $color: string, $verticalMovement
   background-position: center;
   filter: drop-shadow(0px 0px 5px ${props => props.$color});
 
-  animation: ${props => !!props.$verticalMovement ? caughtInGyre : ''} 1s linear infinite;
+  /* TO-DO: BUG: caughtInGyre is not turning off... */
+  animation: ${props => !!props.$verticalMovement ? caughtInGyre : noAnim} 1s linear infinite;
   transform-origin: center center;
   backface-visibility: hidden;
 `;

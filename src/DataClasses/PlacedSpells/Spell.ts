@@ -8,7 +8,6 @@ import { proxy } from 'valtio';
 export abstract class Spell extends UniqueId {
   // Constants & Core Properties
   readonly spellName: string;
-  readonly caster: Player;
   protected static readonly focusCost: number = 0;
   cellIndex!: CellIndex;
   readonly key!: string;
@@ -22,6 +21,8 @@ export abstract class Spell extends UniqueId {
   protected empoweredPng: number = 0;
 
   spellIconUrl: string = '';
+  caster: Player;
+
 
   // Modifiers with min/max limits
   updateOrder: number = 0; // determines the order in which a spell gets to move relative to other spells, lower value = updates earlier
@@ -70,6 +71,10 @@ export abstract class Spell extends UniqueId {
 
   getCaster = (): Player => {
     return this.caster;
+  }
+
+  setCaster = (newCaster: Player): void => {
+    this.caster = newCaster;
   }
 
   getCellIndex = (): CellIndex => {
@@ -191,7 +196,8 @@ export abstract class Spell extends UniqueId {
       // Confer modifiers from the consumed spell to 'this' spell
       consumedSpell.conferModifierTo(this);
     } else {
-      this.markSpellForRemoval();
+      this.conferModifierTo(consumedSpell);
+      // this.markSpellForRemoval();
     }
   };
 
@@ -254,6 +260,12 @@ export class Phlegm extends Spell {
     const currentSpeed = targetSpell.getPropertyValue('speedDirection');
     targetSpell.updatePropertyValue('speedDirection', currentSpeed * - 1);
 
+    // Update owner
+    targetSpell.setCaster(this.caster);
+    // TO-DO: if caster consumes his own phlegm, direction will reverse, but owner will remain the same...
+    // WANT: (1) have cell colors dependent on direction.
+    // (2) have same direction (not same owner) allow for instant consumes w/o dmgHealth comparison. (change in 'resolveSpellCollision'...)
+
     this.markSpellForRemoval();
   };
 
@@ -287,22 +299,23 @@ export class Ether extends Spell {
   }
 
   conferModifierTo = (targetSpell: Spell): void => {
-    if (targetSpell instanceof Phlegm) {
-      return; // do not make Phlegm positive dmgHealth
+    // do not make Phlegm positive dmgHealth
+    if (!(targetSpell instanceof Phlegm)) {
+      // Ether boosts the damage of the spell that consumed it
+      const currentDmg = targetSpell.getPropertyValue('dmgHealth');
+      targetSpell.updatePropertyValue('dmgHealth', currentDmg + this.dmgHealth);
+
+      // conserve buffed speed if consumed spell has greater speed than consumer
+      const consumerSpeedDirection = targetSpell.getPropertyValue('speedDirection');
+      const consumerSpeed = Math.abs(consumerSpeedDirection);
+      const consumedSpeed = Math.abs(this.speedDirection);
+      if (consumedSpeed > consumerSpeed) {
+        targetSpell.updatePropertyValue('speedDirection', consumedSpeed * Math.sign(consumerSpeedDirection));
+      }
+
+      // TO-DO: Ether and Quicken conserve speed/dmgHealth (respectively), maintaing the "max" between the consumer/consumed...
+      // Consider: Gyre and Phlegm also conserving "buffs" when consumed...
     }
-
-    // Ether boosts the damage of the spell that consumed it
-    const currentDmg = targetSpell.getPropertyValue('dmgHealth');
-    targetSpell.updatePropertyValue('dmgHealth', currentDmg + this.dmgHealth);
-
-    // conserve buffed speed if consumed spell has greater speed than consumer
-    const consumerSpeedDirection = targetSpell.getPropertyValue('speedDirection');
-    const consumerSpeed = Math.abs(consumerSpeedDirection);
-    const consumedSpeed = Math.abs(this.speedDirection);
-    if (consumedSpeed > consumerSpeed) {
-      targetSpell.updatePropertyValue('speedDirection', consumedSpeed * Math.sign(consumerSpeedDirection));
-    }
-
     this.markSpellForRemoval();
   };
 
@@ -368,8 +381,8 @@ export abstract class Gyre extends Spell {
       this.gyreLives = 0; // 'consumerSpell' consumes all this's 'gyreLives'
     } else {
       // Gyre adds a lane/row shifting vector to the consuming spell
-      consumerSpell.updatePropertyValue('upDown', this.rowShift);
-      this.gyreLives--;
+      consumerSpell.updatePropertyValue('upDown', this.rowShift); // TO-DO: cause of Gyre bug... conferModifierTo when consumed is too powerful to be consumed, consumer becomes consumed... ISSUE: the consumed spell is not moving, but is getting upDown conferred to it...
+      this.gyreLives--; 
     }
     this.removeGyreIfOutOfLives();
   };
@@ -449,7 +462,7 @@ export class Quicken extends Spell {
         targetSpell.updatePropertyValue('dmgHealth', this.dmgHealth);
       }
     }
-    
+
     this.markSpellForRemoval();
   };
 

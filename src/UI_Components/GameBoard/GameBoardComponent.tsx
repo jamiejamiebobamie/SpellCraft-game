@@ -162,7 +162,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                         key={c.id}
                         data-click-type="board-cell"
                         $maxI={GameBoard.NUM_ROWS - 1}
-                        $maxJ={snap.getActivePlayer().getDirection() == 1 ? numPlacementCells - 1 : GameBoard.NUM_COLS - 1}
+                        $maxJ={numPlacementCells - 1}
                         $i={c.getCellIndex().i}
                         $j={c.getCellIndex().j}
                         $numPlacementCells={snap.gameBoard.numPlacementCells}

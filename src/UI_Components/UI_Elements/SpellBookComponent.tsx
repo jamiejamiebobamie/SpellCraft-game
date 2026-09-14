@@ -98,42 +98,53 @@ const CanvasContainer = styled.div`
 `;
 
 // Each Individual Slide-Out Column Group
-const ColumnGroup = styled.div`
+const ColumnGroup = styled.div<{ $isClicked: boolean }>`
   display: flex;
   position: relative;
   flex-direction: column;
   gap: .1cqw;
   &:hover ${SquareImage},
   &:hover  ${CanvasContainer} {
-  transform: scale(1.25);
-  cursor: pointer;
-  pointer-events: auto;
-}
+    transform: scale(1.25);
+    transition: transform .5s;
+    cursor: pointer;
+    pointer-events: auto;
+    ${props => props.$isClicked && 'transform: scale(.9);'}
+  }
 `;
 
 export default function SpellBookComponent() {
+  const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState(false);
   const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => (
     <ColumnGroup
+      $isClicked={isClicked}
       key={spellClass.name}
       onClick={() => {
-        if (!rootGameStore.getIsPlacing())
-          rootGameStore.instantiateSpellFromInferenceString(inferenceString);
+        rootGameStore.instantiateGameSymbolFromInferenceString(inferenceString);
       }}
+      onMouseDown={() => setIsClicked(true)}
+      onMouseUp={() => setIsClicked(false)}
     >
       <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
         <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isHovered} />
       </CanvasContainer>
     </ColumnGroup>))
-
   return (
     <MenuAnchor
       data-click-type="ui-buttons"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <TriggerBox><div style={{ paddingTop: '.5cqw' }}>Spell</div><div>Book</div></TriggerBox>
+      <TriggerBox>
+        <div style={{ paddingTop: '.5cqw' }}>
+          Spell
+        </div>
+        <div>
+          Book
+        </div>
+      </TriggerBox>
       <SlidingTray>
         {spells}
       </SlidingTray>

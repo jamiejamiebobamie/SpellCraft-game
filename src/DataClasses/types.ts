@@ -5,11 +5,13 @@ import { Player } from './Player/Player';
 export type CellIndex = {
   i: number; // Row index
   j: number; // Column index
-};;
+};
 
 export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth';
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
+
+export type NpcDifficulty = 'Easy' | 'Normal' | 'Hard'; 
 
 // export type EmpoweredPng = 'Singular' | 'Beginning' | 'Middle' | 'End';
 // export type EmpoweredPng = 0 | 1 | 2 | 3;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Game } from '../../DataClasses/Game';
 import { useSnapshot } from 'valtio';
@@ -35,50 +35,38 @@ const ClockHands = styled.line`
 
 interface UseMinuteAngleAccProps {
   rootGameStore: Game;
-  setAngles: (newClockHandAngles: { minute: 0, hour: 0 }) => void; // Triggered onClick clock
+  setAngles: (newClockHandAngles: { minute: number, hour: number }) => void; // Triggered onClick clock
 }
 
 const useMinuteAngleAcc = ({ rootGameStore, setAngles }: UseMinuteAngleAccProps): void => {
   const snap = useSnapshot(rootGameStore);
   const minuteAngleAcc = snap.getMinuteAngleAcc();
   useEffect(() => {
-    if (minuteAngleAcc == 0)
-      setAngles({ minute: 0, hour: 0 });
+    // Calculate relative hour position matching exactly 1/12th ratio
+    const hourAngle = minuteAngleAcc / 12;
+    setAngles({
+      minute: minuteAngleAcc,
+      hour: hourAngle
+    });
   }, [minuteAngleAcc]);
 }
 
 interface ClockFaceComponentProps {
   rootGameStore: Game;
-  onMinuteHandLap?: () => void; // Triggered 'onClick' MenuAnchor
+  onMinuteHandLap?: () => void;
 }
 export default function ClockFaceComponent({
   rootGameStore,
   onMinuteHandLap
 }: ClockFaceComponentProps) {
-  /*
-  360 for callback to trigger every hour
-    30 to trigger every 1/12th hour.
-  */
-  const callBackTriggerAngle = 30;
-
-  // Track continuous rotation angles to avoid snapping animations at 360
+  // Rotation angles (minute, hour)
   const [angles, setAngles] = useState({ minute: 0, hour: 0 });
   useMinuteAngleAcc({ rootGameStore, setAngles });
-
   return (
     <MenuAnchor
       $isDisabled={rootGameStore.getIsGameBoardDisabled()}
       onClick={() => {
-        let currMinuteAngleAcc = rootGameStore.minuteAngleAcc + callBackTriggerAngle;
-        rootGameStore.incrementMinuteAngleAcc(callBackTriggerAngle);
-        // Calculate relative hour position matching exactly 1/12th ratio
-        const hourAngle = currMinuteAngleAcc / 12;
-        setAngles({
-          minute: currMinuteAngleAcc,
-          hour: hourAngle
-        });
-        if (onMinuteHandLap)
-          onMinuteHandLap();
+        if (onMinuteHandLap) onMinuteHandLap();
       }}
       data-click-type="ui-buttons">
       <ClockWrapper>

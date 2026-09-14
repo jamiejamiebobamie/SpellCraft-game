@@ -3,7 +3,6 @@ import { CellIndex, BadgeValues } from '../types';
 import { Gyre, Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
-import { proxy } from 'valtio';
 
 // TO-DO: Cell hover speedDirection progress highlight is not working...
 export class Cell extends UniqueId {
@@ -151,7 +150,6 @@ export class Cell extends UniqueId {
 
   onHover = (): void => {
     if (this.isHoverDisabled) return;
-    // console.log({ cellIndex: this.cellIndex })
     // Engine hook placeholder: compute highlighting paths, show valid moves, etc.
   };
 

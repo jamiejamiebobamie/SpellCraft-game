@@ -4,9 +4,6 @@ import { Player } from '../Player/Player';
 import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
-import { rootGameStore } from '../store';
-
-export type NpcPlaceSpellOnBoardFunc = (gameSymbol: GameSymbol, cellRowIndex?: number) => Promise<void>;
 
 export class GameSymbol extends UniqueId {
   symbolName!: InferenceString;
@@ -52,8 +49,6 @@ export class GameSymbol extends UniqueId {
   instantiateSpell = (): Spell | null => {
     // Validate drawing and do fizzle if invalid
     if (GameSymbol.FIZZLE_INFERENCES.includes(this.symbolName)) {
-      // BACKLASH!
-      // this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
@@ -61,34 +56,32 @@ export class GameSymbol extends UniqueId {
 
     if (!this.SpellClass) {
       // something went wrong... treat it like a Fizzle
-      // BACKLASH!
-      // this.incurPlayerCostForSpell(this.caster.getBacklashDmg());
       return null;
     }
 
     const spell = proxy(new this.SpellClass(this.caster));
     let focusCost: number = spell.getFocusCost();
 
-    this.incurPlayerCostForSpell(focusCost);
+    const isHasFocus = this.incurPlayerCostForSpell(focusCost);
 
-    // Spawn the fresh spell instance tied to the caster
-    return proxy(spell);
+    if (isHasFocus) {
+      // Spawn the spell instance
+      return proxy(spell);
+    } else {
+      return null;
+    }
   };
 
   /**
    * Deducts focus resource. Converts focus deficit into direct health damage.
    */
-  incurPlayerCostForSpell = (focusCost: number): void => {
+  incurPlayerCostForSpell = (focusCost: number): boolean => {
     if (this.caster.getFocus() >= focusCost) {
       this.caster.decrementFocus(focusCost);
+      return true;
     } else {
-      // Calculate how much focus is missing
-      const difference = focusCost - this.caster.getFocus();
-
-      // TO-DO: choreograph/convey "blood magic" to player...
-      rootGameStore.appendToLog(`You used your lifeforce to power your spells! Be careful!`, '#880808');
-      this.caster.depleteFocusToZero();
-      this.caster.decrementHealth(difference); // Health covers the remaining resource debt
+      // TO-DO: show lack of Focus on UI
+      return false;
     }
   };
 }

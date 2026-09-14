@@ -1,14 +1,6 @@
 // Player.ts
-import { GameSymbol, NpcPlaceSpellOnBoardFunc } from '../PlacedSpells/GameSymbol'
-import { GameBoard } from '../GameBoard/GameBoard';
+import { GameSymbol } from '../PlacedSpells/GameSymbol'
 import { UniqueId } from '../UniqeId';
-import { InferenceString } from '../types';
-import { proxy } from 'valtio';
-
-export type NPCPlayerTurnMove = {
-  isSkip: boolean;
-  symbol: GameSymbol | null;
-};
 
 export class Player extends UniqueId {
   // Constants
@@ -27,35 +19,27 @@ export class Player extends UniqueId {
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 100;
   // - - FOCUS - - - - - - -
-  private static readonly FOCUS_REGEN_AMT = -2; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly FOCUS_REGEN_AMT = -3; // amt of focus restored between turns (negative for "focusDecrement" method)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
   // - - - - - - - - - - - -
-  /*
-    If player-drawn symbol is:
-      (1) too short or 
-      (2) if "runInference" finds it to be a "square" or "squiggle"
-    player spell is a "Fizzle" (a "whiff" / "oopsy").
-
-    Fizzles create a "Backlash," which decrements Focus as if the spell was successful.
-    If player has no Focus, Backlash causes damage to player health.
-  */
-  private static readonly BACKLASH_DAMAGE = 1;
   // State
   healthAmt: number = Player.MAX_HEALTH_AMT;
   focusAmt: number = Player.MAX_FOCUS_AMT;
-  isTurn: boolean = false;
-  checkGameOverCallback!: Function;
+  gameSymbol: GameSymbol | null = null;
 
-  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function) {
+  constructor(direction: -1 | 1, color: string, avatarUrl: string) {
     super();
     this.direction = direction;
     this.color = color;
     this.avatarUrl = avatarUrl;
-    this.checkGameOverCallback = checkGameOverCallback;
   }
 
   // --- Getters ---
+
+  getGameSymbol = (): GameSymbol | null => {
+    return this.gameSymbol;
+  }
 
   getIsDead = (): boolean => {
     return this.healthAmt <= 0;
@@ -71,10 +55,6 @@ export class Player extends UniqueId {
 
   getHealthPrct = (): number => {
     return (this.healthAmt / Player.MAX_HEALTH_AMT) * 100
-  }
-
-  getBacklashDmg = (): number => {
-    return Player.BACKLASH_DAMAGE;
   }
 
   // focus restored between turns
@@ -105,16 +85,11 @@ export class Player extends UniqueId {
     return this.direction;
   }
 
-  static getBacklashDmg = (): number => {
-    return Player.BACKLASH_DAMAGE;
-  }
-
-
   // --- State Changers ---
 
-  setIsTurn = (isTurn: boolean): void => {
-    this.isTurn = isTurn;
-  };
+  setGameSymbol = (gameSymbol: GameSymbol | null): void => {
+    this.gameSymbol = gameSymbol;
+  }
 
   /**
    * Deducts health points. Pass a negative number to heal the player.
@@ -123,7 +98,6 @@ export class Player extends UniqueId {
     this.healthAmt -= healthDecrement;
     // clamp values between 0 and max
     this.healthAmt = Math.min(Math.max(this.healthAmt, 0), Player.MAX_HEALTH_AMT);
-    this.checkGameOverCallback();
   };
 
   /**
@@ -145,124 +119,6 @@ export class Player extends UniqueId {
   reset = (): void => {
     this.healthAmt = Player.MAX_HEALTH_AMT;
     this.focusAmt = Player.MAX_FOCUS_AMT;
+    this.setGameSymbol(null);
   }
-}
-
-
-export class NPCPlayer extends Player {
-  gameBoard: GameBoard | null = null;
-  castSpeed!: number;
-  npcPlaceSpellOnBoard!: NpcPlaceSpellOnBoardFunc;
-  castingLoopInterval: number | undefined = undefined;
-  appendToLog: Function | null = null;
-
-  readonly avatarHeadUrl: string = './player_avatars/Head2.png';
-  readonly avatarRobeUrl: string = './player_avatars/Robe2a.png';
-  readonly avatarBicepUrl: string = './player_avatars/Bicep2.png';
-
-  constructor(direction: -1 | 1, color: string, avatarUrl: string, checkGameOverCallback: Function, castSpeed: number, npcPlaceSpellOnBoard: NpcPlaceSpellOnBoardFunc) {//, gameBoardRef: GameBoard, difficulty: number = 6) {
-    super(direction, color, avatarUrl, checkGameOverCallback);
-
-    this.castSpeed = castSpeed;
-    this.npcPlaceSpellOnBoard = npcPlaceSpellOnBoard;
-  }
-
-  setGameBoard = (gameBoard: GameBoard): void => {
-    this.gameBoard = gameBoard;
-  }
-
-  /*
-  
-    TO-DO:
-    implement "combos".
-    "combos" -> in a single turn, place lower priority spell on owner cell, place later priority spell "in front" to be consumed.
-  
-    COMBOS: (1) phlegm + phlegm = +2 heal for self
-            (2) quicken + quicken = +4 speed
-            (3) star + quicken = +2 speed +2 dmg
-            (4) quicken + star = +2 speed +2 dmg
-
-  */
-
-  getMove = (): [InferenceString, number?] => {
-    const isHasFocus = this.focusAmt > 0;
-
-    if (this.gameBoard != null) {
-      const i = this.gameBoard.npcGetFutureSpellCollisionRow();
-      const isIncomingSpell = i != -1;
-
-      // SKIP
-      if (!isHasFocus) {
-        return ['SKIP']
-      }
-
-      // REFLECT spell BACK!
-      // if (isIncomingSpell) {
-      //   return ['circle', i];
-      // }
-
-      // SHIFT spell OFF COURSE!
-      if (isIncomingSpell) {
-        const GAME_SYMBOLS: Array<InferenceString> = ['circle']//'star']//'line']//'diamond']//, 'triangle']
-        const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
-        const inferenceString = GAME_SYMBOLS[rand];
-        return [inferenceString, i];
-      }
-
-      // HEAL!
-      // if (this.healthAmt < 4 && isHasFocus) {
-      //   const healingRowIndex = this.gameBoard.npcGetHealingRow();
-      //   return ['circle', healingRowIndex];
-      // }
-
-    }
-
-    // Do random damaging attack
-    let GAME_SYMBOLS: Array<InferenceString> = ['star', 'line']//'diamond']//'triangle']//,'line', 'star']
-    const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
-    const inferenceString = GAME_SYMBOLS[rand];
-    return [inferenceString];
-  };
-
-  doRandomMove = (): [InferenceString, number?] => {
-    // SKIP
-    if (this.focusAmt > 1) {
-      return ['SKIP']
-    }
-    // Do random spell with chance of fizzle and skip
-    let GAME_SYMBOLS: Array<InferenceString> = ['line', 'circle', 'star', 'triangle', 'diamond', 'squiggle', 'SKIP', 'SKIP', 'SKIP'];
-    const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
-    const inferenceString = GAME_SYMBOLS[rand];
-    return [inferenceString];
-  }
-
-  startCastingLoop = (): void => {
-    this.castingLoopInterval = setInterval(() => {
-      const [inferenceString, cellRowIndex] = this.getMove();//Math.random() > .7 ? this.doRandomMove() : this.getMove();
-      // if (this.appendToLog)
-      //   this.appendToLog(`${inferenceString} ${cellRowIndex}`, 'black');
-      if (inferenceString != 'SKIP') {
-        const gameSymbol = proxy(new GameSymbol(inferenceString, this));
-        this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
-      }
-    }, this.castSpeed);
-  }
-
-  doNextNpcMove = (): void => {
-    const [inferenceString, cellRowIndex] = this.getMove();//Math.random() > .7 ? this.doRandomMove() : this.getMove();
-    // if (this.appendToLog)
-    //   this.appendToLog(`${inferenceString} ${cellRowIndex}`, 'black');
-    if (inferenceString != 'SKIP') {
-      const gameSymbol = proxy(new GameSymbol(inferenceString, this));
-      this.npcPlaceSpellOnBoard(gameSymbol, cellRowIndex);
-    }
-  }
-
-  stopCastingLoop = (): void => {
-    clearInterval(this.castingLoopInterval);
-  }
-
-  setAppendToLogMethod = (appendToLog: Function): void => {
-    this.appendToLog = appendToLog;
-  }
-}
+};

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState, RefObject } from 'react';
+import React, { useEffect, useRef, useState, RefObject, Dispatch, SetStateAction } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
 import styled from 'styled-components';
+import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 
 // 4. Styled Components with transform pivots
 const ArmOverlayContainer = styled.div<{ $direction: number }>`
@@ -14,19 +15,15 @@ position: absolute; /* Changed from fixed */
   overflow: visible;
 `;
 
-// 5. Component Props
-interface IKArmComponentProps {
+type usIKProps = {
   direction: number;
-  playerSnap: Player;
-  healthDiff: number;
+  handRef: RefObject<HTMLDivElement | null>;
+  bicepRef: RefObject<HTMLDivElement | null>;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
+  setTheta: Dispatch<SetStateAction<Array<number>>>;
 }
 
-export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff, mousePosRef }) => {
-  const bicepRef = useRef<HTMLImageElement | null>(null);
-  const handRef = useRef<HTMLImageElement | null>(null);
-  const [theta, setTheta] = useState<Array<number>>([]);
-
+const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProps) => {
   useEffect(() => {
     let animationFrameId: number;
 
@@ -55,7 +52,7 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
 
       // Fix 3: Implement a safety dead zone. If mouse is too close to the shoulder joint, ignore it.
       const distanceToMouse = Math.hypot(targetVector.x, targetVector.y);
-      if (distanceToMouse < bicepRect.width/2) { // Adjust '20' (in pixels) depending on your asset size
+      if (distanceToMouse < bicepRect.width / 2) { // Adjust '20' (in pixels) depending on your asset size
         animationFrameId = requestAnimationFrame(updateArmIK);
         return;
       }
@@ -90,11 +87,26 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
     return () => cancelAnimationFrame(animationFrameId);
   }, [direction]);
 
+}
+
+interface IKArmComponentProps {
+  direction: number;
+  playerSnap: Player;
+  healthDiff: number;
+  mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
+}
+
+export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff, mousePosRef }) => {
+  const gameSymbol: GameSymbol | null = playerSnap.getGameSymbol();
+  const bicepRef = useRef<HTMLImageElement | null>(null);
+  const handRef = useRef<HTMLImageElement | null>(null);
+  const [theta, setTheta] = useState<Array<number>>([]);
+  useIK({ direction, handRef, bicepRef, mousePosRef, setTheta });
   return (
     <ArmOverlayContainer $direction={direction}>
       <AvatarBicep $healthDiff={healthDiff} ref={bicepRef} $src={playerSnap.avatarBicepUrl} $angle={theta[0] * direction}>
         <AvatarForearm $healthDiff={healthDiff} $src={playerSnap.avatarForearmUrl} $angle={theta[1] * direction}>
-          <AvatarWandHand $speed={'2s'} $isPlacingGyre={true} $healthDiff={healthDiff} ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
+          <AvatarWandHand $speed={'2s'} $gameSymbol={gameSymbol?.symbolName} $healthDiff={healthDiff} ref={handRef} $src={playerSnap.avatarWandHandUrl} $angle={theta[2] * direction} />
         </AvatarForearm>
       </AvatarBicep>
     </ArmOverlayContainer>

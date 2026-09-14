@@ -234,21 +234,21 @@ export class GameBoard {
     return this.isHoverDisabled;
   };
 
-  getFreeNpcPlacementCell = (npcPlayer: Player, rowIndex?: number): Cell => {
-    let npcPlaceCells = this.cells.filter(c =>
+  getRandomPlacementCell = (player: Player, rowIndex?: number): Cell => {
+    let placeCells = this.cells.filter(c =>
       c.getIsFree() &&
-      c.getIsPlaceCell(npcPlayer) &&
+      c.getIsPlaceCell(player) &&
       (rowIndex != undefined ?
         c.getCellIndex().i == rowIndex
         : true));
-    if (!npcPlaceCells.length) {
-      npcPlaceCells = this.cells.filter(c =>
+    if (!placeCells.length) {
+      placeCells = this.cells.filter(c =>
         c.getIsFree() &&
-        c.getIsPlaceCell(npcPlayer));
+        c.getIsPlaceCell(player));
     }
 
-    const rand = Math.floor(Math.random() * npcPlaceCells.length);
-    return npcPlaceCells[rand];
+    const rand = Math.floor(Math.random() * placeCells.length);
+    return placeCells[rand];
   }
 
   npcGetFutureSpellCollisionRow = (): number => {
