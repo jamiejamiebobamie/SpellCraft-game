@@ -29,12 +29,12 @@ export class NPCPlayer extends Player {
     isRandomMove = (): boolean => {
         const rand = Math.random();
         switch (this.difficulty) {
-            case 'Easy':
-                return rand > 0.3;
             case 'Hard':
+                return rand > 0.5;
+            case 'Brutal':
                 return rand > 0.7;
             default: // 'Normal'
-                return rand > 0.5;
+                return rand > 0.3;
         }
     }
 
@@ -47,7 +47,7 @@ export class NPCPlayer extends Player {
     }
 
     cycleThroughDifficulties = (): void => {
-        const newDifficulty = this.difficulty == 'Normal' ? 'Hard' : this.difficulty == 'Easy' ? 'Normal' : 'Easy';
+        const newDifficulty = this.difficulty == 'Normal' ? 'Hard' : this.difficulty == 'Hard' ? 'Brutal' : 'Normal';
         this.setNpcDifficulty(newDifficulty);
     }
 

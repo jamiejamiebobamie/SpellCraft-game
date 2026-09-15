@@ -90,9 +90,6 @@ export class PlacedSpells {
     return Array(range).fill(0).map((_, i) => i);
   }
 
-
-  // TO-DO: figure out why some spells are able to bypass each other on the same row...
-
   /**
    * Batch updates all active spells on the board cell track.
    * Handles sub-stepping movements to calculate step-by-step collisions accurately.
@@ -172,8 +169,8 @@ export class PlacedSpells {
             cell.setSpell(null);
 
           // TO-DO: consider placing at end of movement loop to include outcome of vertical placements
-          gameBoard.setEmpoweredSpells();
-          forceUpdate();
+          // gameBoard.setEmpoweredSpells();
+          // forceUpdate();
 
           const upDown = spell.getPropertyValue('upDown');
           const numVerticalMoves = Math.abs(upDown);
@@ -235,7 +232,7 @@ export class PlacedSpells {
       if (isLastSpellMove && !spellDestroyedDuringMove) {
         cell.setSpell(spell);
       }
-      // forceUpdate();
+      forceUpdate();
     }
   }
 }

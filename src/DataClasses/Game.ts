@@ -159,7 +159,7 @@ export class Game {
       action: forceUpdate => forceUpdate && this.endTurn(forceUpdate)
     });
 
-    // CYCLE through NPC Difficulties: 'Easy' -> 'Regular' -> 'Hard' -> 'Easy'
+    // CYCLE through NPC Difficulties: 'Normal' -> 'Hard' -> 'Brutal' -> 'Normal'
     keyActions.push({
       keycodes: ['ShiftLeft', 'ShiftRight'],
       action: () => this.cycleThroughDifficulties()

@@ -478,3 +478,119 @@ export class Quicken extends Spell {
     return 'has been sped up!'
   }
 }
+
+/*
+TO-DO:
+
+have phlegm and gyre by low dmgHealth -> always consumed, unless...
+phlegms are compounded. absolute dmgHealth increases multiplicatively, allowing for: greater heals and able to gain buffs (speed)
+gyres are empowered by stacking vertically in a column. dmgHealth increases "multiplicatively", allowing to use as an attack and to gain buffs
+
+more dmgHealth = more likely to "win" spell collisions
+
+have base/default Quickens be consumed by Ethers, but consume Phlegms and Gyres (need to increase Quicken dmgHealth and/or decrease Phlegm and Gyre)
+
+example:
+
+Ether -> 10 dmgHealth
+Quicken -> 5 dmgHealth
+Gyre -> 4 dmgHealth
+Phlegm -> 4 dmgHealth
+
+Should Gyres also impart upDown onto other Gyres? (as well as add gyreLives?)
+
+RULES:
+
+active is moving. collides with inactive.
+
+active is consumer if:
+- active and inactive are going same direction
+OR
+- active has more absolute dmgHealth than inactive
+else:
+- inactive is consumer
+
+When consumed...
+- Ether:
+    ACCUMULATES: "dmgHealth". EXCEPTION: If Phlegm, ...does nothing? ..."ACCUMULATES" heal?
+    CONSERVES: greatest "speed" between consumer and consumed.
+- Quicken:
+    ACCUMULATES: "speed".
+    CONSERVES: greatest "dmgHealth" between consumer and consumed.
+- Gyre:
+    INCREMENT: "upDown". EXCEPTION: If Gyre, ACCUMULATES: "gyreLives".
+    CONSERVES: greatest "speed" and "dmgHealth" between consumer and consumed.
+- Phlegm:
+    REVERSES: direction (ie. -1 * "speedDirection"). EXCEPTION: If Phlegm, REVERSES: direction (ie. -1 * "speedDirection") AND ACCUMULATES: "dmgHealth" x2. Example: (-4 + -4) * 2 = -16 "dmgHealth"
+    CONSERVES: greatest "speed" and "dmgHealth" between consumer and consumed.
+
+"setEmpoweredSpells" is called once after all spells are done moving.
+
+  -----
+
+TO-DO: consider adding in "SECONDS" hand to clock that acts as a turn timer...
+  larger / more natural size of turn area (full clock face) might make it work.
+  also: turn time can be found arbitrarily, "best fit."
+  
+
+  -----
+
+  Spell Collisions with spells going opposite direction:
+
+  "more/lss dmgHealth" = comparison between absolute dmgHealth values
+
+  Gyre, active    -> Gyre, more dmgHealth OR going the same direction     -> CONSUMES!
+                  -> Gyre, less dmgHealth AND going the opposite direction -> CONSUMED:
+                                              confers speed and dmg values to consumer (if greater).
+                                              confers accumulated gyreLives, if consumer is Gyre.
+                                              DOES NOT confer upDown!
+                                              removes self if gyreLives = 0. (remove reference to self on cell: 'cell.spell')
+                                              decrement gyreLives after check
+
+  Gyre, inactive    -> Gyre, more dmgHealth AND going the opposite direction -> CONSUMES!
+                    -> Gyre, less dmgHealth OR going the same direction -> CONSUMED:
+                                              confers speed and dmg values to consumer (if greater).
+                                              confers accumulated gyreLives, if consumer is Gyre.
+                                              confers upDown, if consumer is NOT Gyre.
+                                              removes self if gyreLives = 0. (remove reference to self on cell: 'cell.spell')
+                                              decrement gyreLives after check
+
+  Phlegm, active  -> Phlegm, more dmgHealth OR going the same direction     -> CONSUMES!
+                  -> Phlegm, less dmgHealth AND going the opposite direction -> CONSUMED:
+                                                confers speed value to consumer (if greater).
+                                                confers accumulated dmgHealth, if consumer is Phlegm.
+                                                confers direction reversal.
+                                                removes self. (remove reference to self on cell: 'cell.spell')
+
+  Phlegm, inactive-> Phlegm, more dmgHealth AND going the opposite direction -> CONSUMES!
+                  -> Phlegm, less dmgHealth OR going the same direction -> CONSUMED:
+                                                confers speed value to consumer (if greater).
+                                                confers accumulated dmgHealth, if consumer is Phlegm.
+                                                confers direction reversal.
+                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
+
+  Ether, active  -> Ether, more dmgHealth OR going the same direction     -> CONSUMES!
+                 -> Ether, less dmgHealth AND going the opposite direction -> CONSUMED:
+                                                confers speed value to consumer (if greater).
+                                                confers accumulated dmgHealth. (OLD: if consumer is NOT Phlegm.)
+                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
+
+  Ether, inactive -> Ether, more dmgHealth AND going the opposite direction -> CONSUMES!
+                  -> Ether, less dmgHealth OR going the same direction -> CONSUMED:
+                                                confers speed value to consumer (if greater).
+                                                confers accumulated dmgHealth. (OLD: if consumer is NOT Phlegm.)
+                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
+
+  Quicken, active  -> Quicken, more dmgHealth OR going the same direction     -> CONSUMES!
+                   -> Quicken, less dmgHealth AND going the opposite direction -> CONSUMED:
+                                                confers dmgHealth value to consumer (if greater).
+                                                confers accumulated speed
+                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
+
+  Quicken, inactive -> Quicken, more dmgHealth AND going the opposite direction -> CONSUMES!
+                    -> Quicken, less dmgHealth OR going the same direction -> CONSUMED:
+                                                confers dmgHealth value to consumer (if greater).
+                                                confers accumulated speed                                            
+                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
+
+*/

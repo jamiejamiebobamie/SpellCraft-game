@@ -262,8 +262,6 @@ const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
     ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text.
     NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
 
-    TO-DO: consider rise/fall anim based on +/-
-
   */
   return (<DuelistSideColumn>
     {avatar}

@@ -11,7 +11,7 @@ export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'row
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 
-export type NpcDifficulty = 'Easy' | 'Normal' | 'Hard'; 
+export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal'; 
 
 // export type EmpoweredPng = 'Singular' | 'Beginning' | 'Middle' | 'End';
 // export type EmpoweredPng = 0 | 1 | 2 | 3;
