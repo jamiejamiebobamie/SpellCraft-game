@@ -73,12 +73,13 @@ export class Cell extends UniqueId {
 
   setSpell = (spell: Spell | null): void => {
     this.spell = spell;
-    if (spell) {
-      // Update cell color mapping to match the spell's caster player identity color
-      this.setColor(spell.caster.getColor());
-    } else {
-      this.setColor('');
-    }
+    // if (spell) {
+    //   // Update cell color to indicate direction
+    //   const direction = Math.sign(spell.getPropertyValue('speedDirection'));
+    //   this.setColor(direction > 0 ? 'blue' : 'red');
+    // } else {
+    //   this.setColor('');
+    // }
   };
 
   setIsHighlighted = (isHighlighted: boolean): boolean => {

@@ -94,6 +94,13 @@ export default function ClockFaceComponent({
             stroke="#5c4d37" strokeWidth="3.5" strokeLinecap="round"
             transform={`rotate(${angles.minute} 50 50)`}
           />
+          {/* 
+          
+              TO-DO: consider adding in "SECONDS" hand to clock that acts as a turn timer...
+              larger / more natural size of turn area (full clock face) might make it work.
+              also: correct turn time for players can be found arbitrarily, "best fit." 
+
+          */}
           {/* Center Pin */}
           <circle cx="50" cy="50" r="4" fill="#1a1a1a" />
         </svg>

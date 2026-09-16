@@ -160,17 +160,12 @@ export class PlacedSpells {
       while (!!cell && !cell.getIsFree()) {
         const otherSpell = cell.getSpell();
         if (otherSpell && otherSpell !== spell) {
-          const dmgHealth = spell.getPropertyValue('empoweredDmgHealth');
           // Spell consumes otherSpell and absorbs its properties
-          spell.resolveSpellCollision(otherSpell, dmgHealth);
+          spell.resolveSpellCollision(otherSpell);
 
           // Clear cell of the removed spell
           if (otherSpell.getIsRemove())
             cell.setSpell(null);
-
-          // TO-DO: consider placing at end of movement loop to include outcome of vertical placements
-          // gameBoard.setEmpoweredSpells();
-          // forceUpdate();
 
           const upDown = spell.getPropertyValue('upDown');
           const numVerticalMoves = Math.abs(upDown);

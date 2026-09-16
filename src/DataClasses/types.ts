@@ -7,7 +7,7 @@ export type CellIndex = {
   j: number; // Column index
 };
 
-export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth';
+export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens';
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 

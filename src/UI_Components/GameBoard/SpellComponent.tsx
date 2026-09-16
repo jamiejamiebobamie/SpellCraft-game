@@ -61,7 +61,6 @@ interface SpellComponentProps {
 export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) => {
   const spellSnap = useSnapshot(spell);
   const cellIndex = spellSnap?.getCellIndex();
-  const color = spellSnap?.getCaster()?.getColor() || '';
   const getCoordsXY = useCallback((): CoordsXY => {
     const coords = { x: 0, y: 0 }
     if (!!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
@@ -79,6 +78,8 @@ export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) =
   const verticalMovement = Math.sign(spellSnap.getPropertyValue('upDown'));
   const url = spell.getSpellIcon();
   const isRemove = spellSnap?.getIsRemove();
+  // const color = spellSnap?.getCaster()?.getColor() || '';
+  const color = direction > 0 ? 'blue' : 'red';
 
   return (
     <SpellIcon key={spellSnap?.id} $color={color} $x={x} $y={y} $direction={direction} $isRemove={isRemove}>

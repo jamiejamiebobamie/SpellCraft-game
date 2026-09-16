@@ -1,13 +1,13 @@
 // Spell.ts
 import { CellIndex, SpellPropertyName, Direction } from '../types';
 import { Player } from '../Player/Player';
-import { BadgeValues } from '../GameBoard/Badge';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
 export abstract class Spell extends UniqueId {
   // Constants & Core Properties
   readonly spellName: string;
+  readonly caster: Player;
   protected static readonly focusCost: number = 0;
   cellIndex!: CellIndex;
   readonly key!: string;
@@ -21,7 +21,6 @@ export abstract class Spell extends UniqueId {
   protected empoweredPng: number = 0;
 
   spellIconUrl: string = '';
-  caster: Player;
 
 
   // Modifiers with min/max limits
@@ -34,17 +33,25 @@ export abstract class Spell extends UniqueId {
   empoweredDmgHealth: number = 0;
   empoweredSpeedDirection: number = 0;
 
+  // TO-DO: show on GameLog and GameBoard so player can understand a spell's current state based on past collisions...
+  consumedEthers: number = 0;
+  consumedPhlegms: number = 0;
+  consumedQuickens: number = 0;
+
   // Stat Limits (Enforcing Min/Max values)
   readonly limits = {
-    updateOrder: { min: 1, max: Number.MAX_SAFE_INTEGER /*1000*/ },
-    speedDirection: { min: Number.MIN_SAFE_INTEGER/*-4*/, max: Number.MAX_SAFE_INTEGER  /*4*/ },
-    dmgHealth: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },//{ min: -50, max: 50 },
+    updateOrder: { min: 1, max: Number.MAX_SAFE_INTEGER },
+    speedDirection: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
+    dmgHealth: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
     rowShift: { min: -1, max: 1 },
-    upDown: { min: -1, max: 1 }, // TEST!
-    gyreLives: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },//{ min: 0, max: 10 },
+    upDown: { min: -1, max: 1 },
+    gyreLives: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
     empoweredPng: { min: 0, max: 3 },
     empoweredSpeedDirection: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
     empoweredDmgHealth: { min: 0, max: Number.MAX_SAFE_INTEGER },
+    consumedEthers: { min: 0, max: Number.MAX_SAFE_INTEGER },
+    consumedPhlegms: { min: 0, max: Number.MAX_SAFE_INTEGER },
+    consumedQuickens: { min: 0, max: Number.MAX_SAFE_INTEGER }
   };
 
   // Determines if value is shown if zero
@@ -60,7 +67,6 @@ export abstract class Spell extends UniqueId {
   }
 
   // --- Getters & Setters (Using arrow functions to preserve 'this' context) ---
-
   getSpellName = (): string => {
     return this.spellName;
   };
@@ -71,10 +77,6 @@ export abstract class Spell extends UniqueId {
 
   getCaster = (): Player => {
     return this.caster;
-  }
-
-  setCaster = (newCaster: Player): void => {
-    this.caster = newCaster;
   }
 
   getCellIndex = (): CellIndex => {
@@ -142,12 +144,17 @@ export abstract class Spell extends UniqueId {
   }
 
   markSpellForRemoval = (): void => {
+    /*
+      'Cell' class has reference to Spell that should be cleared
+        in this method, but it is not atm...
+       Not sure if this is causing any issues.
+    */
     this.isRemove = true;
   }
 
   // Dynamic Property Accessors
   getPropertyValue = (propertyName: SpellPropertyName): number => {
-    const val = this[propertyName];;
+    const val = this[propertyName];
     if (propertyName == 'empoweredDmgHealth') {
       return !!this.empoweredDmgHealth ? this.empoweredDmgHealth : this['dmgHealth'];
     } else if (propertyName == 'empoweredSpeedDirection') {
@@ -191,15 +198,69 @@ export abstract class Spell extends UniqueId {
   /**
    * Called when this spell moves onto a cell containing another spell.
    */
-  resolveSpellCollision = (consumedSpell: Spell, dmgHealth: number): void => {
-    if (consumedSpell.getCaster() == this.getCaster() || Math.abs(consumedSpell.getPropertyValue('empoweredDmgHealth')) <= Math.abs(dmgHealth)) {
-      // Confer modifiers from the consumed spell to 'this' spell
-      consumedSpell.conferModifierTo(this);
+  resolveSpellCollision = (inactive: Spell): void => {
+    /*
+      
+      active = moving
+      inactive = not moving
+    
+    */
+
+    const activeDir = Math.sign(this.getPropertyValue('speedDirection'));
+    const inactiveDir = Math.sign(inactive.getPropertyValue('speedDirection'));
+
+    const activeDmg = Math.abs(this.getPropertyValue('empoweredDmgHealth'));
+    const inactiveDmg = Math.abs(inactive.getPropertyValue('empoweredDmgHealth'));
+
+    // Inactive spells going the same direction are automatically consumed by Active spells
+    const isSameDirection = activeDir == inactiveDir;
+
+    /*
+      Inactive spells going in the opposite direction
+        as the Active spell must win a dmg comparison or be consumed.
+    */
+    const isActiveMorePowerful = activeDmg >= inactiveDmg;
+    if (isSameDirection || isActiveMorePowerful) {
+      // Active (moving) spell consumes inactive (not-moving) spell
+      inactive.conferModifierToActive(this);
     } else {
-      this.conferModifierTo(consumedSpell);
-      // this.markSpellForRemoval();
+      // Inactive (not-moving) spell consumes active (moving) spell
+      this.conferModifierToInactive(inactive);
     }
   };
+
+  /**
+   * Conserve "buffed" property values between consumer and consumed during spell collisions
+   */
+  conserveGreater = (consumed: Spell, properties: Array<SpellPropertyName>): void => {
+    properties.forEach(spn => {
+      const sign = Math.sign(this.getPropertyValue(spn));
+      const currentValue = Math.abs(this.getPropertyValue(spn));
+      const otherValue = Math.abs(consumed.getPropertyValue(spn));
+      if (otherValue > currentValue) {
+        this.updatePropertyValue(spn, otherValue * sign);
+      }
+    })
+  };
+
+  /**
+   * 
+   * @param consumedSpell 
+   * @param spn 
+   * @param multiplier 
+   * 
+   * Accumulates the property values and updates the property with the summed value.
+   */
+  accumulateProperty = (consumed: Spell, spn: SpellPropertyName, multiplier: number = 1): void => {
+    const currentValue = this.getPropertyValue(spn);
+    const otherValue = consumed.getPropertyValue(spn);
+    const newValue = (currentValue + Math.abs(otherValue) * Math.sign(currentValue)) * multiplier;
+    this.updatePropertyValue(spn, newValue);
+  }
+
+  reverseDirection = (): void => {
+    this.speedDirection *= -1;
+  }
 
   /**
    * Called when this spell moves onto an opposing player's cell.
@@ -209,6 +270,10 @@ export abstract class Spell extends UniqueId {
     otherPlayer.decrementHealth(dmgHealth)
   };
 
+  /*
+    Default implementation for Phelgm and Ether.
+    Quicken and Gyre override the method with their implementations.
+  */
   getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => {
     return [];
   }
@@ -216,7 +281,9 @@ export abstract class Spell extends UniqueId {
   /**
    * Abstract hook handled by subclasses to dictate how they modify another spell upon consumption.
    */
-  abstract conferModifierTo(targetSpell: Spell): void;
+  abstract conferModifierToActive(consumer: Spell): void;
+  abstract conferModifierToInactive(consumer: Spell): void;
+
 
   /**
    * Abstract hook handled by subclasses to implement logic for this scenario:
@@ -229,7 +296,7 @@ export abstract class Spell extends UniqueId {
    */
   abstract isModifierValueInvalid(): boolean;
   abstract getFocusCost(): number;
-  abstract getModifierLogText(consumingSpell: Spell): string;
+  abstract getModifierLogText(consumer: Spell): string;
 }
 
 // Subclasses
@@ -243,28 +310,24 @@ export class Phlegm extends Spell {
 
   constructor(caster: Player) {
     super('Phlegm', caster);
-    this.dmgHealth = -5; // Heal for 1 Health
+    this.dmgHealth = -4; // Heal 
     this.spellIconUrl = 'spell-icons/PhlegmIcon_mockup.png';
   }
 
-  conferModifierTo = (targetSpell: Spell): void => {
+  conferModifierToActive = (consumer: Spell): void => this.conferModifierTo(consumer);
+  conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
 
-    if (targetSpell instanceof Phlegm) {
-      // Add to heal
-      const currentDmgHealth = targetSpell.getPropertyValue('dmgHealth');
-      targetSpell.updatePropertyValue('dmgHealth', currentDmgHealth + this.dmgHealth);
-      // Also...
+  conferModifierTo = (consumer: Spell): void => {
+    if (consumer instanceof Phlegm) {
+      consumer.accumulateProperty(this, 'dmgHealth', 2);
+      // Increment consumed Phlegms
+      this.consumedPhlegms++;
+      // ...before conferring 'consumedPhlegms' to consumer
+      consumer.accumulateProperty(this, 'consumedPhlegms');
     }
-
-    // Reverse direction of spell movement
-    const currentSpeed = targetSpell.getPropertyValue('speedDirection');
-    targetSpell.updatePropertyValue('speedDirection', currentSpeed * - 1);
-
-    // Update owner
-    targetSpell.setCaster(this.caster);
-    // TO-DO: if caster consumes his own phlegm, direction will reverse, but owner will remain the same...
-    // WANT: (1) have cell colors dependent on direction.
-    // (2) have same direction (not same owner) allow for instant consumes w/o dmgHealth comparison. (change in 'resolveSpellCollision'...)
+    // Conserve the greater values between consumer and consumed
+    consumer.conserveGreater(this, ['speedDirection']);
+    consumer.reverseDirection();
 
     this.markSpellForRemoval();
   };
@@ -277,8 +340,8 @@ export class Phlegm extends Spell {
     return Phlegm.focusCost;
   }
 
-  getModifierLogText = (consumingSpell: Spell): string => {
-    if (consumingSpell.getSpellName() == 'Phlegm') {
+  getModifierLogText = (consumer: Spell): string => {
+    if (consumer.getSpellName() == 'Phlegm') {
       return 'been reversed and become more powerful!'
     } else {
       return 'been reversed!'
@@ -298,24 +361,19 @@ export class Ether extends Spell {
     this.spellIconUrl = 'spell-icons/EtherIcon_mockup.png';
   }
 
-  conferModifierTo = (targetSpell: Spell): void => {
-    // do not make Phlegm positive dmgHealth
-    if (!(targetSpell instanceof Phlegm)) {
-      // Ether boosts the damage of the spell that consumed it
-      const currentDmg = targetSpell.getPropertyValue('dmgHealth');
-      targetSpell.updatePropertyValue('dmgHealth', currentDmg + this.dmgHealth);
-
-      // conserve buffed speed if consumed spell has greater speed than consumer
-      const consumerSpeedDirection = targetSpell.getPropertyValue('speedDirection');
-      const consumerSpeed = Math.abs(consumerSpeedDirection);
-      const consumedSpeed = Math.abs(this.speedDirection);
-      if (consumedSpeed > consumerSpeed) {
-        targetSpell.updatePropertyValue('speedDirection', consumedSpeed * Math.sign(consumerSpeedDirection));
-      }
-
-      // TO-DO: Ether and Quicken conserve speed/dmgHealth (respectively), maintaing the "max" between the consumer/consumed...
-      // Consider: Gyre and Phlegm also conserving "buffs" when consumed...
+  conferModifierToActive = (consumer: Spell): void => this.conferModifierTo(consumer);
+  conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
+  conferModifierTo = (consumer: Spell): void => {
+    if (!(consumer instanceof Phlegm)) {
+      consumer.accumulateProperty(this, 'dmgHealth');
+      // Increment consumed Ethers
+      this.consumedEthers++;
+      // Before conferring consumedEthers to consumer
+      consumer.accumulateProperty(this, 'consumedEthers');
     }
+
+    // Conserve the greater values between consumer and consumed
+    consumer.conserveGreater(this, ['speedDirection']);
     this.markSpellForRemoval();
   };
 
@@ -327,8 +385,8 @@ export class Ether extends Spell {
     return Ether.focusCost;
   }
 
-  getModifierLogText = (consumingSpell: Spell): string => {
-    return consumingSpell.getSpellName() == 'Phlegm' ? 'continued to ooze!' : 'been become more powerful!'
+  getModifierLogText = (consumer: Spell): string => {
+    return consumer.getSpellName() == 'Phlegm' ? 'continued to ooze!' : 'been become more powerful!'
   }
 }
 
@@ -373,18 +431,31 @@ export abstract class Gyre extends Spell {
     if (this.gyreLives < 1) this.markSpellForRemoval();
   }
 
-  conferModifierTo = (consumerSpell: Spell): void => {
-    if (consumerSpell instanceof Gyre) {
-      const consumerLives = consumerSpell.getPropertyValue('gyreLives');
-      const consumedLives = this.gyreLives;
-      consumerSpell.updatePropertyValue('gyreLives', consumerLives + consumedLives);
-      this.gyreLives = 0; // 'consumerSpell' consumes all this's 'gyreLives'
-    } else {
-      // Gyre adds a lane/row shifting vector to the consuming spell
-      consumerSpell.updatePropertyValue('upDown', this.rowShift); // TO-DO: cause of Gyre bug... conferModifierTo when consumed is too powerful to be consumed, consumer becomes consumed... ISSUE: the consumed spell is not moving, but is getting upDown conferred to it...
-      this.gyreLives--; 
-    }
+  conferModifierToActive = (consumer: Spell): void => {
+    this.conferModifierTo(consumer);
+    // Add vertical movement to consumer if consumer is Active (ie. moving)
+    consumer.updatePropertyValue('upDown', this.rowShift);
+    // Conditionally remove from board if out of gyreLives
     this.removeGyreIfOutOfLives();
+  }
+
+  conferModifierToInactive = (consumer: Spell): void => {
+    this.conferModifierTo(consumer);
+    // Automatically remove from board
+    this.markSpellForRemoval();
+  }
+
+  conferModifierTo = (consumer: Spell): void => {
+    // Conserve the greater values between consumer and consumed
+    if (!(consumer instanceof Phlegm)) consumer.conserveGreater(this, ['dmgHealth', 'speedDirection']);
+    else consumer.conserveGreater(this, ['speedDirection']);
+
+    if (consumer instanceof Gyre) {
+      consumer.accumulateProperty(this, 'gyreLives');
+      this.gyreLives = 0; // consumer consumes all of consumed's 'gyreLives'
+    } else {
+      this.gyreLives--;
+    }
   };
 
   isModifierValueInvalid = (): boolean => {
@@ -430,7 +501,7 @@ export class Quicken extends Spell {
 
   constructor(caster: Player) {
     super('Quicken', caster);
-    this.dmgHealth = 3;
+    this.dmgHealth = 5;
     this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
     this.speedDirection *= 1;
     this.empoweredColor = '#16e0d6';
@@ -449,19 +520,18 @@ export class Quicken extends Spell {
     return spell instanceof Quicken && !spell.getIsRemove() && Math.sign(spell.getPropertyValue('speedDirection')) == Math.sign(this.speedDirection);
   }
 
-  conferModifierTo = (targetSpell: Spell): void => {
-    // Quicken drastically increases the velocity of the consuming spell
-    const currentSpeed = targetSpell.getPropertyValue('speedDirection');
-    targetSpell.updatePropertyValue('speedDirection', currentSpeed + Math.abs(this.speedDirection) * Math.sign(currentSpeed));
+  conferModifierToActive = (consumer: Spell): void => this.conferModifierTo(consumer);
+  conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
 
-    // buff for Gyre and Ether
-    if (!(targetSpell instanceof Phlegm)) {
-      // conserve buffed dmgHealth if consumed spell has greater dmg than consumer
-      const consumerDmgHealth = targetSpell.getPropertyValue('dmgHealth');
-      if (this.dmgHealth > consumerDmgHealth) {
-        targetSpell.updatePropertyValue('dmgHealth', this.dmgHealth);
-      }
-    }
+  conferModifierTo = (consumer: Spell): void => {
+    // Increase the speed of the consumer
+    consumer.accumulateProperty(this, 'speedDirection');
+    // Conserve the greater 'dmgHealth' value between consumer and consumed
+    if (!(consumer instanceof Phlegm)) consumer.conserveGreater(this, ['dmgHealth']);
+    // Increment consumed Quickens
+    this.consumedQuickens++;
+    // Before conferring consumedQuickens to consumer
+    consumer.accumulateProperty(this, 'consumedQuickens');
 
     this.markSpellForRemoval();
   };
@@ -478,119 +548,3 @@ export class Quicken extends Spell {
     return 'has been sped up!'
   }
 }
-
-/*
-TO-DO:
-
-have phlegm and gyre by low dmgHealth -> always consumed, unless...
-phlegms are compounded. absolute dmgHealth increases multiplicatively, allowing for: greater heals and able to gain buffs (speed)
-gyres are empowered by stacking vertically in a column. dmgHealth increases "multiplicatively", allowing to use as an attack and to gain buffs
-
-more dmgHealth = more likely to "win" spell collisions
-
-have base/default Quickens be consumed by Ethers, but consume Phlegms and Gyres (need to increase Quicken dmgHealth and/or decrease Phlegm and Gyre)
-
-example:
-
-Ether -> 10 dmgHealth
-Quicken -> 5 dmgHealth
-Gyre -> 4 dmgHealth
-Phlegm -> 4 dmgHealth
-
-Should Gyres also impart upDown onto other Gyres? (as well as add gyreLives?)
-
-RULES:
-
-active is moving. collides with inactive.
-
-active is consumer if:
-- active and inactive are going same direction
-OR
-- active has more absolute dmgHealth than inactive
-else:
-- inactive is consumer
-
-When consumed...
-- Ether:
-    ACCUMULATES: "dmgHealth". EXCEPTION: If Phlegm, ...does nothing? ..."ACCUMULATES" heal?
-    CONSERVES: greatest "speed" between consumer and consumed.
-- Quicken:
-    ACCUMULATES: "speed".
-    CONSERVES: greatest "dmgHealth" between consumer and consumed.
-- Gyre:
-    INCREMENT: "upDown". EXCEPTION: If Gyre, ACCUMULATES: "gyreLives".
-    CONSERVES: greatest "speed" and "dmgHealth" between consumer and consumed.
-- Phlegm:
-    REVERSES: direction (ie. -1 * "speedDirection"). EXCEPTION: If Phlegm, REVERSES: direction (ie. -1 * "speedDirection") AND ACCUMULATES: "dmgHealth" x2. Example: (-4 + -4) * 2 = -16 "dmgHealth"
-    CONSERVES: greatest "speed" and "dmgHealth" between consumer and consumed.
-
-"setEmpoweredSpells" is called once after all spells are done moving.
-
-  -----
-
-TO-DO: consider adding in "SECONDS" hand to clock that acts as a turn timer...
-  larger / more natural size of turn area (full clock face) might make it work.
-  also: turn time can be found arbitrarily, "best fit."
-  
-
-  -----
-
-  Spell Collisions with spells going opposite direction:
-
-  "more/lss dmgHealth" = comparison between absolute dmgHealth values
-
-  Gyre, active    -> Gyre, more dmgHealth OR going the same direction     -> CONSUMES!
-                  -> Gyre, less dmgHealth AND going the opposite direction -> CONSUMED:
-                                              confers speed and dmg values to consumer (if greater).
-                                              confers accumulated gyreLives, if consumer is Gyre.
-                                              DOES NOT confer upDown!
-                                              removes self if gyreLives = 0. (remove reference to self on cell: 'cell.spell')
-                                              decrement gyreLives after check
-
-  Gyre, inactive    -> Gyre, more dmgHealth AND going the opposite direction -> CONSUMES!
-                    -> Gyre, less dmgHealth OR going the same direction -> CONSUMED:
-                                              confers speed and dmg values to consumer (if greater).
-                                              confers accumulated gyreLives, if consumer is Gyre.
-                                              confers upDown, if consumer is NOT Gyre.
-                                              removes self if gyreLives = 0. (remove reference to self on cell: 'cell.spell')
-                                              decrement gyreLives after check
-
-  Phlegm, active  -> Phlegm, more dmgHealth OR going the same direction     -> CONSUMES!
-                  -> Phlegm, less dmgHealth AND going the opposite direction -> CONSUMED:
-                                                confers speed value to consumer (if greater).
-                                                confers accumulated dmgHealth, if consumer is Phlegm.
-                                                confers direction reversal.
-                                                removes self. (remove reference to self on cell: 'cell.spell')
-
-  Phlegm, inactive-> Phlegm, more dmgHealth AND going the opposite direction -> CONSUMES!
-                  -> Phlegm, less dmgHealth OR going the same direction -> CONSUMED:
-                                                confers speed value to consumer (if greater).
-                                                confers accumulated dmgHealth, if consumer is Phlegm.
-                                                confers direction reversal.
-                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
-
-  Ether, active  -> Ether, more dmgHealth OR going the same direction     -> CONSUMES!
-                 -> Ether, less dmgHealth AND going the opposite direction -> CONSUMED:
-                                                confers speed value to consumer (if greater).
-                                                confers accumulated dmgHealth. (OLD: if consumer is NOT Phlegm.)
-                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
-
-  Ether, inactive -> Ether, more dmgHealth AND going the opposite direction -> CONSUMES!
-                  -> Ether, less dmgHealth OR going the same direction -> CONSUMED:
-                                                confers speed value to consumer (if greater).
-                                                confers accumulated dmgHealth. (OLD: if consumer is NOT Phlegm.)
-                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
-
-  Quicken, active  -> Quicken, more dmgHealth OR going the same direction     -> CONSUMES!
-                   -> Quicken, less dmgHealth AND going the opposite direction -> CONSUMED:
-                                                confers dmgHealth value to consumer (if greater).
-                                                confers accumulated speed
-                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
-
-  Quicken, inactive -> Quicken, more dmgHealth AND going the opposite direction -> CONSUMES!
-                    -> Quicken, less dmgHealth OR going the same direction -> CONSUMED:
-                                                confers dmgHealth value to consumer (if greater).
-                                                confers accumulated speed                                            
-                                                removes self. (remove reference to self on cell: 'cell.spell')                                                                                      
-
-*/
