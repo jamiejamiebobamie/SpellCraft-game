@@ -433,8 +433,10 @@ export abstract class Gyre extends Spell {
 
   conferModifierToActive = (consumer: Spell): void => {
     this.conferModifierTo(consumer);
-    // Add vertical movement to consumer if consumer is Active (ie. moving)
-    consumer.updatePropertyValue('upDown', this.rowShift);
+    if (!(consumer instanceof Gyre)) {
+      // Add vertical movement to consumer if consumer is Active (ie. moving)
+      consumer.updatePropertyValue('upDown', this.rowShift);
+    }
     // Conditionally remove from board if out of gyreLives
     this.removeGyreIfOutOfLives();
   }
