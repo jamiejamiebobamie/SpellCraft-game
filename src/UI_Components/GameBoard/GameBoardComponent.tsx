@@ -4,6 +4,7 @@ import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
+import { CrescentArc } from '../UI_Elements/ArcComponent'
 import styled from 'styled-components';
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
@@ -43,11 +44,11 @@ const StyledCell = styled.div<{
 }>`
   /* 1. LIQUID GLASS BACKGROUND & BLUR */
   /* Replaced opaque colors with semi-transparent ones to allow backdrop-filter to work */
-  background: ${props => props.$empoweredSpellColor 
-    ? `color-mix(in oklab, rgba(255, 255, 255, 0.15), color-mix(in oklab, ${props.$empoweredSpellColor}, ${props.$spellOwnerColor}))` 
-    : props.$isPlayerCell 
-      ? 'rgba(235, 235, 240, 0.18)' 
-      : 'rgba(200, 200, 210, 0.12)'};
+  background: ${props => props.$empoweredSpellColor
+        ? `color-mix(in oklab, rgba(255, 255, 255, 0.15), color-mix(in oklab, ${props.$empoweredSpellColor}, ${props.$spellOwnerColor}))`
+        : props.$isPlayerCell
+            ? 'rgba(235, 235, 240, 0.18)'
+            : 'rgba(200, 200, 210, 0.12)'};
 
   /* The magic property: creates the refractive thick-glass distortion */
   backdrop-filter: blur(16px) saturate(140%);
@@ -89,7 +90,7 @@ const StyledCell = styled.div<{
 
   &:hover {
     ${props => (!props.$isDisabled && props.$isPlacingGameSymbol && props.$isPlace || !props.$isDisabled && !props.$isPlacingGameSymbol)
-      && `
+        && `
         filter: brightness(1.2);
         box-shadow: 
           inset 0 1px 2px rgba(255, 255, 255, 0.5),
@@ -146,8 +147,39 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
             clearInterval(intervalRef.current);
         }
     }, [isDisabled]);
+
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
+            {Array.from({ length: 24 }).map((_, i) => {
+                const cellIndex = snap.gameBoard.getTwoDIndexFrom(i);
+                const coords = { x: 0, y: 0 };
+                let isDisplay = false;
+                let speedDirection = 1;
+                if (!!cellIndex && !!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
+                    const { width, height } = gridOverlayRef.current.getBoundingClientRect();
+                    const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width;
+                    const y = ((cellIndex.i + 1) * 2 - 1) / (GameBoard.NUM_ROWS * 2) * height;
+                    coords.x = x;
+                    coords.y = y;
+                    if (cellIndex) {
+                        const cell = snap.gameBoard.getCellAt(cellIndex);
+                        if (cell) {
+                            isDisplay = cell.getIsHighlighted();
+                            if(isDisplay){
+                                const spell = snap.getHoveredSpell();
+                                if(spell){
+                                   speedDirection = spell.getPropertyValue('empoweredSpeedDirection');
+                                }
+                                // console.log({ isDisplay, cell, cellIndex, i })
+                            }
+                        }
+                    }
+                    // return coords
+
+                    return <CrescentArc top={`${coords.y}px`} left={`${coords.x}px`} isDisplay={isDisplay} direction={speedDirection} animDelay={i} />
+                }
+            }
+            )}
             {snap.placedSpells.spells.map(
                 (s, i) =>
                     <SpellComponent

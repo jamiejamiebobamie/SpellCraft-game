@@ -6,13 +6,26 @@ import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasCom
 import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import GameLogComponent from './GameLog/GameLogComponent';
-import SpellBookComponent from './UI_Elements/SpellBookComponent';
+import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
 import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
-import ClockFaceComponent from './UI_Elements/ClockFaceComponent';
-import NpcDifficultyComponent from './UI_Elements/NpcDifficultyComponent';
+import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
+import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
+import ChandelierComponent from './UI_Elements/SceneElements/ChandelierComponent';
 import { rootGameStore } from '../DataClasses/store';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
+
+// The Candle Flicker Animation
+const candleFlicker = keyframes`
+ 0%, 100% { filter: brightness(1.00); }
+  12%      { filter: brightness(0.98); }
+  24%      { filter: brightness(1.01); }
+  36%      { filter: brightness(0.99); }
+  50%      { filter: brightness(1.02); } /* Peak soft flare */
+  62%      { filter: brightness(0.97); } /* Deepest gentle dim */
+  75%      { filter: brightness(1.00); }
+  88%      { filter: brightness(0.99); }
+`;
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   margin: 0 auto; 
@@ -29,13 +42,25 @@ const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   position: relative;
   border: 0.15cqw solid #2d2d2d;
 
-  background-image: url('UI_mockup.png');
+  // background-image: url('UI_mockup.png');
+  background-image: url('background-scene/QuickCast-Background-Test2.png');
+  
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
 
   // cursor: initial;
   cursor: ${props => props.$isPlacingGameSymbol ? 'none' : 'inherit'};
+
+ /* 
+    Runs the flicker loop. 
+    Using 'linear' or 'ease-in-out' works well, but a fast duration (0.8s - 1.2s) 
+    makes the chaotic jumps in the keyframes feel like real fire.
+  */
+  // animation: ${candleFlicker} 2s infinite linear;
+  
+  /* Improves browser rendering performance for heavy filters during animation */
+  will-change: filter; 
 
 `;
 
@@ -86,8 +111,10 @@ export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
+  const outOfFocusTimeoutRef = useRef<number>(false);
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const gameSymbolIcon = snap.getGameSymbolIcon();
 
@@ -145,20 +172,25 @@ export const GameComponent = () => {
           } else if (rootGameStore.getHasFocus()) {
             rootGameStore.beginDrawing();
           } else if (!rootGameStore.getHasFocus()) {
-            // TO-DO: show "flashing empty focus dots" for a moment 
+            setIsPlayerOutOfFocus(true);
+            rootGameStore.appendToLog('Out of Focus! End your turn to regain focus.', '#6aadd9')
           }
         }}
         onMouseUp={() => {
+          setIsPlayerOutOfFocus(false);
           if (!rootGameStore.getIsDrawing()) return;
           rootGameStore.endDrawing();
           rootGameStore.runInference();
         }}
         onMouseLeave={() => {
+          setIsPlayerOutOfFocus(false);
           if (!rootGameStore.getIsDrawing()) return;
           rootGameStore.endDrawing();
           rootGameStore.runInference();
         }}
       >
+        <ChandelierComponent left={'22.5cqw'} animDelay={'3.5s'} />
+        <ChandelierComponent right={'22.5cqw'} />
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />
@@ -169,14 +201,14 @@ export const GameComponent = () => {
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
-        <PlayerComponent playerSnap={playerOneSnap} mousePosRef={mousePos} />
+        <PlayerComponent playerSnap={playerOneSnap} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus} />
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
           <GameBoardComponent snap={snap} rootGameStore={rootGameStore} />
           <GameLogComponent snap={snap} rootGameStore={rootGameStore} />
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
-        <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos} />
+        <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
       </GameWrapper>
     </>
   );

@@ -82,6 +82,14 @@ export class GameBoard {
     return index.i * GameBoard.NUM_COLS + index.j;
   };
 
+  getTwoDIndexFrom = (index: number): CellIndex | null => {
+    if (index < 0 || index >= GameBoard.NUM_COLS * GameBoard.NUM_ROWS) return null;
+    const i = Math.floor(index / GameBoard.NUM_COLS);
+    const j = index % GameBoard.NUM_COLS;
+    return { i, j };
+  };
+
+
   getCellAt = (index: CellIndex): Cell | null => {
     const idx1D = this.getOneDIndexFrom(index);
     if (idx1D === -1) return null;

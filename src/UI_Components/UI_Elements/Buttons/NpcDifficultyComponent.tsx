@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { rootGameStore } from '../../DataClasses/store';
+import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
-import { NpcDifficulty } from '../../DataClasses/types';
+import { NpcDifficulty } from '../../../DataClasses/types';
 
 const darkRed = '#cf2b2b';
-const darkerRed = '#883535';
+// const darkerRed = '#883535';
 // const darkGreen = '#2e5e18';
 
 // The Main Absolute Anchor
@@ -39,32 +39,6 @@ const TriggerBox = styled.div<{ $isClicked: boolean }>`
   }
 `;
 
-const flashFadeKeyframes = keyframes`
-  0% {
-    opacity: 1;
-  }
-  96% {
-    opacity: 1;
-  }
-  98% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-`;
-
-const showDivAnim = keyframes`
-  0%, 100% {
-  }
-`;
-
-const hideDivAnim = keyframes`
-  0%, 100% {
-    color: transparent;
-  }
-`;
-
 const smolderKeyframes = keyframes`
   0%, 100% {
     text-shadow: 
@@ -91,6 +65,7 @@ const DifficultyText = styled.div<{ $isHovered: boolean, $zIndex: number, $isAni
    ${props => `opacity: ${props.$isHovered ? 1 : 0};`}
    animation: ${props => props.$isHovered && props.$isAnim && smolderKeyframes} 4s ease-in-out infinite;
 
+  -webkit-text-stroke: 0.05cqw #7c6060;
   ${props => props.$isHovered && 'filter: drop-shadow(0px 0px 10px #6cbcea);'}
 `;
 
@@ -134,7 +109,7 @@ export default function NpcDifficultyComponent() {
       onMouseDown={() => setIsClicked(true)}
       onMouseUp={() => setIsClicked(false)}
       onClick={() => {
-         // TO-DO: store difficulty in local storage / cookies
+        // TO-DO: store difficulty in local storage / cookies
         rootGameStore.cycleThroughDifficulties();
         setIsClickedOnce(true);
       }}
@@ -146,7 +121,8 @@ export default function NpcDifficultyComponent() {
           $zIndex={5}
           $fontSize={'2.2cqw'}
           $isAnim={false}
-          $color={isHovered ? darkRed : darkerRed}
+          $color={'#c9591c'}
+        // isHovered ? darkRed : darkerRed}
         >
           Difficulty
         </DifficultyText>
@@ -155,7 +131,6 @@ export default function NpcDifficultyComponent() {
           $zIndex={4}
           $fontSize={'2.2cqw'}
           $isAnim={isHovered}
-          $difficulty={'Normal'}
         >
           {difficulty}
         </DifficultyText>

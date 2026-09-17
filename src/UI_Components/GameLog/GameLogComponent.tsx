@@ -12,7 +12,7 @@ const SlidingLogContainer = styled.div<{ $isPlacedSpellInfo: boolean }>`
   left: 0;
   right: 0;
   
-  height: 12cqw; 
+  height: 4cqw; 
   background: #F1E9D2;
   border-top: 0.2cqw solid #c3b091;
   opacity: .9;

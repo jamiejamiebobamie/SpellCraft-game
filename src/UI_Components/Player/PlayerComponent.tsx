@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { IK_ArmComponent } from './IK_ArmComponent';
-import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable } from './CharacterParts';
+import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -83,13 +83,36 @@ const FocusContainer = styled.div`
     position: relative;
 `;
 
-const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number }>`
+export const noFocusFlash = keyframes`
+  /* Start: Dead grey, normal size */
+  0%, 100% { 
+    background: transparent; 
+    border-color: #444;
+    box-shadow: none;
+    transform: scale(1) translateX(0);
+  }
+  /* Frantic Shake + Faint gasp of blue + Slight size pop */
+  20%, 60% { 
+    background: rgba(106, 173, 217, 0.15);
+    border-color: #6aadd9; 
+    box-shadow: 0 0 4px rgba(106, 173, 217, 0.4);
+    transform: scale(1.1) translateX(-1px); 
+  }
+  40%, 80% { 
+    background: rgba(106, 173, 217, 0.15);
+    border-color: #6aadd9; 
+    box-shadow: 0 0 4px rgba(106, 173, 217, 0.4);
+    transform: scale(1.1) translateX(1px); 
+  }
+`;
+const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number, $isPlayerOutOfFocus: boolean }>`
     width: .75cqw;
     height: .75cqw;
     border-radius: 50%;
     border: 0.12cqw solid #777;
     background: ${props => props.$i < props.$focusAmt ? '#6aadd9' : 'transparent'};
-    transition: 'background 0.2s'
+    transition: filter .5s, background 0.2s;
+    animation: ${props => !!props.$isPlayerOutOfFocus && noFocusFlash} 1.5s linear infinite;
 `;
 
 const ExcessFocusBadge = styled(FocusBadge)`
@@ -165,9 +188,10 @@ const useFocusDots = ({
 type PlayerComponentProps = {
   playerSnap: Player;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
+  isPlayerOutOfFocus: boolean;
 }
 
-const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
   const ANIM_TIME = 5;
   const textModifierWidth = '10cqw';
   const textModifierHeight = '10cqw';
@@ -215,7 +239,6 @@ const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
       $extraTransform={`scaleX(${direction})`}
       $top={'50%'}
       $left={'45%'}
-      // $backgroundColor={focusDiff < 0 ? '#8e25f7' : '#6bdcff'}
       $backgroundColor={'#44aac9'}
       $color={'white'}
     />}
@@ -225,6 +248,7 @@ const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
         <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap.avatarRightArmUrl} />
         <IK_ArmComponent mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
+      <FloorShadow />
     </Damageable>
   </AvatarFrame>);
 
@@ -247,7 +271,7 @@ const PlayerComponent = ({ playerSnap, mousePosRef }: PlayerComponentProps) => {
     <>
       <FocusContainer>
         {/* STORED FOCUS */}
-        {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} />)}
+        {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       </FocusContainer>
       <FocusContainer>
         {/* EXCESS STORED FOCUS */}

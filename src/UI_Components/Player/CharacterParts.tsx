@@ -112,6 +112,33 @@ export const AvatarRobe = styled(CharacterPart)`
   animation-iteration-count: infinite;
 `;
 
+const shadowPulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+`;
+
+export const FloorShadow = styled.div`
+  position: absolute;
+  z-index: -1;
+  top: 21.5cqw;
+  left: 5.5cqw;
+  
+  width: 10cqw; 
+  height: 2cqw;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  filter: blur(4px);
+  
+  animation: ${shadowPulse} 3.5s ease-in-out infinite; 
+`;
+
+
 export const AvatarHead = styled(CharacterPart)`
   top: -7.5cqw;
   left: 3.5cqw;
