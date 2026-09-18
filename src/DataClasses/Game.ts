@@ -7,10 +7,11 @@ import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
+import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor } from './types';
 import { proxy } from 'valtio';
 
 export const GameOverStatus = {
@@ -30,6 +31,7 @@ export class Game {
   placedSpells!: PlacedSpells;
   model!: Model;
   spellCanvas!: SpellCanvas;
+  gameClock!: GameClock;
 
   /*
     360 for callback to trigger every hour
@@ -73,6 +75,8 @@ export class Game {
     this.model.init();
 
     this.spellCanvas = proxy(new SpellCanvas());
+
+    this.gameClock = proxy(new GameClock(30));
 
     setTimeout(() => {
       this.computerPlayer?.doNextNpcMove(); // TESTING
@@ -173,6 +177,31 @@ export class Game {
   }
 
   // --- Action Dispatcher Utilities ---
+
+  getSecondsHandAngle = (): number => {
+    return this.gameClock.getSecondsHandAngle();
+  }
+
+  resetSecondsHandAngle = (): void => {
+    this.gameClock.resetSecondsHandAngle();
+  }
+
+  incrementSecondsHandAngle = (): void => {
+    this.gameClock.incrementSecondsHandAngle();
+  }
+
+  pauseSecondsHandAngle = (): void => {
+    this.gameClock.pauseSecondsHandAngle();
+  }
+
+  unpauseSecondsHandAngle = (): void => {
+    this.gameClock.unpauseSecondsHandAngle();
+  }
+
+  getClockChimeSeconds = (): number => {
+    const numTotalMoves = this.placedSpells.spells.reduce((acc, item) => acc + Math.abs(item.speedDirection), 0);
+    return Math.max(4, Math.floor(numTotalMoves * PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 1000));
+  }
 
   getIsGameBoardDisabled = (): boolean => {
     return this.gameBoard.getIsHoverDisabled();
@@ -319,8 +348,16 @@ export class Game {
     this.isHoverDisabled = isHoverDisabled;
   }
 
-  getHoveredSpell = (): Spell | null => {
+  getHoveredPlacedSpell = (): Spell | null => {
     return this.gameBoard.hoveredCell?.getSpell() || null;
+  }
+
+  getHoveredSpellBookSpell = (): SpellConstructor | null => {
+    return this.gameLog.getHoveredSpellBookSpell();
+  }
+
+  setHoveredSpellBookSpell = (hoveredSpell: SpellConstructor | null): void => {
+    this.gameLog.setHoveredSpellBookSpell(hoveredSpell);
   }
 
   setHoveredGameboardCell = (cell: Cell | null): void => {
@@ -368,6 +405,10 @@ export class Game {
       // TESTING - - - - -
       forceUpdate();
     }
+  }
+
+  getGameOver = (): GameOver | null => {
+    return this.gameOver;
   }
 
   setGameOver = (status: GameOver): void => {

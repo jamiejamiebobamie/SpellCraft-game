@@ -1,5 +1,6 @@
 import { proxy } from "valtio";
 import { UniqueId } from "./UniqeId";
+import { SpellConstructor } from "./types";
 
 export class GameLogEntry extends UniqueId {
   text!: string;
@@ -14,6 +15,16 @@ export class GameLogEntry extends UniqueId {
 
 export class GameLog {
   logEntries: Array<GameLogEntry> = proxy([]);
+  hoveredSpellBookSpell: SpellConstructor | null = null;
+
+
+  getHoveredSpellBookSpell = (): SpellConstructor | null => {
+    return this.hoveredSpellBookSpell;
+  }
+
+  setHoveredSpellBookSpell = (hoveredSpell: SpellConstructor | null) => {
+    this.hoveredSpellBookSpell = hoveredSpell;
+  }
 
   getNumLogs = (): number => {
     return this.logEntries.length;

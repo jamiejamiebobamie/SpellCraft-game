@@ -166,7 +166,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                         if (cell) {
                             isDisplay = cell.getIsHighlighted();
                             if(isDisplay){
-                                const spell = snap.getHoveredSpell();
+                                const spell = snap.getHoveredPlacedSpell();
                                 if(spell){
                                    speedDirection = spell.getPropertyValue('empoweredSpeedDirection');
                                 }

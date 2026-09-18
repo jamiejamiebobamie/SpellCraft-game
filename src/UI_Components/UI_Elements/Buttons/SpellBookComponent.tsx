@@ -4,6 +4,7 @@ import { GameSymbol } from '../../../DataClasses/PlacedSpells/GameSymbol';
 import { HARDCODED_SYMBOLS } from '../../../DataClasses/PlacedSpells/HardCodedSymbols';
 import styled from 'styled-components';
 import { rootGameStore } from '../../../DataClasses/store';
+import { useSnapshot } from 'valtio';
 
 // The Main Absolute Anchor
 const MenuAnchor = styled.div`
@@ -35,16 +36,12 @@ const TriggerBox = styled.div<{ $isClicked: boolean, $isOpen: boolean }>`
   font-size: 2.5cqw;
   color: #ff8d80;
   transition: filter, transform 1s;
-  // ${MenuAnchor}:hover & {
-  //   // transform: skewX(5deg) skewY(-15deg) rotateX(45deg) scaleY(1.5) translateY(1cqw);
-  //   filter: drop-shadow(0px 0px 10px white);
-  // }
 
   ${MenuAnchor}:hover & {
     transform: scale(1.1);
     filter: drop-shadow(0px 0px 10px white);
     ${props => props.$isClicked && 'transform: scale(.9);'}
-  ${props => props.$isOpen && 'filter: drop-shadow(0px 0px 20px black);'}
+    ${props => props.$isOpen && 'filter: drop-shadow(0px 0px 20px black);'}
   }
   ${props => props.$isOpen && 'filter: drop-shadow(0px 0px 20px black);'}
 `;
@@ -60,9 +57,6 @@ const SlidingTray = styled.div<{ $isOpen: boolean }>`
   corner-shape: squircle;
   border-radius: 1cqw;
 
-
-
-  
   /* 
     By setting this to absolute, it is completely removed from the 
     MenuAnchor's dimensional size calculations.
@@ -70,7 +64,6 @@ const SlidingTray = styled.div<{ $isOpen: boolean }>`
   position: absolute;
   top: 0;
   left: 120%; /* Positions the right edge of the tray against the left edge of the anchor */
-  // padding-left: 1.5cqw; /* Creates the spacing gap from the TriggerBox */
   
   z-index: 2; 
   
@@ -79,16 +72,7 @@ const SlidingTray = styled.div<{ $isOpen: boolean }>`
   opacity: 0;
   transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
   pointer-events: none; 
-
-  /* Trigger slide-out when the user hovers over the MenuAnchor */
-  // ${MenuAnchor}:hover & {
-  //   transform: translateX(0);
-  //   opacity: 1;
-  //   pointer-events: auto; 
-  // }
-
   ${props => props.$isOpen && 'transform: translateX(0); opacity: 1; pointer-events: auto;'}
-
 `;
 
 // The Square Images inside the columns
@@ -97,8 +81,8 @@ const SquareImage = styled.img`
   height: 4cqw;
   object-fit: cover;
   border-radius: 4px;
-  background-color: transparent;// #444; /* Fallback placeholder color */
-  border: 0;// 1px solid #666;
+  background-color: transparent;
+  border: 0;
   transition: transform 0.2s ease, border-color 0.2s ease;
   padding: .5cqw;
   pointer-events: none;
@@ -133,10 +117,11 @@ const ColumnGroup = styled.div<{ $isClicked: boolean }>`
 `;
 
 export default function SpellBookComponent() {
+  const snap = useSnapshot(rootGameStore);
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
-  const [isHovered, setIsHovered] = useState(false);
+  const [hoveredSpell, setHoveredSpell] = useState<string | null>(null);
   const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => (
     <ColumnGroup
       $isClicked={isClicked}
@@ -145,8 +130,8 @@ export default function SpellBookComponent() {
       onClick={() => {
         rootGameStore.instantiateGameSymbolFromInferenceString(inferenceString);
       }}
-      onMouseDown={() => setIsClicked(true)}
-      onMouseUp={() => setIsClicked(false)}
+      onMouseEnter={() => snap.setHoveredSpellBookSpell(spellClass)}
+      onMouseLeave={() => snap.setHoveredSpellBookSpell(null)}
     >
       <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>

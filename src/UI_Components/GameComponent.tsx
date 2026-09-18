@@ -168,6 +168,9 @@ export const GameComponent = () => {
             const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
             if (isClickOutsideGameBoard) {
               rootGameStore.cancelPlacingSymbol();
+            } else if (!rootGameStore.getHasFocus()) {
+              setIsPlayerOutOfFocus(true);
+              rootGameStore.appendToLog('Out of Focus! End your turn to regain focus.', '#6aadd9')
             }
           } else if (rootGameStore.getHasFocus()) {
             rootGameStore.beginDrawing();
