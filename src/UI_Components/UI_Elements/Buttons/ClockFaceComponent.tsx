@@ -24,6 +24,16 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
 
 `;
 
+const chimeGlow = keyframes`
+  // 0%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 215, 0, 0)); }
+  // 50% { filter: drop-shadow(0 0 1.5cqw rgba(255, 215, 0, 0.8)); }
+  // 100% { filter: drop-shadow(0 0 0.2cqw rgba(255, 215, 0, 0)); }
+
+    0%, { filter: drop-shadow(0 0 0.2cqw rgba(225, 208, 110, 0.95)); }
+  50% { filter: drop-shadow(0 0 1.5cqw rgba(250, 231, 125, 0.8)); }
+  100% { filter: drop-shadow(0 0 0.2cqw rgba(249, 249, 249, 0)); }
+`;
+
 const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
@@ -31,6 +41,11 @@ const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }
   z-index: 0;
   transition: filter 1s;
   ${props => !props.$isDisabled && props.$isHovered && 'filter: drop-shadow(0 0 .2cqw white);'}
+
+  ${props => props.$isDisabled && css`
+    animation: ${chimeGlow} 3s ease-in-out infinite;
+  `
+  }
 `;
 
 const bellStrike = keyframes`
@@ -102,9 +117,24 @@ const ClockWrapper = styled.div`
 `;
 
 const ClockHands = styled.line<{ $brightness?: number, $transitionTime?: number }>`
-  ${props => props.$transitionTime ? `transition: transform ${props.$transitionTime}s;` : 'transition: transform 1s;'}
+  ${props => props.$transitionTime ? `transition: transform ${props.$transitionTime}s;` : 'transition: transform 2s;'}
   ${props => props.$brightness && `filter: brightness(${props.$brightness}) drop-shadow(0 0 .3cqw #fffb00) !important;`}
 `;
+
+
+interface UseSecondsHandTimerProps {
+  rootGameStore: Game;
+  setSecondsAngle: (secondsHandAngle: number) => void;
+}
+
+const useSecondsHandTimer = ({ rootGameStore, setSecondsAngle }: UseSecondsHandTimerProps) => {
+  const snap = useSnapshot(rootGameStore);
+  const secondsHandAngle = snap.getSecondsHandAngle();
+
+  useEffect(() => {
+    setSecondsAngle(Math.min(360, secondsHandAngle));
+  }, [secondsHandAngle]);
+}
 
 interface UseClockChimesAnimProps {
   rootGameStore: Game;
@@ -150,98 +180,30 @@ type minuteHourAngles = {
 
 interface ClockFaceComponentProps {
   rootGameStore: Game;
-  onMinuteHandLap?: () => void;
 }
 export default function ClockFaceComponent({
-  rootGameStore,
-  onMinuteHandLap
+  rootGameStore
 }: ClockFaceComponentProps) {
-  // Use references to bypass React state delays within the animation loop
-  const callbackRef = useRef(onMinuteHandLap);
-  const intervalRef = useRef<number | null>(null);
-  const gameBoardDisabledRef = useRef<boolean>(false);
-  const firstIntervalDelayRef = useRef<boolean>(false);
+
   const snap = useSnapshot(rootGameStore);
+  const isGameBoardDisabled = snap.getIsGameBoardDisabled();
 
-
-  /*
-  
-  getSecondsHandAngle
-  resetSecondsHandAngle
-  incrementSecondsHandAngle
-  pauseSecondsHandAngle
-  unpauseSecondsHandAngle
-  
-  */
-
-
-  const isGameBoardDisabled = snap.getIsGameBoardDisabled()
   const [isHovered, setIsHovered] = useState<boolean>(false);
-  // 'Seconds' rotation angle
-  const [secondsAngle, setSecondsAngle] = useState<number>(0);
+
   // Rotation angles (minute, hour)
   const [angles, setAngles] = useState<minuteHourAngles>({ minute: 0, hour: 0 });
   useMinuteAngleAcc({ rootGameStore, setAngles });
+
   // Plays the anim once and resets it for next play.    
   const [isResetChime, setIsResetChime] = useState<boolean>(true);
   useClockChimesAnim({ rootGameStore, setIsResetChime });
-  // Keep callback reference updated with latest parental closures
-  useEffect(() => {
-    callbackRef.current = onMinuteHandLap;
-  }, [onMinuteHandLap]);
 
-  // TO-DO: Test this.
-  const gameOverType = snap.getGameOver();
-  useEffect(() => {
-    if (gameOverType && isGameBoardDisabled) {
-      firstIntervalDelayRef.current = false;
-      setSecondsAngle(0);
-      intervalRef.current && clearInterval(intervalRef.current);
-    }
-  }, [gameOverType, isGameBoardDisabled]);
+  // Seconds hand acts as a timer for the player. Full circle triggers automatic end of turn.
+  const [secondsAngle, setSecondsAngle] = useState<number>(0);
+  useSecondsHandTimer({ rootGameStore, setSecondsAngle });
 
-  // update ref for above useEffect
-  useEffect(() => {
-    gameBoardDisabledRef.current = isGameBoardDisabled;
-    if (isGameBoardDisabled) {
-      firstIntervalDelayRef.current = false;
-      intervalRef.current && clearInterval(intervalRef.current);
-    } else {
-      intervalRef.current = setInterval(() => {
-        if (gameBoardDisabledRef.current) {
-          firstIntervalDelayRef.current = false;
-          setSecondsAngle(0);
-          intervalRef.current && clearInterval(intervalRef.current);
-        } else if (!firstIntervalDelayRef.current) {
-          // give player (and second hand of clock) 1 second grace period before timer begins.
-          firstIntervalDelayRef.current = true;
-        } else {
-          setSecondsAngle(secondsAngle => {
-            const increment = 360 / 120;
-            const newAngle = secondsAngle + increment;
-            if (newAngle >= 360 && callbackRef.current) {
-              callbackRef.current();
-              intervalRef.current && clearInterval(intervalRef.current);
-              return 0;
-            }
-            return newAngle;
-          });
-        }
-      }, 500);
-    }
-  }, [isGameBoardDisabled]);
-
-  /*
-    TO-DO: Pause seconds hand / game clock when:
-      (1) once game over is reached
-      (2) when spell book is open
-      (3) when user is hovering/inspecting the gameboard (?)
-
-    TO-DO: Make Game Clock class
-    
-    TO-DO: Make reset clock method
-  */
   return (<>
+    {/* .png clock elements. */}
     <ClockImgWrapper
       $isDisabled={isGameBoardDisabled}
       $isHovered={isHovered}>
@@ -287,15 +249,11 @@ export default function ClockFaceComponent({
         $isResetChime={isResetChime}
       />
     </ClockImgWrapper>
+
+    {/* SVG clock elements */}
     <MenuAnchor
       $isDisabled={isGameBoardDisabled}
-      onClick={() => {
-        if (onMinuteHandLap) {
-          onMinuteHandLap();
-          firstIntervalDelayRef.current = false;
-          setSecondsAngle(0);
-        }
-      }}
+      onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-click-type="ui-buttons">
@@ -324,13 +282,6 @@ export default function ClockFaceComponent({
             stroke="#5c4d37" strokeWidth="3.5" strokeLinecap="round"
             transform={`rotate(${angles.minute} 50 50)`}
           />
-          {/* 
-          
-              TO-DO: consider adding in "SECONDS" hand to clock that acts as a turn timer...
-              larger / more natural size of turn area (full clock face) might make it work.
-              also: correct turn time for players can be found arbitrarily, "best fit." 
-
-          */}
           {/* Seconds Hand (Thinner-er, Longer-er) */}
           <ClockHands
             x1="50" y1="50" x2="50" y2="9"
@@ -339,7 +290,6 @@ export default function ClockFaceComponent({
             $brightness={1.5}
             $transitionTime={.75}
           />
-
           {/* Center Pin */}
           <circle cx="50" cy="50" r="4" fill="#1a1a1a" />
         </svg>

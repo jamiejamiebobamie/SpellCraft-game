@@ -39,7 +39,7 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProp
       // Fix 1: Establish a fixed structural shoulder point on the screen.
       // Do NOT use handRect here because the hand moving changes the math every frame.
       const shoulderOrigin = {
-        x: bicepRect.x + (direction == -1 ? bicepRect.width : 0), // Use right edge if facing left
+        x: bicepRect.x + (direction == -1 ? bicepRect.width : -bicepRect.width),
         y: bicepRect.y + bicepRect.height / 2
       };
 
@@ -72,10 +72,10 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProp
       if (theta < -180) theta += 360;
 
       // Apply your rotation safety clamps
-      if (Math.abs(theta) <= 119) {
-        const thetaSixth = theta / 6; // shoulder
-        const thetaThird = theta / 3; // elbow
-        const thetaHalf = theta / 2;  // wrist
+      if (Math.abs(theta) <= 120) {
+        const thetaSixth = theta * 1 / 6; // shoulder
+        const thetaThird = theta * 1 / 3; // elbow
+        const thetaHalf = theta * 1 / 2;  // wrist
 
         setTheta([thetaSixth, thetaThird, thetaHalf]);
       }

@@ -135,7 +135,7 @@ export default function SpellBookComponent() {
     >
       <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
-        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.6} loopDelay={1000} isLooped={isOpen} />
+        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.1} loopDelay={4000} isLooped={isOpen}/>
       </CanvasContainer>
     </ColumnGroup>))
   return (
@@ -145,7 +145,12 @@ export default function SpellBookComponent() {
     // onMouseLeave={() => setIsHovered(false)}
     >
       <TriggerBox
-        onClick={() => setIsOpen(isOpen => !isOpen)}
+        onClick={() => setIsOpen(isOpen => {
+          rootGameStore.setIsSpellBookOpen(!isOpen);
+          if(!isOpen) rootGameStore.pauseClock();
+          else rootGameStore.unpauseClock();
+          return !isOpen;
+        })}
         onMouseDown={() => setIsClicked(true)}
         onMouseUp={() => setIsClicked(false)}
         $isClicked={isClicked}

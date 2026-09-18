@@ -118,7 +118,15 @@ export const GameComponent = () => {
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const gameSymbolIcon = snap.getGameSymbolIcon();
 
-  snap.useGameplayKeyBindings(forceUpdate);
+  useEffect(() => {
+    rootGameStore.setForceUpdate(forceUpdate);
+        rootGameStore.startClock();
+
+    return () => rootGameStore.stopClock();
+  }, []);
+
+  snap.useGameplayKeyBindings();
+
 
   useEffect(() => {
     let animationFrameId: number;
@@ -197,10 +205,7 @@ export const GameComponent = () => {
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />
-        <ClockFaceComponent
-          rootGameStore={rootGameStore}
-          // clockSpeed={clockSpeed}
-          onMinuteHandLap={() => rootGameStore.endTurn(forceUpdate)} />
+        <ClockFaceComponent rootGameStore={rootGameStore} />
         {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
@@ -208,7 +213,7 @@ export const GameComponent = () => {
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
           <GameBoardComponent snap={snap} rootGameStore={rootGameStore} />
-          <GameLogComponent snap={snap} rootGameStore={rootGameStore} />
+          {/* <GameLogComponent snap={snap} rootGameStore={rootGameStore} /> */}
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
         <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos} isPlayerOutOfFocus={false} />

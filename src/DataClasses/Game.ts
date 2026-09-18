@@ -48,8 +48,10 @@ export class Game {
 
   isClickDisabled: boolean = false; // TO-DO: reduce disabled variables... to 'isGameBoardDisabled'
   isHoverDisabled: boolean = false;
+  isSpellBookOpen: boolean = false;
   hoveredSpell: Spell | null = null;
   gameOver: GameOver | null = null;
+  forceUpdate: () => void = () => { };
 
   constructor() {
     this.init();
@@ -76,7 +78,9 @@ export class Game {
 
     this.spellCanvas = proxy(new SpellCanvas());
 
-    this.gameClock = proxy(new GameClock(30));
+    this.gameClock = proxy(new GameClock(this.endTurn));
+
+    this.setupGameplayKeyBindings();
 
     setTimeout(() => {
       this.computerPlayer?.doNextNpcMove(); // TESTING
@@ -84,8 +88,6 @@ export class Game {
       this.computerPlayer?.doNextNpcMove(); // TESTING
       this.computerPlayer?.doNextNpcMove(); // TESTING
     }, 1000);
-
-    this.setupGameplayKeyBindings();
   };
 
   resetGame = (): void => {
@@ -160,7 +162,7 @@ export class Game {
     // END turn
     keyActions.push({
       keycodes: ['Escape', 'Space'],
-      action: forceUpdate => forceUpdate && this.endTurn(forceUpdate)
+      action: this.endTurn
     });
 
     // CYCLE through NPC Difficulties: 'Normal' -> 'Hard' -> 'Brutal' -> 'Normal'
@@ -172,8 +174,12 @@ export class Game {
     this.keyActions = proxy(keyActions);
   }
 
-  useGameplayKeyBindings = (forceUpdate: () => void): void => {
-    useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate });
+  useGameplayKeyBindings = (): void => {
+    useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate });
+  }
+
+  setForceUpdate = (forceUpdate: () => void) => {
+    this.forceUpdate = forceUpdate;
   }
 
   // --- Action Dispatcher Utilities ---
@@ -182,20 +188,29 @@ export class Game {
     return this.gameClock.getSecondsHandAngle();
   }
 
-  resetSecondsHandAngle = (): void => {
-    this.gameClock.resetSecondsHandAngle();
+  getAngleIncrement = (): number => {
+    return this.gameClock.getAngleIncrement();
   }
 
-  incrementSecondsHandAngle = (): void => {
-    this.gameClock.incrementSecondsHandAngle();
+  resetClock = (): void => {
+    this.gameClock.resetClock();
   }
 
-  pauseSecondsHandAngle = (): void => {
-    this.gameClock.pauseSecondsHandAngle();
+
+  pauseClock = (): void => {
+    this.gameClock.pauseClock();
   }
 
-  unpauseSecondsHandAngle = (): void => {
-    this.gameClock.unpauseSecondsHandAngle();
+  unpauseClock = (): void => {
+    this.gameClock.unpauseClock();
+  }
+
+  startClock = (): void => {
+    this.gameClock.startClock();
+  }
+
+  stopClock = (): void => {
+    this.gameClock.stopClock();
   }
 
   getClockChimeSeconds = (): number => {
@@ -302,9 +317,9 @@ export class Game {
     return this.gameBoard.npcGetFutureSpellCollisionRow();
   }
 
-  updatePlacedSpells = async (forceUpdate: Function) => {
+  updatePlacedSpells = async () => {
     // uses a generator/iterator
-    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog, forceUpdate);
+    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog, this.forceUpdate);
   }
 
   getGameSymbolIcon = (): string => {
@@ -377,7 +392,7 @@ export class Game {
     const rawPoints = this.spellCanvas.getRawPoints();
     this.spellCanvas.clearDrawing();
     const result = await this.model.runInference(rawPoints);
-    this.instantiateGameSymbolFromInferenceString(result);
+    // this.instantiateGameSymbolFromInferenceString(result); // TESTING
   }
 
   instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
@@ -388,12 +403,15 @@ export class Game {
     }
   }
 
-  endTurn = async (forceUpdate: () => void): Promise<void> => {
+  endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
+      this.setHoveredGameboardCell(null);
+      this.resetClock();
+      this.pauseClock();
       this.incrementMinuteAngleAcc(Game.CLOCK_INCREMENT_ANGLE);
-      forceUpdate();
+      this.forceUpdate();
       this.disableGameBoard();
-      await this.updatePlacedSpells(forceUpdate);
+      await this.updatePlacedSpells();
       this.checkIfIsGameOver();
       this.regenFocusForPlayers();
       this.enableGameBoard();
@@ -403,8 +421,13 @@ export class Game {
       this.computerPlayer?.doNextNpcMove();
       this.computerPlayer?.doNextNpcMove();
       // TESTING - - - - -
-      forceUpdate();
+      if (!this.isSpellBookOpen) this.unpauseClock();
+      this.forceUpdate();
     }
+  }
+
+  setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
+    this.isSpellBookOpen = isSpellBookOpen;
   }
 
   getGameOver = (): GameOver | null => {

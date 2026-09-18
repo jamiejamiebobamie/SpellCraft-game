@@ -79,7 +79,7 @@ export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) =
   const url = spell.getSpellIcon();
   const isRemove = spellSnap?.getIsRemove();
   // const color = spellSnap?.getCaster()?.getColor() || '';
-  const color = direction > 0 ? 'blue' : 'red';
+  const color = direction > 0 ? 'blue' : 'red'; // TESTING
 
   return (
     <SpellIcon key={spellSnap?.id} $color={color} $x={x} $y={y} $direction={direction} $isRemove={isRemove}>

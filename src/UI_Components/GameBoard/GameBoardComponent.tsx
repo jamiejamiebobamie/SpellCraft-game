@@ -4,7 +4,7 @@ import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
-import { CrescentArc } from '../UI_Elements/ArcComponent'
+import { CrescentArc } from './ArcComponent'
 import styled from 'styled-components';
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
@@ -157,7 +157,9 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                 let speedDirection = 1;
                 if (!!cellIndex && !!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
                     const { width, height } = gridOverlayRef.current.getBoundingClientRect();
-                    const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width;
+                    const cellWidth = width / GameBoard.NUM_COLS 
+                    const cellHeight = height / GameBoard.NUM_ROWS 
+                    const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width
                     const y = ((cellIndex.i + 1) * 2 - 1) / (GameBoard.NUM_ROWS * 2) * height;
                     coords.x = x;
                     coords.y = y;
@@ -169,14 +171,14 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                                 const spell = snap.getHoveredPlacedSpell();
                                 if(spell){
                                    speedDirection = spell.getPropertyValue('empoweredSpeedDirection');
+                                    coords.x -= Math.sign(speedDirection) * cellWidth * .5;
+                                    coords.y -= Math.sign(speedDirection) * -cellHeight * .05;
                                 }
-                                // console.log({ isDisplay, cell, cellIndex, i })
                             }
                         }
                     }
-                    // return coords
-
-                    return <CrescentArc top={`${coords.y}px`} left={`${coords.x}px`} isDisplay={isDisplay} direction={speedDirection} animDelay={i} />
+                    // TO-DO: consider if display should be based on > 1 status. to remove number badges from game board.
+                    return <CrescentArc key={`${i}_${coords.y}_${coords.x}`} top={`${coords.y}px`} left={`${coords.x}px`} isDisplay={isDisplay} direction={speedDirection} animDelay={i} />
                 }
             }
             )}
@@ -217,6 +219,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                     >
                         <SpellBadgeComponent
                             propertyName={''}
+                            // TO-DO: consider roman numerals
                             propertyValue={c.getBadgeValues().updateOrder}
                             isDisplayBadgeCondition={(v: number) => true}
                             isAnim={false}
@@ -251,6 +254,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                         */}
                         <SpellBadgeComponent
                             propertyName={'Category'}
+                            // TO-DO: consider removing and basing on dmgHealth value... moves and consumptions decrease dmgHealth
                             propertyValue={c.getBadgeValues().gyreLives}
                             isDisplayBadgeCondition={(v: number) => v > 0}
                             $left='.3cqw'
@@ -266,6 +270,9 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                        */}
                         <SpellBadgeComponent
                             propertyName={c.getBadgeValues().dmgHealth < 0 ? 'Healing' : 'Damage'}
+                            // TO-DO: consider representing as stars ... 1 star = 5dmgHealth. max 5 stars on spell.
+                            // TO-DO: consider phlegms: pale green ____(s) vs pale yellow stars. - dmgHealth vs + dmgHealth
+                            // phlegm currency vs ether, even exchange
                             propertyValue={c.getBadgeValues().dmgHealth}
                             isDisplayBadgeCondition={(v: number) => Math.abs(v) > 1}
                             $left='.3cqw'

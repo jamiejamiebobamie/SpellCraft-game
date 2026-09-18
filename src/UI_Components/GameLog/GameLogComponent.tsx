@@ -104,7 +104,7 @@ const GameLogComponent = ({ snap, rootGameStore }: GameBoardComponentProps) => {
       const test1 = rootGameStore.getHumanPlayer();
       if (test1) {
         const test2 = new hoveredSpellBookEntry(test1);
-        console.log({ hoveredSpellBookEntry, test1, test2 });
+        // console.log({ hoveredSpellBookEntry, test1, test2 });
       }
     }
   }, [hoveredSpellBookEntry])

@@ -34,15 +34,22 @@ const ArcContainer = styled.div<ArcContainerProps>`
   z-index: 10;
 //   width: ${props => props.$width};
 //   height: ${props => props.$height};
-    width: 8cqw;
+    // width: 8cqw;
+    // height: 10cqw;
+
+        width: 7cqw;
     height: 10cqw;
 
   top: ${props => props.$top};
   left: ${props => props.$left};
 
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -110%);
   pointer-events: none; /* Prevents blocking clicks underneath */
 `;
+
+    // drop-shadow(0px 0px .4cqw #ffffff)       /* Core intensity glow */
+    // drop-shadow(0px 0px .8cqw #ffffff)      /* Medium surrounding glow */
+    // drop-shadow(0px 0px 1cqw rgba(255, 255, 255, 0.6)); /* Deep ambient radiance */
 
 // 4. Styled SVG element that handles the glow and direction mirroring
 const StyledArcSVG = styled.svg<ArcSVGProps>`
@@ -57,9 +64,9 @@ const StyledArcSVG = styled.svg<ArcSVGProps>`
     They wrap perfectly around the curved vector paths and sharp points.
   */
   filter: 
-    drop-shadow(0px 0px .4cqw #ffffff)       /* Core intensity glow */
-    drop-shadow(0px 0px .8cqw #ffffff)      /* Medium surrounding glow */
-    drop-shadow(0px 0px 1cqw rgba(255, 255, 255, 0.6)); /* Deep ambient radiance */
+    // drop-shadow(0px 0px .4cqw ${props => props.$direction == 'right' ? 'blue' : 'red'})       /* Core intensity glow */
+    // drop-shadow(0px 0px .8cqw ${props => props.$direction == 'right' ? 'blue' : 'red'})      /* Medium surrounding glow */
+    drop-shadow(0px 0px 1cqw ${props => props.$direction == 'right' ? 'blue' : 'red'}); /* Deep ambient radiance */
 
 
   /* Programmatically flip the direction of the crescent if set to 'left' */
@@ -79,9 +86,9 @@ const StyledArcSVG = styled.svg<ArcSVGProps>`
       rgba(0,0,0,1) 70%, 
       rgba(0,0,0,0) 100%
     );
-    mask-size: 40% 100%; /* Controls the width of the sliding highlight window */
+    mask-size: 20% 100%; /* Controls the width of the sliding highlight window */
     mask-repeat: no-repeat;
-    animation: ${slideHighlight} 2s ease-out infinite;
+    animation: ${slideHighlight} 1.75s ease-out infinite;
     animation-delay: ${props => -props.$animDelay / GameBoard.NUM_COLS}s;
   }
 `;
@@ -126,8 +133,10 @@ export const CrescentArc: React.FC<CrescentArcProps> = ({
                 {/* Base Crescent Body (Low opacity background layer) */}
                 <path
                     d={crescentPathD}
-                    fill="rgba(255, 255, 255, 0.15)"
-                    stroke='rgba(255, 255, 255, 0.16)'
+                    // fill="rgba(255, 255, 255, 0.15)"
+                    // stroke='rgba(255, 255, 255, 0.16)'
+                    fill="rgba(255, 255, 255, 0.05)"
+                    stroke='rgba(255, 255, 255, 0.05)'
 
                 />
 

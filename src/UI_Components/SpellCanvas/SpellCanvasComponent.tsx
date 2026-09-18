@@ -7,7 +7,7 @@ const CanvasContainer = styled.div<{ $isShowCanvas: boolean }>`
     width: 100%;
     height: 100%;
     position: absolute;
-    z-index: 50;
+    z-index: 29; // Below UI Buttons. Above GameBoard.
     overflow: hidden;
     flex-direction: column;
     align-items: center;
@@ -24,32 +24,24 @@ export const useCanvasSize = () => {
 
     const parent = canvas.parentElement;
 
-    // ResizeObserver tracks the parent container size specifically
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-
-        // Optimize for Retina/High-DPI displays to eliminate blur
         const dpr = window.devicePixelRatio || 1;
 
-        // Set the internal drawing buffer size
         canvas.width = width * dpr;
         canvas.height = height * dpr;
 
-        // Scale the canvas context once so your drawing code stays simple
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.scale(dpr, dpr);
         }
 
-        // Update state to trigger a redraw with the correct CSS layout size
         setSize({ width, height });
       }
     });
 
     resizeObserver.observe(parent);
-
-    // Clean up observer when component unmounts
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -60,42 +52,187 @@ interface GameBoardComponentProps {
   rootGameStore: Game;
 }
 
+// Particle interface for the pixie dust sparkle
+interface DustParticle {
+  x: number;
+  y: number;
+  size: number;
+  vx: number;
+  vy: number;
+  alpha: number;
+  decay: number;
+  color: string;
+  isStar: boolean;
+}
+
 export default function SpellCanvasComponent({ rootGameStore }: GameBoardComponentProps) {
   const { canvasRef, width, height } = useCanvasSize();
   const snap = useSnapshot(rootGameStore.spellCanvas);
 
-  // Track points continuously as long as the mouse is down
+  // Use a ref to hold particles so it doesn't trigger React rerenders on every frame
+  const particlesRef = useRef<DustParticle[]>([]);
+  const requestRef = useRef<number | null>(null);
+
+  // Pixie dust colors: Magic Gold, Soft Cyan, Sparkle White, Pixie Pink
+  const colors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
+
+  // Helper function to draw a 4-pointed star spark
+  const drawStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) => {
+    let rot = (Math.PI / 2) * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  // Main animation loop to update and draw particles
+  useEffect(() => {
+    const renderLoop = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        requestRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Clear canvas on every frame to redraw the active particle cluster
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const particles = particlesRef.current;
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+
+        // Apply physics: gentle drifting fall (gravity) and horizontal sway
+        p.y += p.vy;
+        p.x += p.vx;
+        p.vy += 0.02; // soft gravity fall
+        p.alpha -= p.decay; // fade away
+
+        // Remove dead particles
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+
+        // Add a magical bloom/glow behind the sparkles
+        ctx.shadowBlur = p.size * 2;
+        ctx.shadowColor = p.color;
+
+        if (p.isStar) {
+          // Render iconic 4-point stars
+          drawStar(ctx, p.x, p.y, 4, p.size * 2, p.size * 0.4);
+        } else {
+          // Render rounded magical dust circles
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      requestRef.current = requestAnimationFrame(renderLoop);
+    };
+
+    requestRef.current = requestAnimationFrame(renderLoop);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [canvasRef]);
+
+  // Track points continuously and burst magical sparkles
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!rootGameStore.spellCanvas.getIsDrawing()) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-
     const clientX = e.clientX - rect.left;
     const clientY = e.clientY - rect.top;
 
-    if (ctx) {
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#6366f1'; // Spell trial path color
-      ctx.lineTo(clientX, clientY);
-      ctx.stroke();
+    // Spawn a burst of 6-10 pixie dust particles for every tiny mouse movement
+    const spawnCount = 8;
+    for (let i = 0; i < spawnCount; i++) {
+      particlesRef.current.push({
+        x: clientX + (Math.random() - 0.5) * 12, // Slight scatter dispersion
+        y: clientY + (Math.random() - 0.5) * 12,
+        size: Math.random() * 2.5 + 0.5,       // Random sizing
+        vx: (Math.random() - 0.5) * 1.5,       // Slow horizontal drift
+        vy: (Math.random() - 0.8) * 1,         // Initial slight upward burst
+        alpha: 1,
+        decay: Math.random() * 0.2 + 0.015,   // Varied life durations
+        color: colors[Math.floor(Math.random() * colors.length)],
+        isStar: Math.random() > 0.6            // 40% are stars, 60% are magical dust grains
+      });
     }
 
     rootGameStore.spellCanvas.addRawPoint(e.clientX, e.clientY);
   };
 
-  const isShowCanvas = snap.getIsShowCanvas();
+  // Spark a large outward explosion of particles instantly on click
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+
+    // Explode a vibrant ring of 35-45 magical particles out from the core center
+    const explosionCount = 40;
+    for (let i = 0; i < explosionCount; i++) {
+      // Calculate a randomized angle and velocity for an outward shockwave blast direction
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3.5 + 1.0; 
+
+      particlesRef.current.push({
+        x: clientX,
+        y: clientY,
+        size: Math.random() * 3.5 + 0.8, // Slightly larger particles for the impact explosion
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 0.5, // Subtle upward launch bias
+        alpha: 1,
+        decay: Math.random() * 0.35 + 0.01, // Exploded particles drift slightly longer before vanishing
+        color: colors[Math.floor(Math.random() * colors.length)],
+        isStar: Math.random() > 0.5 // Higher star density (50%) for click impacts
+      });
+    }
+  };
+
+  const isShowCanvas = snap.getIsShowCanvas(); // TESTING...
   return (
-    <CanvasContainer $isShowCanvas={isShowCanvas}>
+    <CanvasContainer $isShowCanvas={true}>
+      {/* }> */}
+      {/* isShowCanvas}> */}
       <canvas
         ref={canvasRef}
         width={!!width ? width : 100}
         height={!!height ? height : 100}
         onMouseMove={handleMouseMove}
+        // onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseDown}
         style={{
           width: '100%',
           height: '100%',
