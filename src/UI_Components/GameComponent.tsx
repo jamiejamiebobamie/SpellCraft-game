@@ -5,27 +5,15 @@ import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
 import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
 import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
-import GameLogComponent from './GameLog/GameLogComponent';
+// import GameLogComponent from './GameLog/GameLogComponent';
 import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
-import { PixieDustCanvas } from './SpellCanvas/PixieDustCanvas'
 import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
+import { StarrySkyComponent } from './UI_Elements/SceneElements/StarrySkyComponent'
 import ChandelierComponent from './UI_Elements/SceneElements/ChandelierComponent';
 import { rootGameStore } from '../DataClasses/store';
 import styled, { keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
-
-// The Candle Flicker Animation
-const candleFlicker = keyframes`
- 0%, 100% { filter: brightness(1.00); }
-  12%      { filter: brightness(0.98); }
-  24%      { filter: brightness(1.01); }
-  36%      { filter: brightness(0.99); }
-  50%      { filter: brightness(1.02); } /* Peak soft flare */
-  62%      { filter: brightness(0.97); } /* Deepest gentle dim */
-  75%      { filter: brightness(1.00); }
-  88%      { filter: brightness(0.99); }
-`;
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   margin: 0 auto; 
@@ -42,27 +30,31 @@ const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
   position: relative;
   border: 0.15cqw solid #2d2d2d;
 
-  // background-image: url('UI_mockup.png');
-  background-image: url('background-scene/QuickCast-Background-Test2.png');
-  
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
 
-  // cursor: initial;
+    &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('background-scene/QuickCast-Background-Test3.png');
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(.5); 
+    z-index: -1;
+  }c
+
+  // background-image: url('background-scene/QuickCast-Background-Test3.png');
+  // background-repeat: no-repeat;
+  // background-size: cover;
+  // background-position: center;
   cursor: ${props => props.$isPlacingGameSymbol ? 'none' : 'inherit'};
 
- /* 
-    Runs the flicker loop. 
-    Using 'linear' or 'ease-in-out' works well, but a fast duration (0.8s - 1.2s) 
-    makes the chaotic jumps in the keyframes feel like real fire.
-  */
-  // animation: ${candleFlicker} 2s infinite linear;
-  
-  /* Improves browser rendering performance for heavy filters during animation */
-  will-change: filter; 
 
 `;
+
 
 const MainColumn = styled.div`
   flex: 2;
@@ -111,7 +103,6 @@ export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
-  const outOfFocusTimeoutRef = useRef<number>(false);
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
@@ -120,7 +111,7 @@ export const GameComponent = () => {
 
   useEffect(() => {
     rootGameStore.setForceUpdate(forceUpdate);
-        rootGameStore.startClock();
+        rootGameStore.startClock(); // TESTING
 
     return () => rootGameStore.stopClock();
   }, []);
@@ -200,8 +191,9 @@ export const GameComponent = () => {
           rootGameStore.runInference();
         }}
       >
-        <ChandelierComponent left={'22.5cqw'} animDelay={'3.5s'} />
+        <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />
         <ChandelierComponent right={'22.5cqw'} />
+        {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent index={i} />)}
         <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />

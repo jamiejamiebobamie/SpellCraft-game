@@ -3,7 +3,6 @@ import styled, { css, keyframes } from 'styled-components';
 import { Game } from '../../../DataClasses/Game';
 import { useSnapshot } from 'valtio';
 
-// The Main Absolute Anchor
 const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
@@ -13,25 +12,17 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
   cursor: pointer;
   padding: 0.5cqw;
   border-radius: 50%;
-  filter: drop-shadow(0 0 0cqw white) brightness(.7);
-  transition: filter 1s;
+  transition: filter .5s;
+  ${props => props.$isDisabled ? 'filter: drop-shadow(0 0 .5cqw white) brightness(1);' : 'filter: drop-shadow(0 0 .5cqw white) brightness(.7);'}
   &:hover{
-  filter: drop-shadow(0 0 .5cqw white) brightness(1);
-    // ${props => !props.$isDisabled && 'filter: drop-shadow(0 0 .5cqw white) brightness(1);'}
+    filter: drop-shadow(0 0 .5cqw white) brightness(1);
   }
-
-  ${props => props.$isDisabled && 'filter: drop-shadow(0 0 .5cqw white) brightness(1);'}
-
 `;
 
 const chimeGlow = keyframes`
-  // 0%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 215, 0, 0)); }
-  // 50% { filter: drop-shadow(0 0 1.5cqw rgba(255, 215, 0, 0.8)); }
-  // 100% { filter: drop-shadow(0 0 0.2cqw rgba(255, 215, 0, 0)); }
-
-    0%, { filter: drop-shadow(0 0 0.2cqw rgba(225, 208, 110, 0.95)); }
-  50% { filter: drop-shadow(0 0 1.5cqw rgba(250, 231, 125, 0.8)); }
-  100% { filter: drop-shadow(0 0 0.2cqw rgba(249, 249, 249, 0)); }
+  0% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1); }
+  50%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 248, 208, 0.95)) brightness(.5); }
+  100% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1); }
 `;
 
 const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }>`
@@ -39,13 +30,12 @@ const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }
   top: 4.8cqw;   
   left: 45cqw; 
   z-index: 0;
-  transition: filter 1s;
-  ${props => !props.$isDisabled && props.$isHovered && 'filter: drop-shadow(0 0 .2cqw white);'}
-
+  transition: filter .5s;
+  will-change: filter; 
+  ${props => props.$isHovered ? 'filter: drop-shadow(0 0 .1cqw white) brightness(.7);' : 'filter: drop-shadow(0cqw 0cqw 0cqw white) brightness(.5);'}
   ${props => props.$isDisabled && css`
     animation: ${chimeGlow} 3s ease-in-out infinite;
-  `
-  }
+  `}
 `;
 
 const bellStrike = keyframes`

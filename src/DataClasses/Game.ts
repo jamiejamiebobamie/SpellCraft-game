@@ -32,14 +32,6 @@ export class Game {
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameClock!: GameClock;
-
-  /*
-    360 for callback to trigger every hour
-      30 to trigger every 1/12th hour.
-  */
-  static readonly CLOCK_INCREMENT_ANGLE: number = 30;
-  minuteAngleAcc: number = 0; // TO-DO: consider GameClock class
-
   keyActions: Array<KeyAction> = []; // TO-DO: consider KeyBindings class
 
   players!: [Player, Player];
@@ -94,7 +86,7 @@ export class Game {
     this.placedSpells.reset();
     this.gameBoard.reset();
     this.players.forEach(p => p.reset());
-    this.minuteAngleAcc = 0;
+    this.resetMinuteAngleAcc();
     this.hoveredSpell = null;
     this.gameOver = null;
     this.isClickDisabled = false;
@@ -184,18 +176,25 @@ export class Game {
 
   // --- Action Dispatcher Utilities ---
 
-  getSecondsHandAngle = (): number => {
-    return this.gameClock.getSecondsHandAngle();
+  getMinuteAngleAcc = (): number => {
+    return this.gameClock.getMinuteAngleAcc();
   }
 
-  getAngleIncrement = (): number => {
-    return this.gameClock.getAngleIncrement();
+  incrementMinuteAngleAcc = (): void => {
+    this.gameClock.incrementMinuteAngleAcc();
+  }
+
+  resetMinuteAngleAcc = (): void => {
+    this.gameClock.resetMinuteAngleAcc();
+  }
+
+  getSecondsHandAngle = (): number => {
+    return this.gameClock.getSecondsHandAngle();
   }
 
   resetClock = (): void => {
     this.gameClock.resetClock();
   }
-
 
   pauseClock = (): void => {
     this.gameClock.pauseClock();
@@ -228,18 +227,6 @@ export class Game {
 
   disableGameBoard = (): void => {
     this.gameBoard.disableBoard();
-  }
-
-  getMinuteAngleAcc = (): number => {
-    return this.minuteAngleAcc;
-  }
-
-  incrementMinuteAngleAcc = (incr: number): void => {
-    this.minuteAngleAcc += incr;
-  }
-
-  resetMinuteAngleAcc = (): void => {
-    this.minuteAngleAcc = 0;
   }
 
   isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
@@ -408,7 +395,7 @@ export class Game {
       this.setHoveredGameboardCell(null);
       this.resetClock();
       this.pauseClock();
-      this.incrementMinuteAngleAcc(Game.CLOCK_INCREMENT_ANGLE);
+      this.incrementMinuteAngleAcc();
       this.forceUpdate();
       this.disableGameBoard();
       await this.updatePlacedSpells();
@@ -458,7 +445,7 @@ export class Game {
       const HOURS_HAND = 6;
       const SUNRISE = MINUTES_HAND * HOURS_HAND;
 
-      const currTotalMinutes = this.minuteAngleAcc / Game.CLOCK_INCREMENT_ANGLE;
+      const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
 
       const isPastSunrise = currTotalMinutes > SUNRISE; // TO-DO: test this...
 

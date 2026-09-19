@@ -89,7 +89,7 @@ interface DustParticle {
   isStar: boolean;
 }
 
-export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> = ({
+export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> = React.memo(({
   points,
   rotation = 0,
   size,
@@ -348,6 +348,6 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
       )}
     </CanvasContainer>
   );
-};
+});
 
 export default AutomaticSpellCanvasComponent;

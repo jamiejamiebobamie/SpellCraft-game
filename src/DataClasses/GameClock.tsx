@@ -1,6 +1,7 @@
 
 
 export class GameClock {
+    minuteAngleAcc: number = 0;
     secondsHandAngle: number = 0;
     angleIncrement: number = 0;
     isPaused: boolean = false;
@@ -8,7 +9,12 @@ export class GameClock {
     intervalRef: number = 0;
     endTurn = () => { };
 
-    static readonly ANGLE_INCREMENT: number = 24;
+    /*
+      360 for callback to trigger every hour
+        30 to trigger every 1/12th hour.
+    */
+    static readonly MINUTE_INCREMENT_ANGLE: number = 30;
+    static readonly SECONDS_INCREMENT_ANGLE: number = 24;
     static readonly INTERVAL_DELAY: number = 1000;
 
     constructor(endTurn: () => {}) {
@@ -17,16 +23,28 @@ export class GameClock {
 
     // PRIVATE
     incrementSecondsHandAngle = (): void => {
-        this.secondsHandAngle += GameClock.ANGLE_INCREMENT;
+        this.secondsHandAngle += GameClock.SECONDS_INCREMENT_ANGLE;
     }
 
     // PUBLIC
-    getSecondsHandAngle = (): number => {
-        return this.secondsHandAngle;
+    getMinuteAngleAcc = (): number => {
+        return this.minuteAngleAcc;
     }
 
-    getAngleIncrement = (): number => {
-        return GameClock.ANGLE_INCREMENT;
+    getMinuteIncrAngle = (): number => {
+        return GameClock.MINUTE_INCREMENT_ANGLE;
+    }
+
+    incrementMinuteAngleAcc = (): void => {
+        this.minuteAngleAcc += GameClock.MINUTE_INCREMENT_ANGLE;
+    }
+
+    resetMinuteAngleAcc = (): void => {
+        this.minuteAngleAcc = 0;
+    }
+
+    getSecondsHandAngle = (): number => {
+        return this.secondsHandAngle;
     }
 
     resetClock = (): void => {
@@ -44,11 +62,11 @@ export class GameClock {
     startClock = (): void => {
         this.intervalRef = setInterval(() => {
 
-            if(this.isPaused) return;
+            if (this.isPaused) return;
 
             this.incrementSecondsHandAngle();
 
-            if (this.secondsHandAngle >= 360 + GameClock.ANGLE_INCREMENT)
+            if (this.secondsHandAngle >= 360 + GameClock.SECONDS_INCREMENT_ANGLE)
                 this.endTurn();
 
         }, GameClock.INTERVAL_DELAY);

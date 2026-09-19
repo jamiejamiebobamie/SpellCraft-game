@@ -133,7 +133,7 @@ export const FloorShadow = styled.div`
   height: 2cqw;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50%;
-  filter: blur(4px);
+  filter: blur(2px);
   
   animation: ${shadowPulse} 3.5s ease-in-out infinite; 
 `;

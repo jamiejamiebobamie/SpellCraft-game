@@ -146,6 +146,6 @@ export const ModifierTextComponent = ({
         $contentColor={$contentColor}
         $color={$color}
         $animDuration={animTimeSecs}>
-        {propertyValue > 0 ? "+" : ""}{propertyValue}{'  '}{propertyName}
+        {propertyValue > 0 ? "+" : ""}{propertyValue}{' '}{propertyName}
     </ModifierText>
 }

@@ -52,9 +52,9 @@ const smolderKeyframes = keyframes`
   }
 `;
 
-const DifficultyText = styled.div<{ $isHovered: boolean, $zIndex: number, $isAnim: boolean, $fontSize?: string, $color?: string }>`
+const DifficultyText = styled.div<{ $isHovered: boolean, $zIndex: number, $isAnim: boolean, $fontSize?: string, $color?: string, $textStroke?: number }>`
   position: absolute;
-  top: 9cqw;
+  top: 10cqw;
   text-align: center;
   align-self: center;
   padding-top: .5cqw;
@@ -64,9 +64,8 @@ const DifficultyText = styled.div<{ $isHovered: boolean, $zIndex: number, $isAni
    ${props => props.$color && `color: ${props.$color};`}
    ${props => `opacity: ${props.$isHovered ? 1 : 0};`}
    animation: ${props => props.$isHovered && props.$isAnim && smolderKeyframes} 4s ease-in-out infinite;
-
-  -webkit-text-stroke: 0.05cqw #7c6060;
-  ${props => props.$isHovered && 'filter: drop-shadow(0px 0px 10px #6cbcea);'}
+  ${props => props.$textStroke && `-webkit-text-stroke: ${props.$textStroke}cqw rgb(7 55 7);`}
+  ${props => props.$isHovered && (props.$textStroke ? 'filter: drop-shadow(0px 0px 9px #00000064) drop-shadow(0px 0px 5px #000000)  drop-shadow(0px 0px 3px #65a333);' : 'filter: drop-shadow(0px 0px 9px #00000064) drop-shadow(0px 0px 5px #000000);')}
 `;
 
 const MaskIcon = styled.div<{ $zIndex: number, $isShow: boolean, $difficulty: NpcDifficulty }>`
@@ -119,10 +118,10 @@ export default function NpcDifficultyComponent() {
         <DifficultyText
           $isHovered={!isHovered && !isClickedOnce}
           $zIndex={5}
-          $fontSize={'2.2cqw'}
+          $fontSize={'2.4cqw'}
           $isAnim={false}
-          $color={'#c9591c'}
-        // isHovered ? darkRed : darkerRed}
+          $color={'#65a333'}
+          $textStroke={.01}
         >
           Difficulty
         </DifficultyText>

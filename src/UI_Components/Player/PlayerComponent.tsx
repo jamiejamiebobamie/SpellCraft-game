@@ -4,6 +4,7 @@ import { Player } from '../../DataClasses/Player/Player';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
+import { Spotlight } from '../UI_Elements/SceneElements/Spotlight'
 import styled, { keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -192,10 +193,10 @@ type PlayerComponentProps = {
 }
 
 const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
-  const ANIM_TIME = 5;
-  const textModifierWidth = '10cqw';
+  const ANIM_TIME = 6;
+  const textModifierWidth = '15cqw';
   const textModifierHeight = '10cqw';
-  const textModifierFontSize = '3cqw';
+  const textModifierFontSize = '4cqw';
 
   const healthAmt = playerSnap.getHealth();
   const focusAmt = playerSnap.getFocus();
@@ -213,14 +214,14 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
   useFocusDots({ focusAmt, setCachedFocus, focusRefTimeout, setFocusDiff, ANIM_TIME });
 
-  const avatar = (<AvatarFrame $src={playerSnap.avatarUrl} $direction={playerSnap.getDirection()}>
+  const avatar = (<AvatarFrame $src={playerSnap.avatarUrl} $direction={direction}>
     {<ModifierTextComponent
       propertyName={'Health'}
       propertyValue={healthDiff}
       animTimeSecs={ANIM_TIME}
       $opacityCondition={(v: number) => !!v ? .85 : 0}
-      $width={textModifierHeight}
-      $height={textModifierWidth}
+      $width={textModifierWidth}
+      $height={textModifierHeight}
       $fontSize={textModifierFontSize}
       $extraTransform={`scaleX(${direction})`}
       $top={'50%'}
@@ -232,14 +233,14 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
       propertyName={'Focus'}
       propertyValue={focusDiff}
       animTimeSecs={ANIM_TIME}
-      $opacityCondition={(v: number) => !!v ? .85 : 0}
-      $width={textModifierHeight}
-      $height={textModifierWidth}
+      $opacityCondition={(v: number) => !!v ? .9 : 0}
+      $width={textModifierWidth}
+      $height={textModifierHeight}
       $fontSize={textModifierFontSize}
       $extraTransform={`scaleX(${direction})`}
       $top={'50%'}
       $left={'45%'}
-      $backgroundColor={'#44aac9'}
+      $backgroundColor={'#47d4ff9f'}
       $color={'white'}
     />}
     <Damageable $healthDiff={healthDiff}>
@@ -288,6 +289,7 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
 
   */
   return (<DuelistSideColumn>
+    <Spotlight />
     {avatar}
     {healthbar}
     {focusDots}

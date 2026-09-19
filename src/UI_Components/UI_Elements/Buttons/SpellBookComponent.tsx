@@ -52,7 +52,7 @@ const SlidingTray = styled.div<{ $isOpen: boolean }>`
   flex-direction: row;
   gap: 0.5cqw;
 
-  background-color: #0000007f;
+  background-color: #000000a9;
   padding: .25cqw .25cqw;
   corner-shape: squircle;
   border-radius: 1cqw;
@@ -135,7 +135,7 @@ export default function SpellBookComponent() {
     >
       <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
-        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.1} loopDelay={4000} isLooped={isOpen}/>
+        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.3} loopDelay={4000} isLooped={isOpen}/>
       </CanvasContainer>
     </ColumnGroup>))
   return (
