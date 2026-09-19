@@ -188,11 +188,11 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
       });
     }
 
-    rootGameStore.spellCanvas.addRawPoint(e.clientX, e.clientY);
+    rootGameStore.addRawPoint(e.clientX, e.clientY)
   };
 
   // Spark a large outward explosion of particles instantly on click
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -231,8 +231,7 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
         width={!!width ? width : 100}
         height={!!height ? height : 100}
         onMouseMove={handleMouseMove}
-        // onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseDown}
+        onMouseUp={handleMouseUp}
         style={{
           width: '100%',
           height: '100%',

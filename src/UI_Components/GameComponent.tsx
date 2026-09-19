@@ -2,10 +2,7 @@
 import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
 import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
-import AutomaticSpellCanvasComponent from './SpellCanvas/AutomaticSpellCanvasComponent';
-import { HARDCODED_SYMBOLS } from '../DataClasses/PlacedSpells/HardCodedSymbols';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
-// import GameLogComponent from './GameLog/GameLogComponent';
 import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
 import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
@@ -103,6 +100,7 @@ export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
   const zoneRef = useRef<HTMLDivElement | null>(null);
+  const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
@@ -111,13 +109,12 @@ export const GameComponent = () => {
 
   useEffect(() => {
     rootGameStore.setForceUpdate(forceUpdate);
-        rootGameStore.startClock(); // TESTING
+    // rootGameStore.startClock(); // TESTING
 
     return () => rootGameStore.stopClock();
   }, []);
 
   snap.useGameplayKeyBindings();
-
 
   useEffect(() => {
     let animationFrameId: number;
@@ -130,6 +127,10 @@ export const GameComponent = () => {
 
     return () => cancelAnimationFrame(animationFrameId);
   }, [gameSymbolIcon]);
+
+  useEffect(() => {
+    rootGameStore.setGameBoardRef(gridOverlayRef);
+  }, [gridOverlayRef])
 
   // Added React MouseEvent typing to handle DOM positional calculations safely
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -163,26 +164,17 @@ export const GameComponent = () => {
           const target = e.target as HTMLElement;
           const isUiButton = target.closest('[data-click-type="ui-buttons"]');
           if (isUiButton || rootGameStore.getIsDrawing()) return;
-          if (rootGameStore.getIsPlacing()) {
-            const isClickOutsideGameBoard = !target.closest('[data-click-type="board-cell"]')
-            if (isClickOutsideGameBoard) {
-              rootGameStore.cancelPlacingSymbol();
-            } else if (!rootGameStore.getHasFocus()) {
-              setIsPlayerOutOfFocus(true);
-              rootGameStore.appendToLog('Out of Focus! End your turn to regain focus.', '#6aadd9')
-            }
-          } else if (rootGameStore.getHasFocus()) {
+          if (rootGameStore.getHasFocus()) {
             rootGameStore.beginDrawing();
           } else if (!rootGameStore.getHasFocus()) {
             setIsPlayerOutOfFocus(true);
-            rootGameStore.appendToLog('Out of Focus! End your turn to regain focus.', '#6aadd9')
           }
         }}
-        onMouseUp={() => {
+        onMouseUp={(e: React.MouseEvent<HTMLDivElement>)  => {
           setIsPlayerOutOfFocus(false);
           if (!rootGameStore.getIsDrawing()) return;
           rootGameStore.endDrawing();
-          rootGameStore.runInference();
+          rootGameStore.runInference({ x: e.clientX, y: e.clientY  });
         }}
         onMouseLeave={() => {
           setIsPlayerOutOfFocus(false);
@@ -198,13 +190,12 @@ export const GameComponent = () => {
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />
         <ClockFaceComponent rootGameStore={rootGameStore} />
-        {/* <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get('star')} rotation={270} size={'10cqw'} drawSpeed={.6} isLooped={true} /> */}
         <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
         <PlayerComponent playerSnap={playerOneSnap} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus} />
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
-          <GameBoardComponent snap={snap} rootGameStore={rootGameStore} />
+          <GameBoardComponent snap={snap} rootGameStore={rootGameStore} gridOverlayRef={gridOverlayRef} />
           {/* <GameLogComponent snap={snap} rootGameStore={rootGameStore} /> */}
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}

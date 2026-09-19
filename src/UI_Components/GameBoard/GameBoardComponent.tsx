@@ -1,11 +1,14 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, RefObject } from 'react';
+import AutomaticSpellCanvasComponent from '../SpellCanvas/AutomaticSpellCanvasComponent';
+import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
 import { CrescentArc } from './ArcComponent'
 import styled from 'styled-components';
+import { NPCMoveData, Point } from '../../DataClasses/types';
 
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
@@ -13,6 +16,17 @@ const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>
   opacity: ${props => props.$transparency};
   transition: opacity 1s ease-in-out;
   pointer-events: ${props => props.$isDisabled ? 'none' : 'auto'}
+`;
+
+const NpcCanvasContainer = styled.div<{ $isShow: boolean; $top: number, $left: number, $width: number }>`
+  position: absolute;
+  top: ${props => props.$top}px;
+  left: ${props => props.$left}px;
+  width: ${props => props.$width}px;
+  aspect-ratio: 1/1;
+  opacity: ${props => props.$isShow ? 1 : 0};
+  transition: opacity 1s ease-in-out;
+  pointer-events: none;
 `;
 
 type WobblePhase = -1 | 0 | 1;
@@ -127,12 +141,14 @@ const StyledCell = styled.div<{
 interface GameBoardComponentProps {
     rootGameStore: Game;
     readonly snap: Game;
+    gridOverlayRef: RefObject<HTMLDivElement | null>;
 }
 
-const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) => {
-    const gridOverlayRef = useRef<HTMLDivElement | null>(null);
+const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardComponentProps) => {
     const isPlacingGameSymbol: boolean = !!snap.getGameSymbolIcon();
     const isDisabled: boolean = snap.gameBoard.getIsClickDisabled();
+    const npcMoveData: NPCMoveData | null = snap.gameBoard.getNPCMoveData();
+    const cellWidth: number | null = snap.gameBoard.getCellWidth();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     const intervalRef = useRef<number | undefined>(undefined);
     const [wobblePhase, setWobblePhase] = useState<WobblePhase>(0);
@@ -148,9 +164,16 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
         }
     }, [isDisabled]);
 
+    useEffect(() => {
+
+    }, [])
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
-            {Array.from({ length: 24 }).map((_, i) => {
+
+            <NpcCanvasContainer $isShow={!!(npcMoveData && cellWidth)} $left={npcMoveData && cellWidth ? npcMoveData?.cellIndex.j * cellWidth : 0} $top={npcMoveData && cellWidth ? npcMoveData?.cellIndex.i * cellWidth : 0} $width={npcMoveData && cellWidth ? npcMoveData.scale * cellWidth : 0}>
+                {npcMoveData && cellWidth && <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(npcMoveData.inferenceString)} rotation={npcMoveData.rotation} size={undefined} drawSpeed={.6} isLooped={true} callBack={() => rootGameStore.spawnNpcSpell()} />}
+            </NpcCanvasContainer>
+            {/* {Array.from({ length: 24 }).map((_, i) => {
                 const cellIndex = snap.gameBoard.getTwoDIndexFrom(i);
                 const coords = { x: 0, y: 0 };
                 let isDisplay = false;
@@ -181,7 +204,7 @@ const GameBoardComponent = ({ snap, rootGameStore }: GameBoardComponentProps) =>
                     return <CrescentArc key={`${i}_${coords.y}_${coords.x}`} top={`${coords.y}px`} left={`${coords.x}px`} isDisplay={isDisplay} direction={speedDirection} animDelay={i} />
                 }
             }
-            )}
+            )} */}
             {snap.placedSpells.spells.map(
                 (s, i) =>
                     <SpellComponent

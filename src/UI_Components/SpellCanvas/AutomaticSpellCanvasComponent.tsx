@@ -74,6 +74,7 @@ interface SpellCanvasComponentProps {
   drawSpeed?: number;  
   isLooped?: boolean;  
   loopDelay?: number;  
+  callBack?: () => {}
 }
 
 // Particle interface for the pixie dust sparkle
@@ -96,6 +97,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
   drawSpeed = 0.6,
   isLooped = true,
   loopDelay = 1000,
+  callBack = () => {}
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -197,6 +199,9 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
 
       if (progressRef.current >= 1.0) {
         progressRef.current = 1.0;
+
+        // do callback when drawing is done...
+        callBack && callBack()
         
         // Handle looping resets while allowing existing trailing dust particles to completely finish fading out
         if (isLooped && !timeoutRef.current) {

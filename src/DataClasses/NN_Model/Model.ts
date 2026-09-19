@@ -1,5 +1,5 @@
 import * as ort from 'onnxruntime-web';
-import { InferenceString } from '../types';
+import { InferenceString, Point } from '../types';
 
 /*
   
@@ -18,11 +18,6 @@ import { InferenceString } from '../types';
       - hold point data of the raw points needed to render the drawing
  
 */
-
-export interface Point {
-    x: number;
-    y: number;
-}
 
 export class Model {
 

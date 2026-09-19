@@ -1,5 +1,6 @@
 // GameBoard.ts
-import { CellIndex, SpellPropertyName } from '../types';
+import { RefObject } from 'react';
+import { CellIndex, SpellPropertyName, GameBoardRefDimensions, Point, NPCMoveData } from '../types';
 import { Cell } from './Cell';
 import { Spell, Ether, Phlegm, Quicken, Gyre } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
@@ -9,8 +10,12 @@ export class GameBoard {
   // Config Constants
   static readonly NUM_ROWS: number = 3;
   static readonly NUM_COLS: number = 7;
-  readonly numPlayerCells: number = 1;     // Column size for endzones/home bases
-  readonly numPlacementCells: number = 3;  // Column depth allowing spell spawning
+
+  static readonly NUM_PLAYER_CELLS: number = 1;
+  static readonly NUM_PLACEMENT_CELLS: number = 3;
+
+  readonly numPlayerCells: number = GameBoard.NUM_PLAYER_CELLS;     // Column size for endzones/home bases
+  readonly numPlacementCells: number = GameBoard.NUM_PLACEMENT_CELLS;  // Column depth allowing spell spawning
 
   static readonly HIDDEN_TRANSPARENCY_AMT = .3;
   static readonly SHOWN_TRANSPARENCY_AMT = .9;
@@ -22,6 +27,9 @@ export class GameBoard {
   private isClickDisabled: boolean = false;
   private isHoverDisabled: boolean = false;
   private transparencyAmt: number = GameBoard.SHOWN_TRANSPARENCY_AMT;
+
+  gameBoardRef: RefObject<HTMLDivElement | null> | null = null;
+  npcMoveData: NPCMoveData | null = null;
 
   // Trackers
   hoveredCell: Cell | null = null;
@@ -66,7 +74,68 @@ export class GameBoard {
     }
   };
 
+  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => {
+    this.gameBoardRef = gameBoardRef;
+  }
+
+  getNPCMoveData = (): NPCMoveData | null => {
+    return this.npcMoveData;
+  }
+
+  setNPCMoveData = (npcMoveData: NPCMoveData | null) => {
+    this.npcMoveData = npcMoveData;
+  }
+
+  getBoardRefDimensions = (): GameBoardRefDimensions | null => {
+    if (!this.gameBoardRef || !this.gameBoardRef.current) {
+      return null;
+    }
+    const { left, top, width, height } = this.gameBoardRef.current.getBoundingClientRect();
+
+    return { left, top, width, height };
+  }
+
+  getCellWidth = (): number | null => {
+    if (!this.gameBoardRef || !this.gameBoardRef.current) {
+      return null;
+    }
+    const { width } = this.gameBoardRef.current.getBoundingClientRect();
+    return width / GameBoard.NUM_COLS;
+  }
+
+
   // --- Grid Index Calculators ---
+
+  getCellIndexFromScreenCoord = (x: number, y: number): CellIndex | null => {
+    if (!this.gameBoardRef || !this.gameBoardRef.current) {
+      return null;
+    }
+    const { left, top, width, height } = this.gameBoardRef.current.getBoundingClientRect();
+    if (x < left || y < top || x > left + width || y > top + height) return null;
+
+    const cellWidth = width / GameBoard.NUM_COLS
+    const cellHeight = height / GameBoard.NUM_ROWS
+
+    const _x = x - left;
+    const _y = y - top;
+
+    const i = Math.floor(_y / cellHeight);
+    const j = Math.floor(_x / cellWidth);
+
+    return { i, j };
+  }
+
+  getScreenCoordFromCellIndex = (cellIndex: CellIndex): Point | null => {
+    if (!this.gameBoardRef || !this.gameBoardRef.current) {
+      return null;
+    }
+    const { left, top, width, height } = this.gameBoardRef.current.getBoundingClientRect();
+    const cellWidth = width / GameBoard.NUM_COLS
+    const cellHeight = height / GameBoard.NUM_ROWS
+    const x = left + cellIndex.j * cellWidth // x
+    const y = top + cellIndex.i * cellHeight // y
+    return { x, y }
+  }
 
   getIsOffBoardAt = (index: CellIndex): boolean => {
     return (

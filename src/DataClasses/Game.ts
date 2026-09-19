@@ -1,4 +1,5 @@
 // Game.ts
+import { RefObject } from 'react';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
 import { GameLog, GameLogEntry } from './GameLog';
@@ -11,7 +12,8 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point } from './types';
+import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { proxy } from 'valtio';
 
 export const GameOverStatus = {
@@ -43,6 +45,7 @@ export class Game {
   isSpellBookOpen: boolean = false;
   hoveredSpell: Spell | null = null;
   gameOver: GameOver | null = null;
+
   forceUpdate: () => void = () => { };
 
   constructor() {
@@ -74,12 +77,9 @@ export class Game {
 
     this.setupGameplayKeyBindings();
 
-    setTimeout(() => {
-      this.computerPlayer?.doNextNpcMove(); // TESTING
-      this.computerPlayer?.doNextNpcMove(); // TESTING
-      this.computerPlayer?.doNextNpcMove(); // TESTING
-      this.computerPlayer?.doNextNpcMove(); // TESTING
-    }, 1000);
+    // setTimeout(() => {
+    //   this.computerPlayer?.doNextNpcMove(); // TESTING
+    // }, 1000);
   };
 
   resetGame = (): void => {
@@ -330,6 +330,29 @@ export class Game {
     this.spellCanvas.setIsDrawing(false);
   }
 
+  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => {
+    this.gameBoard.setGameBoardRef(gameBoardRef);
+  }
+
+  addRawPoint(x: number, y: number): void {
+    /*
+    
+      continously check if mouse is over gameboard
+      if mouse is over gameboard:
+        store cell index
+        mark rawPoint index (start of points for that cell)
+
+        if cell index is different than stored:
+          store cell index
+          mark rawPoint index (start of points for that cell)
+
+    */
+    this.spellCanvas.addRawPoint(x, y);
+
+    const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(x, y);
+    if (cellIndex) this.spellCanvas.updateCellPointsIfDifferent(cellIndex);
+  }
+
   getIsDrawing = (): boolean => {
     return this.spellCanvas.getIsDrawing();
   }
@@ -374,12 +397,65 @@ export class Game {
     this.humanPlayer?.setGameSymbol(null);
   }
 
-  runInference = async (): Promise<void> => {
+  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
+    const p = player ? player : this.humanPlayer;
+    if (p) {
+      this.instantiateGameSymbolFromInferenceString(inferenceString, p);
+      const cell = this.getCellAt(cellIndex);
+      if (cell) {
+        if (this.isCanPlaceGameSymbolOn(cell, p) && p.getFocus() > 0) {
+          this.placeSpellOnBoard(cell, p);
+        }
+        else this.cancelPlacingSymbol();
+      }
+    }
+  }
+
+  runInference = async (mouseCoords?: Point): Promise<void> => {
+    // Single click on cell creates Phlegm
+    if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
+      const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
+      if (cellIndex) {
+        this.placeSpellAt('circle', cellIndex);
+        this.endTurn();
+      }
+    }
+
     if (this.spellCanvas.getNumPoints() == 0) return;
+
     const rawPoints = this.spellCanvas.getRawPoints();
+    const rawPointsSubsets = this.spellCanvas.getRawPointSubsets();
     this.spellCanvas.clearDrawing();
+
+    const results: Array<[CellIndex, any]> = [];
+
+    try {
+      // Process each subset one by one to avoid concurrent ONNX sessions
+      for (const { cellIndex, rawPointsSubset } of rawPointsSubsets) {
+        const result = await this.model.runInference(rawPointsSubset);
+        results.push([cellIndex, result]);
+      }
+    } catch (_) {
+      // Matches your original catch fallback block structure
+      // Adjust types if your layout expects specific fallback objects
+      results.push([{ i: -1, j: -1 }, '']);
+    }
+
+    // Run the final inference on the full dataset
     const result = await this.model.runInference(rawPoints);
-    // this.instantiateGameSymbolFromInferenceString(result); // TESTING
+
+    if (!GameSymbol.FIZZLE_INFERENCES.includes(result)) {
+      // Place single spell on multiple cells
+      results.forEach(([cellIndex]) => this.placeSpellAt(result, cellIndex))
+    }
+    // else {
+    //   // Place different(?) spells on multiple cells... TEST...
+    //   results.filter(([_, inferenceString]) => !GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)).forEach(([_, inferenceString]) =>
+    //     results.forEach(([cellIndex]) => this.placeSpellAt(inferenceString, cellIndex)))
+    // }
+
+    this.endTurn();
+
   }
 
   instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
@@ -390,6 +466,18 @@ export class Game {
     }
   }
 
+  /*
+
+    TO-DO: Consider having a turn be a single placed spell move, not all placed spells move
+
+    Every turn keep a curr index into placed spells and it goes around "round rob" (?)
+
+
+    TO-DO: Consider undo last move(?)
+
+    TO-DO: ensure that endTurn is not being called on a Fizzle inference...
+  
+  */
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
       this.setHoveredGameboardCell(null);
@@ -403,14 +491,91 @@ export class Game {
       this.regenFocusForPlayers();
       this.enableGameBoard();
       // TESTING - - - - -
-      this.computerPlayer?.doNextNpcMove();
-      this.computerPlayer?.doNextNpcMove();
-      this.computerPlayer?.doNextNpcMove();
-      this.computerPlayer?.doNextNpcMove();
+
+      this.doNpcMove();
+
+
       // TESTING - - - - -
       if (!this.isSpellBookOpen) this.unpauseClock();
       this.forceUpdate();
     }
+  }
+
+  doNpcMove = (): void => {
+    if (this.computerPlayer) {
+      const npcMoveData = this.computerPlayer.getRandomMoveForTesting();
+      const { inferenceString, cellIndex, scale, rotation } = npcMoveData;
+      const cellWidth = this.gameBoard.getCellWidth()
+      if (!cellWidth) return;
+      const npcSymbolScale = scale * cellWidth; // in px
+      const npcSymbolOrigin = this.gameBoard.getScreenCoordFromCellIndex(cellIndex); // in px
+      if (!npcSymbolOrigin) return;
+      const npcSymbolRotation = rotation; // degrees
+      const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
+
+      if (!normalizedPoints) return;
+
+      // Convert degrees to radians for Math.cos and Math.sin
+      const radians = (npcSymbolRotation * Math.PI) / 180;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+
+      // Center of rotation for normalized space
+      const cx = 0.5;
+      const cy = 0.5;
+
+      const rawPoints = normalizedPoints.map(({ x, y }) => {
+        // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
+        const tx = x - cx;
+        const ty = y - cy;
+
+        // Step 2: Apply 2D Rotation Matrix
+        const rotatedX = tx * cos - ty * sin;
+        const rotatedY = tx * sin + ty * cos;
+
+        // Step 3: Translate back from origin to center space
+        const finalNormX = rotatedX + cx;
+        const finalNormY = rotatedY + cy;
+
+        // Step 4: Scale and position onto the game board grid
+        return {
+          x: npcSymbolOrigin.x + finalNormX * npcSymbolScale,
+          y: npcSymbolOrigin.y + finalNormY * npcSymbolScale
+          // x: finalNormX,
+          // y: finalNormY
+        };
+      });
+
+      const cellIndexes = new Set<CellIndex>()
+      rawPoints.forEach(point => {
+        const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(point.x, point.y);
+        if (cellIndex)
+          cellIndexes.add(cellIndex);
+      })
+
+      console.log({ npcSymbolOrigin, cellWidth, npcSymbolScale, scale, rawPoints, inferenceString, cellIndex, computerPlayer: this.computerPlayer })
+      const storedSpell = () => {
+        Array.from(cellIndexes).forEach(cellIndex => {
+          if (this.computerPlayer) {
+            this.placeSpellAt(inferenceString, cellIndex, this.computerPlayer);
+          }
+        })
+      }
+      this.computerPlayer.storeSpell(storedSpell);
+      this.gameBoard.setNPCMoveData(npcMoveData);
+    }
+  }
+
+  spawnNpcSpell = () => {
+    this.resetNpcMoveData();
+    if (this.computerPlayer) {
+      this.computerPlayer.castStoredSpell();
+      this.computerPlayer.storeSpell(null);
+    }
+  }
+
+  resetNpcMoveData = (): void => {
+    this.gameBoard.setNPCMoveData(null);
   }
 
   setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
@@ -458,13 +623,10 @@ export class Game {
       this.disableGameBoard();
       this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
       this.resetMinuteAngleAcc();
-      setTimeout(() => {
-        this.resetGame();
-        this.computerPlayer?.doNextNpcMove();
-        this.computerPlayer?.doNextNpcMove();
-        this.computerPlayer?.doNextNpcMove();
-        this.computerPlayer?.doNextNpcMove();
-      }, 4500);
+      // setTimeout(() => {
+      //   this.resetGame();
+      //   this.computerPlayer?.doNextNpcMove();
+      // }, 4500);
     }
   }
 }

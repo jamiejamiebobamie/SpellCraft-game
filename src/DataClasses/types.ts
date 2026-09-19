@@ -11,7 +11,7 @@ export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'row
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 
-export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal'; 
+export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal';
 
 // export type EmpoweredPng = 'Singular' | 'Beginning' | 'Middle' | 'End';
 // export type EmpoweredPng = 0 | 1 | 2 | 3;
@@ -28,3 +28,19 @@ export type BadgeValues = {
   gyreLives: number;
   updateOrder: number;
 }
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export type GameBoardRefDimensions = {
+  left: number; top: number; width: number; height: number;
+}
+
+export type NPCMoveData = {
+  inferenceString: InferenceString;
+  cellIndex: CellIndex;
+  scale: number;
+  rotation: number // degrees
+};

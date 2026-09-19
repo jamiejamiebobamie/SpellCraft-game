@@ -77,10 +77,9 @@ export class GameSymbol extends UniqueId {
    */
   incurPlayerCostForSpell = (focusCost: number): boolean => {
     if (this.caster.getFocus() >= focusCost) {
-      this.caster.decrementFocus(focusCost);
+      // this.caster.decrementFocus(focusCost);
       return true;
     } else {
-      // TO-DO: show lack of Focus on UI
       return false;
     }
   };
