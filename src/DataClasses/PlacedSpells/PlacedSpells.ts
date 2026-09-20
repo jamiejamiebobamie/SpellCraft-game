@@ -71,7 +71,7 @@ export class PlacedSpells {
    * @param items An array of items to iterate through
    * @param delayTime The delay time in milliseconds (can be dynamically changed outside)
    */
-  async* timedIterator<T>(
+  static async* timedIterator<T>(
     items: T[],
     delayTime: number // Wrapped in an object so reference updates pass through
   ): AsyncGenerator<T, void, unknown> {
@@ -86,7 +86,7 @@ export class PlacedSpells {
     }
   }
 
-  getRangedArray = (range: number): Array<number> => {
+  static getRangedArray = (range: number): Array<number> => {
     return Array(range).fill(0).map((_, i) => i);
   }
 
@@ -95,9 +95,9 @@ export class PlacedSpells {
    * Handles sub-stepping movements to calculate step-by-step collisions accurately.
    */
   updateSpells = async (gameBoard: GameBoard, gameLog: GameLog, forceUpdate: Function): Promise<void> => {
-    const spellRange = this.getRangedArray(this.spells.length);
+    const spellRange = PlacedSpells.getRangedArray(this.spells.length);
     // Consume the async generator
-    for await (const i of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+    for await (const i of PlacedSpells.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
       await this.updateSpell(gameBoard, gameLog, this.spells[i], forceUpdate);
     }
     gameBoard.setEmpoweredSpells();
@@ -110,8 +110,8 @@ export class PlacedSpells {
   };
 
   pauseForCssUpdates = async (): Promise<void> => {
-    const spellRange = this.getRangedArray(this.spells.length);
-    for await (const _ of this.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
+    const spellRange = PlacedSpells.getRangedArray(this.spells.length);
+    for await (const _ of PlacedSpells.timedIterator(spellRange, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
   }
 
   // called in 'updateSpells' and after placing a spell on the board for the first time
@@ -131,8 +131,8 @@ export class PlacedSpells {
 
     const speed = spell.getPropertyValue('empoweredSpeedDirection');
     const numMoves = Math.abs(speed);
-    const moves = this.getRangedArray(numMoves);
-    for await (const j of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+    const moves = PlacedSpells.getRangedArray(numMoves);
+    for await (const j of PlacedSpells.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
       spell.moveHorizontally();
       forceUpdate();
 
@@ -169,8 +169,8 @@ export class PlacedSpells {
 
           const upDown = spell.getPropertyValue('upDown');
           const numVerticalMoves = Math.abs(upDown);
-          const moves = this.getRangedArray(numVerticalMoves);
-          for await (const _ of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+          const moves = PlacedSpells.getRangedArray(numVerticalMoves);
+          for await (const _ of PlacedSpells.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
             // Do vertical movement if 'otherSpell' was Gyre
             spell.moveVertically();
             forceUpdate();
@@ -204,8 +204,8 @@ export class PlacedSpells {
           if (!spell.getIsRemove() && direction != owner.getDirection()) {
 
             // Move spell ONTO player avatar
-            const moves = this.getRangedArray(3);
-            for await (const _ of this.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
+            const moves = PlacedSpells.getRangedArray(3);
+            for await (const _ of PlacedSpells.timedIterator(moves, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI)) {
               // Do vertical movement if otherSpell was 'Gyre'
               spell.moveHorizontally();
               forceUpdate();

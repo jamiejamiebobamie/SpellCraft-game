@@ -1,8 +1,8 @@
 // GameBoard.ts
 import { RefObject } from 'react';
-import { CellIndex, SpellPropertyName, GameBoardRefDimensions, Point, NPCMoveData } from '../types';
+import { CellIndex, SpellPropertyName, DivRefDimensions, Point } from '../types';
 import { Cell } from './Cell';
-import { Spell, Ether, Phlegm, Quicken, Gyre } from '../PlacedSpells/Spell';
+import { Spell, Quicken, Gyre } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { proxy } from 'valtio';
 
@@ -29,7 +29,6 @@ export class GameBoard {
   private transparencyAmt: number = GameBoard.SHOWN_TRANSPARENCY_AMT;
 
   gameBoardRef: RefObject<HTMLDivElement | null> | null = null;
-  npcMoveData: NPCMoveData | null = null;
 
   // Trackers
   hoveredCell: Cell | null = null;
@@ -78,15 +77,7 @@ export class GameBoard {
     this.gameBoardRef = gameBoardRef;
   }
 
-  getNPCMoveData = (): NPCMoveData | null => {
-    return this.npcMoveData;
-  }
-
-  setNPCMoveData = (npcMoveData: NPCMoveData | null) => {
-    this.npcMoveData = npcMoveData;
-  }
-
-  getBoardRefDimensions = (): GameBoardRefDimensions | null => {
+  getBoardRefDimensions = (): DivRefDimensions | null => {
     if (!this.gameBoardRef || !this.gameBoardRef.current) {
       return null;
     }

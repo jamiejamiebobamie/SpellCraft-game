@@ -1,9 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Game } from '../../DataClasses/Game';
 import styled from 'styled-components';
-import { useSnapshot } from 'valtio';
 
-const CanvasContainer = styled.div<{ $isShowCanvas: boolean }>`
+const CanvasContainer = styled.div`
     width: 100%;
     height: 100%;
     position: absolute;
@@ -12,6 +11,8 @@ const CanvasContainer = styled.div<{ $isShowCanvas: boolean }>`
     flex-direction: column;
     align-items: center;
     display: ${props => props.$isShowCanvas ? 'flex' : 'none'};
+    filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.6)) 
+            drop-shadow(0 0 3cqw rgba(250, 244, 144, 0.3));
 `;
 
 export const useCanvasSize = () => {
@@ -67,7 +68,6 @@ interface DustParticle {
 
 export default function SpellCanvasComponent({ rootGameStore }: GameBoardComponentProps) {
   const { canvasRef, width, height } = useCanvasSize();
-  const snap = useSnapshot(rootGameStore.spellCanvas);
 
   // Use a ref to hold particles so it doesn't trigger React rerenders on every frame
   const particlesRef = useRef<DustParticle[]>([]);
@@ -116,6 +116,44 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
       // Clear canvas on every frame to redraw the active particle cluster
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // --- Part 1: Draw the player's active gold spell line trail ---
+      // Access points dynamically via the game store snapshot or reference evaluation
+      const currentRawPoints = rootGameStore.getPlayerRawPoints() || [];
+      if (currentRawPoints.length > 0 && rootGameStore.spellCanvas.getIsDrawing()) {
+        const rect = canvas.getBoundingClientRect();
+
+        // let gradient
+        // if (currentRawPoints.length > 1) {
+        //   gradient = ctx.createLinearGradient(currentRawPoints[0].x, currentRawPoints[0].y, currentRawPoints[currentRawPoints.length - 1].x, currentRawPoints[currentRawPoints.length - 1].y);
+
+        //   gradient.addColorStop(0, '#e6c56303'); // 10% opacity at beginning
+        //   gradient.addColorStop(1, '#e6c563'); // 100% opacity at end
+        // }
+
+
+        ctx.save();
+        ctx.lineWidth = width * 0.003;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        // ctx.strokeStyle = '#e6c563';
+        // ctx.strokeStyle = gradient ? gradient : '#e6c563';
+        // ctx.strokeStyle = '#e6c5639a';
+        ctx.strokeStyle = '#e6c56386';
+
+        ctx.shadowBlur = width * 0.05;
+        ctx.shadowColor = '#fffadd';
+
+        ctx.beginPath();
+        // Convert screen coordinates to canvas layout space matching the particle system offsets
+        ctx.moveTo(currentRawPoints[0].x - rect.left, currentRawPoints[0].y - rect.top);
+        for (let i = 1; i < currentRawPoints.length; i++) {
+          ctx.lineTo(currentRawPoints[i].x - rect.left, currentRawPoints[i].y - rect.top);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // --- Part 2: Draw existing active magical particles ---
       const particles = particlesRef.current;
 
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -160,7 +198,7 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [canvasRef]);
+  }, [canvasRef, width, height, rootGameStore]);
 
   // Track points continuously and burst magical sparkles
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -205,7 +243,7 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
     for (let i = 0; i < explosionCount; i++) {
       // Calculate a randomized angle and velocity for an outward shockwave blast direction
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 3.5 + 1.0; 
+      const speed = Math.random() * 3.5 + 1.0;
 
       particlesRef.current.push({
         x: clientX,
@@ -221,11 +259,8 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
     }
   };
 
-  const isShowCanvas = snap.getIsShowCanvas(); // TESTING...
   return (
-    <CanvasContainer $isShowCanvas={true}>
-      {/* }> */}
-      {/* isShowCanvas}> */}
+    <CanvasContainer>
       <canvas
         ref={canvasRef}
         width={!!width ? width : 100}

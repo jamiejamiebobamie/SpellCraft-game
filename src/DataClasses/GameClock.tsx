@@ -60,6 +60,7 @@ export class GameClock {
     }
 
     startClock = (): void => {
+        clearInterval(this.intervalRef);
         this.intervalRef = setInterval(() => {
 
             if (this.isPaused) return;

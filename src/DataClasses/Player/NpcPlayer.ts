@@ -1,7 +1,7 @@
 import { Player } from "./Player";
-import { InferenceString, NpcDifficulty, NPCMoveData } from '../types';
+import { InferenceString, NpcDifficulty, NPCMoveData, Point } from '../types';
 import { rootGameStore } from '../store';
-import { GameBoard } from "../GameBoard/GameBoard";
+import { proxy } from "valtio";
 
 export class NPCPlayer extends Player {
     readonly avatarHeadUrl: string = './player_avatars/Head2.png';
@@ -10,7 +10,8 @@ export class NPCPlayer extends Player {
 
     difficulty: NpcDifficulty = 'Normal';
 
-    storedSpell: Function | null = null;
+    drawingPoints: Array<Point> = proxy([]);
+    npcMousePos: Point = { x: 0, y: 0 }
 
     constructor(direction: -1 | 1, color: string, avatarUrl: string) {
         super(direction, color, avatarUrl);
@@ -50,12 +51,28 @@ export class NPCPlayer extends Player {
     }
 
 
-    castStoredSpell = (): void => {
-        if (this.storedSpell) this.storedSpell()
+    // getNPCMoveData = (): NPCMoveData | null => {
+    //     return this.npcMoveData;
+    // }
+
+    // setNPCMoveData = (npcMoveData: NPCMoveData | null) => {
+    //     this.npcMoveData = npcMoveData;
+    // }
+
+    getNpcDrawingPoints = (): Array<Point> => {
+        return this.drawingPoints;
     }
 
-    storeSpell = (storedSpell: Function | null): void => {
-        this.storedSpell = storedSpell;
+    setNpcDrawingPoints = (drawingPoints: Array<Point>) => {
+        this.drawingPoints = drawingPoints
+    }
+
+    getNpcMousePos = (): Point => {
+        return this.npcMousePos;
+    }
+
+    setNpcMousePos = (npcMousePos: Point) => {
+        this.npcMousePos = npcMousePos;
     }
 
     cycleThroughDifficulties = (): void => {
@@ -126,6 +143,10 @@ export class NPCPlayer extends Player {
         return rand;
     }
 
+    getRandomFloatInRange = (max: number, min?: number): number => {
+        const rand = min ? Math.random() * (max - min) + min : Math.random() * max;
+        return rand;
+    }
 
     /*
     
@@ -168,20 +189,39 @@ export class NPCPlayer extends Player {
         */
 
         const inferenceString = this.getRandomInferenceString();
-        const i = this.getRandomNumberInRange(GameBoard.NUM_ROWS - 1);
-        const j = this.getRandomNumberInRange(GameBoard.NUM_COLS - 1, GameBoard.NUM_COLS - 1 - GameBoard.NUM_PLACEMENT_CELLS);
 
-        const remaining_i = GameBoard.NUM_ROWS - 1 - i;
-        const remaining_j = GameBoard.NUM_COLS - 1 - j;
+        // in cell widths
+        const x = this.getRandomNumberInRange(4, .9);
+        const scale = { x, y: Math.max(.9, this.getRandomNumberInRange(x + .2, x - .2)) };
 
-        const scaleX = Math.max(1, this.getRandomNumberInRange(remaining_j));
-        const scaleY = Math.max(1, this.getRandomNumberInRange(remaining_i));
+        // const randRot = this.getRandomNumberInRange(60, -60);
 
-        const scale = Math.min(scaleX, scaleY);
+        const randRot = this.getRandomNumberInRange(90, -90);
 
-        const randRot = this.getRandomNumberInRange(360);
 
-        return { inferenceString, cellIndex: { i, j }, scale, rotation: randRot };
+        /*
+        
+            "translation-shift vector multiplier":
+
+                - 2d vector that gets multiplied with
+                    the GameWrapper's width and height
+                    to shift the CENTER of the spawned NPC drawn spell
+
+            GameWrapper's aspect-ratio: 16 / 9
+
+            0,0     1,0
+
+              .5,.5
+
+            0,1     1,1
+        
+
+        */
+
+        const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
+        const npcMoveData = { inferenceString, translationNorm, scale, rotation: randRot }
+
+        return npcMoveData;
     }
 
     doNextNpcMove = (): void => {

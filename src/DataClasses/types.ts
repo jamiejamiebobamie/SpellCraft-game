@@ -34,13 +34,16 @@ export interface Point {
   y: number;
 }
 
-export type GameBoardRefDimensions = {
+export type DivRefDimensions = {
   left: number; top: number; width: number; height: number;
 }
 
 export type NPCMoveData = {
   inferenceString: InferenceString;
-  cellIndex: CellIndex;
-  scale: number;
-  rotation: number // degrees
+   // normalized vector that is multiplied by the GameWrapper's width and height
+  translationNorm: Point;
+  scale: Point;
+  rotation: number; // degrees
+  storedSpell?: Function;
+  speed?: number; // 1.2/scale.x
 };

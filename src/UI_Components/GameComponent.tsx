@@ -1,6 +1,8 @@
 
-import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useCallback, RefObject } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
+import { Game } from '../DataClasses/Game';
+import { PlacedSpells } from '../DataClasses/PlacedSpells/PlacedSpells';
 import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
@@ -8,8 +10,9 @@ import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
 import { StarrySkyComponent } from './UI_Elements/SceneElements/StarrySkyComponent'
 import ChandelierComponent from './UI_Elements/SceneElements/ChandelierComponent';
+import { Point } from '../DataClasses/types';
 import { rootGameStore } from '../DataClasses/store';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
 
 const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
@@ -60,7 +63,7 @@ const MainColumn = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   position: relative;
-  // overflow: hidden;
+  z-index: 11;
 `;
 
 interface ResponsiveCursorProps {
@@ -99,17 +102,31 @@ const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   // Explicitly typing the HTML element inside the hook reference
-  const zoneRef = useRef<HTMLDivElement | null>(null);
+  const gameWrapperRef = useRef<HTMLDivElement | null>(null);
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
-  const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const gameSymbolIcon = snap.getGameSymbolIcon();
+  const testRef = useRef<number>(0);
 
   useEffect(() => {
     rootGameStore.setForceUpdate(forceUpdate);
     // rootGameStore.startClock(); // TESTING
+
+    clearInterval(testRef.current);
+
+    // TESTING
+    const intervalTime = 6000;
+    const multiplier = 5;
+    testRef.current = setInterval(() => {
+      rootGameStore.resetGame();
+      rootGameStore.doNpcMove();
+    }, intervalTime);
+
+    setInterval(() => {
+      rootGameStore.resetNpcMove();
+    }, intervalTime * multiplier);
 
     return () => rootGameStore.stopClock();
   }, []);
@@ -117,27 +134,19 @@ export const GameComponent = () => {
   snap.useGameplayKeyBindings();
 
   useEffect(() => {
-    let animationFrameId: number;
-    const updateGameSymbol = () => {
-      setMouseCoords({ x: mousePos.current.x, y: mousePos.current.y });
-      animationFrameId = requestAnimationFrame(updateGameSymbol);
-    };
-
-    animationFrameId = requestAnimationFrame(updateGameSymbol);
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [gameSymbolIcon]);
+    rootGameStore.setGameBoardRef(gridOverlayRef);
+  }, [gridOverlayRef]);
 
   useEffect(() => {
-    rootGameStore.setGameBoardRef(gridOverlayRef);
-  }, [gridOverlayRef])
+    rootGameStore.setGameWrapperRef(gameWrapperRef);
+  }, [gameWrapperRef]);
 
   // Added React MouseEvent typing to handle DOM positional calculations safely
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!zoneRef.current) return;
+    if (!gameWrapperRef.current) return;
 
     // Calculate mouse position relative to this specific container
-    const rect = zoneRef.current.getBoundingClientRect();
+    const rect = gameWrapperRef.current.getBoundingClientRect();
     const mouseCoords = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
@@ -157,7 +166,7 @@ export const GameComponent = () => {
     <>
       {/* <PixieDustCanvas /> */}
       <GameWrapper
-        ref={zoneRef}
+        ref={gameWrapperRef}
         $isPlacingGameSymbol={!!gameSymbolIcon}
         onMouseMove={handleMouseMove}
         onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
@@ -170,11 +179,11 @@ export const GameComponent = () => {
             setIsPlayerOutOfFocus(true);
           }
         }}
-        onMouseUp={(e: React.MouseEvent<HTMLDivElement>)  => {
+        onMouseUp={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsPlayerOutOfFocus(false);
           if (!rootGameStore.getIsDrawing()) return;
           rootGameStore.endDrawing();
-          rootGameStore.runInference({ x: e.clientX, y: e.clientY  });
+          rootGameStore.runInference({ x: e.clientX, y: e.clientY });
         }}
         onMouseLeave={() => {
           setIsPlayerOutOfFocus(false);
@@ -185,8 +194,7 @@ export const GameComponent = () => {
       >
         <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />
         <ChandelierComponent right={'22.5cqw'} />
-        {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent index={i} />)}
-        <GameSymbolCursor $x={mouseCoords.x} $y={mouseCoords.y} $isVisible={!!gameSymbolIcon} $gameSymbolIcon={gameSymbolIcon} />
+        {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />
         <ClockFaceComponent rootGameStore={rootGameStore} />

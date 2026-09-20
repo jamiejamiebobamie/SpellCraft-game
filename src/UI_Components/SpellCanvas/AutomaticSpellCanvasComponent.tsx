@@ -1,30 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Point } from '../../DataClasses/types';
 import styled, { keyframes, css } from 'styled-components';
 
 interface CanvasContainerProps {
-  $size?: string; 
+  $scale?: Point;
   $rotation: number;
 }
 
 interface CanvasContainerProps {
-  $size?: string; 
+  $size?: string;
   $rotation: number;
   $isTrembling?: boolean; // New prop to toggle the explosive power shake
 }
-
 
 // 1. Define a chaotic, rapid shaking & drifting animation loop
 const volatileTremble = keyframes`
   0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
   10% { transform: translate(-51%, -48%) rotate(-0.5deg) scale(1.01); }
   20% { transform: translate(-48%, -51%) rotate(1deg) scale(0.99); }
-  // 30% { transform: translate(-52%, -50%) rotate(-1.5deg) scale(1.02); }
   40% { transform: translate(-49%, -52%) rotate(0.5deg) scale(1); }
-  // 50% { transform: translate(-50%, -48%) rotate(-1deg) scale(1.01); }
   60% { transform: translate(-51%, -51%) rotate(1.5deg) scale(0.99); }
-  // 70% { transform: translate(-48%, -49%) rotate(-0.5deg) scale(1.02); }
   80% { transform: translate(-52%, -52%) rotate(1deg) scale(1); opacity: 1; }
-    // 90% { transform: translate(-49%, -50%) rotate(-1deg) scale(1.01); }
   100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
 `;
 
@@ -33,7 +29,7 @@ const CanvasContainer = styled.div<CanvasContainerProps>`
   height: ${props => (props.$size ? props.$size : '100%')};
   max-width: 100%;
   max-height: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio:  ${props => props.$scale ? `${props.$scale.x} / ${props.$scale.y}` : '1/1'};
   display: flex;
   justify-content: center;
   align-items: center;
@@ -44,7 +40,7 @@ const CanvasContainer = styled.div<CanvasContainerProps>`
   transform-origin: center center;
   pointer-events: none;
   box-sizing: border-box;
-  z-index: 41;
+  z-index: 42;
 
   ${props => props.$isTrembling && css`
     /* Runs a rapid 0.15s loop to simulate an energetic, unstable dam breach */
@@ -69,12 +65,13 @@ export interface Point2D {
 
 interface SpellCanvasComponentProps {
   points: Point2D[];
-  rotation?: number;   
-  size?: string;       
-  drawSpeed?: number;  
-  isLooped?: boolean;  
-  loopDelay?: number;  
-  callBack?: () => {}
+  scale?: Point;
+  rotation?: number;
+  size?: string;
+  drawSpeed?: number;
+  isLooped?: boolean;
+  loopDelay?: number;
+  callBack?: (progress: number) => { }
 }
 
 // Particle interface for the pixie dust sparkle
@@ -93,19 +90,20 @@ interface DustParticle {
 export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> = React.memo(({
   points,
   rotation = 0,
-  size,
+  size = undefined,
+  scale = undefined,
   drawSpeed = 0.6,
   isLooped = true,
   loopDelay = 1000,
-  callBack = () => {}
+  callBack = (progress: number) => { }
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
+
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  
+
   const animationRef = useRef<number | null>(null);
-  const progressRef = useRef<number>(0); 
+  const progressRef = useRef<number>(0);
   const lastTimeRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
 
@@ -147,7 +145,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
         const { width, height } = entry.contentRect;
         const targetWidth = width || containerRef.current?.clientWidth || 0;
         const targetHeight = height || containerRef.current?.clientHeight || 0;
-        
+
         const squareSize = Math.min(targetWidth, targetHeight);
         if (squareSize > 0) {
           setDimensions({ width: squareSize, height: squareSize });
@@ -197,12 +195,12 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
         progressRef.current += drawSpeed * deltaTime;
       }
 
+      // do callback when drawing is done...
+      callBack && callBack(progressRef.current)
+
       if (progressRef.current >= 1.0) {
         progressRef.current = 1.0;
 
-        // do callback when drawing is done...
-        callBack && callBack()
-        
         // Handle looping resets while allowing existing trailing dust particles to completely finish fading out
         if (isLooped && !timeoutRef.current) {
           timeoutRef.current = setTimeout(() => {
@@ -230,7 +228,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
 
       // Render line strokes and particles together on this tick frame
       draw(ctx, canvas.width, points, segments, totalLength, progressRef.current);
-      
+
       animationRef.current = requestAnimationFrame(renderLoop);
     };
 
@@ -254,16 +252,14 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
     if (coords.length === 0) return;
 
     // --- Part 1: Draw the base neon trail stroke ---
-    ctx.lineWidth = canvasSize * 0.015; 
+    ctx.lineWidth = canvasSize * 0.015;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    // ctx.strokeStyle = '#00ffcc'; 
-        ctx.strokeStyle = '#e6c563'; 
+    ctx.strokeStyle = '#e6c563';
 
-    
+
     ctx.shadowBlur = canvasSize * 0.02;
-    // ctx.shadowColor = '#00ffcc';
-        ctx.shadowColor = '#fffadd';
+    ctx.shadowColor = '#fffadd';
 
 
     ctx.beginPath();
@@ -287,7 +283,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
       if (accumulatedLength + segLength >= targetLength) {
         const remainingLength = targetLength - accumulatedLength;
         const ratio = segLength > 0 ? remainingLength / segLength : 0;
-        
+
         tipX = (p1.x + (p2.x - p1.x) * ratio) * canvasSize;
         tipY = (p1.y + (p2.y - p1.y) * ratio) * canvasSize;
 
@@ -343,7 +339,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
   };
 
   return (
-    <CanvasContainer ref={containerRef} $isTrembling={true} $size={size} $rotation={rotation}>
+    <CanvasContainer ref={containerRef} $isTrembling={true} $scale={scale} $rotation={rotation}>
       {dimensions.width > 0 && (
         <StyledCanvas
           ref={canvasRef}

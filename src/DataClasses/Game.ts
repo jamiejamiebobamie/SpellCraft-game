@@ -12,7 +12,7 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point, NPCMoveData, DivRefDimensions } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { proxy } from 'valtio';
 
@@ -45,6 +45,9 @@ export class Game {
   isSpellBookOpen: boolean = false;
   hoveredSpell: Spell | null = null;
   gameOver: GameOver | null = null;
+
+  npcMoveData: Array<NPCMoveData> = [];
+  gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
 
   forceUpdate: () => void = () => { };
 
@@ -292,6 +295,7 @@ export class Game {
   cycleThroughDifficulties = (): void => {
     if (this.computerPlayer) {
       this.computerPlayer.cycleThroughDifficulties();
+      this.forceUpdate();
     }
   }
 
@@ -334,6 +338,10 @@ export class Game {
     this.gameBoard.setGameBoardRef(gameBoardRef);
   }
 
+  setGameWrapperRef = (gameWrapperRef: RefObject<HTMLDivElement | null>): void => {
+    this.gameWrapperRef = gameWrapperRef;
+  }
+
   addRawPoint(x: number, y: number): void {
     /*
     
@@ -355,6 +363,11 @@ export class Game {
 
   getIsDrawing = (): boolean => {
     return this.spellCanvas.getIsDrawing();
+  }
+
+
+  getPlayerRawPoints(): Array<Point> {
+    return this.spellCanvas.getRawPoints();
   }
 
   getIsClickDisabled = (): boolean => {
@@ -393,8 +406,9 @@ export class Game {
     return this.humanPlayer?.gameSymbol != null;
   }
 
-  cancelPlacingSymbol = (): void => {
-    this.humanPlayer?.setGameSymbol(null);
+  cancelPlacingSymbol = (player?: Player): void => {
+    const p = player ? player : this.humanPlayer;
+    p?.setGameSymbol(null);
   }
 
   placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
@@ -406,8 +420,9 @@ export class Game {
         if (this.isCanPlaceGameSymbolOn(cell, p) && p.getFocus() > 0) {
           this.placeSpellOnBoard(cell, p);
         }
-        else this.cancelPlacingSymbol();
       }
+      // clear gameSymbol regardless...
+      // this.cancelPlacingSymbol(p);
     }
   }
 
@@ -417,7 +432,7 @@ export class Game {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
         this.placeSpellAt('circle', cellIndex);
-        this.endTurn();
+        // this.endTurn();
       }
     }
 
@@ -454,7 +469,7 @@ export class Game {
     //     results.forEach(([cellIndex]) => this.placeSpellAt(inferenceString, cellIndex)))
     // }
 
-    this.endTurn();
+    // this.endTurn();
 
   }
 
@@ -492,7 +507,7 @@ export class Game {
       this.enableGameBoard();
       // TESTING - - - - -
 
-      this.doNpcMove();
+      // this.doNpcMove();
 
 
       // TESTING - - - - -
@@ -501,82 +516,146 @@ export class Game {
     }
   }
 
+  getCellWidth = (): number | null => {
+    const cellWidth = this.gameBoard.getCellWidth()
+    return cellWidth;
+  }
+
+  getGameWrapperRefDims = (): DivRefDimensions => {
+    return this.gameWrapperRef?.current?.getBoundingClientRect() || { width: 0, height: 0, top: 0, left: 0 };
+  }
+
+  getBoardRefDimensions = (): DivRefDimensions => {
+    return this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
+  }
+
   doNpcMove = (): void => {
-    if (this.computerPlayer) {
-      const npcMoveData = this.computerPlayer.getRandomMoveForTesting();
-      const { inferenceString, cellIndex, scale, rotation } = npcMoveData;
-      const cellWidth = this.gameBoard.getCellWidth()
-      if (!cellWidth) return;
-      const npcSymbolScale = scale * cellWidth; // in px
-      const npcSymbolOrigin = this.gameBoard.getScreenCoordFromCellIndex(cellIndex); // in px
-      if (!npcSymbolOrigin) return;
-      const npcSymbolRotation = rotation; // degrees
-      const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
+    if (!this.computerPlayer) return;
+    const npcMoveData = this.computerPlayer.getRandomMoveForTesting();
+    const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
 
-      if (!normalizedPoints) return;
+    const cellWidth = this.gameBoard.getCellWidth()
+    if (!cellWidth) return;
 
-      // Convert degrees to radians for Math.cos and Math.sin
-      const radians = (npcSymbolRotation * Math.PI) / 180;
-      const cos = Math.cos(radians);
-      const sin = Math.sin(radians);
+    const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
+    if (!normalizedPoints) return;
 
-      // Center of rotation for normalized space
-      const cx = 0.5;
-      const cy = 0.5;
+    // Convert degrees to radians for Math.cos and Math.sin
+    const radians = (rotation * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
 
-      const rawPoints = normalizedPoints.map(({ x, y }) => {
-        // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
-        const tx = x - cx;
-        const ty = y - cy;
+    // Center of rotation for normalized space
+    const cx = 0.5;
+    const cy = 0.5;
 
-        // Step 2: Apply 2D Rotation Matrix
-        const rotatedX = tx * cos - ty * sin;
-        const rotatedY = tx * sin + ty * cos;
+    const { left, top, width, height } = this.gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
+    if (!width) return;
 
-        // Step 3: Translate back from origin to center space
-        const finalNormX = rotatedX + cx;
-        const finalNormY = rotatedY + cy;
 
-        // Step 4: Scale and position onto the game board grid
-        return {
-          x: npcSymbolOrigin.x + finalNormX * npcSymbolScale,
-          y: npcSymbolOrigin.y + finalNormY * npcSymbolScale
-          // x: finalNormX,
-          // y: finalNormY
-        };
-      });
+    const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
+    const startOfNpcPlacementCellsY = top;
+    const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
 
-      const cellIndexes = new Set<CellIndex>()
+
+    let lastPoint: Point | null = null;
+    const rawPoints: Array<Point> = []
+    normalizedPoints.forEach(({ x, y }) => {
+      // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
+      const tx = x - cx;
+      const ty = y - cy;
+
+      // Step 2: Apply 2D Rotation Matrix
+      const rotatedX = tx * cos - ty * sin;
+      const rotatedY = tx * sin + ty * cos;
+
+      // Step 3: Translate back from origin to center space
+      const finalNormX = rotatedX + cx;
+      const finalNormY = rotatedY + cy;
+
+      const newPoint = {
+        x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
+        y: startOfNpcPlacementCellsY + height * translationNorm.y + finalNormY * scale.y * cellWidth
+      }
+      if (lastPoint) {
+        const numMorePoints = 200;
+        const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
+        // generate more points for board interaction...
+        for (let i = 0; i < numMorePoints; i++) {
+          rawPoints.push(
+            {
+              x: lastPoint.x + i * vec.x / numMorePoints,
+              y: lastPoint.y + i * vec.y / numMorePoints
+            }
+          )
+        }
+      }
+      rawPoints.push(newPoint);
+      lastPoint = newPoint
+    });
+
+    const storedSpell = () => {
       rawPoints.forEach(point => {
-        const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(point.x, point.y);
-        if (cellIndex)
-          cellIndexes.add(cellIndex);
-      })
-
-      console.log({ npcSymbolOrigin, cellWidth, npcSymbolScale, scale, rawPoints, inferenceString, cellIndex, computerPlayer: this.computerPlayer })
-      const storedSpell = () => {
-        Array.from(cellIndexes).forEach(cellIndex => {
-          if (this.computerPlayer) {
+        if (this.computerPlayer) {
+          const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(point.x, point.y);
+          if (cellIndex) {
             this.placeSpellAt(inferenceString, cellIndex, this.computerPlayer);
           }
-        })
-      }
-      this.computerPlayer.storeSpell(storedSpell);
-      this.gameBoard.setNPCMoveData(npcMoveData);
+        }
+      });
+      if (!this.computerPlayer) return;
+      this.cancelPlacingSymbol(this.computerPlayer);
+      // this.computerPlayer.setNpcDrawingPoints([]);
     }
+
+    this.computerPlayer.setNpcDrawingPoints(rawPoints);
+    // set to get arm-wand movements while drawing
+    // this.computerPlayer.setGameSymbol(new GameSymbol(inferenceString, this.computerPlayer))
+    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: .5 / scale.x });
+    this.forceUpdate();
   }
 
-  spawnNpcSpell = () => {
-    this.resetNpcMoveData();
+  getNPCMoveData = (): Array<NPCMoveData> => {
+    return this.npcMoveData;
+  }
+
+  getNPCMoveDatum = (i: number): NPCMoveData | null => {
+    return this.npcMoveData[i] || null
+  }
+
+  getNpcMousePos = (): Point => {
     if (this.computerPlayer) {
-      this.computerPlayer.castStoredSpell();
-      this.computerPlayer.storeSpell(null);
+      return this.computerPlayer.getNpcMousePos();
+    }
+    return { x: 0, y: 0 };
+  }
+
+  setNpcMousePos = (npcMousePos: Point) => {
+    if (this.computerPlayer) {
+      this.computerPlayer.setNpcMousePos(npcMousePos);
     }
   }
 
-  resetNpcMoveData = (): void => {
-    this.gameBoard.setNPCMoveData(null);
+  getNpcDrawingPoints = (): Array<Point> | null => {
+    if (this.computerPlayer)
+      return this.computerPlayer.getNpcDrawingPoints();
+    return null
   }
+
+  resetNpcMove = () => {
+    this.npcMoveData = proxy([]);
+    // if (this.computerPlayer) {
+    //   this.computerPlayer.storeSpell(null);
+    //   this.computerPlayer.setNpcDrawingPoints([]);
+    //   this.computerPlayer.setNPCMoveData(null);
+    // }
+  }
+
+  // spawnNpcSpell = () => {
+  //   if (this.computerPlayer) {
+  //     this.computerPlayer.castStoredSpell();
+  //   }
+  // }
 
   setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
     this.isSpellBookOpen = isSpellBookOpen;

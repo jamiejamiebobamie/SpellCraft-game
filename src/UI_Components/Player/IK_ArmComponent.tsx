@@ -3,8 +3,8 @@ import { Player } from '../../DataClasses/Player/Player';
 import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
 import styled from 'styled-components';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
+import { rootGameStore } from '../../DataClasses/store';
 
-// 4. Styled Components with transform pivots
 const ArmOverlayContainer = styled.div<{ $direction: number }>`
 position: absolute; /* Changed from fixed */
   top: 0;
@@ -28,9 +28,10 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProp
     let animationFrameId: number;
 
     const updateArmIK = () => {
+      const npcMousePos = rootGameStore.getNpcMousePos();
       if (!bicepRef.current || !handRef.current) return;
 
-      const mouseLocation = mousePosRef?.current;
+      const mouseLocation = direction == 1 ? mousePosRef?.current : npcMousePos;
       if (!mouseLocation) return;
 
       // 1. Get the dynamic bounds
