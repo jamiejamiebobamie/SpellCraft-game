@@ -20,9 +20,9 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
 `;
 
 const chimeGlow = keyframes`
-  0% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1); }
-  50%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 248, 208, 0.95)) brightness(.5); }
-  100% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1); }
+  0% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1) saturate(.5); }
+  50%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 248, 208, 0.95)) brightness(.5) saturate(1); }
+  100% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1) saturate(.5); }
 `;
 
 const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }>`
@@ -32,10 +32,11 @@ const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }
   z-index: 0;
   transition: filter .5s;
   will-change: filter; 
-  ${props => props.$isHovered ? 'filter: drop-shadow(0 0 .1cqw white) brightness(.7);' : 'filter: drop-shadow(0cqw 0cqw 0cqw white) brightness(.5);'}
-  ${props => props.$isDisabled && css`
-    animation: ${chimeGlow} 3s ease-in-out infinite;
-  `}
+  filter: brightness(.5);
+  // ${props => props.$isHovered ? 'filter: drop-shadow(0 0 .1cqw white) brightness(.7);' : 'filter: drop-shadow(0cqw 0cqw 0cqw white) brightness(.5);'}
+  // ${props => props.$isDisabled && css`
+  //   animation: ${chimeGlow} 3s ease-in-out infinite;
+  // `}
 `;
 
 const bellStrike = keyframes`
@@ -88,7 +89,7 @@ const ClockImg = styled.div<ClockImgProps>`
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  transition: transform 1s;
+  transition: filter 1s, transform 1s;
   ${props => props.$isAnim && !props.$isResetChime && css`
     animation: ${bellStrike} 4s 1 forwards cubic-bezier(0.25, 1, 0.5, 1);
     animation-delay: ${props.$animDelay};
@@ -177,6 +178,7 @@ export default function ClockFaceComponent({
 
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
+  const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
 
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
@@ -196,7 +198,7 @@ export default function ClockFaceComponent({
     {/* .png clock elements. */}
     <ClockImgWrapper
       $isDisabled={isGameBoardDisabled}
-      $isHovered={isHovered}>
+      $isHovered={isHovered && !isComputerPlayerDoingTurn}>
       <ClockImg
         $transformOrigin={'top center'}
         $top={'-4.1cqw'}
@@ -242,7 +244,7 @@ export default function ClockFaceComponent({
 
     {/* SVG clock elements */}
     <MenuAnchor
-      $isDisabled={isGameBoardDisabled}
+      $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
       onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -273,13 +275,13 @@ export default function ClockFaceComponent({
             transform={`rotate(${angles.minute} 50 50)`}
           />
           {/* Seconds Hand (Thinner-er, Longer-er) */}
-          <ClockHands
+          {/* <ClockHands
             x1="50" y1="50" x2="50" y2="9"
-            /*stroke="#ddc958"*/ stroke="#787600" strokeWidth="1.5" strokeLinecap="round"
+            stroke="#787600" strokeWidth="1.5" strokeLinecap="round"
             transform={`rotate(${secondsAngle} 50 50)`}
             $brightness={1.5}
             $transitionTime={.75}
-          />
+          /> */}
           {/* Center Pin */}
           <circle cx="50" cy="50" r="4" fill="#1a1a1a" />
         </svg>

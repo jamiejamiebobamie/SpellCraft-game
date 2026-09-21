@@ -10,7 +10,7 @@ const CanvasContainer = styled.div`
     overflow: hidden;
     flex-direction: column;
     align-items: center;
-    display: ${props => props.$isShowCanvas ? 'flex' : 'none'};
+    display: flex;
     filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.6)) 
             drop-shadow(0 0 3cqw rgba(250, 244, 144, 0.3));
 `;
@@ -132,7 +132,7 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
 
 
         ctx.save();
-        ctx.lineWidth = width * 0.003;
+        ctx.lineWidth = width * 0.0045;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         // ctx.strokeStyle = '#e6c563';

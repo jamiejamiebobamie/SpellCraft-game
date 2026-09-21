@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, RefObject } from 'react';
 import AutomaticSpellCanvasComponent from './AutomaticSpellCanvasComponent';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
 import { Point } from '../../DataClasses/types';
@@ -12,15 +12,13 @@ const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: n
   position: absolute;
   ${props => `top: ${props.$top}px; left: ${props.$left}px; width: ${props.$cellWidth * props.$scale.x}px; height: ${props.$cellWidth * props.$scale.y}px;`}
   opacity: ${props => props.$isShow ? 1 : 0};
-  transition: opacity 5s ease-in-out;
+  transition: opacity 2s ease-in-out;
   pointer-events: none;
   z-index: 42;
   display: flex;
   align-self: center;
   transform-origin: center center;
-
   transform: rotate(${props => props.$rotation}deg);
-
 `;
 
 interface NpcSpellCanvasComponentProps { rootGameStore: Game; i: number }
@@ -40,7 +38,7 @@ const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentPr
     const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
     const [isVisible, setIsVisible] = useState(true);
     const timeoutRef = useRef<number>(0);
-    useEffect(() => { return () => clearTimeout(timeoutRef.current) })
+    // useEffect(() => { return () => clearTimeout(timeoutRef.current) });
     return (
         <SpellCanvasWrapper
             $isShow={isVisible}
@@ -54,18 +52,20 @@ const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentPr
                 points={normalizedPoints || []}
                 drawSpeed={speed}
                 isLooped={false}
-                callBack={(progress: number) => {
-                    const isDone = progress >= 1;
+                callBack={(progressRef: RefObject<number>) => {
+                    if(!progressRef || !progressRef.current) return;
+                    const isDone = progressRef.current >= 1;
+                    
                     if (isDone) {
-                        storedSpell && storedSpell();
+                        !timeoutRef.current && console.log({ condition: isDone && !timeoutRef.current, isDone, current: !timeoutRef.current })
+                        !timeoutRef.current && storedSpell && storedSpell();
                         timeoutRef.current = setTimeout(() => {
                             setIsVisible(false);
                         }, 3000);
                     } else {
                         const points = rootGameStore.getNpcDrawingPoints();
-                        console.log({ points })
                         if (points && points.length) {
-                            const i = Math.floor(points.length * progress)
+                            const i = Math.floor(points.length * progressRef.current)
                             const mousePos = points[i];
                             rootGameStore.setNpcMousePos(mousePos);
                         }

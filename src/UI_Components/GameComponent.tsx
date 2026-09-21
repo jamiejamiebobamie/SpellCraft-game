@@ -10,7 +10,6 @@ import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
 import { StarrySkyComponent } from './UI_Elements/SceneElements/StarrySkyComponent'
 import ChandelierComponent from './UI_Elements/SceneElements/ChandelierComponent';
-import { Point } from '../DataClasses/types';
 import { rootGameStore } from '../DataClasses/store';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
@@ -44,20 +43,13 @@ const GameWrapper = styled.div<{ $isPlacingGameSymbol: boolean }>`
     background-position: center;
     filter: brightness(.5); 
     z-index: -1;
-  }c
+  }
 
-  // background-image: url('background-scene/QuickCast-Background-Test3.png');
-  // background-repeat: no-repeat;
-  // background-size: cover;
-  // background-position: center;
   cursor: ${props => props.$isPlacingGameSymbol ? 'none' : 'inherit'};
-
-
 `;
 
-
 const MainColumn = styled.div`
-  flex: 2;
+  flex: 3;
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -73,31 +65,31 @@ interface ResponsiveCursorProps {
   $gameSymbolIcon: string;
 }
 
-// The Responsive Tracker Element with explicit TS typings
-const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
-  style: {
-    left: `${props.$x}px`,
-    top: `${props.$y}px`,
-  },
-})) <ResponsiveCursorProps>`
-  position: absolute;
-  pointer-events: none; /* Allows clicks to pass through to elements beneath */
-  background-image: url(${props => props.$gameSymbolIcon}); /* Swap with your image path */
-  background-size: contain;
-  background-repeat: no-repeat;
-  
-  /* Scale the cursor dynamically using Container Query Width */
-  width: 8cqw;
-  height: 8cqw;
-  
-  /* Centers the cursor hotspot exactly on the coordinate */
-  transform: translate(-50%, -50%); 
-  
-  /* Hide by default, display only when hovering the parent zone */
-  display: ${props => (props.$isVisible ? 'block' : 'none')};
+// // The Responsive Tracker Element with explicit TS typings
+// const GameSymbolCursor = styled.div.attrs<ResponsiveCursorProps>(props => ({
+//   style: {
+//     left: `${props.$x}px`,
+//     top: `${props.$y}px`,
+//   },
+// })) <ResponsiveCursorProps>`
+//   position: absolute;
+//   pointer-events: none; /* Allows clicks to pass through to elements beneath */
+//   background-image: url(${props => props.$gameSymbolIcon}); /* Swap with your image path */
+//   background-size: contain;
+//   background-repeat: no-repeat;
 
-  z-index: 40;
-`;
+//   /* Scale the cursor dynamically using Container Query Width */
+//   width: 8cqw;
+//   height: 8cqw;
+
+//   /* Centers the cursor hotspot exactly on the coordinate */
+//   transform: translate(-50%, -50%); 
+
+//   /* Hide by default, display only when hovering the parent zone */
+//   display: ${props => (props.$isVisible ? 'block' : 'none')};
+
+//   z-index: 40;
+// `;
 
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
@@ -107,7 +99,7 @@ export const GameComponent = () => {
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
-  const gameSymbolIcon = snap.getGameSymbolIcon();
+  // const gameSymbolIcon = snap.getGameSymbolIcon();
   const testRef = useRef<number>(0);
 
   useEffect(() => {
@@ -117,16 +109,16 @@ export const GameComponent = () => {
     clearInterval(testRef.current);
 
     // TESTING
-    const intervalTime = 6000;
-    const multiplier = 5;
-    testRef.current = setInterval(() => {
-      rootGameStore.resetGame();
-      rootGameStore.doNpcMove();
-    }, intervalTime);
+    // const intervalTime = 6000;
+    // const multiplier = 5;
+    // testRef.current = setInterval(() => {
+    //   rootGameStore.resetGame();
+    //   rootGameStore.doNpcMove();
+    // }, intervalTime);
 
-    setInterval(() => {
-      rootGameStore.resetNpcMove();
-    }, intervalTime * multiplier);
+    // setInterval(() => {
+    //   rootGameStore.resetNpcMove();
+    // }, intervalTime * multiplier);
 
     return () => rootGameStore.stopClock();
   }, []);
@@ -167,15 +159,17 @@ export const GameComponent = () => {
       {/* <PixieDustCanvas /> */}
       <GameWrapper
         ref={gameWrapperRef}
-        $isPlacingGameSymbol={!!gameSymbolIcon}
+        // $isPlacingGameSymbol={!!gameSymbolIcon}
         onMouseMove={handleMouseMove}
         onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
           const target = e.target as HTMLElement;
           const isUiButton = target.closest('[data-click-type="ui-buttons"]');
           if (isUiButton || rootGameStore.getIsDrawing()) return;
-          if (rootGameStore.getHasFocus()) {
-            rootGameStore.beginDrawing();
-          } else if (!rootGameStore.getHasFocus()) {
+          rootGameStore.beginDrawing();
+
+          // if (rootGameStore.getHasFocus()) {
+          // } else
+          if (!rootGameStore.getHasFocus()) {
             setIsPlayerOutOfFocus(true);
           }
         }}

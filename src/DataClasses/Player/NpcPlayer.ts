@@ -11,7 +11,8 @@ export class NPCPlayer extends Player {
     difficulty: NpcDifficulty = 'Normal';
 
     drawingPoints: Array<Point> = proxy([]);
-    npcMousePos: Point = { x: 0, y: 0 }
+    npcMousePos: Point = { x: 0, y: 0 };
+    numRemainingMovesPerTurn: number = 1;
 
     constructor(direction: -1 | 1, color: string, avatarUrl: string) {
         super(direction, color, avatarUrl);
@@ -50,15 +51,6 @@ export class NPCPlayer extends Player {
         this.difficulty = difficulty;
     }
 
-
-    // getNPCMoveData = (): NPCMoveData | null => {
-    //     return this.npcMoveData;
-    // }
-
-    // setNPCMoveData = (npcMoveData: NPCMoveData | null) => {
-    //     this.npcMoveData = npcMoveData;
-    // }
-
     getNpcDrawingPoints = (): Array<Point> => {
         return this.drawingPoints;
     }
@@ -73,6 +65,22 @@ export class NPCPlayer extends Player {
 
     setNpcMousePos = (npcMousePos: Point) => {
         this.npcMousePos = npcMousePos;
+    }
+
+    getNumRemainingMovesPerTurn = (): number => {
+        return this.numRemainingMovesPerTurn;
+    }
+
+    decrementNumRemaningMovesPerTurn = (): void => {
+        this.numRemainingMovesPerTurn--;
+    }
+
+    clearNumRemaningMovesPerTurn = (): void => {
+        this.numRemainingMovesPerTurn = 0;
+    }
+
+    resetNumRemainingMovesPerTurn = () => {
+        this.numRemainingMovesPerTurn = this.getRandomNumberInRange(5, 2);
     }
 
     cycleThroughDifficulties = (): void => {
@@ -219,7 +227,7 @@ export class NPCPlayer extends Player {
         */
 
         const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
-        const npcMoveData = { inferenceString, translationNorm, scale, rotation: randRot }
+        const npcMoveData = proxy(new NPCMoveData(inferenceString, translationNorm, scale, randRot));
 
         return npcMoveData;
     }

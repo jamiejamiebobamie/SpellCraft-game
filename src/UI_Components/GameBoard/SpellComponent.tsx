@@ -41,7 +41,10 @@ const SpellVisual = styled.div<{ $url: string; $color: string, $verticalMovement
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  filter: drop-shadow(0px 0px 5px ${props => props.$color});
+  // filter: drop-shadow(0px 0px 5px ${props => props.$color});
+
+  filter: drop-shadow(0px 0px 15px ${props => props.$color});
+
 
   /* TO-DO: BUG: caughtInGyre is not turning off... */
   animation: ${props => !!props.$verticalMovement ? caughtInGyre : noAnim} 1s linear infinite;
@@ -79,7 +82,10 @@ export const SpellComponent = ({ gridOverlayRef, spell }: SpellComponentProps) =
   const url = spell.getSpellIcon();
   const isRemove = spellSnap?.getIsRemove();
   // const color = spellSnap?.getCaster()?.getColor() || '';
-  const color = direction > 0 ? 'blue' : 'red'; // TESTING
+  // const color = direction > 0 ? 'blue' : 'red'; // TESTING
+  // const color = direction > 0 ? '#ff69f2': '#a8ff69d2';
+  const color = direction > 0 ? '#ff69f2': '#a8ff699d';
+
 
   return (
     <SpellIcon key={spellSnap?.id} $color={color} $x={x} $y={y} $direction={direction} $isRemove={isRemove}>

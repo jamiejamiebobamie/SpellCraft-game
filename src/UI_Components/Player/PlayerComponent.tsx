@@ -33,34 +33,41 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   background-position: center;
   z-index: 1;
   position: relative;
-  margin-bottom: 1.5cqw;
+  margin-bottom: 7cqw;
 `;
 
-const BarBorder = styled.div`
-  position: relative; width: 80%; align-self: center; height: 1.6cqw; border: 0.15cqw solid #666; background: #222; border-radius: 0.3cqw; overflow: hidden;
+const BarBorder = styled.div<{ $direction: 1 | -1 }>`
+  position: relative; width: 150%; align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'}; height: 2.5cqw; margin-bottom: .5cqw; border: 0.15cqw solid #666; background: #222; border-radius: 0.3cqw; overflow: hidden;
 `;
 
-const BarFill = styled.div<{ $pct: number }>`
-  width: ${props => props.$pct}%; height: 100%; background: #aa2222; float: right; transition: width 0.2s ease;
+const BarFill = styled.div<{ $pct: number, $direction: 1 | -1 }>`
+  width: ${props => props.$pct}%; height: 100%; background: #570a0a; ${props => props.$direction == 1 ? 'float: right;' : 'float: left;'} transition: width 0.2s ease; overflow: visible;
 `;
 
-const BarTextContainer = styled.div`
+const BarTextContainer = styled.div<{ $direction: 1 | -1, $pct: number }>`
     display: flex;
     position: absolute;
     z-index: 1;
     
     /* Pin to the top-left and take full area */
     top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%; 
+    ${props => props.$direction == -1 ? `left: ${props.$pct > 12 ? `${props.$pct - 9}%`  : '.9dvw'};` : `right: ${props.$pct > 12 ?  `${props.$pct - 9}%` : '.9dvw'};`}
+    
+    transition: left 1s, right 1s;
+    // width: 100%;
+    // width: ${props => props.$pct}%;
+    height: 100%;
+    // ${props => props.$pct <= 5 ? 'min-width: 1dvw;' : ''}
+
     
     /* Perfectly center child text horizontally and vertically */
-    justify-content: center;
+    justify-content: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
+
     align-items: center;
     
     /* Font sizing */
-    font-size: 1.3cqw; 
+    font-size: 2.2cqw;
+    font-family: 'EnchantedLand', sans-serif; 
     
     /* Use line-height: 1 to prevent font metrics from pushing text down */
     line-height: 1; 
@@ -69,19 +76,31 @@ const BarTextContainer = styled.div`
 `;
 
 const BarText = styled.div`
-    padding: 0cqw .2cqw;
-    color: #e2afaf;
+    // padding: 0cqw .2cqw;
+    // color: #e2afaf;
+    color: #ffcaca;
+
+    filter: drop-shadow(0px 0px 5px #ffcaca);
+
+
+
     transition: width 0.2s ease;
+    // background-color: green;
+    // width: 2cqw;
 `;
 
-const FocusContainer = styled.div`
+const FocusContainer = styled.div<{ $direction: 1 | -1 }>`
     display: flex;
-    padding: .5cqw 5.75cqw;
+    align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
+    padding: 1cqw 0cqw;// 3cqw .2cqw 2cqw;
     justify-content: space-around;
+    // ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
     gap: 0.4cqw;
     align-items: center;
     min-height: 1.1cqw; 
     position: relative;
+    width: 100%;
+    // background-color: red;
 `;
 
 export const noFocusFlash = keyframes`
@@ -107,13 +126,15 @@ export const noFocusFlash = keyframes`
   }
 `;
 const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number, $isPlayerOutOfFocus: boolean }>`
-    width: .75cqw;
-    height: .75cqw;
+    width: 1cqw;
+    height: 1cqw;
     border-radius: 50%;
     border: 0.12cqw solid #777;
     background: ${props => props.$i < props.$focusAmt ? '#6aadd9' : 'transparent'};
     transition: filter .5s, background 0.2s;
     animation: ${props => !!props.$isPlayerOutOfFocus && noFocusFlash} 1.5s linear infinite;
+    // opacity: .7;
+    ${props => props.$i < props.$focusAmt && 'filter: drop-shadow(0px 0px 5px #6aadd9);'}
 `;
 
 const ExcessFocusBadge = styled(FocusBadge)`
@@ -229,7 +250,7 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
       $backgroundColor={healthDiff < 0 ? '#ee3737' : '#3bed8e'}
       $color={'white'}
     />}
-    {<ModifierTextComponent
+    {/* {<ModifierTextComponent
       propertyName={'Focus'}
       propertyValue={focusDiff}
       animTimeSecs={ANIM_TIME}
@@ -242,7 +263,7 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
       $left={'45%'}
       $backgroundColor={'#47d4ff9f'}
       $color={'white'}
-    />}
+    />} */}
     <Damageable $healthDiff={healthDiff}>
       <AvatarRobe $healthDiff={healthDiff} $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $healthDiff={healthDiff} $src={playerSnap.avatarHeadUrl} />
@@ -253,46 +274,54 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
     </Damageable>
   </AvatarFrame>);
 
-  const healthbar = (<BarBorder>
-    <BarTextContainer>
-      <BarText>
-        {playerSnap.getHealth()}
-      </BarText>
-      <BarText>
+  const testHealth = 13;
+  const healthbar = (<BarBorder $direction={direction}>
+
+    {/* <BarText>
         {` / `}
       </BarText>
       <BarText>
         {playerSnap.getMaxHealth()}
-      </BarText>
-    </BarTextContainer>
-    <BarFill $pct={playerSnap.getHealthPrct()} />
-  </BarBorder>);
+      </BarText> */}
+    {/* </BarTextContainer> */}
+    <BarFill $pct={playerSnap.getHealthPrct()} $direction={direction}>
+      {/* playerSnap.getHealthPrct()}> */}
+      <BarTextContainer $pct={playerSnap.getHealthPrct()} $direction={direction}>
+        <BarText>
+          {/* {testHealth} */}
+          {playerSnap.getHealth() != 0 ? playerSnap.getHealth() : ''}
+        </BarText>
+      </BarTextContainer>
+
+    </BarFill>
+  </BarBorder >);
 
   const focusDots = (
     <>
-      <FocusContainer>
-        {/* STORED FOCUS */}
+      {/* STORED FOCUS */}
+
+      <FocusContainer $direction={direction}>
         {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       </FocusContainer>
-      <FocusContainer>
-        {/* EXCESS STORED FOCUS */}
+      {/* EXCESS STORED FOCUS */}
+      {/* <FocusContainer>
         {Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} />)}
-      </FocusContainer>
+      </FocusContainer> */}
     </>
   );
 
   /*
-  
+   
     TO-DO: have modifier text spawn from object pool...
     ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text.
     NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
-
+  
   */
   return (<DuelistSideColumn>
     <Spotlight />
     {avatar}
-    {healthbar}
     {focusDots}
+    {healthbar}
   </DuelistSideColumn>);
 }
 

@@ -1,5 +1,6 @@
 import { Phlegm, Quicken, Ether, GyreUp, GyreDown } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
+import { UniqueId } from './UniqeId';
 
 // types
 export type CellIndex = {
@@ -38,12 +39,22 @@ export type DivRefDimensions = {
   left: number; top: number; width: number; height: number;
 }
 
-export type NPCMoveData = {
-  inferenceString: InferenceString;
-   // normalized vector that is multiplied by the GameWrapper's width and height
-  translationNorm: Point;
-  scale: Point;
-  rotation: number; // degrees
+export class NPCMoveData extends UniqueId {
+
+  inferenceString!: InferenceString;
+  // normalized vector that is multiplied by the GameWrapper's width and height
+  translationNorm!: Point;
+  scale!: Point;
+  rotation!: number; // degrees
   storedSpell?: Function;
   speed?: number; // 1.2/scale.x
+
+  constructor(inferenceString: InferenceString, translationNorm: Point, scale: Point, rotation: number) {
+    super();
+    this.inferenceString = inferenceString;
+    this.translationNorm = translationNorm;
+    this.scale = scale;
+    this.rotation = rotation;
+  }
+
 };

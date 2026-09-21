@@ -19,14 +19,16 @@ export class Player extends UniqueId {
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 100;
   // - - FOCUS - - - - - - -
-  private static readonly FOCUS_REGEN_AMT = -3; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly FOCUS_REGEN_AMT = -4; // amt of focus restored between turns (negative for "focusDecrement" method)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
+  private static readonly BLOOD_MAGIC_COST = 5; // amt of health that is spent per spell when out of focus
   // - - - - - - - - - - - -
   // State
   healthAmt: number = Player.MAX_HEALTH_AMT;
   focusAmt: number = Player.MAX_FOCUS_AMT;
   gameSymbol: GameSymbol | null = null;
+  isDoneWithTurn: boolean = true;
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string) {
     super();
@@ -62,6 +64,11 @@ export class Player extends UniqueId {
     return Player.FOCUS_REGEN_AMT;
   };
 
+  // focus restored between turns
+  getBloodMagicCost = (): number => {
+    return Player.BLOOD_MAGIC_COST;
+  };
+
   // current amt of focus player has
   getFocus = (): number => {
     return this.focusAmt;
@@ -85,6 +92,14 @@ export class Player extends UniqueId {
     return this.direction;
   }
 
+  getIsDoneWithTurn = (): boolean => {
+    return this.isDoneWithTurn;
+  }
+
+  setIsDoneWithTurn = (isDoneWithTurn: boolean): void => {
+    this.isDoneWithTurn = isDoneWithTurn;
+  }
+
   // --- State Changers ---
 
   setGameSymbol = (gameSymbol: GameSymbol | null): void => {
@@ -106,7 +121,7 @@ export class Player extends UniqueId {
   decrementFocus = (focusDecrement: number): void => {
     this.focusAmt -= focusDecrement;
     // clamp values between 0 and max
-    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT + Player.MAX_EXCESS_FOCUS_AMT);
+    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT)// + Player.MAX_EXCESS_FOCUS_AMT);
   };
 
   /**

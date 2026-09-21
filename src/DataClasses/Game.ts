@@ -55,6 +55,25 @@ export class Game {
     this.init();
   }
 
+  /*
+  
+
+  TO-DO: consider showing tips (that can be toggled off) for certain actions the first time they are triggered:
+
+    - drawing off the board completely or completely off placement cells
+    - casting more than 4 spells per turn (blood magic)
+    - creating an "empowered" spell
+    - healing with Phelgm
+    - reversing with Phlegm
+    - out of focus -> end turn -> progressing time necessary, but increases chances of getting caught by a teacher!
+    - consuming a spell
+    - NPC casting a spell -> what is the conceit of the game? what is the goal?
+
+    TO-DO: store "toggle-off tool tips" in local storage
+
+  
+  */
+
   init = (): void => {
     // 1. Create a fresh instance of the Logger
     this.gameLog = proxy(new GameLog());
@@ -81,8 +100,11 @@ export class Game {
     this.setupGameplayKeyBindings();
 
     // setTimeout(() => {
-    //   this.computerPlayer?.doNextNpcMove(); // TESTING
-    // }, 1000);
+    //   if (this.computerPlayer) {
+    //     this.computerPlayer.resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
+    //     this.doNpcMove();
+    //   }
+    // }, 1500);
   };
 
   resetGame = (): void => {
@@ -234,7 +256,7 @@ export class Game {
 
   isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
     const p = player ? player : this.humanPlayer;
-    return !!p && !!p.getGameSymbol() && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
+    return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
   }
 
   getLogEntries = (): Array<GameLogEntry> => {
@@ -355,10 +377,29 @@ export class Game {
           mark rawPoint index (start of points for that cell)
 
     */
+
+    const nextPoint = { x, y };
+    let lastPoint = undefined;
+    const rawPoints = this.spellCanvas.getRawPoints();
+
+    if (rawPoints.length > 1) {
+      lastPoint = rawPoints[rawPoints.length - 1];
+    }
+
+    if (lastPoint) {
+      const numMorePoints = 10;
+      const vec: Point = { x: nextPoint.x - lastPoint.x, y: nextPoint.y - lastPoint.y };
+      // generate more points for board interaction...
+      for (let i = 0; i < numMorePoints; i++) {
+        const x = lastPoint.x + i * vec.x / numMorePoints;
+        const y = lastPoint.y + i * vec.y / numMorePoints
+        this.spellCanvas.addRawPoint(x, y);
+        const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(x, y);
+        if (cellIndex) this.spellCanvas.updateCellPointsIfDifferent(cellIndex);
+      }
+    }
     this.spellCanvas.addRawPoint(x, y);
 
-    const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(x, y);
-    if (cellIndex) this.spellCanvas.updateCellPointsIfDifferent(cellIndex);
   }
 
   getIsDrawing = (): boolean => {
@@ -417,7 +458,7 @@ export class Game {
       this.instantiateGameSymbolFromInferenceString(inferenceString, p);
       const cell = this.getCellAt(cellIndex);
       if (cell) {
-        if (this.isCanPlaceGameSymbolOn(cell, p) && p.getFocus() > 0) {
+        if (this.isCanPlaceGameSymbolOn(cell, p)) {
           this.placeSpellOnBoard(cell, p);
         }
       }
@@ -427,12 +468,17 @@ export class Game {
   }
 
   runInference = async (mouseCoords?: Point): Promise<void> => {
+
     // Single click on cell creates Phlegm
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
         this.placeSpellAt('circle', cellIndex);
-        // this.endTurn();
+        if (this.humanPlayer) {
+          if (this.humanPlayer.getFocus() < 1) {
+            this.setIsDoneWithTurn(true, this.humanPlayer);
+          }
+        }
       }
     }
 
@@ -469,8 +515,11 @@ export class Game {
     //     results.forEach(([cellIndex]) => this.placeSpellAt(inferenceString, cellIndex)))
     // }
 
-    // this.endTurn();
-
+    if (this.humanPlayer) {
+      if (this.humanPlayer.getFocus() < 1) {
+        this.setIsDoneWithTurn(true, this.humanPlayer);
+      }
+    }
   }
 
   instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
@@ -482,19 +531,30 @@ export class Game {
   }
 
   /*
-
+   
     TO-DO: Consider having a turn be a single placed spell move, not all placed spells move
-
+   
     Every turn keep a curr index into placed spells and it goes around "round rob" (?)
-
-
+   
+   
     TO-DO: Consider undo last move(?)
-
+   
     TO-DO: ensure that endTurn is not being called on a Fizzle inference...
-  
+
+    TO-DO: consider having left over focus from a turn become health points. example: 2 left over focus = +2 health at start of next turn.
+   
   */
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
+
+      this.resetNpcMove();
+
+      this.checkIfIsGameOver();
+      if (this.gameOver) {
+        this.forceUpdate();
+        return;
+      }
+
       this.setHoveredGameboardCell(null);
       this.resetClock();
       this.pauseClock();
@@ -502,15 +562,27 @@ export class Game {
       this.forceUpdate();
       this.disableGameBoard();
       await this.updatePlacedSpells();
-      this.checkIfIsGameOver();
       this.regenFocusForPlayers();
       this.enableGameBoard();
+
+      this.checkIfIsGameOver();
+      if (this.gameOver) {
+        this.forceUpdate();
+        return;
+      }
+
+      // TESTING - - - - -
+      // this.resetNpcMove();
+      if (this.computerPlayer && this.humanPlayer) {
+        this.setIsDoneWithTurn(false, this.computerPlayer);
+        this.setIsDoneWithTurn(false, this.humanPlayer);
+        this.computerPlayer.setGameSymbol(null);
+        this.humanPlayer.setGameSymbol(null);
+        this.computerPlayer.resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
+        setTimeout(() => this.doNpcMove(), 1000);
+      }
       // TESTING - - - - -
 
-      // this.doNpcMove();
-
-
-      // TESTING - - - - -
       if (!this.isSpellBookOpen) this.unpauseClock();
       this.forceUpdate();
     }
@@ -529,8 +601,39 @@ export class Game {
     return this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
   }
 
+  getIsHumanPlayerDoneWithTurn = (): boolean => {
+    if (this.humanPlayer) {
+      return this.humanPlayer.getIsDoneWithTurn();
+    }
+    return true; // default to true...
+  }
+
+  getIsComputerPlayerDoneWithTurn = (): boolean => {
+    if (this.computerPlayer) {
+      return this.computerPlayer.getIsDoneWithTurn();
+    }
+    return false; // default to false...
+  }
+
+  setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
+    player.setIsDoneWithTurn(isDoneWithTurn);
+    // if (isDoneWithTurn) {
+    //   const opponent = player == this.humanPlayer ? this.computerPlayer : this.humanPlayer;
+    //   if (!opponent) return;
+    //   const isOpponentDoneWithTurn = opponent.getIsDoneWithTurn();
+    //   if (isOpponentDoneWithTurn) setTimeout(() => this.endTurn(), 1500);
+    // }
+  }
+
+  // TO-DO: have end turn button enabled while NPC is drawing. if clicked, cancel the drawing and immediately place NPC symbols on board
   doNpcMove = (): void => {
     if (!this.computerPlayer) return;
+
+    if (!this.computerPlayer.getFocus() || this.computerPlayer.getIsDead()) {
+      this.computerPlayer.clearNumRemaningMovesPerTurn();
+      return;
+    }
+
     const npcMoveData = this.computerPlayer.getRandomMoveForTesting();
     const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
 
@@ -606,12 +709,23 @@ export class Game {
       if (!this.computerPlayer) return;
       this.cancelPlacingSymbol(this.computerPlayer);
       // this.computerPlayer.setNpcDrawingPoints([]);
+      this.computerPlayer.decrementNumRemaningMovesPerTurn();
+      if (this.computerPlayer.getNumRemainingMovesPerTurn() > 0 && this.computerPlayer.getFocus() > 0) {
+        setTimeout(() => this.doNpcMove(), 700);
+      } else {
+        console.log({ npcMoveData })
+        this.setIsDoneWithTurn(true, this.computerPlayer);
+        this.forceUpdate();
+      }
+      // if (this.computerPlayer.getNumRemainingMovesPerTurn() < 1 || !this.computerPlayer.getFocus()) {
+      //   this.setIsDoneWithTurn(true, this.computerPlayer);
+      // }
     }
 
     this.computerPlayer.setNpcDrawingPoints(rawPoints);
     // set to get arm-wand movements while drawing
-    // this.computerPlayer.setGameSymbol(new GameSymbol(inferenceString, this.computerPlayer))
-    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: .5 / scale.x });
+    this.computerPlayer.setGameSymbol(new GameSymbol(inferenceString, this.computerPlayer))
+    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1 / scale.x });
     this.forceUpdate();
   }
 
@@ -644,18 +758,7 @@ export class Game {
 
   resetNpcMove = () => {
     this.npcMoveData = proxy([]);
-    // if (this.computerPlayer) {
-    //   this.computerPlayer.storeSpell(null);
-    //   this.computerPlayer.setNpcDrawingPoints([]);
-    //   this.computerPlayer.setNPCMoveData(null);
-    // }
   }
-
-  // spawnNpcSpell = () => {
-  //   if (this.computerPlayer) {
-  //     this.computerPlayer.castStoredSpell();
-  //   }
-  // }
 
   setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
     this.isSpellBookOpen = isSpellBookOpen;
@@ -700,12 +803,9 @@ export class Game {
 
     if (this.gameOver) { // TESTING
       this.disableGameBoard();
-      this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
-      this.resetMinuteAngleAcc();
-      // setTimeout(() => {
-      //   this.resetGame();
-      //   this.computerPlayer?.doNextNpcMove();
-      // }, 4500);
+      // this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
+      // this.resetMinuteAngleAcc();
+      this.resetGame();
     }
   }
 }

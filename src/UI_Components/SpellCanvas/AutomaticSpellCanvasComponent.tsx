@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useRef, useState } from 'react';
 import { Point } from '../../DataClasses/types';
 import styled, { keyframes, css } from 'styled-components';
 
@@ -14,7 +14,7 @@ interface CanvasContainerProps {
 }
 
 // 1. Define a chaotic, rapid shaking & drifting animation loop
-const volatileTremble = keyframes`
+export const volatileTremble = keyframes`
   0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
   10% { transform: translate(-51%, -48%) rotate(-0.5deg) scale(1.01); }
   20% { transform: translate(-48%, -51%) rotate(1deg) scale(0.99); }
@@ -71,7 +71,7 @@ interface SpellCanvasComponentProps {
   drawSpeed?: number;
   isLooped?: boolean;
   loopDelay?: number;
-  callBack?: (progress: number) => { }
+  callBack?: (progressRef: RefObject<number>) => { }
 }
 
 // Particle interface for the pixie dust sparkle
@@ -95,7 +95,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
   drawSpeed = 0.6,
   isLooped = true,
   loopDelay = 1000,
-  callBack = (progress: number) => { }
+  callBack
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -196,7 +196,7 @@ export const AutomaticSpellCanvasComponent: React.FC<SpellCanvasComponentProps> 
       }
 
       // do callback when drawing is done...
-      callBack && callBack(progressRef.current)
+      callBack && callBack(progressRef);
 
       if (progressRef.current >= 1.0) {
         progressRef.current = 1.0;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../UseLocalStorage';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
@@ -87,12 +88,30 @@ const MaskIcon = styled.div<{ $zIndex: number, $isShow: boolean, $difficulty: Np
 `;
 
 export default function NpcDifficultyComponent() {
+  const localStorageKey = 'quickCast-npcDifficulty';
   const timeoutRef = useRef<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
   const snap = useSnapshot(rootGameStore);
   const difficulty: NpcDifficulty = snap.getNpcDifficulty();
+
+  useEffect(() => {
+    const item = window.localStorage.getItem(localStorageKey);
+    let val = undefined;
+    try {
+      if (item) {
+        val = JSON.parse(item);
+      }
+    } catch (error) {
+      console.warn(`Error reading localStorage key :`, error);
+    }
+    if (val) {
+      setIsClickedOnce(true);
+      rootGameStore.setNpcDifficulty(val);
+      rootGameStore.forceUpdate();
+    }
+  }, [])
 
   useEffect(() => {
     if (isClickedOnce && !isClicked && !isHovered) { // use changed difficulty with keyboard key. show change on UI.
@@ -108,8 +127,9 @@ export default function NpcDifficultyComponent() {
       onMouseDown={() => setIsClicked(true)}
       onMouseUp={() => setIsClicked(false)}
       onClick={() => {
-        // TO-DO: store difficulty in local storage / cookies
         rootGameStore.cycleThroughDifficulties();
+        const difficulty = rootGameStore.getNpcDifficulty();
+        window.localStorage.setItem('quickCast-npcDifficulty', JSON.stringify(difficulty));
         setIsClickedOnce(true);
       }}
       data-click-type="ui-buttons"

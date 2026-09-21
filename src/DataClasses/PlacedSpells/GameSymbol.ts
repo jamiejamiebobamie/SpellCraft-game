@@ -62,25 +62,33 @@ export class GameSymbol extends UniqueId {
     const spell = proxy(new this.SpellClass(this.caster));
     let focusCost: number = spell.getFocusCost();
 
-    const isHasFocus = this.incurPlayerCostForSpell(focusCost);
+    this.incurPlayerCostForSpell(focusCost);
+    return proxy(spell);
 
-    if (isHasFocus) {
-      // Spawn the spell instance
-      return proxy(spell);
-    } else {
-      return null;
-    }
+    // const isHasFocus = this.incurPlayerCostForSpell(focusCost);
+
+    // if (isHasFocus) {
+    //   // Spawn the spell instance
+    //   return proxy(spell);
+    // } else {
+    //   return null;
+    // }
   };
 
   /**
    * Deducts focus resource. Converts focus deficit into direct health damage.
    */
-  incurPlayerCostForSpell = (focusCost: number): boolean => {
+  incurPlayerCostForSpell = (focusCost: number): void => {
     if (this.caster.getFocus() >= focusCost) {
-      // this.caster.decrementFocus(focusCost);
-      return true;
+      this.caster.decrementFocus(focusCost);
+      // getBloodMagicCost
+      // return true;
     } else {
-      return false;
+      // Calculate how much focus is missing
+      const difference = focusCost - this.caster.getFocus();
+      this.caster.depleteFocusToZero();
+      this.caster.decrementHealth(difference * this.caster.getBloodMagicCost()); // Health covers the remaining resource debt
     }
-  };
+    // return true;
+  }
 }

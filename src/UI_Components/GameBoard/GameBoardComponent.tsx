@@ -5,12 +5,16 @@ import NpcSpellCanvasComponent from '../SpellCanvas/NpcSpellCanvasComponent';
 import { Game } from '../../DataClasses/Game';
 import { SpellComponent } from './SpellComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
-import { CrescentArc } from './ArcComponent'
+import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
+import { LockSymbolComponent } from './LockSymbolComponent';
 import styled from 'styled-components';
 
+
+// TO-DO: consider making all non-player placement cells fully transparent (with long opacity transition duration...) when board is not disabled
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
-  bottom:  18cqw;
+//   bottom:  18cqw;
+  bottom:  15.5cqw;
   opacity: ${props => props.$transparency};
   transition: opacity 1s ease-in-out;
   pointer-events: ${props => props.$isDisabled ? 'none' : 'auto'}
@@ -23,8 +27,8 @@ const GridContainer = styled.div<{ $wobblePhase: -1 | 0 | 1 }>`
   grid-template-columns: repeat(7, 1fr);
   
   /* The transition will smoothly catch the transform whenever the state changes */
-  transition: transform ${props => props.$wobblePhase != 0 ? 1 : .25}s ease-in-out;
-  transform: skewX(${props => props.$wobblePhase * 6}deg);
+//   transition: transform ${props => props.$wobblePhase != 0 ? 1 : .25}s ease-in-out;
+//   transform: skewX(${props => props.$wobblePhase * 6}deg);
 `;
 
 const StyledCell = styled.div<{
@@ -79,7 +83,8 @@ const StyledCell = styled.div<{
   
   /* Transitions */
   transition: opacity 1s ease, background 0.3s ease, border 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
-  opacity: ${props => props.$transparency};
+  opacity: .1;
+  //${props => props.$transparency}; // TESTING
 
   /* 3. ENVIRONMENTAL GLASS HOVER EFFECT */
   ${props => props.$isHighlighted && `
@@ -130,9 +135,9 @@ interface GameBoardComponentProps {
     npcMousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
 }
 const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardComponentProps) => {
-    const isPlacingGameSymbol: boolean = !!snap.getGameSymbolIcon();
+    const isPlayerDoingTurn: boolean = !snap.getIsHumanPlayerDoneWithTurn();
     const npcMoveData = snap.getNPCMoveData();
-    const isDisabled: boolean = snap.gameBoard.getIsClickDisabled();
+    const isDisabled: boolean = snap.getIsGameBoardDisabled();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     const intervalRef = useRef<number | undefined>(undefined);
     const [wobblePhase, setWobblePhase] = useState<WobblePhase>(0);
@@ -149,39 +154,9 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
     }, [isDisabled]);
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
-            {npcMoveData.map((_, i) => <NpcSpellCanvasComponent key={i} rootGameStore={rootGameStore} i={i} />)}
-            {/* {Array.from({ length: 24 }).map((_, i) => {
-                const cellIndex = snap.gameBoard.getTwoDIndexFrom(i);
-                const coords = { x: 0, y: 0 };
-                let isDisplay = false;
-                let speedDirection = 1;
-                if (!!cellIndex && !!gridOverlayRef && !!gridOverlayRef.current && !!gridOverlayRef.current.getBoundingClientRect) {
-                    const { width, height } = gridOverlayRef.current.getBoundingClientRect();
-                    const cellWidth = width / GameBoard.NUM_COLS 
-                    const cellHeight = height / GameBoard.NUM_ROWS 
-                    const x = ((cellIndex.j + 1) * 2 - 1) / (GameBoard.NUM_COLS * 2) * width
-                    const y = ((cellIndex.i + 1) * 2 - 1) / (GameBoard.NUM_ROWS * 2) * height;
-                    coords.x = x;
-                    coords.y = y;
-                    if (cellIndex) {
-                        const cell = snap.gameBoard.getCellAt(cellIndex);
-                        if (cell) {
-                            isDisplay = cell.getIsHighlighted();
-                            if(isDisplay){
-                                const spell = snap.getHoveredPlacedSpell();
-                                if(spell){
-                                   speedDirection = spell.getPropertyValue('empoweredSpeedDirection');
-                                    coords.x -= Math.sign(speedDirection) * cellWidth * .5;
-                                    coords.y -= Math.sign(speedDirection) * -cellHeight * .05;
-                                }
-                            }
-                        }
-                    }
-                    // TO-DO: consider if display should be based on > 1 status. to remove number badges from game board.
-                    return <CrescentArc key={`${i}_${coords.y}_${coords.x}`} top={`${coords.y}px`} left={`${coords.x}px`} isDisplay={isDisplay} direction={speedDirection} animDelay={i} />
-                }
-            }
-            )} */}
+            <LockSymbolComponent isLocked={isDisabled} />
+            <HumanPlacementTilesComponent rootGameStore={rootGameStore} />
+            {npcMoveData.map((npcMd, i) => <NpcSpellCanvasComponent key={npcMd.id} rootGameStore={rootGameStore} i={i} />)}
             {snap.placedSpells.spells.map(
                 (s, i) =>
                     <SpellComponent
@@ -202,15 +177,16 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                         $numPlacementCells={snap.gameBoard.numPlacementCells}
                         $isPlace={snap.isCanPlaceGameSymbolOn(c)}
                         $isHighlighted={
-                            (isPlacingGameSymbol && snap.isCanPlaceGameSymbolOn(c))
-                            || c.getIsHighlighted()}
+                            // (isPlayerDoingTurn && snap.isCanPlaceGameSymbolOn(c))
+                            // || 
+                            c.getIsHighlighted()}
                         $spellOwnerColor={c.getColor()}
                         $empoweredSpellColor={c.getEmpoweredColor()}
                         $isOccupied={!c.getIsFree()}
                         $isPlayerCell={c.getIsPlayerCell()}
                         $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}
-                        $isPlacingGameSymbol={isPlacingGameSymbol}
+                        // $isPlacingGameSymbol={isPlayerDoingTurn}
                         onMouseEnter={() =>
                             // rootGameStore.getIsHoverDisabled() && 
                             rootGameStore.setHoveredGameboardCell(c)}

@@ -4,6 +4,8 @@ import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
+// TO-DO: have Gyre up and GyreDown when placed vertically (gyredown above, gyreup below) sustain one another so that no gyreLives are spent when moving
+// TO-DO: have Gyre's be like Phlegms: destroyed when consumed...
 export abstract class Spell extends UniqueId {
   // Constants & Core Properties
   readonly spellName: string;

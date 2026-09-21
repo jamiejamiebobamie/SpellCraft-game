@@ -25,6 +25,7 @@ type ChandelierProps = {
   $animType?: string | undefined;
   $animDelay?: string;
   $brightness?: number;
+  $style?: string;
 }
 
 const ChandelierImg = styled.div<ChandelierProps>`
@@ -62,6 +63,8 @@ const ChandelierImg = styled.div<ChandelierProps>`
     animation: ${chandelierSwing} 6.2s infinite ease-in-out;
     animation-delay: ${props.$animDelay || '0s'};
   `}
+  
+  ${props => props.$style && props.$style}
 `;
 
 
@@ -102,6 +105,7 @@ export default function ChandelierComponent({ left, right, animDelay }: Chandeli
             $width={'11.5cqw'}
             $aspectRatio={'140/38'}
             $zIndex={3}
+            $style={'filter: brightness(1.5) drop-shadow(0px 0px 1px green);'}
             $imgUrl={'background-scene/Chandelier/Chandelier-candle-flames.png'} />
         </ChandelierImg>
       </ChandelierImg>
