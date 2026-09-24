@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, RefObject } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import NpcSpellCanvasComponent from '../SpellCanvas/NpcSpellCanvasComponent';
 import { Game } from '../../DataClasses/Game';
-import { SpellComponent } from './SpellComponent';
+import { PlacedSpellsComponent } from './PlacedSpellsComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
 import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
 import { LockSymbolComponent } from './LockSymbolComponent';
@@ -157,14 +157,15 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
             <LockSymbolComponent isLocked={isDisabled} />
             <HumanPlacementTilesComponent rootGameStore={rootGameStore} />
             {npcMoveData.map((npcMd, i) => <NpcSpellCanvasComponent key={npcMd.id} rootGameStore={rootGameStore} i={i} />)}
-            {snap.placedSpells.spells.map(
+            <PlacedSpellsComponent rootGameStore={rootGameStore} gridOverlayRef={gridOverlayRef}/>
+            {/* {snap.placedSpells.spells.map(
                 (s, i) =>
                     <SpellComponent
                         key={s.id}
                         gridOverlayRef={gridOverlayRef}
                         spell={rootGameStore.placedSpells.spells[i]}
                     />
-            )}
+            )} */}
             <GridContainer $wobblePhase={wobblePhase}>
                 {snap.gameBoard.cells.map(c =>
                     <StyledCell
