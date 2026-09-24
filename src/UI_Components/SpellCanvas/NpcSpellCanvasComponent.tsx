@@ -8,21 +8,23 @@ import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 
-const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: number, $cellWidth: number, $scale: Point, $rotation: number }>`
+const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: number, $cellWidth: number, $scale: Point, $rotation: number, $translation: Point }>`
   position: absolute;
   ${props => `top: ${props.$top}px; left: ${props.$left}px; width: ${props.$cellWidth * props.$scale.x}px; height: ${props.$cellWidth * props.$scale.y}px;`}
   opacity: ${props => props.$isShow ? 1 : 0};
-  transition: opacity 2s ease-in-out;
+  transition: transform 3s ease-out, opacity 1s ease-in-out;
   pointer-events: none;
   z-index: 42;
   display: flex;
   align-self: center;
   transform-origin: center center;
-  transform: rotate(${props => props.$rotation}deg);
+  transform: ${props=> props.$translation? `translate(${props.$translation.x}px, ${props.$translation.y}px)` : `rotate(${props.$rotation}deg)`};
+  will-change: transform;
 `;
 
 interface NpcSpellCanvasComponentProps { rootGameStore: Game; i: number }
 const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentProps) => {
+    const ref = useRef<HTMLDivElement | null>(null);
     const snap = useSnapshot(rootGameStore);
     const { inferenceString, scale, rotation, translationNorm, storedSpell, speed } = snap.getNPCMoveDatum(i) || {
         inferenceString: '',
@@ -33,35 +35,46 @@ const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentPr
         speed: 1
     };
     const { height } = snap.getBoardRefDimensions()
-    const cellWidth = snap.getCellWidth() || 0;
-    const npcPlacementCellsX = useMemo(() => cellWidth * (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS), [cellWidth]);
-    const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
-    const [isVisible, setIsVisible] = useState(true);
+    const cellWidth: number = snap.getCellWidth() || 0;
+    const npcPlacementCellsX: number = useMemo(() => cellWidth * (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS), [cellWidth]);
+    const normalizedPoints: Array<Point> | undefined = HARDCODED_SYMBOLS.get(inferenceString);
+    const [isVisible, setIsVisible] = useState<boolean>(true);
+    const [translation, setTranslation] = useState<Point>(0);
+
+
+    translation
     const timeoutRef = useRef<number>(0);
     // useEffect(() => { return () => clearTimeout(timeoutRef.current) });
     return (
         <SpellCanvasWrapper
+            ref={ref}
             $isShow={isVisible}
             $cellWidth={cellWidth}
             $scale={scale}
             $top={height * translationNorm.y}
             $left={npcPlacementCellsX + GameBoard.NUM_PLACEMENT_CELLS * cellWidth * translationNorm.x}
             $rotation={rotation}
+            $translation={translation}
         >
             <AutomaticSpellCanvasComponent
                 points={normalizedPoints || []}
                 drawSpeed={speed}
                 isLooped={false}
                 callBack={(progressRef: RefObject<number>) => {
-                    if(!progressRef || !progressRef.current) return;
+                    if (!progressRef || !progressRef.current) return;
                     const isDone = progressRef.current >= 1;
-                    
+
                     if (isDone) {
-                        !timeoutRef.current && console.log({ condition: isDone && !timeoutRef.current, isDone, current: !timeoutRef.current })
                         !timeoutRef.current && storedSpell && storedSpell();
                         timeoutRef.current = setTimeout(() => {
-                            setIsVisible(false);
-                        }, 3000);
+                            if (ref && ref.current) {
+                                const rect = ref.current.getBoundingClientRect();
+                                const x = rect.left + (rect.width/2) - window.innerWidth;
+                                const y =  rect.top + (rect.height/2) -  (window.innerHeight / 2);
+                                setTranslation({ x:x/5, y: y/5 });
+                                setIsVisible(false);
+                            }
+                        }, 0);
                     } else {
                         const points = rootGameStore.getNpcDrawingPoints();
                         if (points && points.length) {

@@ -3,7 +3,6 @@ import AutomaticSpellCanvasComponent from '../../SpellCanvas/AutomaticSpellCanva
 import { GameSymbol } from '../../../DataClasses/PlacedSpells/GameSymbol';
 import { HARDCODED_SYMBOLS } from '../../../DataClasses/PlacedSpells/HardCodedSymbols';
 import { rootGameStore } from '../../../DataClasses/store';
-import { useSnapshot } from 'valtio';
 import styled, { css, keyframes } from 'styled-components';
 
 // --- Particle Sparkle System ---
@@ -255,19 +254,26 @@ const CanvasContainer = styled.div`
 `;
 
 // Each Individual Slide-Out Column Group
-const ColumnGroup = styled.div<{ $isClicked: boolean }>`
+const ColumnGroup = styled.div<{ $isClicked: boolean, $isNotHovered: boolean, $index: number }>`
   display: flex;
   position: relative;
   flex-direction: column;
   gap: .1cqw;
+  transition: filter 1s, transform .5s linear;
+
   &:hover ${SquareImage},
   &:hover  ${CanvasContainer} {
-    transform: scale(1.25);
-    transition: transform .5s;
     cursor: pointer;
     pointer-events: auto;
-    ${props => props.$isClicked && 'transform: scale(.9);'}
   }
+
+  &:hover{
+    // transform: translate(${props => props.$index * -4}dvw, 17dvh);
+    transition: filter 1s;
+  }
+
+  filter: brightness(${props => props.$isNotHovered ? .2 : 1});
+  will-change: filter, transform;
 `;
 
 const CoverText = styled.div<{ $style?: string, $isClickedOnce: boolean }>`
@@ -276,59 +282,90 @@ const CoverText = styled.div<{ $style?: string, $isClickedOnce: boolean }>`
     filter: drop-shadow(0 0 .1cqw rgba(248, 255, 54, 0.3)) drop-shadow(0 0 .3cqw rgba(250, 245, 144, 0.14));
 `;
 
+// The Tray holding the columns
+const SpellInfo = styled.div<{ $isHoveredSpell: boolean }>`
+  display: flex;
+  flex-direction: row;
+  gap: 0.5cqw;
+  width: 27cqw;
+  height: 12cqw;
+  background-color: #000000a9;
+  padding: .25cqw .25cqw;
+  corner-shape: squircle;
+  border-radius: 1cqw;
+
+  position: absolute;
+  top: 11cqw;
+  left: 150%; /* Positions the right edge of the tray against the left edge of the anchor */
+  
+  z-index: 1; 
+  pointer-events: none; 
+
+  transition: opacity .5s;
+  will-change: opacity;
+
+  opacity: ${props => props.$isHoveredSpell ? 1 : 0};
+`;
+
 export default function SpellBookComponent() {
-  const snap = useSnapshot(rootGameStore);
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  // const [hoveredSpell, setHoveredSpell] = useState<string | null>(null);
+  const [hoveredSpell, setHoveredSpell] = useState<string | null>(null);
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
-  const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => (
+  const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass], i) => (
     <ColumnGroup
+      $index={i}
       $isClicked={isClicked}
       key={spellClass.name}
-      onClick={() => {
-        rootGameStore.instantiateGameSymbolFromInferenceString(inferenceString);
+      onMouseEnter={() => {
+        setHoveredSpell(spellClass.name);
+        rootGameStore.setHoveredSpellBookSpell(spellClass)
       }}
-      onMouseEnter={() => snap.setHoveredSpellBookSpell(spellClass)}
-      onMouseLeave={() => snap.setHoveredSpellBookSpell(null)}
+      onMouseLeave={() => {
+        setHoveredSpell(null);
+        rootGameStore.setHoveredSpellBookSpell(null)
+      }}
+      $isNotHovered={!!hoveredSpell && hoveredSpell != spellClass.name}
     >
       <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
         <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.3} loopDelay={4000} isLooped={isOpen} />
       </CanvasContainer>
-    </ColumnGroup>))
+    </ColumnGroup>));
+  useEffect(() => { console.log({ hoveredSpell }) }, [hoveredSpell]);
   return (
     <MenuAnchor data-click-type="ui-buttons">
       <SparkleCanvasComponent />
-        <TriggerBox
-          onClick={() => setIsOpen(isOpen => {
-            setIsClickedOnce(true);
-            rootGameStore.setIsSpellBookOpen(!isOpen);
-            if (!isOpen) rootGameStore.pauseClock();
-            else rootGameStore.unpauseClock();
-            return !isOpen;
-          })}
-          onMouseDown={() => setIsClicked(true)}
-          onMouseUp={() => setIsClicked(false)}
-          $isClicked={isClicked}
-          $isOpen={isOpen}
+      <TriggerBox
+        onClick={() => setIsOpen(isOpen => {
+          setIsClickedOnce(true);
+          rootGameStore.setIsSpellBookOpen(!isOpen);
+          if (!isOpen) rootGameStore.pauseClock();
+          else rootGameStore.unpauseClock();
+          return !isOpen;
+        })}
+        onMouseDown={() => setIsClicked(true)}
+        onMouseUp={() => setIsClicked(false)}
+        $isClicked={isClicked}
+        $isOpen={isOpen}
+        $isClickedOnce={isClickedOnce}
+      >
+        <CoverText
+          $style={'padding-top: 1.5cqw;'}
           $isClickedOnce={isClickedOnce}
         >
-          <CoverText
-            $style={'padding-top: 1.5cqw;'}
-            $isClickedOnce={isClickedOnce}
-          >
-            Spell
-          </CoverText>
-          <CoverText
-            $isClickedOnce={isClickedOnce}
-          >
-            Book
-          </CoverText>
-        </TriggerBox>
+          Spell
+        </CoverText>
+        <CoverText
+          $isClickedOnce={isClickedOnce}
+        >
+          Book
+        </CoverText>
+      </TriggerBox>
       <SlidingTray $isOpen={isOpen}>
         {spells}
       </SlidingTray>
+      <SpellInfo $isHoveredSpell={!!hoveredSpell} />
     </MenuAnchor >
   );
 }

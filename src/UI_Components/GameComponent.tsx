@@ -165,13 +165,14 @@ export const GameComponent = () => {
           const target = e.target as HTMLElement;
           const isUiButton = target.closest('[data-click-type="ui-buttons"]');
           if (isUiButton || rootGameStore.getIsDrawing()) return;
-          rootGameStore.beginDrawing();
 
-          // if (rootGameStore.getHasFocus()) {
-          // } else
-          if (!rootGameStore.getHasFocus()) {
-            setIsPlayerOutOfFocus(true);
-          }
+          if (rootGameStore.getHasFocus()) {
+            rootGameStore.beginDrawing();
+
+          } else
+            if (!rootGameStore.getHasFocus()) {
+              setIsPlayerOutOfFocus(true);
+            }
         }}
         onMouseUp={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsPlayerOutOfFocus(false);

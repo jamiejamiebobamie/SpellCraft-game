@@ -711,7 +711,8 @@ export class Game {
       // this.computerPlayer.setNpcDrawingPoints([]);
       this.computerPlayer.decrementNumRemaningMovesPerTurn();
       if (this.computerPlayer.getNumRemainingMovesPerTurn() > 0 && this.computerPlayer.getFocus() > 0) {
-        setTimeout(() => this.doNpcMove(), 700);
+        //  this.doNpcMove();
+        setTimeout(() => this.doNpcMove(), Math.random() * 1000);
       } else {
         console.log({ npcMoveData })
         this.setIsDoneWithTurn(true, this.computerPlayer);
@@ -725,7 +726,7 @@ export class Game {
     this.computerPlayer.setNpcDrawingPoints(rawPoints);
     // set to get arm-wand movements while drawing
     this.computerPlayer.setGameSymbol(new GameSymbol(inferenceString, this.computerPlayer))
-    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1 / scale.x });
+    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
     this.forceUpdate();
   }
 
