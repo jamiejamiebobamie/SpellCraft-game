@@ -1,5 +1,5 @@
 import { drawEtherSpawn } from "./drawEther";
-import { drawGyre } from "./drawGyre";
+import { drawGyreSpawn } from "./drawGyre";
 import { drawPhlegmSpawn } from "./drawPhlegm";
 import { drawQuickenSpawn, getAsymmetricTaper } from "./drawQuicken";
 import { GameParticle } from '../../../DataClasses/types'; // or wherever you paste the interfaces
@@ -41,14 +41,14 @@ export function drawProceduralSpell(
     ctx.translate(w / 2, 0);
     ctx.scale(spawnProgress, 1.0);
     ctx.translate(-w / 2, 0);
-    drawGyre(ctx, w, h, dir, 'up', time);
+    drawGyreSpawn(ctx, w * 0.9, h, dir, 'up', time, spawnProgress, cellRows);
     ctx.restore();
   } else if (spellClass === 'GyreDown') {
     ctx.save();
     ctx.translate(w / 2, 0);
     ctx.scale(spawnProgress, 1.0);
     ctx.translate(-w / 2, 0);
-    drawGyre(ctx, w, h, dir, 'down', time);
+    drawGyreSpawn(ctx, w * 0.9, h, dir, 'down', time, spawnProgress, cellRows);
     ctx.restore();
   } else if (spellClass === 'Quicken') {
     drawQuickenSpawn(ctx, w, h, dir, cellCols, time, spawnProgress);

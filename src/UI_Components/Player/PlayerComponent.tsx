@@ -98,8 +98,7 @@ const FocusContainer = styled.div<{ $direction: 1 | -1 }>`
     align-items: center;
     min-height: 1.1cqw; 
     position: relative;
-    width: 100%;
-    // background-color: red;
+    width: 150%;
 `;
 
 export const noFocusFlash = keyframes`
