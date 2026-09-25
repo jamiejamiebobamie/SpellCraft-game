@@ -1,7 +1,7 @@
-import { drawEther, drawEtherSpawn } from "./drawEther";
-import { drawGyre, drawGyreSpawn } from "./drawGyre";
-import { drawPhlegm, drawPhlegmSpawn } from "./drawPhlegm";
-import { drawQuicken, drawQuickenSpawn } from "./drawQuicken";
+import { drawEtherSpawn } from "./drawEther";
+import { drawGyre } from "./drawGyre";
+import { drawPhlegmSpawn } from "./drawPhlegm";
+import { drawQuickenSpawn } from "./drawQuicken";
 import { GameParticle } from '../../../DataClasses/types'; // or wherever you paste the interfaces
 
 export function drawProceduralSpell(
@@ -197,7 +197,7 @@ export function updateAndDrawParticles(
       ctx.stroke();
       ctx.restore();
     }
-    else if (p.type === 'etherFlame' && !!p.radius && !!p.initialX && !!p.initialY && Math.abs(p.initialX - p.x) > p.radius && Math.abs(p.initialY - p.y) > p.radius) {
+    else if (p.type === 'etherFlame') {
       // Calculate normalized lifespan progression: 0.0 (fresh birth) -> 1.0 (dead)
       const ageProgress = 1.0 - p.life;
 
@@ -223,7 +223,9 @@ export function updateAndDrawParticles(
         l = 18 - (10 * t); // Extremely dark ash glow
       }
 
-      p.color = `hsl(${h}, ${s}%, ${l}%)`;
+      if (ageProgress > 0.25) {
+        p.color = `hsl(${h}, ${s}%, ${l}%)`;
+      }
 
       ctx.save();
       ctx.fillStyle = p.color;

@@ -16,17 +16,21 @@ export class GameSymbol extends UniqueId {
 
   static readonly SPELL_LOOKUP = new Map<InferenceString, SpellConstructor>([
     ['line', Quicken],
-    ['circle', Phlegm],
+    ['circle', Ether],
+    // ['circle', Phlegm],
     ['diamond', GyreUp],
     ['triangle', GyreDown],
-    ['star', Ether]
+    // ['star', Ether],
+    ['star', Phlegm],
   ]);
 
   static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
     ['line', 'Quicken'],
-    ['circle', 'Phlegm'],
+    ['circle', 'Ether'],
+    // ['circle', 'Phlegm'],
     ['diamond', 'Gyre'],
-    ['star', 'Ether'],
+    ['star', 'Phlegm'],
+    // ['star', 'Ether'],
     ['triangle', 'Gyre'],
   ]);
 

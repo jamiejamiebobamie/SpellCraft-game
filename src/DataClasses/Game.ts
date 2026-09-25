@@ -469,7 +469,7 @@ export class Game {
 
   runInference = async (mouseCoords?: Point): Promise<void> => {
 
-    // Single click on cell creates Phlegm
+    // Single click on cell creates Ether
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {

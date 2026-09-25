@@ -16,7 +16,7 @@ const DuelistSideColumn = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   gap: 1cqw;
-  z-index: 10;
+  z-index: 12;
   pointer-events: none;
 `;
 

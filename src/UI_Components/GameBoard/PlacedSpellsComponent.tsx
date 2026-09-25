@@ -197,32 +197,35 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
         if (shouldDrawMainSpell) {
           // --- SPAWN TRAILING ETHER FLAMES ---
           if (spellClass === 'Ether' && anim) {
-            const cx = w / 2 + w / 10;
+            const cx = w / 2 + (w / 10) * dir;
             const cy = h / 2;
             const radius = Math.min(w, h) * 0.3;
             const bobY = Math.sin(currentTime * 0.005) * (h * 0.04);
 
-            // Adjust spawn frequency rate (0.5 means a 50% chance to emit a particle every engine tick)
             if (Math.random() < 0.5) {
-              // Emit slightly variant from the back-left trailing surface of the core sphere
-              const spawnX = cx + (Math.random() - 0.85) * (radius * 0.75);
-              const spawnY = cy + bobY + (Math.random() - 0.5) * (radius * 0.75);
+              const spreadX = (Math.random() - 0.85) * (radius * 1.75) * dir;
+              const spreadY = (Math.random() - 0.5) * (radius * 1.75);
+
+              const spawnX = cx + spreadX;
+              const spawnY = cy + bobY + spreadY;
+
+              const lengthFromCenter = Math.sqrt(Math.pow((cx - spawnX), 2) + Math.pow((cy - spawnY), 2));
+              const ratio = lengthFromCenter / radius;
+              const color = ratio < .3 ? PALETTE.fireCore : ratio < .8 ? PALETTE.fireMid : PALETTE.fireOuter;
+
+              const size = radius * (0.05 + Math.random() * 0.07);
 
               anim.particles.push({
                 x: spawnX,
                 y: spawnY,
-                // Shoots backward to the left and floats up thermally
-                vx: -(140 + Math.random() * 70),
-                vy: -(50 + Math.random() * 35),
+                vx: -(100 + Math.random() * 100 * cellCols) * dir,
+                vy: -100 - Math.random() * 100 * cellCols,
                 alpha: 1.0,
-                size: radius * (0.22 + Math.random() * 0.07),
-                color: PALETTE.fireCore, // Initial filler (overridden by update color transitions)
+                size: Math.max((1 - ratio) * size * 2, size),
+                color,
                 life: 1.0,
-                decay: 1 + Math.random() * 0.7, // Lasts roughly 0.5 to 0.9 seconds
+                decay: 1.5 + Math.random() * 1,
                 type: 'etherFlame',
-                radius,
-                initialX: spawnX,
-                initialY: spawnY
               });
             }
           }
