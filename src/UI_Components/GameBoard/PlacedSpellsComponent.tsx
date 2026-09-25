@@ -230,6 +230,64 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
             }
           }
 
+          if (spellClass === 'Phlegm' && anim) {
+            const rx = w * 0.44;
+            const ry = h * 0.34;
+
+            // Controls how heavily the water wheel leaks drops
+            if (Math.random() < 0.45) {
+              // Pick a random rotational angle along the wheel track to fling a drop from
+              const spawnAngle = Math.random() * Math.PI * 2;
+
+              const spawnX = w / 2 + Math.cos(spawnAngle) * rx;
+              const spawnY = h / 2 + Math.sin(spawnAngle) * ry;
+
+              // Centrifugal outward fling velocity vector based on circle orientation math
+              const flingPower = 40 + Math.random() * 50;
+              const vx = Math.cos(spawnAngle) * flingPower;
+              const vy = Math.sin(spawnAngle) * flingPower - (20 + Math.random() * 40); // Fling with an upward splash bias
+
+              anim.particles.push({
+                x: spawnX,
+                y: spawnY,
+                vx: vx,
+                vy: vy,
+                alpha: 1.0,
+                size: Math.min(w, h) * (0.001 + Math.random() * 0.015), // Scaling drop dimensions
+                color: Math.random() > 0.7 ? PALETTE.waterFroth : Math.random() > 0.4 ? PALETTE.waterMid : PALETTE.waterDeep, // Uses matching theme colors
+                life: 1.0,
+                decay: 1.2 + Math.random() * 1.0, // Lasts roughly 0.4 to 0.8 seconds
+                type: 'droplet' // Triggers your particle gravity engine block natively!
+              });
+            }
+
+
+            if (Math.random() < .02) { // Slightly lower frequency so it doesn't clutter the screen
+              // Pick a random spot anywhere inside the boundary area of the water wheel ring
+              const spawnAngle = Math.random() * Math.PI * 2;
+              const radialOffset = (0.3 + Math.random() * 0.4) * rx; // Spawns near/on the torus path
+
+              const spawnX = w / 2 + Math.cos(spawnAngle) * radialOffset;
+              const spawnY = h / 2 + Math.sin(spawnAngle) * (radialOffset * (ry / rx)); // Account for ellipse eccentricity
+
+              anim.particles.push({
+                x: spawnX,
+                y: spawnY,
+                vx: (Math.random() * 30 - 15),     // Light horizontal sway drifting left/right
+                vy: -(60 + Math.random() * 50),    // Defies gravity: floats smoothly upward
+                alpha: 1.0,
+                size: Math.min(w, h) * (0.04 + Math.random() * 0.02) * (GameBoard.NUM_ROWS + 1 - cellRows), // Scaled cleanly for 1x1, 3x3, 9x9 layouts
+                color: '#a8ff69',                  // Your radiant green healCross palette color
+                shadowColor: '#2ecc71',            // healCrossShadow color
+                rotation: Math.random() * Math.PI / 6, // Random initial orientation angle
+                vRotation: 0,//Math.random() * 1.5 - 0.75, // Tumbles gently as it rises through the air
+                life: 1.0,
+                decay: 0.1 + Math.random() * 0.3 * (GameBoard.NUM_ROWS + 1 - cellRows),  // Lasts roughly 0.6 to 1.1 seconds for an elegant float
+                type: 'healCross'                  // Activates your specialized cross layout rendering branch
+              });
+            }
+          }
+
           ctx.save();
           // 1. Move to the center of the spell bounding box
           ctx.translate(x + w / 2, y + h / 2);

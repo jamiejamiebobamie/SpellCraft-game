@@ -1,7 +1,7 @@
 import { drawEtherSpawn } from "./drawEther";
 import { drawGyre } from "./drawGyre";
 import { drawPhlegmSpawn } from "./drawPhlegm";
-import { drawQuickenSpawn } from "./drawQuicken";
+import { drawQuickenSpawn, getAsymmetricTaper } from "./drawQuicken";
 import { GameParticle } from '../../../DataClasses/types'; // or wherever you paste the interfaces
 
 export function drawProceduralSpell(
@@ -99,7 +99,7 @@ export function updateAndDrawParticles(
       ctx.rotate(p.rotation || 0);
       ctx.strokeStyle = p.color;
       ctx.lineWidth = 3;
-      ctx.globalAlpha = p.alpha;
+      ctx.globalAlpha = getAsymmetricTaper(p.alpha);
       if (p.shadowColor) {
         ctx.shadowColor = p.shadowColor;
         ctx.shadowBlur = 8;

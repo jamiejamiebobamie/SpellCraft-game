@@ -13,7 +13,6 @@ import styled from 'styled-components';
 // TO-DO: consider making all non-player placement cells fully transparent (with long opacity transition duration...) when board is not disabled
 const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>`
   position: relative;
-//   bottom:  18cqw;
   bottom:  15.5cqw;
   opacity: ${props => props.$transparency};
   transition: opacity 1s ease-in-out;
@@ -25,10 +24,6 @@ const GridContainer = styled.div<{ $wobblePhase: -1 | 0 | 1 }>`
   display: grid;
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(7, 1fr);
-  
-  /* The transition will smoothly catch the transform whenever the state changes */
-//   transition: transform ${props => props.$wobblePhase != 0 ? 1 : .25}s ease-in-out;
-//   transform: skewX(${props => props.$wobblePhase * 6}deg);
 `;
 
 const StyledCell = styled.div<{

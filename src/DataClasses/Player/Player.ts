@@ -19,7 +19,7 @@ export class Player extends UniqueId {
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 100;
   // - - FOCUS - - - - - - -
-  private static readonly FOCUS_REGEN_AMT = -4; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly FOCUS_REGEN_AMT = -2; // amt of focus restored between turns (negative for "focusDecrement" method)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
   private static readonly BLOOD_MAGIC_COST = 5; // amt of health that is spent per spell when out of focus
@@ -121,7 +121,7 @@ export class Player extends UniqueId {
   decrementFocus = (focusDecrement: number): void => {
     this.focusAmt -= focusDecrement;
     // clamp values between 0 and max
-    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT)// + Player.MAX_EXCESS_FOCUS_AMT);
+    this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT + Player.MAX_EXCESS_FOCUS_AMT);
   };
 
   /**

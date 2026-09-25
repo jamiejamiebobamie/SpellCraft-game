@@ -1,71 +1,161 @@
 import { PALETTE, FX_PALETTE } from "./ColorPalette";
 import { GameParticle } from "../../../DataClasses/types";
+
 /**
  * 2. PHLEGM (Water Wheel)
- * Oblong dynamic water ring with interior moving current, frothing, 
- * and downward dripping particle elements.
+ * An overlapping water ring reminiscent of an ouroboros, perpetually
+ * streaming into itself with jagged, crested white froth barriers.
+ * Infused with magical, glowing healing air bubbles.
  */
 export function drawPhlegm(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, time: number) {
   const cx = w / 2;
   const cy = h / 2;
-  const rx = w * 0.45;
-  const ry = h * 0.35;
+  const rx = w * 0.44;
+  const ry = h * 0.34;
+  
+  // Base reference thickness for geometry calculation
+  const baseThickness = Math.min(w, h) * 0.16;
+
+  // --- SAFE THICKNESS MULTIPLIER ---
+  const thicknessMultiplier = 1.4; 
+  const waterThickness = baseThickness * thicknessMultiplier;
+
+  // Keep wave crest sizing anchored to base metrics so it never skews or deforms
+  const crestThickness = baseThickness; 
 
   ctx.save();
   ctx.translate(cx, cy);
 
-  // Outer Water Base Layer Path
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.lineWidth = Math.min(w, h) * 0.18;
-  ctx.strokeStyle = PALETTE.waterDeep;
-  ctx.stroke();
+  // --- PARAMETERS FOR THE WATER STREAM OVERLAPS ---
+  const segments = 120; 
+  const flowSpeed = time * 0.003; 
 
-  // Middle churning current layer
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.lineWidth = Math.min(w, h) * 0.1;
-  ctx.strokeStyle = PALETTE.waterMid;
-  ctx.stroke();
+  const rippleAmp = Math.min(w, h) * 0.012;
 
-  // Churning inner current segments traveling clockwise
-  ctx.save();
-  ctx.lineWidth = Math.min(w, h) * 0.04;
-  ctx.strokeStyle = PALETTE.waterFroth;
-  // Use line dashes shifted across execution time to visualize rushing movement
-  ctx.setLineDash([w * 0.15, w * 0.2]);
-  ctx.lineDashOffset = -(time * 0.15);
-  ctx.stroke();
-  ctx.restore();
+  // Draw the stream using a massive overlap loop to emulate a continuous tubular scroll
+  for (let i = 0; i < segments; i++) {
+    const progress = i / segments;
+    const angle = progress * Math.PI * 2;
 
-  // --- DRAW SLOSHING WATER FROTH & DROPS ---
-  const dotCount = 8;
-  for (let i = 0; i < dotCount; i++) {
-    // Distribute anchor points circumferentially around the track angle
-    const baseAngle = (i / dotCount) * Math.PI * 2;
-    const currentAngle = baseAngle + (time * 0.002); // Clockwise velocity tracking
+    const rippleCount = 5;
+    const currentRipple = Math.sin(angle * rippleCount - time * 0.006) * rippleAmp;
 
-    const fx = Math.cos(currentAngle) * rx;
-    const fy = Math.sin(currentAngle) * ry;
+    const currentRx = rx + currentRipple;
+    const currentRy = ry + currentRipple;
 
-    // White foam nodes
-    ctx.fillStyle = PALETTE.waterFroth;
-    ctx.beginPath();
-    ctx.arc(fx, fy, Math.min(w, h) * (0.02 + Math.sin(time * 0.01 + i) * 0.01), 0, Math.PI * 2);
-    ctx.fill();
+    const fx = Math.cos(angle) * currentRx;
+    const fy = Math.sin(angle) * currentRy;
 
-    // Cascading falling water drops (skewed downwards)
-    if (i % 2 === 0) {
-      const dropOffset = ((time * 0.05 + i * 20) % (h * 0.3));
-      ctx.fillStyle = 'rgba(52, 152, 219, 0.6)';
+    ctx.save();
+    ctx.translate(fx, fy);
+    ctx.rotate(angle + Math.PI / 2);
+
+    const sliceGrad = ctx.createLinearGradient(-waterThickness / 2, 0, waterThickness / 2, 0);
+    sliceGrad.addColorStop(0.0, 'rgba(40, 200, 170, 0.15)');  
+    sliceGrad.addColorStop(0.2, PALETTE.waterMid || '#40e0d0'); 
+    sliceGrad.addColorStop(0.8, PALETTE.waterDeep || '#008b8b'); 
+    sliceGrad.addColorStop(1.0, 'rgba(0, 70, 80, 0.4)');
+
+    ctx.fillStyle = sliceGrad;
+    ctx.fillRect(-waterThickness / 2, -2, waterThickness, 6);
+    ctx.restore();
+
+    // ==========================================
+    // --- NEW: EMISSIVE HEALING AIR BUBBLES ---
+    // ==========================================
+    // Check indices to distribute small air bubbles evenly throughout the stream
+    if (i % 8 === 0) {
+      ctx.save();
+      
+      // Calculate a moving offset around the loop based on execution time
+      const bubbleAngle = angle + flowSpeed * 1.5; 
+      
+      // Add a localized wobble crosswise inside the thickness of the tube
+      const innerWobbleX = Math.sin(time * 0.005 + i) * (waterThickness * 0.25);
+      
+      // Recalculate positions based on the moving track coordinates
+      const bRipple = Math.sin(bubbleAngle * 5 - time * 0.006) * rippleAmp;
+      const bx = Math.cos(bubbleAngle) * (rx + bRipple) + Math.cos(bubbleAngle + Math.PI / 2) * innerWobbleX;
+      const by = Math.sin(bubbleAngle) * (ry + bRipple) + Math.sin(bubbleAngle + Math.PI / 2) * innerWobbleX;
+
+      ctx.translate(bx, by);
+
+      // Pulse bubble scale using frequency modulation
+      const bubbleRadius = Math.min(w, h) * (0.008 + Math.abs(Math.sin(time * 0.01 + i)) * 0.006);
+
+      // Create a luminous radial bubble gradient using your exact healing colors
+      const bubbleGrad = ctx.createRadialGradient(0, 0, bubbleRadius * 0.1, 0, 0, bubbleRadius);
+      bubbleGrad.addColorStop(0.0, '#ffffff');             // Incandescent air center
+      bubbleGrad.addColorStop(0.4, '#a8ff69');             // Core healing cross color
+      bubbleGrad.addColorStop(1.0, 'rgba(46, 204, 113, 0)'); // Fades out at edges into shadow color
+
       ctx.beginPath();
-      ctx.arc(fx, fy + dropOffset, Math.min(w, h) * 0.015, 0, Math.PI * 2);
+      ctx.arc(0, 0, bubbleRadius, 0, Math.PI * 2);
+      ctx.fillStyle = bubbleGrad;
+
+      // Inject the radiant neon green aura shadow blur properties
+      ctx.shadowColor = '#2ecc71'; // healCrossShadow constant
+      ctx.shadowBlur = bubbleRadius * 2.5;
+
       ctx.fill();
+      ctx.restore();
     }
+  }
+
+  // --- DRAW JAGGED FROTH CRESTS (THE WHITE BARRIERS) ---
+  const crestCount = 4; 
+  ctx.lineJoin = 'miter';
+  ctx.miterLimit = 4;
+
+  for (let c = 0; c < crestCount; c++) {
+    const crestBaseAngle = (c / crestCount) * Math.PI * 2 + flowSpeed;
+
+    ctx.save();
+    ctx.fillStyle = PALETTE.waterFroth || '#ffffff';
+    ctx.strokeStyle = PALETTE.waterFroth || '#ffffff';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+
+    const teeth = 5;
+    for (let t = 0; t <= teeth; t++) {
+      const widthRatio = t / teeth; 
+      const currentThick = -crestThickness / 2 + crestThickness * widthRatio;
+      const toothForwardJut = (t % 2 === 0) ? (crestThickness * 0.35) : 0;
+
+      const targetAngle = crestBaseAngle + (toothForwardJut / rx);
+      const ripple = Math.sin(targetAngle * 5 - time * 0.006) * rippleAmp;
+      
+      const tx = Math.cos(targetAngle) * (rx + ripple) + Math.cos(targetAngle + Math.PI/2) * currentThick;
+      const ty = Math.sin(targetAngle) * (ry + ripple) + Math.sin(targetAngle + Math.PI/2) * currentThick;
+
+      if (t === 0) ctx.moveTo(tx, ty);
+      else ctx.lineTo(tx, ty);
+    }
+
+    const backAngle = crestBaseAngle - 0.14; 
+    const steps = 6;
+    for (let s = steps; s >= 0; s--) {
+      const stepRatio = s / steps;
+      const currentThick = -crestThickness / 2 + crestThickness * stepRatio;
+      const tAngle = backAngle + (Math.sin(stepRatio * Math.PI) * 0.04);
+      const ripple = Math.sin(tAngle * 5 - time * 0.006) * rippleAmp;
+
+      const bx = Math.cos(tAngle) * (rx + ripple) + Math.cos(tAngle + Math.PI/2) * currentThick;
+      const by = Math.sin(tAngle) * (ry + ripple) + Math.sin(tAngle + Math.PI/2) * currentThick;
+      ctx.lineTo(bx, by);
+    }
+
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 
   ctx.restore();
 }
+
+
 
 /**
  * 2. PHLEGM DESTRUCTION (Water Wheel)
@@ -105,7 +195,7 @@ export function drawPhlegmSpawn(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.save();
   // Modify time variable to spin 4x faster during the creation state transition
   const fastTime = progress < 1 ? time * 4 * progress : time;
-  
+
   ctx.translate(w / 2, h / 2);
   ctx.scale(progress, progress); // Expand outward
   ctx.translate(-w / 2, -h / 2);
@@ -129,8 +219,8 @@ export function spawnPhlegmHitParticles(particles: GameParticle[], targetX: numb
       vy: -(Math.random() * 60 + 40), // Smooth, floaty drift upward
       alpha: 1.0,
       size: Math.random() * 8 + 6,     // Size dictates the length of the cross arms
-      color: '#a8ff69',
-      shadowColor: '#2ecc71',
+      color: FX_PALETTE.healCross,
+      shadowColor: FX_PALETTE.healCrossShadow,
       rotation: Math.random() * Math.PI,
       vRotation: Math.random() * 2 - 1, // Tumbles gently in the air
       life: 1.0,

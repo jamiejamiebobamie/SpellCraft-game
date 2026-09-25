@@ -72,7 +72,8 @@ export function drawEther(ctx: CanvasRenderingContext2D, w: number, h: number, d
   const coreGrad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
   coreGrad.addColorStop(.3 - Math.sin(time / 1000) * .2, PALETTE.fireCore);
   coreGrad.addColorStop(0.7, PALETTE.fireMid);
-  coreGrad.addColorStop(1, PALETTE.fireOuter);
+  coreGrad.addColorStop(0.9, PALETTE.fireOuter);
+  coreGrad.addColorStop(1, 'transparent');
 
   ctx.beginPath();
   ctx.arc(0, 0, pulsatingRadius, 0, Math.PI * 2);

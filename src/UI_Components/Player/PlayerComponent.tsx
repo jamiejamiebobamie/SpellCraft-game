@@ -51,7 +51,7 @@ const BarTextContainer = styled.div<{ $direction: 1 | -1, $pct: number }>`
     
     /* Pin to the top-left and take full area */
     top: 0;
-    ${props => props.$direction == -1 ? `left: ${props.$pct > 12 ? `${props.$pct - 9}%`  : '.9dvw'};` : `right: ${props.$pct > 12 ?  `${props.$pct - 9}%` : '.9dvw'};`}
+    ${props => props.$direction == -1 ? `left: ${props.$pct > 12 ? `${props.$pct - 9}%` : '.9dvw'};` : `right: ${props.$pct > 12 ? `${props.$pct - 9}%` : '.9dvw'};`}
     
     transition: left 1s, right 1s;
     // width: 100%;
@@ -94,7 +94,6 @@ const FocusContainer = styled.div<{ $direction: 1 | -1 }>`
     align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
     padding: 1cqw 0cqw;// 3cqw .2cqw 2cqw;
     justify-content: space-around;
-    // ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
     gap: 0.4cqw;
     align-items: center;
     min-height: 1.1cqw; 
@@ -133,12 +132,12 @@ const FocusBadge = styled.div<{ key: number, $i: number, $focusAmt: number, $isP
     background: ${props => props.$i < props.$focusAmt ? '#6aadd9' : 'transparent'};
     transition: filter .5s, background 0.2s;
     animation: ${props => !!props.$isPlayerOutOfFocus && noFocusFlash} 1.5s linear infinite;
-    // opacity: .7;
     ${props => props.$i < props.$focusAmt && 'filter: drop-shadow(0px 0px 5px #6aadd9);'}
 `;
 
 const ExcessFocusBadge = styled(FocusBadge)`
-    ${props => props.$i < props.$focusAmt ? 'border: 0.12cqw solid #777;' : `border: 0; width: .87cqw; height: .87cqw;`}
+    ${props => props.$i < props.$focusAmt ? 'filter: drop-shadow(0px 0px 5px #6aadd9);' : `border: 0; width: .87cqw; height: .87cqw;`}
+    animation: none;
 `;
 import { Dispatch, SetStateAction } from 'react';
 
@@ -297,17 +296,12 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
   </BarBorder >);
 
   const focusDots = (
-    <>
-      {/* STORED FOCUS */}
-
       <FocusContainer $direction={direction}>
-        {Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+        {/* STORED FOCUS */}
+        {direction == -1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={playerSnap.getMaxFocus() - i - 1} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+        {/* EXCESS STORED FOCUS */}
+        {direction == 1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       </FocusContainer>
-      {/* EXCESS STORED FOCUS */}
-      {/* <FocusContainer>
-        {Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} />)}
-      </FocusContainer> */}
-    </>
   );
 
   /*
