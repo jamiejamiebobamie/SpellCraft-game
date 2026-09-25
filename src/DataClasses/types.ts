@@ -72,7 +72,10 @@ export interface GameParticle {
   vRotation?: number;     // Optional rotational speed (radians per second)
   life: number;           // Remaining lifetime index tracking (starts at 1.0)
   decay: number;          // How quickly life ticks down to 0 per second
-  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail'; // Optional tag to apply unique custom behaviors
+  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail' | 'etherFlame'; // Optional tag to apply unique custom behaviors
+  radius?: number;        // Size of Fireball (for Ether)
+  initialX?: number;              // Current X position on the canvas
+  initialY?: number;              // Current Y position on the canvas
 }
 
 export interface SpellAnimTracker {

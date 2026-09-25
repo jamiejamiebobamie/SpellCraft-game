@@ -197,6 +197,50 @@ export function updateAndDrawParticles(
       ctx.stroke();
       ctx.restore();
     }
+    else if (p.type === 'etherFlame' && !!p.radius && !!p.initialX && !!p.initialY && Math.abs(p.initialX - p.x) > p.radius && Math.abs(p.initialY - p.y) > p.radius) {
+      // Calculate normalized lifespan progression: 0.0 (fresh birth) -> 1.0 (dead)
+      const ageProgress = 1.0 - p.life;
+
+      // Interpolate colors beautifully across the particle lifetime
+      let h = 0, s = 0, l = 0;
+      if (ageProgress < 0.35) {
+        // Stage 1: Fiery Bright Core Red-Orange (HSL 15 -> 28)
+        const t = ageProgress / 0.35;
+        h = 15 + (28 - 15) * t;
+        s = 95 - 15 * t; // Pure vivid saturation dropping slightly
+        l = 60 - 20 * t; // Blazing luminescent center dropping down
+      } else if (ageProgress < 0.7) {
+        // Stage 2: Cool Dark Smoky Brown (HSL 28 -> 20)
+        const t = (ageProgress - 0.35) / 0.35;
+        h = 28 - (8 * t);
+        s = 80 - 45 * t; // Heavy structural desaturation
+        l = 40 - 22 * t; // Drop down into dark ground earth shades
+      } else {
+        // Stage 3: Ashen Decay Black (HSL 20 -> 0)
+        const t = (ageProgress - 0.7) / 0.3;
+        h = 20 - (20 * t);
+        s = 35 - (35 * t); // Fully wash remaining colors out into true grayscale charcoal
+        l = 18 - (10 * t); // Extremely dark ash glow
+      }
+
+      p.color = `hsl(${h}, ${s}%, ${l}%)`;
+
+      ctx.save();
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+
+      // Only draw glows while the flame is highly incandescent
+      if (ageProgress < 0.4) {
+        ctx.shadowColor = 'rgb(240, 100, 40)';
+        ctx.shadowBlur = p.life * 14;
+      }
+
+      ctx.beginPath();
+      // Particles shrink organically as they consume their fuel and burn out
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     else {
       // --- Default Falling Water Drops, Fire Embers, and Large Fading Fire Puffs ---
       // If a fire ember/puff has no type, let it shrink away gracefully as it burns out

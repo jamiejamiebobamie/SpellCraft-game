@@ -8,6 +8,7 @@ import { spawnEtherParticles, spawnEtherHitParticles } from './RenderSpells/draw
 import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './RenderSpells/drawPhlegm';
 import { spawnGyreParticles, spawnGyreHitParticles } from './RenderSpells/drawGyre';
 import { SpellAnimTracker } from '../../DataClasses/types'
+import { PALETTE } from './RenderSpells/ColorPalette';
 
 const CanvasOverlay = styled.canvas`
   position: absolute;
@@ -193,8 +194,39 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
         }
 
         const shouldDrawMainSpell = !isRemove;
-
         if (shouldDrawMainSpell) {
+          // --- SPAWN TRAILING ETHER FLAMES ---
+          if (spellClass === 'Ether' && anim) {
+            const cx = w / 2 + w / 10;
+            const cy = h / 2;
+            const radius = Math.min(w, h) * 0.3;
+            const bobY = Math.sin(currentTime * 0.005) * (h * 0.04);
+
+            // Adjust spawn frequency rate (0.5 means a 50% chance to emit a particle every engine tick)
+            if (Math.random() < 0.5) {
+              // Emit slightly variant from the back-left trailing surface of the core sphere
+              const spawnX = cx + (Math.random() - 0.85) * (radius * 0.75);
+              const spawnY = cy + bobY + (Math.random() - 0.5) * (radius * 0.75);
+
+              anim.particles.push({
+                x: spawnX,
+                y: spawnY,
+                // Shoots backward to the left and floats up thermally
+                vx: -(140 + Math.random() * 70),
+                vy: -(50 + Math.random() * 35),
+                alpha: 1.0,
+                size: radius * (0.22 + Math.random() * 0.07),
+                color: PALETTE.fireCore, // Initial filler (overridden by update color transitions)
+                life: 1.0,
+                decay: 1 + Math.random() * 0.7, // Lasts roughly 0.5 to 0.9 seconds
+                type: 'etherFlame',
+                radius,
+                initialX: spawnX,
+                initialY: spawnY
+              });
+            }
+          }
+
           ctx.save();
           // 1. Move to the center of the spell bounding box
           ctx.translate(x + w / 2, y + h / 2);
