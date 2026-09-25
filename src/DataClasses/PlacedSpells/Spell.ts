@@ -34,6 +34,8 @@ export abstract class Spell extends UniqueId {
   gyreLives: number = 0; // Gyre specific property
   empoweredDmgHealth: number = 0;
   empoweredSpeedDirection: number = 0;
+  widthCells: number = 1;
+  heightCells: number = 1;
 
   // TO-DO: show on GameLog and GameBoard so player can understand a spell's current state based on past collisions...
   consumedEthers: number = 0;

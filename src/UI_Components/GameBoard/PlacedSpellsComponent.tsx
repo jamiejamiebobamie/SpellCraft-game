@@ -2,7 +2,12 @@ import React, { useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { Game } from '../../DataClasses/Game';
-import { drawProceduralSpell } from './RenderSpells/renderSpells';
+import { drawProceduralSpell, updateAndDrawParticles } from './RenderSpells/renderSpells';
+import { spawnQuickenParticles, spawnQuickenHitParticles } from './RenderSpells/drawQuicken';
+import { spawnEtherParticles, spawnEtherHitParticles } from './RenderSpells/drawEther';
+import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './RenderSpells/drawPhlegm';
+import { spawnGyreParticles, spawnGyreHitParticles } from './RenderSpells/drawGyre';
+import { SpellAnimTracker } from '../../DataClasses/types'
 
 const CanvasOverlay = styled.canvas`
   position: absolute;
@@ -25,6 +30,9 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
 
   // Cached layout measurements of the actual game board (NOT the full canvas)
   const boardLayoutRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  // Local cache for time-based animation data and destruction particles
+  const animStatesRef = useRef<Map<string, SpellAnimTracker>>(new Map());
 
   // 1. Observe the game board element's size asynchronously
   useEffect(() => {
@@ -72,8 +80,12 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
     if (!ctx) return;
 
     let animationFrameId: number;
+    let lastTime = performance.now();
 
     const render = (currentTime: number) => {
+      const deltaTime = (currentTime - lastTime) / 1000; // time elapsed in seconds
+
+      lastTime = currentTime;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Gracefully guard against moments where references are initializing
@@ -93,39 +105,116 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
 
       placedSpells.forEach((spell: any) => {
 
-        // 1. Fetch cell span dimensions directly
+        // Inside your placedSpells.forEach iteration block:
+        const id = spell.id;
+        const spellClass = spell.constructor.name;
+
+        // Gather geometric sizes
         const cellCols = spell.getPropertyValue?.('widthCells') || 1;
         const cellRows = spell.getPropertyValue?.('heightCells') || 1;
         const w = cellWidthPx * cellCols;
         const h = cellHeightPx * cellRows;
 
-        // Derive canvas translation using the precise board tracking reference
-        const { x, y } = calculateCanvasCoordinates(
-          spell,
-          canvas.width,
-          canvas.height,
-          cellWidthPx,
-          cellHeightPx
-        );
-
+        const { x, y } = calculateCanvasCoordinates(spell, canvas.width, canvas.height, cellWidthPx, cellHeightPx);
         const dir = Math.sign(spell.getPropertyValue('speedDirection')) || 1;
 
-        ctx.save();
+        // Inside your placedSpells.forEach processing loop:
+        if (!animStatesRef.current.has(id)) {
+          animStatesRef.current.set(id, {
+            spawnProgress: 0,
+            deathProgress: 0,
+            hasSpawnedParticles: false,
+            particles: []
+          });
+        }
+        const anim = animStatesRef.current.get(id)!;
 
-        // 3. Move the canvas origin to the absolute CENTER of the spell's total width and height
-        ctx.translate(x + w / 2, y + h / 2);
+        // Advance spawn progress over time if it hasn't finished
+        if (anim.spawnProgress < 1) {
+          anim.spawnProgress = Math.min(1, anim.spawnProgress + deltaTime * 4.0); // ~0.25s duration
+        }
 
-        // 4. Perform the horizontal flip safely around the center axis
-        ctx.scale(dir, 1);
+        // Inside your placedSpells.forEach iteration loop:
+        const cellIndex = spell.getCellIndex();
+        const isRemove = spell.getIsRemove?.() || false;
 
-        // 5. Shift back by half the width/height so drawing code can still treat (0,0) as the top-left
-        ctx.translate(-w / 2, -h / 2);
+        if (isRemove) {
+          anim.deathProgress = Math.min(1, anim.deathProgress + deltaTime * 2.5);
 
-        // Execute procedural vectors using calculations driven by the board's scale
-        drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime);
+          if (!anim.hasSpawnedParticles) {
+            anim.hasSpawnedParticles = true;
 
-        ctx.restore();
-      });
+            // Detect if collision occurred on the edge columns
+            const isPlayerHit = cellIndex.j <= 0;
+            const isOpponentHit = cellIndex.j >= GameBoard.NUM_COLS - 1;
+
+            if (isPlayerHit || isOpponentHit) {
+              // --- FIXED CHARACTER ANCHOR POSITION MATH ---
+
+              // 1. Calculate the absolute pixel bounds for the edges of your actual board
+              const boardLeftEdgeX = canvas.width / 2 - boardWidth / 2;
+              const boardRightEdgeX = canvas.width / 2 + boardWidth / 2;
+              const boardTopEdgeY = canvas.height / 2 - boardHeight / 2;
+
+              // 2. Set the Y anchor to the center of the SECOND row (Index 1)
+              const targetGlobalY = boardTopEdgeY + (cellHeightPx * 1.5);
+
+              // 3. Set the X anchor to 1.5 cell-widths past the respective edges
+              const targetGlobalX = isPlayerHit
+                ? boardLeftEdgeX - (cellWidthPx * 1.5)  // 1.5 cells to the left of column 0
+                : boardRightEdgeX + (cellWidthPx * 1.5); // 1.5 cells to the right of last column
+
+              // 4. Translate these absolute canvas numbers into the local particle context space
+              // (Because our canvas container drawing context translates to 'x' and 'y' for this spell)
+              const targetLocalX = targetGlobalX - x;
+              const targetLocalY = targetGlobalY - y;
+
+              // --- TRIGGER HIT IMPACT FACTORIES ---
+              if (spellClass === 'Quicken') {
+                spawnQuickenHitParticles(anim.particles, targetLocalX, targetLocalY, boardHeight);
+              } else if (spellClass === 'Ether') {
+                spawnEtherHitParticles(anim.particles, targetLocalX, targetLocalY, boardHeight);
+              } else if (spellClass === 'Phlegm') {
+                spawnPhlegmHitParticles(anim.particles, targetLocalX, targetLocalY, boardHeight);
+              } else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') {
+                const sweepDir = isOpponentHit ? 'right' : 'left';
+                // Pass cellWidthPx so the wind trail knows where the board boundary sits
+                spawnGyreHitParticles(anim.particles, targetLocalX, targetLocalY, sweepDir, cellWidthPx);
+              }
+
+            } else {
+              // --- REGULAR FIELD-OF-PLAY DESTRUCTION BLOCK ---
+              if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
+              else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
+              else if (spellClass === 'Phlegm') spawnPhlegmParticles(anim.particles, w, h);
+              else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreParticles(anim.particles, w, h);
+            }
+          }
+        }
+
+        const shouldDrawMainSpell = !isRemove;
+
+        if (shouldDrawMainSpell) {
+          ctx.save();
+          // 1. Move to the center of the spell bounding box
+          ctx.translate(x + w / 2, y + h / 2);
+          ctx.scale(dir, 1);
+          ctx.translate(-w / 2, -h / 2);
+
+          // 2. Pass spawnProgress as a clean parameter into your drawing router function
+          drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress);
+
+          ctx.restore();
+        }
+
+        // Render destruction/spawn ambient particles if any exist
+        if (anim.particles.length > 0) {
+          ctx.save();
+          ctx.translate(x, y);
+          updateAndDrawParticles(ctx, anim.particles, deltaTime);
+          ctx.restore();
+        }
+      })
 
       animationFrameId = requestAnimationFrame(render);
     };

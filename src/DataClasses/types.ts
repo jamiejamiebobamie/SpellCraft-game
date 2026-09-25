@@ -8,7 +8,7 @@ export type CellIndex = {
   j: number; // Column index
 };
 
-export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens';
+export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 
@@ -58,3 +58,26 @@ export class NPCMoveData extends UniqueId {
   }
 
 };
+
+export interface GameParticle {
+  x: number;              // Current X position on the canvas
+  y: number;              // Current Y position on the canvas
+  vx: number;             // Horizontal velocity (pixels per second)
+  vy: number;             // Vertical velocity (pixels per second)
+  alpha: number;          // Transparency layer factor (1.0 down to 0.0)
+  size: number;           // Radius/diameter of circles, or width of wind lines
+  color: string;          // Hex, rgb, or rgba string color format
+  shadowColor?: string;   // Optional drop shadow color styling for magic glows
+  rotation?: number;      // Optional current angle orientation (in radians)
+  vRotation?: number;     // Optional rotational speed (radians per second)
+  life: number;           // Remaining lifetime index tracking (starts at 1.0)
+  decay: number;          // How quickly life ticks down to 0 per second
+  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail'; // Optional tag to apply unique custom behaviors
+}
+
+export interface SpellAnimTracker {
+  spawnProgress: number;
+  deathProgress: number;
+  hasSpawnedParticles: boolean;
+  particles: GameParticle[]; // Handles ANY style of destruction particles
+}
