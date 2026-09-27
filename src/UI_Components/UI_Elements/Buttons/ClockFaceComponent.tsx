@@ -3,7 +3,13 @@ import styled, { css, keyframes } from 'styled-components';
 import { Game } from '../../../DataClasses/Game';
 import { useSnapshot } from 'valtio';
 
-const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
+
+const flashClockFace = keyframes`
+  0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
+  50% { filter: drop-shadow(0 0 .5cqw white) brightness(1.05); }
+`;
+
+const MenuAnchor = styled.div<{ $isDisabled: boolean, $isFlashClock: boolean }>`
   position: absolute;
   top: 4.8cqw;   
   left: 45cqw; 
@@ -12,8 +18,9 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean }>`
   cursor: pointer;
   padding: 0.5cqw;
   border-radius: 50%;
-  transition: filter .5s;
+  transition: filter 1s;
   ${props => props.$isDisabled ? 'filter: drop-shadow(0 0 .5cqw white) brightness(1);' : 'filter: drop-shadow(0 0 .5cqw white) brightness(.7);'}
+  ${props => !props.$isDisabled && props.$isFlashClock && css`animation: ${flashClockFace} 2.5s ease-in-out infinite;`}
   &:hover{
     filter: drop-shadow(0 0 .5cqw white) brightness(1);
   }
@@ -179,7 +186,7 @@ export default function ClockFaceComponent({
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
-
+  const isPlayerOutOfFocus = !snap.getHasFocus();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Rotation angles (minute, hour)
@@ -245,6 +252,7 @@ export default function ClockFaceComponent({
     {/* SVG clock elements */}
     <MenuAnchor
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
+      $isFlashClock={!isHovered && isPlayerOutOfFocus}
       onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

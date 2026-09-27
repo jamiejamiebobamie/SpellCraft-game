@@ -291,7 +291,7 @@ export class Game {
 
   getHasFocus = (): boolean => {
     if (this.humanPlayer) {
-      return this.humanPlayer?.getFocus() > 0;
+      return this.humanPlayer.getFocus() > 0;
     } else return false;
   }
 
@@ -520,6 +520,7 @@ export class Game {
         this.setIsDoneWithTurn(true, this.humanPlayer);
       }
     }
+    this.forceUpdate();
   }
 
   instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
