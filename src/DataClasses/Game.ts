@@ -16,6 +16,9 @@ import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point, NPC
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { proxy } from 'valtio';
 
+// TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
+
+
 export const GameOverStatus = {
   BothDead: 0,
   PlayerWon: 1,
