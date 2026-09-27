@@ -342,8 +342,8 @@ export class Game {
     if (this.humanPlayer) {
       const gameSymbol = this.humanPlayer.getGameSymbol();
       if (gameSymbol) {
-        const SpellClass = GameSymbol.SPELL_LOOKUP.get(gameSymbol.symbolName)
-        return SpellClass ? `spell-icons/${SpellClass.name}Icon_mockup.png` : '';
+        const SpellClass = GameSymbol.SPELL_LOOKUP.get(gameSymbol.symbolName);
+        return SpellClass ? `spell-icons/${SpellClass.spellName}Icon_mockup.png` : '';
       }
     }
     return '';

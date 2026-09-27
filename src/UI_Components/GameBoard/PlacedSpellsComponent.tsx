@@ -108,7 +108,7 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
 
         // Inside your placedSpells.forEach iteration block:
         const id = spell.id;
-        const spellClass = spell.constructor.name;
+        const spellClass = spell.constructor.spellName;
 
         // Gather geometric sizes
         const cellCols = spell.getPropertyValue?.('widthCells') || 1;

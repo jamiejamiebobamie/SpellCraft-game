@@ -8,7 +8,7 @@ import { proxy } from 'valtio';
 // TO-DO: have Gyre's be like Phlegms: destroyed when consumed...
 export abstract class Spell extends UniqueId {
   // Constants & Core Properties
-  readonly spellName: string;
+  static readonly spellName: string;
   readonly caster: Player;
   protected static readonly focusCost: number = 0;
   cellIndex!: CellIndex;
@@ -62,17 +62,16 @@ export abstract class Spell extends UniqueId {
   readonly primaryModifiers: Array<SpellPropertyName> = [];
   readonly secondaryModifiers: Array<SpellPropertyName> = [];
 
-  constructor(spellName: string, caster: Player) {
+  constructor(caster: Player) {
     super();
-    this.spellName = spellName;
     this.caster = caster;
     this.speedDirection = caster.getDirection();
     this.key = String(Math.random());
   }
 
-  // --- Getters & Setters (Using arrow functions to preserve 'this' context) ---
   getSpellName = (): string => {
-    return this.spellName;
+    const currentClass = this.constructor as any;
+    return currentClass.spellName || "Unknown Spell";
   };
 
   getSpellIcon = (): string => {
@@ -308,12 +307,13 @@ export abstract class Spell extends UniqueId {
 export class Phlegm extends Spell {
   protected static readonly focusCost: number = 1;
 
+  static readonly spellName = "Phlegm";
 
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
   constructor(caster: Player) {
-    super('Phlegm', caster);
+    super(caster);
     this.dmgHealth = -4; // Heal 
     this.spellIconUrl = 'spell-icons/PhlegmIcon_mockup.png';
   }
@@ -356,11 +356,13 @@ export class Phlegm extends Spell {
 export class Ether extends Spell {
   protected static readonly focusCost: number = 1;
 
+  static readonly spellName = "Ether";
+
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
   constructor(caster: Player) {
-    super('Ether', caster);
+    super(caster);
     this.dmgHealth = 10;
     this.spellIconUrl = 'spell-icons/EtherIcon_mockup.png';
   }
@@ -403,7 +405,7 @@ export abstract class Gyre extends Spell {
   secondaryModifiers: Array<SpellPropertyName> = ['dmgHealth', 'speedDirection'];
 
   constructor(caster: Player) {
-    super('Gyre', caster);
+    super(caster);
     this.dmgHealth = 4;
     this.gyreLives = 4;
     this.empoweredColor = '#ddd8d8';
@@ -484,6 +486,8 @@ export abstract class Gyre extends Spell {
 }
 
 export class GyreUp extends Gyre {
+  static readonly spellName = "GyreUp";
+
   constructor(caster: Player) {
     super(caster);
     this.rowShift = -1;
@@ -492,6 +496,9 @@ export class GyreUp extends Gyre {
 }
 
 export class GyreDown extends Gyre {
+
+  static readonly spellName = "GyreDown";
+
   constructor(caster: Player) {
     super(caster);
     this.rowShift = 1;
@@ -502,11 +509,14 @@ export class GyreDown extends Gyre {
 export class Quicken extends Spell {
   protected static readonly focusCost: number = 1;
 
+  static readonly spellName = "Quicken";
+
+
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth', 'speedDirection',];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift'];
 
   constructor(caster: Player) {
-    super('Quicken', caster);
+    super(caster);
     this.dmgHealth = 5;
     this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
     this.speedDirection *= 1;

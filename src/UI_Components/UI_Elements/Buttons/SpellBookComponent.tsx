@@ -337,23 +337,23 @@ export default function SpellBookComponent() {
     return (<ColumnGroup
       $index={i}
       $isClicked={isClicked}
-      key={spellClass.name}
-      onClick={() => setClickedSpell(spellClass.name)}
+      key={spellClass.spellName}
+      onClick={() => setClickedSpell(spellClass.spellName)}
       onMouseEnter={() => {
-        setHoveredSpell(spellClass.name);
+        setHoveredSpell(spellClass.spellName);
         rootGameStore.setHoveredSpellBookSpell(spellClass)
       }}
       onMouseLeave={() => {
         setHoveredSpell(null);
         rootGameStore.setHoveredSpellBookSpell(null);
       }}
-      $isNotHovered={!!activatedSpell && activatedSpell != spellClass.name}
+      $isNotHovered={!!activatedSpell && activatedSpell != spellClass.spellName}
     >
-      <SquareImage src={`spell-icons/${spellClass.name}Icon_mockup.png`} draggable="false" alt="SpellImg" />
+      <SquareImage src={`/spell-icons/${spellClass.spellName}Icon_mockup.png`} draggable="false" alt="SpellImg" />
       <CanvasContainer>
         <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.3} loopDelay={4000} isLooped={isOpen} />
       </CanvasContainer>
-      <SpellInfo $isHoveredSpell={!!activatedSpell && activatedSpell == spellClass.name}>
+      <SpellInfo $isHoveredSpell={!!activatedSpell && activatedSpell == spellClass.spellName}>
         {activatedSpell && displayNameLookup.get(activatedSpell)}
       </SpellInfo>
     </ColumnGroup>)

@@ -29,7 +29,7 @@ export function drawProceduralSpell(
     ctx.translate(-w / 2, -h / 2);
   }
 
-  const spellClass = spell.constructor.name;
+  const spellClass = spell.constructor.spellName;
 
   if (spellClass === 'Ether') {
     drawEtherSpawn(ctx, w, h, dir, time, spawnProgress);

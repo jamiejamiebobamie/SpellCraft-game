@@ -17,7 +17,18 @@ export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal';
 // export type EmpoweredPng = 'Singular' | 'Beginning' | 'Middle' | 'End';
 // export type EmpoweredPng = 0 | 1 | 2 | 3;
 
-export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | GyreUp | GyreDown;
+// export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | GyreUp | GyreDown;
+
+export type SpellInstance = Quicken | Ether | Phlegm | GyreUp | GyreDown;
+
+// This defines what the Class itself looks like, including its static properties
+export interface SpellClassBlueprint {
+  readonly spellName: string; 
+  new (caster: Player): SpellInstance;
+}
+
+// Update this to use your new blueprint type wherever you store your list of spells
+export type SpellConstructor = SpellClassBlueprint;
 
 export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle' | 'SKIP'; // 'SKIP' for NPC AI
 
