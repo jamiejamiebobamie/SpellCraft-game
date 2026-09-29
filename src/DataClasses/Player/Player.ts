@@ -28,7 +28,7 @@ export class Player extends UniqueId {
   healthAmt: number = Player.MAX_HEALTH_AMT;
   focusAmt: number = Player.MAX_FOCUS_AMT;
   gameSymbol: GameSymbol | null = null;
-  isDoneWithTurn: boolean = false;// true;
+  isDoneWithTurn: boolean = true;
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string) {
     super();

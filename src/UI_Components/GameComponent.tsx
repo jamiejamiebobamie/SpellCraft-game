@@ -106,7 +106,7 @@ export const GameComponent = () => {
 
     clearInterval(testRef.current);
 
-    rootGameStore.doNpcMove();
+    // rootGameStore.doNpcMove();
 
     // TESTING
     // const intervalTime = 6000;
