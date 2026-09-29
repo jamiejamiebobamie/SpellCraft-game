@@ -1,9 +1,7 @@
 
 import React, { useState, useEffect, useRef, useReducer, useCallback, RefObject } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
-import { Game } from '../DataClasses/Game';
-import { PlacedSpells } from '../DataClasses/PlacedSpells/PlacedSpells';
-import SpellCanvasComponent from './SpellCanvas/SpellCanvasComponent';
+import { PlacedSpellsComponent } from './GameBoard/PlacedSpellsComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
 import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
@@ -108,6 +106,8 @@ export const GameComponent = () => {
 
     clearInterval(testRef.current);
 
+    rootGameStore.doNpcMove();
+
     // TESTING
     // const intervalTime = 6000;
     // const multiplier = 5;
@@ -160,7 +160,21 @@ export const GameComponent = () => {
       <GameWrapper
         ref={gameWrapperRef}
         // $isPlacingGameSymbol={!!gameSymbolIcon}
+        onTouchMove={handleMouseMove}
         onMouseMove={handleMouseMove}
+        onTouchStart={(e: React.MouseEvent<HTMLDivElement>) => {
+          const target = e.target as HTMLElement;
+          const isUiButton = target.closest('[data-click-type="ui-buttons"]');
+          if (isUiButton || rootGameStore.getIsDrawing()) return;
+
+          if (rootGameStore.getHasFocus()) {
+            rootGameStore.beginDrawing();
+
+          } else
+            if (!rootGameStore.getHasFocus()) {
+              setIsPlayerOutOfFocus(true);
+            }
+        }}
         onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
           const target = e.target as HTMLElement;
           const isUiButton = target.closest('[data-click-type="ui-buttons"]');
@@ -186,20 +200,25 @@ export const GameComponent = () => {
           rootGameStore.endDrawing();
           rootGameStore.runInference();
         }}
+        onTouchEnd={() => {
+          setIsPlayerOutOfFocus(false);
+          if (!rootGameStore.getIsDrawing()) return;
+          rootGameStore.endDrawing();
+          rootGameStore.runInference();
+        }}
       >
+        <PlacedSpellsComponent rootGameStore={rootGameStore} gridOverlayRef={gridOverlayRef} />
         <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />
         <ChandelierComponent right={'22.5cqw'} />
         {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
         <SpellBookComponent rootGameStore={rootGameStore} />
         <NpcDifficultyComponent />
         <ClockFaceComponent rootGameStore={rootGameStore} />
-        <SpellCanvasComponent rootGameStore={rootGameStore} />
         {/* LEFT COLUMN: PLAYER */}
         <PlayerComponent playerSnap={playerOneSnap} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus} />
         {/* CENTER COLUMN: CANVAS GRID MATRIX */}
         <MainColumn>
           <GameBoardComponent snap={snap} rootGameStore={rootGameStore} gridOverlayRef={gridOverlayRef} />
-          {/* <GameLogComponent snap={snap} rootGameStore={rootGameStore} /> */}
         </MainColumn>
         {/* RIGHT COLUMN: NPC PLAYER ENEMY */}
         <PlayerComponent playerSnap={playerTwoSnap} mousePosRef={mousePos} isPlayerOutOfFocus={false} />

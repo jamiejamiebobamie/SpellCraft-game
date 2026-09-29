@@ -4,10 +4,7 @@ import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
-// TO-DO: have Gyre up and GyreDown when placed vertically (gyredown above, gyreup below) sustain one another so that no gyreLives are spent when moving
-// TO-DO: have Gyre's be like Phlegms: destroyed when consumed...
 export abstract class Spell extends UniqueId {
-  // Constants & Core Properties
   static readonly spellName: string;
   readonly caster: Player;
   protected static readonly focusCost: number = 0;
@@ -16,33 +13,50 @@ export abstract class Spell extends UniqueId {
   isRemove: boolean = false;
   isPlaced: boolean = false;
   empoweredColor: string = '';
-  /*
-    Flag to render spell differently in component.
-    Flag is determined by spell's cell position relative to similar spells' cell positions.
-  */
   protected empoweredPng: number = 0;
-
   spellIconUrl: string = '';
 
-
-  // Modifiers with min/max limits
-  updateOrder: number = 0; // determines the order in which a spell gets to move relative to other spells, lower value = updates earlier
-  speedDirection: number = 0; // horizontal movement amt, positive = right, negative = left, '0' is not valid.
-  dmgHealth: number = 0; // how much dmg the spell causes on collision with player. negative values for healing.
-  upDown: number = 0; // vertical movement amt, default = 0, positive = down, negative = up.
-  rowShift: number = 0; // incr/decr "upDown" property
-  gyreLives: number = 0; // Gyre specific property
+  baseCellDmg: number = 5;
+  updateOrder: number = 0;
+  speedDirection: number = 0;
+  dmgHealth: number = 0;
+  upDown: number = 0;
+  rowShift: number = 0;
+  gyreLives: number = 0;
   empoweredDmgHealth: number = 0;
   empoweredSpeedDirection: number = 0;
+
+  // Add to your base Spell class properties area in Spell.tsx
+  isPlayerHitImpact: boolean = false;
+  isOpponentHitImpact: boolean = false;
+  hitDamageAmount: number = 0;
+
+  // Dimensions properties driving dynamic stats calculations (PART 2 Requirements)
   widthCells: number = 1;
   heightCells: number = 1;
 
-  // TO-DO: show on GameLog and GameBoard so player can understand a spell's current state based on past collisions...
+  isBeingConsumed: boolean = false;
   consumedEthers: number = 0;
   consumedPhlegms: number = 0;
   consumedQuickens: number = 0;
+  consumedGyres: number = 0;
 
-  // Stat Limits (Enforcing Min/Max values)
+  // Real-time loop step counters monitored by the execution system
+  remainingMoves: number = 0;
+  recordedMovesCount: number = 0;
+
+  // Vector field tracking mechanics
+  phlegmOrbitStepsSpent: number = 0;
+  inPhlegmField: boolean = false;
+
+  // Add these inside the base Spell class properties area
+  phlegmCenterIndex: CellIndex | null = null;
+  phlegmSize: number = 1;
+  phlegmOrbitStepsRemaining: number = 0;
+  phlegmExitOnOppositeSide: boolean = false;
+  phlegmDirectionSign: number = 1; // 1 for right-moving Phlegm, -1 for left-moving Phlegm
+
+
   readonly limits = {
     updateOrder: { min: 1, max: Number.MAX_SAFE_INTEGER },
     speedDirection: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
@@ -58,7 +72,6 @@ export abstract class Spell extends UniqueId {
     consumedQuickens: { min: 0, max: Number.MAX_SAFE_INTEGER }
   };
 
-  // Determines if value is shown if zero
   readonly primaryModifiers: Array<SpellPropertyName> = [];
   readonly secondaryModifiers: Array<SpellPropertyName> = [];
 
@@ -74,115 +87,150 @@ export abstract class Spell extends UniqueId {
     return currentClass.spellName || "Unknown Spell";
   };
 
-  getSpellIcon = (): string => {
-    return this.spellIconUrl;
-  }
-
-  getCaster = (): Player => {
-    return this.caster;
-  }
-
-  getCellIndex = (): CellIndex => {
-    return this.cellIndex;
-  };
-
-  setCellIndex = (cellIndex: CellIndex): void => {
-    this.cellIndex = proxy(cellIndex);
-  };
-
-  getIsPlaced = (): boolean => {
-    return this.isPlaced;
-  }
-
-  getEmpoweredPng = (): number => {
-    return this.empoweredPng;
-  }
-
-  getIsEmpowered = (): boolean => {
-    return this.empoweredPng != 0;
-  }
-
-  getEmpoweredColor = (): string => {
-    return this.empoweredColor;
-  }
+  getSpellIcon = (): string => this.spellIconUrl;
+  getCaster = (): Player => this.caster;
+  getCellIndex = (): CellIndex => this.cellIndex;
+  setCellIndex = (cellIndex: CellIndex): void => { this.cellIndex = proxy(cellIndex); };
+  getIsPlaced = (): boolean => this.isPlaced;
+  getEmpoweredPng = (): number => this.empoweredPng;
+  getIsEmpowered = (): boolean => this.empoweredPng !== 0;
+  getEmpoweredColor = (): string => this.empoweredColor;
 
   setConditionallyEmpoweredPng = (neighborSpell: Array<Spell | null>): void => {
     const [behind, inFront] = neighborSpell;
-    let isBehind = false, isInFront = false;
-    if (this.isConditionToEmpower(behind)) {
-      isBehind = true;
-    }
-    if (this.isConditionToEmpower(inFront)) {
-      isInFront = true;
-    }
-    if (isBehind && isInFront) {
-      this.empoweredPng = 2;
-    } else if (isBehind) {
-      this.empoweredPng = 3;
-    } else if (isInFront) {
-      this.empoweredPng = 1;
-    } else {
-      this.empoweredPng = 0;
-    }
-  }
+    let isBehind = this.isConditionToEmpower(behind);
+    let isInFront = this.isConditionToEmpower(inFront);
+    if (isBehind && isInFront) this.empoweredPng = 2;
+    else if (isBehind) this.empoweredPng = 3;
+    else if (isInFront) this.empoweredPng = 1;
+    else this.empoweredPng = 0;
+  };
 
-  setEmpoweredPng = (empoweredPng: number): void => {
-    this.empoweredPng = empoweredPng;
-  }
+  setEmpoweredPng = (empoweredPng: number): void => { this.empoweredPng = empoweredPng; };
+  isConditionToEmpower = (neighborSpell: Spell | null) => false;
+  getEmpoweredDirection = (): Direction => 0;
+  setIsPlaced = (isPlaced: boolean): void => { this.isPlaced = isPlaced; };
+  getIsRemove = (): boolean => this.isRemove;
+  markSpellForRemoval = (): void => { this.isRemove = true; };
 
-  isConditionToEmpower = (neighborSpell: Spell | null) => {
-    return false;
-  }
-
-  getEmpoweredDirection = (): Direction => {
-    return 0;
-  }
-
-  setIsPlaced = (isPlaced: boolean): void => {
-    this.isPlaced = isPlaced;
-  }
-
-  getIsRemove = (): boolean => {
-    return this.isRemove;
-  }
-
-  markSpellForRemoval = (): void => {
-    /*
-      'Cell' class has reference to Spell that should be cleared
-        in this method, but it is not atm...
-       Not sure if this is causing any issues.
-    */
-    this.isRemove = true;
-  }
-
-  // Dynamic Property Accessors
+  /**
+   * Refactored Size-Driven Property Accessors (PART 2 Requirements)
+   */
   getPropertyValue = (propertyName: SpellPropertyName): number => {
-    const val = this[propertyName];
-    if (propertyName == 'empoweredDmgHealth') {
-      return !!this.empoweredDmgHealth ? this.empoweredDmgHealth : this['dmgHealth'];
-    } else if (propertyName == 'empoweredSpeedDirection') {
-      return !!this.empoweredSpeedDirection ? this.empoweredSpeedDirection : this['speedDirection'];
-    } else {
-      return val;
+    const totalCellsSize = this.widthCells * this.heightCells;
+
+    if (propertyName === 'empoweredDmgHealth' || propertyName === 'dmgHealth') {
+      let baseDmg = totalCellsSize * this.baseCellDmg;
+      if (this instanceof Ether || this.consumedEthers > 0) baseDmg += 5; // isOnFire
+      if (this instanceof Phlegm) return -baseDmg; // Baseline negative value for healing properties
+      return baseDmg;
     }
+
+    if (propertyName === 'empoweredSpeedDirection' || propertyName === 'speedDirection') {
+      let baseSpeed = this.widthCells;
+      if (this instanceof Quicken || this.consumedQuickens > 0) baseSpeed += 1; // isElectrified
+      return baseSpeed * Math.sign(this.speedDirection || 1);
+    }
+
+    return (this as any)[propertyName] || 0;
   };
 
   updatePropertyValue = (propertyName: SpellPropertyName, value: number): void => {
-    const limit = this.limits[propertyName];
+    const limit = (this.limits as any)[propertyName];
     if (limit) {
-      // Clamp the value between min and max bounds
-      this[propertyName] = Math.max(limit.min, Math.min(limit.max, value));
+      (this as any)[propertyName] = Math.max(limit.min, Math.min(limit.max, value));
     } else {
-      this[propertyName] = value;
+      (this as any)[propertyName] = value;
     }
   };
 
+  executeSingleMicroStep = (): void => {
+    // 1. Gyre vertical movement overrides horizontal tracks
+    if (this.consumedGyres !== 0) {
+      const stepDir = Math.sign(this.consumedGyres);
+      this.cellIndex = proxy({
+        i: this.cellIndex.i + stepDir,
+        j: this.cellIndex.j
+      });
+      this.consumedGyres -= stepDir;
+      return;
+    }
 
-  // --- Game Loop Logic ---
+    // 2. Vector field implementation for orbital paths inside Phlegm layouts
+    if (this.inPhlegmField && this.phlegmCenterIndex) {
+      this.executePhlegmOrbitStep();
+      return;
+    }
+
+    // 3. Fallback to basic horizontal movement paths
+    this.moveHorizontally();
+  };
 
   /**
-   * Moves the spell on the board based on its speedDirection and rowShift modifiers.
+   * Calculates perimeter movement along a square matrix grid
    */
+  private executePhlegmOrbitStep = (): void => {
+    if (this.phlegmOrbitStepsRemaining <= 0) {
+      this.inPhlegmField = false;
+      this.phlegmCenterIndex = null;
+      this.moveHorizontally(); // Exit orbit step forward
+      return;
+    }
+
+    const size = this.phlegmSize;
+    const half = Math.floor(size / 2);
+
+    if (!this.phlegmCenterIndex) return;
+
+    // Calculate relative bounds from the root center cell index of the Phlegm structure
+    const minI = this.phlegmCenterIndex.i;
+    const maxI = this.phlegmCenterIndex.i + size - 1;
+    const minJ = this.phlegmCenterIndex.j;
+    const maxJ = this.phlegmCenterIndex.j + size - 1;
+
+    let nextI = this.cellIndex.i;
+    let nextJ = this.cellIndex.j;
+
+    const isClockwise = this.phlegmDirectionSign === 1;
+
+    // Determine direction vectors based on edge coordinates
+    if (isClockwise) {
+      // Clockwise edge movement matrix
+      if (this.cellIndex.i === minI && this.cellIndex.j < maxJ) {
+        nextJ++; // Top edge moves Right
+      } else if (this.cellIndex.j === maxJ && this.cellIndex.i < maxI) {
+        nextI++; // Right edge moves Down
+      } else if (this.cellIndex.i === maxI && this.cellIndex.j > minJ) {
+        nextJ--; // Bottom edge moves Left
+      } else if (this.cellIndex.j === minJ && this.cellIndex.i > minI) {
+        nextI--; // Left edge moves Up
+      }
+    } else {
+      // Counter-Clockwise edge movement matrix
+      if (this.cellIndex.i === minI && this.cellIndex.j > minJ) {
+        nextJ--; // Top edge moves Left
+      } else if (this.cellIndex.j === minJ && this.cellIndex.i < maxI) {
+        nextI++; // Left edge moves Down
+      } else if (this.cellIndex.i === maxI && this.cellIndex.j < maxJ) {
+        nextJ++; // Bottom edge moves Right
+      } else if (this.cellIndex.j === maxJ && this.cellIndex.i > minI) {
+        nextI--; // Right edge moves Up
+      }
+    }
+
+    this.cellIndex = proxy({ i: nextI, j: nextJ });
+    this.phlegmOrbitStepsRemaining--;
+
+    // Clean exit verification on the final orbital tick step
+    if (this.phlegmOrbitStepsRemaining === 0) {
+      this.inPhlegmField = false;
+      this.phlegmCenterIndex = null;
+      if (!this.phlegmExitOnOppositeSide) {
+        this.reverseDirection();
+      }
+    }
+  };
+
   moveHorizontally = (): void => {
     this.cellIndex = proxy({
       i: this.cellIndex.i,
@@ -196,45 +244,12 @@ export abstract class Spell extends UniqueId {
       j: this.cellIndex.j
     });
     this.upDown = 0;
-  }
-
-  /**
-   * Called when this spell moves onto a cell containing another spell.
-   */
-  resolveSpellCollision = (inactive: Spell): void => {
-    /*
-      
-      active = moving
-      inactive = not moving
-    
-    */
-
-    const activeDir = Math.sign(this.getPropertyValue('speedDirection'));
-    const inactiveDir = Math.sign(inactive.getPropertyValue('speedDirection'));
-
-    const activeDmg = Math.abs(this.getPropertyValue('empoweredDmgHealth'));
-    const inactiveDmg = Math.abs(inactive.getPropertyValue('empoweredDmgHealth'));
-
-    // Inactive spells going the same direction are automatically consumed by Active spells
-    const isSameDirection = activeDir == inactiveDir;
-
-    /*
-      Inactive spells going in the opposite direction
-        as the Active spell must win a dmg comparison or be consumed.
-    */
-    const isActiveMorePowerful = activeDmg >= inactiveDmg;
-    if (isSameDirection || isActiveMorePowerful) {
-      // Active (moving) spell consumes inactive (not-moving) spell
-      inactive.conferModifierToActive(this);
-    } else {
-      // Inactive (not-moving) spell consumes active (moving) spell
-      this.conferModifierToInactive(inactive);
-    }
   };
 
-  /**
-   * Conserve "buffed" property values between consumer and consumed during spell collisions
-   */
+  resolveSpellCollision = (inactive: Spell): void => {
+    inactive.conferModifierToActive(this);
+  };
+
   conserveGreater = (consumed: Spell, properties: Array<SpellPropertyName>): void => {
     properties.forEach(spn => {
       const sign = Math.sign(this.getPropertyValue(spn));
@@ -243,78 +258,43 @@ export abstract class Spell extends UniqueId {
       if (otherValue > currentValue) {
         this.updatePropertyValue(spn, otherValue * sign);
       }
-    })
+    });
   };
 
-  /**
-   * 
-   * @param consumedSpell 
-   * @param spn 
-   * @param multiplier 
-   * 
-   * Accumulates the property values and updates the property with the summed value.
-   */
   accumulateProperty = (consumed: Spell, spn: SpellPropertyName, multiplier: number = 1): void => {
     const currentValue = this.getPropertyValue(spn);
     const otherValue = consumed.getPropertyValue(spn);
-    const newValue = (currentValue + Math.abs(otherValue) * Math.sign(currentValue)) * multiplier;
+    const newValue = (currentValue + Math.abs(otherValue) * Math.sign(currentValue || 1)) * multiplier;
     this.updatePropertyValue(spn, newValue);
-  }
+  };
 
   reverseDirection = (): void => {
     this.speedDirection *= -1;
-  }
-
-  /**
-   * Called when this spell moves onto an opposing player's cell.
-   */
-  resolvePlayerCollision = (otherPlayer: Player, dmgHealth: number): void => {
-    // Apply damage (or healing if dmgHealth is negative)
-    otherPlayer.decrementHealth(dmgHealth)
   };
 
-  /*
-    Default implementation for Phelgm and Ether.
-    Quicken and Gyre override the method with their implementations.
-  */
-  getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => {
-    return [];
-  }
+  resolvePlayerCollision = (otherPlayer: Player, dmgHealth: number): void => {
+    otherPlayer.decrementHealth(dmgHealth);
+  };
 
-  /**
-   * Abstract hook handled by subclasses to dictate how they modify another spell upon consumption.
-   */
+  getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => [];
+
   abstract conferModifierToActive(consumer: Spell): void;
   abstract conferModifierToInactive(consumer: Spell): void;
-
-
-  /**
-   * Abstract hook handled by subclasses to implement logic for this scenario:
-   * "Spell has invalid values after 'conferModifierTo' call modifies its values"
-   * Varies per class:
-                  Phlegm: healthDmg >= 0
-                  Quicken: speedDirection == 0
-                  Ether: healthDmg <= 0
-                  Gyre: rowShift == 0           
-   */
   abstract isModifierValueInvalid(): boolean;
   abstract getFocusCost(): number;
   abstract getModifierLogText(consumer: Spell): string;
 }
 
-// Subclasses
+// --- Subclasses ---
 
 export class Phlegm extends Spell {
   protected static readonly focusCost: number = 1;
-
   static readonly spellName = "Phlegm";
-
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
   constructor(caster: Player) {
     super(caster);
-    this.dmgHealth = -4; // Heal 
     this.spellIconUrl = 'spell-icons/PhlegmIcon_mockup.png';
   }
 
@@ -322,245 +302,155 @@ export class Phlegm extends Spell {
   conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
 
   conferModifierTo = (consumer: Spell): void => {
+    const phlegmSize = this.widthCells; // 1, 2, or 3
+
+    // A full perimeter loop calculation: 4 * (size - 1), minimum 1 step for 1x1 pieces
+    const fullCircleSteps = phlegmSize > 1 ? 4 * (phlegmSize - 1) : 1;
+
+    consumer.inPhlegmField = true;
+    consumer.phlegmCenterIndex = { ...this.cellIndex };
+    consumer.phlegmSize = phlegmSize;
+    consumer.phlegmDirectionSign = Math.sign(this.getPropertyValue('speedDirection') || 1);
+    consumer.phlegmOrbitStepsRemaining = fullCircleSteps;
+
     if (consumer instanceof Phlegm) {
-      consumer.accumulateProperty(this, 'dmgHealth', 2);
-      // Increment consumed Phlegms
       this.consumedPhlegms++;
-      // ...before conferring 'consumedPhlegms' to consumer
       consumer.accumulateProperty(this, 'consumedPhlegms');
+
+      // Phlegm-on-Phlegm collision exits opposite side to fly back safely to player
+      consumer.phlegmExitOnOppositeSide = true;
+
+      // Add extra steps if consumer requires structural breakdown overhead adjustments
+      const baseDamageDelta = Math.abs(consumer.getPropertyValue('dmgHealth')) - Math.abs(this.getPropertyValue('dmgHealth'));
+      if (baseDamageDelta > 0) {
+        consumer.phlegmOrbitStepsRemaining += Math.floor(baseDamageDelta / 5);
+      }
+    } else {
+      // Standard projectile loops fully and flips vector directions back out
+      consumer.phlegmExitOnOppositeSide = false;
     }
-    // Conserve the greater values between consumer and consumed
-    consumer.conserveGreater(this, ['speedDirection']);
-    consumer.reverseDirection();
+
+    // Extend active step limits so the engine doesn't cut the animation path early
+    consumer.remainingMoves += consumer.phlegmOrbitStepsRemaining;
 
     this.markSpellForRemoval();
   };
 
-  isModifierValueInvalid = (): boolean => {
-    return this.dmgHealth >= 0;
-  }
 
-  getFocusCost = (): number => {
-    return Phlegm.focusCost;
-  }
-
-  getModifierLogText = (consumer: Spell): string => {
-    if (consumer.getSpellName() == 'Phlegm') {
-      return 'been reversed and become more powerful!'
-    } else {
-      return 'been reversed!'
-    }
-  }
+  isModifierValueInvalid = (): boolean => this.getPropertyValue('dmgHealth') >= 0;
+  getFocusCost = (): number => Phlegm.focusCost;
+  getModifierLogText = (consumer: Spell): string => 'redirected smoothly!';
 }
 
 export class Ether extends Spell {
   protected static readonly focusCost: number = 1;
-
   static readonly spellName = "Ether";
-
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift', 'speedDirection'];
 
   constructor(caster: Player) {
     super(caster);
-    this.dmgHealth = 10;
     this.spellIconUrl = 'spell-icons/EtherIcon_mockup.png';
   }
 
   conferModifierToActive = (consumer: Spell): void => this.conferModifierTo(consumer);
   conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
+
   conferModifierTo = (consumer: Spell): void => {
     if (!(consumer instanceof Phlegm)) {
-      consumer.accumulateProperty(this, 'dmgHealth');
-      // Increment consumed Ethers
       this.consumedEthers++;
-      // Before conferring consumedEthers to consumer
       consumer.accumulateProperty(this, 'consumedEthers');
     }
-
-    // Conserve the greater values between consumer and consumed
-    consumer.conserveGreater(this, ['speedDirection']);
     this.markSpellForRemoval();
   };
 
-  isModifierValueInvalid = (): boolean => {
-    return this.dmgHealth <= 0;
-  }
-
-  getFocusCost = (): number => {
-    return Ether.focusCost;
-  }
-
-  getModifierLogText = (consumer: Spell): string => {
-    return consumer.getSpellName() == 'Phlegm' ? 'continued to ooze!' : 'been become more powerful!'
-  }
+  isModifierValueInvalid = (): boolean => this.getPropertyValue('dmgHealth') <= 0;
+  getFocusCost = (): number => Ether.focusCost;
+  getModifierLogText = (consumer: Spell): string => 'empowered with blazing force!';
 }
 
 export abstract class Gyre extends Spell {
+  baseCellDmg = 4;
   protected static readonly focusCost: number = 1;
-
   spellIconUrl = 'spell-icons/GyreUpIcon_mockup.png';
-
   primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'rowShift'];
   secondaryModifiers: Array<SpellPropertyName> = ['dmgHealth', 'speedDirection'];
-
   constructor(caster: Player) {
     super(caster);
-    this.dmgHealth = 4;
-    this.gyreLives = 4;
     this.empoweredColor = '#ddd8d8';
   }
-
   isConditionToEmpower = (spell: Spell | null) => {
     return spell instanceof Gyre && !spell.getIsRemove() && Math.sign(spell.getPropertyValue('rowShift')) == Math.sign(this.rowShift);
-  }
-
-  getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => {
-    return direction == 1 ? [{ i: -1, j: 0 }, { i: 1, j: 0 }] : [{ i: 1, j: 0 }, { i: -1, j: 0 }];
-  }
-
-  getEmpoweredDirection = (): Direction => {
-    const d = Math.sign(this.rowShift) as Direction;
-    return d;
-  }
-
-  moveHorizontally = (): void => {
-    this.cellIndex = proxy({
-      i: this.cellIndex.i,
-      j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
-    });
-    this.gyreLives--;
-    this.removeGyreIfOutOfLives();
   };
-
-  removeGyreIfOutOfLives = (): void => {
-    if (this.gyreLives < 1) this.markSpellForRemoval();
-  }
-
   conferModifierToActive = (consumer: Spell): void => {
     this.conferModifierTo(consumer);
-    if (!(consumer instanceof Gyre)) {
-      // Add vertical movement to consumer if consumer is Active (ie. moving)
-      consumer.updatePropertyValue('upDown', this.rowShift);
-    }
-    // Conditionally remove from board if out of gyreLives
-    this.removeGyreIfOutOfLives();
-  }
-
+  };
   conferModifierToInactive = (consumer: Spell): void => {
     this.conferModifierTo(consumer);
-    // Automatically remove from board
-    this.markSpellForRemoval();
-  }
-
+  };
   conferModifierTo = (consumer: Spell): void => {
-    // Conserve the greater values between consumer and consumed
-    if (!(consumer instanceof Phlegm)) consumer.conserveGreater(this, ['dmgHealth', 'speedDirection']);
-    else consumer.conserveGreater(this, ['speedDirection']);
-
     if (consumer instanceof Gyre) {
-      consumer.accumulateProperty(this, 'gyreLives');
-      this.gyreLives = 0; // consumer consumes all of consumed's 'gyreLives'
+      const sameDirection = (consumer instanceof GyreUp && this instanceof GyreUp) || (consumer instanceof GyreDown && this instanceof GyreDown);
+      if (sameDirection) {
+        // Increase structural sizing height
+        consumer.heightCells += this.heightCells;
+        this.markSpellForRemoval();
+      } else {
+        // Decrement height from opposing cancelations
+        consumer.heightCells -= this.heightCells;
+        this.markSpellForRemoval();
+        if (consumer.heightCells <= 0) {
+          consumer.markSpellForRemoval();
+        }
+      }
     } else {
-      this.gyreLives--;
+      // Push regular items vertically relative to entry index
+      consumer.consumedGyres = this.rowShift * (this.heightCells + 1);
+      // Give dynamic max extension loops tracking visibility
+      consumer.remainingMoves += Math.abs(consumer.consumedGyres);
+      this.markSpellForRemoval();
     }
   };
-
-  isModifierValueInvalid = (): boolean => {
-    return this.rowShift == 0;
-  }
-
-  getFocusCost = (): number => {
-    return Gyre.focusCost;
-  }
-
-  getModifierLogText = (): string => {
-    if (this.rowShift < 0) {
-      return 'been sent skyward by gale force winds!'
-    } else if (this.rowShift > 0) {
-      return 'been thrown downward by powerful winds!'
-    } else {
-      return 'been cancelled out by an opposing force!'
-    }
-  }
+  isModifierValueInvalid = (): boolean => this.rowShift === 0;
+  getFocusCost = (): number => Gyre.focusCost;
+  getModifierLogText = (): string => 'vertical trajectory modified!';
 }
-
 export class GyreUp extends Gyre {
   static readonly spellName = "GyreUp";
-
   constructor(caster: Player) {
     super(caster);
     this.rowShift = -1;
     this.spellIconUrl = 'spell-icons/GyreUpIcon_mockup.png';
   }
 }
-
 export class GyreDown extends Gyre {
-
   static readonly spellName = "GyreDown";
-
   constructor(caster: Player) {
     super(caster);
     this.rowShift = 1;
     this.spellIconUrl = 'spell-icons/GyreDownIcon_mockup.png';
   }
 }
-
 export class Quicken extends Spell {
   protected static readonly focusCost: number = 1;
-
   static readonly spellName = "Quicken";
-
-
-  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth', 'speedDirection',];
+  primaryModifiers: Array<SpellPropertyName> = ['updateOrder', 'dmgHealth', 'speedDirection'];
   secondaryModifiers: Array<SpellPropertyName> = ['rowShift'];
-
   constructor(caster: Player) {
     super(caster);
-    this.dmgHealth = 5;
     this.spellIconUrl = 'spell-icons/QuickenIcon_mockup.png';
-    this.speedDirection *= 1;
     this.empoweredColor = '#16e0d6';
   }
-
-  getEmpoweredDirection = (): Direction => {
-    const d = Math.sign(this.speedDirection) as Direction;
-    return d;
-  }
-
-  getEmpoweredNeighborIndexOffsets = (direction: Direction): Array<CellIndex> => {
-    return direction == 1 ? [{ i: 0, j: -1 }, { i: 0, j: 1 }] : [{ i: 0, j: 1 }, { i: 0, j: -1 }];
-  }
-
-  isConditionToEmpower = (spell: Spell | null) => {
-    return spell instanceof Quicken && !spell.getIsRemove() && Math.sign(spell.getPropertyValue('speedDirection')) == Math.sign(this.speedDirection);
-  }
-
   conferModifierToActive = (consumer: Spell): void => this.conferModifierTo(consumer);
   conferModifierToInactive = (consumer: Spell): void => this.conferModifierTo(consumer);
-
   conferModifierTo = (consumer: Spell): void => {
-    // Increase the speed of the consumer
-    consumer.accumulateProperty(this, 'speedDirection');
-    // Conserve the greater 'dmgHealth' value between consumer and consumed
-    if (!(consumer instanceof Phlegm)) consumer.conserveGreater(this, ['dmgHealth']);
-    // Increment consumed Quickens
     this.consumedQuickens++;
-    // Before conferring consumedQuickens to consumer
     consumer.accumulateProperty(this, 'consumedQuickens');
-
+    // Speeding up gives immediate dynamic move ticks extensions inside the simulation frame
+    consumer.remainingMoves += 1;
     this.markSpellForRemoval();
   };
-
-  isModifierValueInvalid = (): boolean => {
-    return this.speedDirection == 0 || this.dmgHealth <= 0;
-  }
-
-  getFocusCost = (): number => {
-    return Quicken.focusCost;
-  }
-
-  getModifierLogText = (): string => {
-    return 'has been sped up!'
-  }
+  isModifierValueInvalid = (): boolean => this.getPropertyValue('speedDirection') === 0;
+  getFocusCost = (): number => Quicken.focusCost;
+  getModifierLogText = (): string => 'accelerated forward!';
 }

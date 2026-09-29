@@ -155,7 +155,7 @@ const TriggerBox = styled.div<{ $isClicked: boolean, $isOpen: boolean, $isClicke
   align-items: center;
 
   font-weight: bold;
-  font-size: 2cqw;
+  font-size: 100%;
   z-index: 3; /* Sits higher than the tray */
   position: relative; /* Gives it local z-index priority */
   cursor: pointer;
@@ -276,10 +276,25 @@ const ColumnGroup = styled.div<{ $isClicked: boolean, $isNotHovered: boolean, $i
   will-change: filter, transform;
 `;
 
-const CoverText = styled.div<{ $style?: string, $isClickedOnce: boolean }>`
-    padding: .25cqw 0cqw 0cqw 2.8cqw;
-    ${props => !!props.$style && props.$style}
-    filter: drop-shadow(0 0 .1cqw rgba(248, 255, 54, 0.3)) drop-shadow(0 0 .3cqw rgba(250, 245, 144, 0.14));
+const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
+  width: 100%;
+  height: 2cqw;
+  display: flex;
+  justify-content: flex-end;
+
+  /* 1. DEFAULT FOR REGULAR/LARGE SCREENS */
+  transform: translate(0.3cqw, 1.75cqw);
+
+  /* 2. FOR SMALL SCREENS (e.g., Mobile devices under 576px wide) */
+  @media (max-width: 576px) {
+    transform: translate(0.3dvw, 0.1dvh);
+  }
+
+  /* Filter and Dynamic Styles */
+  filter: drop-shadow(0 0 0.1cqw rgba(248, 255, 54, 0.3)) 
+          drop-shadow(0 0 0.3cqw rgba(250, 245, 144, 0.14));
+
+  ${props => !!props.$style && props.$style}
 `;
 
 // The Tray holding the columns
@@ -381,7 +396,7 @@ export default function SpellBookComponent() {
         $isClickedOnce={isClickedOnce}
       >
         <CoverText
-          $style={'padding-top: 1.5cqw;'}
+          // $style={'padding-top: 1.5cqw;'}
           $isClickedOnce={isClickedOnce}
         >
           Spell

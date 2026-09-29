@@ -66,7 +66,7 @@ export class GameSymbol extends UniqueId {
     const spell = proxy(new this.SpellClass(this.caster));
     let focusCost: number = spell.getFocusCost();
 
-    this.incurPlayerCostForSpell(focusCost);
+    // this.incurPlayerCostForSpell(focusCost);
     return proxy(spell);
 
     // const isHasFocus = this.incurPlayerCostForSpell(focusCost);

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
-import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
 import { Spotlight } from '../UI_Elements/SceneElements/Spotlight'
 import styled, { keyframes } from 'styled-components'
 
@@ -213,55 +212,15 @@ type PlayerComponentProps = {
 
 const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
   const ANIM_TIME = 6;
-  const textModifierWidth = '15cqw';
-  const textModifierHeight = '10cqw';
-  const textModifierFontSize = '4cqw';
-
   const healthAmt = playerSnap.getHealth();
-  const focusAmt = playerSnap.getFocus();
   const direction = playerSnap.getDirection();
 
   const healthRefTimeout = useRef<number | null | undefined>(0);
-  const focusRefTimeout = useRef<number | null | undefined>(0);
-
   const [_, setCachedHealth] = useState(playerSnap.getHealth());
-  const [__, setCachedFocus] = useState(playerSnap.getFocus());
-
   const [healthDiff, setHealthDiff] = useState(0);
-  const [focusDiff, setFocusDiff] = useState(0);
-
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
-  useFocusDots({ focusAmt, setCachedFocus, focusRefTimeout, setFocusDiff, ANIM_TIME });
 
   const avatar = (<AvatarFrame $src={playerSnap.avatarUrl} $direction={direction}>
-    {<ModifierTextComponent
-      propertyName={'Health'}
-      propertyValue={healthDiff}
-      animTimeSecs={ANIM_TIME}
-      $opacityCondition={(v: number) => !!v ? .85 : 0}
-      $width={textModifierWidth}
-      $height={textModifierHeight}
-      $fontSize={textModifierFontSize}
-      $extraTransform={`scaleX(${direction})`}
-      $top={'50%'}
-      $left={'45%'}
-      $backgroundColor={healthDiff < 0 ? '#ee3737' : '#3bed8e'}
-      $color={'white'}
-    />}
-    {/* {<ModifierTextComponent
-      propertyName={'Focus'}
-      propertyValue={focusDiff}
-      animTimeSecs={ANIM_TIME}
-      $opacityCondition={(v: number) => !!v ? .9 : 0}
-      $width={textModifierWidth}
-      $height={textModifierHeight}
-      $fontSize={textModifierFontSize}
-      $extraTransform={`scaleX(${direction})`}
-      $top={'50%'}
-      $left={'45%'}
-      $backgroundColor={'#47d4ff9f'}
-      $color={'white'}
-    />} */}
     <Damageable $healthDiff={healthDiff}>
       <AvatarRobe $healthDiff={healthDiff} $src={playerSnap.avatarRobeUrl}>
         <AvatarHead $healthDiff={healthDiff} $src={playerSnap.avatarHeadUrl} />
@@ -272,44 +231,25 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
     </Damageable>
   </AvatarFrame>);
 
-  const testHealth = 13;
   const healthbar = (<BarBorder $direction={direction}>
-
-    {/* <BarText>
-        {` / `}
-      </BarText>
-      <BarText>
-        {playerSnap.getMaxHealth()}
-      </BarText> */}
-    {/* </BarTextContainer> */}
     <BarFill $pct={playerSnap.getHealthPrct()} $direction={direction}>
-      {/* playerSnap.getHealthPrct()}> */}
       <BarTextContainer $pct={playerSnap.getHealthPrct()} $direction={direction}>
         <BarText>
-          {/* {testHealth} */}
           {playerSnap.getHealth() != 0 ? playerSnap.getHealth() : ''}
         </BarText>
       </BarTextContainer>
-
     </BarFill>
   </BarBorder >);
 
   const focusDots = (
-      <FocusContainer $direction={direction}>
-        {/* STORED FOCUS */}
-        {direction == -1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={playerSnap.getMaxFocus() - i - 1} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
-        {/* EXCESS STORED FOCUS */}
-        {direction == 1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
-      </FocusContainer>
+    <FocusContainer $direction={direction}>
+      {/* STORED FOCUS */}
+      {direction == -1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={playerSnap.getMaxFocus() - i - 1} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+      {/* EXCESS STORED FOCUS */}
+      {direction == 1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+    </FocusContainer>
   );
 
-  /*
-   
-    TO-DO: have modifier text spawn from object pool...
-    ISSUE: if player casts a spell then another, faster than ANIM_TIME, the second spell does not show modifier text.
-    NEED: (1) ModifierTextComponent and (2) timeoutRef per recently cast (<2.5s) spell
-  
-  */
   return (<DuelistSideColumn>
     <Spotlight />
     {avatar}

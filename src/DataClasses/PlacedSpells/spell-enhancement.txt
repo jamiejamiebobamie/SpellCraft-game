@@ -1,0 +1,78 @@
+NOTE: only outlining broad, (1) GAME-FLOW STAGES and (2) ENHANCEMENT CHANGES
+
+- - - - BEGIN GAME - - - - 
+
+PLAY CINEMATIC
+SHOW TOOLTIPS
+
+- - - - BEGIN TURN - - - -
+1A. AI draws symbols on board, placing spell pieces based on board state.
+    1Ai. AI marks his turn as "done" when AI determines it.
+1B. PLAYER draws symbols on board to place spells.
+    1Bi. CHANGE drawing logic to:
+        - place SIZED SPELLS on board based on (1) spell type and (2) drawn-over cell positions
+        - ensure drawn-over cells is more intelligent... drawing primarily over one cell with a small overlap into another: only place one spell...
+        - add CORRECT FOCUS COSTS for each SIZED SPELL
+1C. PLAYER marks turn as done by clicking the clock.
+
+- - - - BEGIN SPELL MOVEMENT - - - -
+2A. CHANGE: all spells to move at the same time
+2B. CALCULATE SPELL COLLISIONS:
+    2Bi. Iterate through placed spells
+    2Bii. A spell has a scalar 'speedDirection' property. The magnitude (absolute value) of 'speedDirection' is how many cells the spell will move on this turn. RECORD MOVE # for each placed spell. RECORD MAX MOVE #.
+    2Biii. For range loop to MAX MOVE # (inclusive), iterate through each spell, and move them according to their direction (1 | -1).
+    2Biv. At the end of that loop iteration, check ALL placed spell's current board cell.
+    2Bv. If two spells share the same cell, that is a spell COLLISION.
+    2Bvi. Create a collection (HEAP?) of each spell that shares a cell with another cell. Order the heap, from spells with the least DMG to the max DMG.
+    2Bvii. For each spell in the heap from least DMG to max DMG, compare 'healthDmg' properties of the two collided spells.
+    2Bviii. Resolve each collision only once, as the spells in the heap will point to one another.
+    2Bviii. In the collision comparison, the spell with more DMG is the winner of the collision and will "consume" and destroy the losing spell.
+    2Bix. DO consumed/consumer spell-consumption logic. Logic varies based on the spell types: ETHER, PHLEGM, GYRE, QUICKEN.
+    2Bxi. If <DMG> of both spells are equal, collision is a draw and both spells are destroyed.
+    2Bxii. If multiple collisions occur on one spell, ordering them based on their DMG from least to greatest should resolve them in the correct order so that the largest spells inherit the spoils of earlier spell "consumptions"
+    2Bxiii. For PHLEGM and GYRE, if these spells are collision-losers, persist the spell until all loop iterations are done (END OF SPELL MOVEMENT).
+    2Bxiv. A spell being consumed consists of (1) the spell being marked as 'isRemove' = true, and (2) incrementing the consumer's stats:
+        - consumedPhlegms
+        - consumedQuickens
+        - consumedEthers
+        - consumedGyres
+    2Bxv. The stats: 'consumedGyres' and 'consumedPhlegms' on all placed spells will reset to 0 at <END OF SPELL MOVEMENT>.
+    2Bxvi. 'consumedGyres,' 'consumedPhlegms,' and 'consumedQuickens' update the # of MOVES the spell will take on this turn.
+    2Bxvii. Update <MAX MOVE #> if there is a new max.
+    2Bxviii. Spells with 'consumedGyres' value >0, will move up or down rows based on type of Gyre ('GyreDown' or 'GyreUp'), until 'consumedGyres' are expended, at which point the consumer spell will continue moving in the direction of its speedDirection moves, if there are moves remaning for that spell on this turn.
+    2Bxix. Spells moving upward/downward rows due to consumedGyres can collide with other spells.
+    2Bxix. Spells with 'consumedPhlegms' move according to the 2D vector field of the Phlegm they are inside. For a Phlegm going right, the vector field moves spell clockwise through the Phlegm's cells. Phlegms can be 1 cell, 4 cells, or 9 cells in size. if greater than 1, the right-moving Phlegm moves the consumer spell around itself until it reaches the most right-bottom cell of the Phlegm, where the consumer will exit the Phlegm.
+    2Bxx. Consumed spells should stop moving and persist until end of spell movement. 
+    2Bxxi. If a consumer spell has cell size > 1, and the consumed spell is Gyre or Phlegm, break-up the consumer spell into smaller sized spells of the same type. The broken-down spell maintain their consumedQuickens and consumedEthers values.
+    2Bxxii. consumedPhlegms # = number of moves to exit right-moving Phlegm at bottom-right + (consumer_dmg_before_breakdown - consumed_dmg) / 5. If consumer enters Phlegm at bottom-right corer, consumer spell should do full circle through phlegm before exiting.
+    2Bxxiii. for left-moving Phlegms, exit is bottom-left cell and vector field moves the consumer spells counterclockwise.
+    2Bxxiv. If a phlegm consumes another phlegm, the right-moving, consumed phlegm will launch the consumer phlegm out of it at the bottom-left cell, with the consumer phlegm moving through the consumed phlegm one-full circle, clockwise.
+    2Bxxv. consumedGyres # = the vertical cell-size of the Gyre - the cell "entry point" of the broken-down consumer spell relative to the Gyre's bottom + 1. For GyreUp with a height of 3, if a spell enters the Gyre at at the top (the third cell from the bottom of the Gyre), 3 - 3 + 1 = consumedGyres #. For a GyreDown, if a consumer spell enters at the base of the Gyre (which is at the top), the spell moves downward: 3 - 0 + 1: 4 cells. consumedGyres = 4. Encode the direction of the movement in the sign of the consumedGyres(?)
+    2Bxxvi. If an Ether consumes a Quicken, compute the final cell placement of the Quicken as if all moves had been taken for that Quicken for that turn. If any of the Quicken's cells are outside the placement of the Ether, allow those cells to persist. Quickens are so "quick" they can race through an Ether before the damage is done.
+    2Bxxvii. If a GyreUp/GyreDown consumes another GyreUp/GyreDown, increment the height of the consumer Gyre by the size of the consumed Gyre, and destroy the consumed Gyre w/o persisting it. If a GyreUp/GyreDown consumes an opposing Gyre (ie GyreUp consumes GyreDown), decrement the height of the consumer Gyre and destroy the consumed Gyre. If the final height of the Gyre after the spell collisions is 0, remove/destroy the Gyre from the board.
+    2Bxxviii. consumedQuickens and consumedEthers stats persist on a spell until the spell is destroyed and augments the speedDirection and dmgHealth properties of a spell. Right now, the design is to augment a spell's dmgHealth by a flat +5 if it has a consumedEther value > 0, and the spell's speedDirection by an absolute (+/-)1 if it has a consumedQuicken value > 0.
+    2Bxxix. Consumed Phlegms of size 1, flip the direction of the consumer's speedDirection and destroy themselves w/o persisting until end of spell movement.
+    2Bxxx. If a spell moves vertically above or below the board's bounds, the spell is destroyed.
+    2Bxxxi. If a spell moves horizontally left or right of the board's bounds, the spell is destroyed and the corresponding player is damaged (left for player, right for npc).
+    2Bxxxii. Gyre stacks can extend beyond the vertical bounds of the board (board rows: 3, max Gyre height: 7)
+2C. Once all spell collisions are resolved:
+    2Ci. Reset the consumedPhlegms and consumedGyres to 0 of all still existing spells.
+    2Cii. Clear consumed Gyres and Phlegms from the board.
+    2Ciii. Iterate through all board cells and combine any spell of the same type that has the same speedDirection sign (+/-) and meets the requirements for combining. Try to combine them maximally to create the largest-sized spell, given the combining requirements.
+        - Combining requirements:
+            If Phlegm: allowed cell sizes are all squares: 1, 4, 9.
+            If Ether: allowed cell sizes are all squares: 1, 4, 9.
+            If Gyre: allowed cells sizes are 1 width X N height, Gyre's are stacked vertically (up for GyreUp, down for GyreDown). Allow the max Gyre height to be a parameter with a current value of 7.
+            If Quicken, allowed cells N width x 1 height, Quickens are chained horizontally, with a max chain of 7 (board width)
+    2Civ. Spell combinations should ideally occur asap, but if the spell is inside a Gyre or Phlegm it should be done after exiting.
+
+SPELL property logic:
+    All spells have at least a size of 1x1 (1 cell)
+    A spell's "widthCells" and "widthHeight" properties determine the spell's size and the cells it occupies.
+    It's cellIndex determines its root or base cell.
+    For each horizontal cell (column, its 'widthCells' property value) a spell occupies, it gains one speed.
+    Its total cell size * 5 equals its damage (example 2x2 * 5 = 20 damage)
+    All Ethers and spells that have a 'consumedEther' property > 0, get a flat +5 to their damage. (example: a 1x1 Ether is 1x1 * 5 + 5 = 10 damage) ("isOnFire")
+    All Quickens and spells that have a 'consumedQuicken' property > 0, get a flat +1 to their speed. (example: a 1x1 Quicken is 1 * 1 + 1 = 2 speed) ("isElectrified")
+    Phlegms that consume other Phlegms are "empowered" and accumulate the consumed Phlegm's damage value ("isHealing")
+    During a spell movement turn, a sized spell miay be broken down into smaller spells during a collision and then reassembled if the combining requirements are met.

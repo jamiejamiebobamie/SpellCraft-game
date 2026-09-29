@@ -267,6 +267,8 @@ export default function SpellCanvasComponent({ rootGameStore }: GameBoardCompone
         height={!!height ? height : 100}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleMouseUp}
         style={{
           width: '100%',
           height: '100%',

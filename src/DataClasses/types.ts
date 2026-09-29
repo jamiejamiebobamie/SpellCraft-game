@@ -23,8 +23,8 @@ export type SpellInstance = Quicken | Ether | Phlegm | GyreUp | GyreDown;
 
 // This defines what the Class itself looks like, including its static properties
 export interface SpellClassBlueprint {
-  readonly spellName: string; 
-  new (caster: Player): SpellInstance;
+  readonly spellName: string;
+  new(caster: Player): SpellInstance;
 }
 
 // Update this to use your new blueprint type wherever you store your list of spells
@@ -73,8 +73,8 @@ export class NPCMoveData extends UniqueId {
 export interface GameParticle {
   x: number;              // Current X position on the canvas
   y: number;              // Current Y position on the canvas
-  vx: number;             // Horizontal velocity (pixels per second)
-  vy: number;             // Vertical velocity (pixels per second)
+  vx?: number;             // Horizontal velocity (pixels per second)
+  vy?: number;             // Vertical velocity (pixels per second)
   alpha: number;          // Transparency layer factor (1.0 down to 0.0)
   size: number;           // Radius/diameter of circles, or width of wind lines
   color: string;          // Hex, rgb, or rgba string color format
@@ -83,10 +83,14 @@ export interface GameParticle {
   vRotation?: number;     // Optional rotational speed (radians per second)
   life: number;           // Remaining lifetime index tracking (starts at 1.0)
   decay: number;          // How quickly life ticks down to 0 per second
-  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail' | 'etherFlame'; // Optional tag to apply unique custom behaviors
+  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail' | 'etherFlame' | 'lightningArc' | 'fireballOrb'; // Optional tag to apply unique custom behaviors
   radius?: number;        // Size of Fireball (for Ether)
   initialX?: number;              // Current X position on the canvas
   initialY?: number;              // Current Y position on the canvas
+
+  // --- ADDED EXTRA TARGET VECTORS FOR LIGHTNING AND GEOMETRY SNAP PATHS ---
+  targetX?: number;       // Terminal X target coordinate destination point
+  targetY?: number;       // Terminal Y target coordinate destination point
 }
 
 export interface SpellAnimTracker {

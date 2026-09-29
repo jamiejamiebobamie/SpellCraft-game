@@ -28,7 +28,7 @@ export class Player extends UniqueId {
   healthAmt: number = Player.MAX_HEALTH_AMT;
   focusAmt: number = Player.MAX_FOCUS_AMT;
   gameSymbol: GameSymbol | null = null;
-  isDoneWithTurn: boolean = true;
+  isDoneWithTurn: boolean = false;// true;
 
   constructor(direction: -1 | 1, color: string, avatarUrl: string) {
     super();
@@ -135,5 +135,19 @@ export class Player extends UniqueId {
     this.healthAmt = Player.MAX_HEALTH_AMT;
     this.focusAmt = Player.MAX_FOCUS_AMT;
     this.setGameSymbol(null);
+  }
+
+  incurPlayerCostForSpell = (focusCost: number): void => {
+    if (this.getFocus() >= focusCost) {
+      this.decrementFocus(focusCost);
+      // getBloodMagicCost
+      // return true;
+    } else {
+      // Calculate how much focus is missing
+      const difference = focusCost - this.getFocus();
+      this.depleteFocusToZero();
+      this.decrementHealth(difference * this.getBloodMagicCost()); // Health covers the remaining resource debt
+    }
+    // return true;
   }
 };

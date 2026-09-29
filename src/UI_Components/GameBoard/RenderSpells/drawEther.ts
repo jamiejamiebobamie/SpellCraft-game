@@ -204,7 +204,10 @@ export function spawnEtherHitParticles(particles: GameParticle[], targetX: numbe
       color: '#ff3700',
       shadowColor: '#fff4a3',
       life: 1.0,
-      decay: Math.random() * 0.4 + 0.6 // DELAYED DECAY: Lasts roughly 1.2 to 1.6 seconds!
+      decay: Math.random() * 0.4 + 0.6, // DELAYED DECAY: Lasts roughly 1.2 to 1.6 seconds!
+      
+      // --- ADDED TYPE TO ACTIVATE THE AGE-BASED SMOKE INTERPOLATION ---
+      type: 'etherFlame'
     });
   }
 }

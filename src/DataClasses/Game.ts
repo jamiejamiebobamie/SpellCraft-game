@@ -14,11 +14,10 @@ import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point, NPCMoveData, DivRefDimensions } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
+import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
 
 // TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
-
-
 export const GameOverStatus = {
   BothDead: 0,
   PlayerWon: 1,
@@ -270,6 +269,11 @@ export class Game {
     this.players.forEach(p => p.decrementFocus(p.getFocusRegenAmt()));
   }
 
+  decrementPlayerHealth = (playerIndex: number, dmg: number): void => {
+    if ([0, 1].includes(playerIndex) && dmg)
+      this.players[playerIndex].decrementHealth(dmg);
+  }
+
   placeSpellOnBoard = async (cell: Cell, player?: Player): Promise<void> => {
     const p = player ? player : this.humanPlayer;
     if (p && this.isCanPlaceGameSymbolOn(cell, p)) {
@@ -335,7 +339,7 @@ export class Game {
 
   updatePlacedSpells = async () => {
     // uses a generator/iterator
-    await this.placedSpells.updateSpells(this.gameBoard, this.gameLog, this.forceUpdate);
+    await this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
   }
 
   getGameSymbolIcon = (): string => {
@@ -477,6 +481,10 @@ export class Game {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
         this.placeSpellAt('circle', cellIndex);
+        this.placedSpells.combineSpellsMaximally(this.gameBoard);
+
+        this.humanPlayer?.incurPlayerCostForSpell(1);
+
         if (this.humanPlayer) {
           if (this.humanPlayer.getFocus() < 1) {
             this.setIsDoneWithTurn(true, this.humanPlayer);
@@ -509,14 +517,16 @@ export class Game {
     const result = await this.model.runInference(rawPoints);
 
     if (!GameSymbol.FIZZLE_INFERENCES.includes(result)) {
-      // Place single spell on multiple cells
-      results.forEach(([cellIndex]) => this.placeSpellAt(result, cellIndex))
+      // Extract dominant layout targets from the collection stream points
+      const dominantCells = this.filterDominantCells(rawPoints);
+      if (dominantCells.length > 0 && this.humanPlayer) {
+
+        const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
+        this.humanPlayer?.incurPlayerCostForSpell(freeCells.length);
+
+        this.spawnSizedSpellInstance(result, dominantCells, this.humanPlayer);
+      }
     }
-    // else {
-    //   // Place different(?) spells on multiple cells... TEST...
-    //   results.filter(([_, inferenceString]) => !GameSymbol.FIZZLE_INFERENCES.includes(inferenceString)).forEach(([_, inferenceString]) =>
-    //     results.forEach(([cellIndex]) => this.placeSpellAt(inferenceString, cellIndex)))
-    // }
 
     if (this.humanPlayer) {
       if (this.humanPlayer.getFocus() < 1) {
@@ -701,31 +711,33 @@ export class Game {
       lastPoint = newPoint
     });
 
+    // Within doNpcMove -> storedSpell container:
     const storedSpell = () => {
-      rawPoints.forEach(point => {
-        if (this.computerPlayer) {
-          const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(point.x, point.y);
-          if (cellIndex) {
-            this.placeSpellAt(inferenceString, cellIndex, this.computerPlayer);
+      if (this.computerPlayer) {
+        const dominantCells = this.filterDominantCells(rawPoints);
+        if (dominantCells.length > 0) {
+
+          if (this.computerPlayer) {
+            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer));
+            this.computerPlayer?.incurPlayerCostForSpell(freeCells.length);
+
+            this.spawnSizedSpellInstance(inferenceString, dominantCells, this.computerPlayer);
           }
         }
-      });
+      }
+
       if (!this.computerPlayer) return;
       this.cancelPlacingSymbol(this.computerPlayer);
-      // this.computerPlayer.setNpcDrawingPoints([]);
       this.computerPlayer.decrementNumRemaningMovesPerTurn();
+
       if (this.computerPlayer.getNumRemainingMovesPerTurn() > 0 && this.computerPlayer.getFocus() > 0) {
-        //  this.doNpcMove();
         setTimeout(() => this.doNpcMove(), Math.random() * 1000);
       } else {
-        console.log({ npcMoveData })
         this.setIsDoneWithTurn(true, this.computerPlayer);
         this.forceUpdate();
       }
-      // if (this.computerPlayer.getNumRemainingMovesPerTurn() < 1 || !this.computerPlayer.getFocus()) {
-      //   this.setIsDoneWithTurn(true, this.computerPlayer);
-      // }
-    }
+    };
+
 
     this.computerPlayer.setNpcDrawingPoints(rawPoints);
     // set to get arm-wand movements while drawing
@@ -776,6 +788,262 @@ export class Game {
   setGameOver = (status: GameOver): void => {
     this.gameOver = status;
   }
+
+
+  /**
+   * Filters cell lists to discard accidental clipping boundaries based on point counts
+   */
+  private filterDominantCells = (points: Array<{ x: number; y: number }>): CellIndex[] => {
+    if (points.length === 0) return [];
+
+    const cellFrequency: Map<string, { count: number; index: CellIndex }> = new Map();
+
+    // 1. Group point occurrences across cell indices
+    points.forEach(p => {
+      const idx = this.gameBoard.getCellIndexFromScreenCoord(p.x, p.y);
+      if (idx) {
+        const key = `${idx.i},${idx.j}`;
+        const existing = cellFrequency.get(key) || { count: 0, index: idx };
+        existing.count++;
+        cellFrequency.set(key, existing);
+      }
+    });
+
+    const totalPoints = points.length;
+    const dominantCells: CellIndex[] = [];
+
+    // 2. Filter out cells that fall beneath our 15% dominance threshold
+    cellFrequency.forEach(data => {
+      if (data.count / totalPoints >= 0.07) {
+        dominantCells.push(data.index);
+      }
+    });
+
+    // Fallback protection: if filtering leaves nothing, keep the single absolute highest count cell
+    if (dominantCells.length === 0 && cellFrequency.size > 0) {
+      let bestKey = '';
+      let maxCount = -1;
+      cellFrequency.forEach((data, key) => {
+        if (data.count > maxCount) {
+          maxCount = data.count;
+          bestKey = key;
+        }
+      });
+      if (bestKey) dominantCells.push(cellFrequency.get(bestKey)!.index);
+    }
+
+    return dominantCells;
+  };
+
+  /**
+   * Instantiates the sizing constraints and evaluates focus expenses cleanly
+   */
+  // Game.ts
+
+  private spawnSizedSpellInstance = (symbol: string, cells: CellIndex[], activeCaster: any): void => {
+    if (cells.length === 0 || !activeCaster) return;
+
+    // 1. Establish absolute placement boundaries by caster direction / side
+    const isHuman = activeCaster.getDirection() === 1;
+    const minAllowedI = 0;
+    const maxAllowedI = GameBoard.NUM_ROWS - 1; // 2
+    const minAllowedJ = isHuman ? 0 : 4;
+    const maxAllowedJ = isHuman ? 2 : GameBoard.NUM_COLS - 1; // 6
+
+    // 2. Filter out gesture points that fall outside the caster's legal 3x3 deployment zone
+    const validZoneCells = cells.filter(c =>
+      c.i >= minAllowedI && c.i <= maxAllowedI &&
+      c.j >= minAllowedJ && c.j <= maxAllowedJ
+    );
+
+    if (validZoneCells.length === 0) return;
+
+    // 3. Compute the structural bounding box of the valid cells touched
+    let minI = Number.MAX_SAFE_INTEGER, maxI = Number.MIN_SAFE_INTEGER;
+    let minJ = Number.MAX_SAFE_INTEGER, maxJ = Number.MIN_SAFE_INTEGER;
+
+    validZoneCells.forEach(c => {
+      if (c.i < minI) minI = c.i;
+      if (c.i > maxI) maxI = c.i;
+      if (c.j < minJ) minJ = c.j;
+      if (c.j > maxJ) maxJ = c.j;
+    });
+
+    let widthSpan = (maxJ - minJ) + 1;
+    let heightSpan = (maxI - minI) + 1;
+    const lowerSymbol = symbol.toLowerCase();
+
+    // --- LAYER 4: SCAN OCCUPIED SUB-CELL MATRIX BOUNDS (WITH ACCURATE ROW CAP PROTECTION) ---
+    const footprintMatrix: boolean[][] = Array(heightSpan).fill(null).map(() => Array(widthSpan).fill(false));
+
+    for (let r = 0; r < heightSpan; r++) {
+      for (let c = 0; c < widthSpan; c++) {
+        const boardI = minI + r;
+        const boardJ = minJ + c;
+
+        // FIXED CAP: If a multi-cell placement calculation leaks past the 3-row grid limit, block it instantly
+        if (boardI >= GameBoard.NUM_ROWS || boardJ >= GameBoard.NUM_COLS) {
+          footprintMatrix[r][c] = true;
+          continue;
+        }
+
+        const cell = this.gameBoard.getCellAt({ i: boardI, j: boardJ });
+
+        // Safety block if it touches unfree tiles or any existing spell reference
+        if (!cell || !cell.getIsFree() || cell.getSpell() !== null) {
+          footprintMatrix[r][c] = true;
+          continue;
+        }
+
+        // SIZED ACCURATE EVALUATION: Double check multi-cell spatial overlaps across the entire board array
+        const overlappingActiveSpell = this.placedSpells.spells.find(s => {
+          if (s.isRemove) return false;
+          const root = s.getCellIndex();
+          if (!root) return false;
+
+          const sMaxI = root.i + s.heightCells - 1;
+          const sMaxJ = root.j + s.widthCells - 1;
+
+          return boardI >= root.i && boardI <= sMaxI && boardJ >= root.j && boardJ <= sMaxJ;
+        });
+
+        if (overlappingActiveSpell) {
+          footprintMatrix[r][c] = true;
+        }
+      }
+    }
+
+    // --- LAYER 5: TYPE-SPECIFIC COMPONENT DEPLOYMENT PASSTHROUGHS ---
+
+    // A. ETHER & PHLEGM MAXIMAL SPATIAL GRID SWEEPER
+    if (lowerSymbol.includes('star') || lowerSymbol.includes('circle')) {
+      const isPhlegm = lowerSymbol.includes('star');
+
+      const canFitSquare = (startR: number, startC: number, size: number): boolean => {
+        // 1. Structural Boundary Cap Check
+        if (startR + size > heightSpan || startC + size > widthSpan) return false;
+
+        // 2. ABSOLUTE VERIFICATION LOOP
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            // If ANY cell inside this proposed square size is blocked or occupied, reject the placement
+            if (footprintMatrix[startR + r][startC + c] === true) {
+              return false;
+            }
+          }
+        }
+        return true;
+      };
+
+      const placeSquare = (startR: number, startC: number, size: number): void => {
+        const instance = isPhlegm ? new Phlegm(activeCaster) : new Ether(activeCaster);
+        instance.widthCells = size;
+        instance.heightCells = size;
+
+        instance.setCellIndex({ i: minI + startR, j: minJ + startC });
+        instance.isPlaced = true;
+        this.placedSpells.addSpell(instance);
+
+        // Mark the local matrix slots as locked so smaller sizes don't stack inside it
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            footprintMatrix[startR + r][startC + c] = true;
+          }
+        }
+      };
+
+      const allowedSizes = [3, 2, 1];
+      allowedSizes.forEach(size => {
+        for (let r = 0; r < heightSpan; r++) {
+          for (let c = 0; c < widthSpan; c++) {
+            if (canFitSquare(r, c, size)) {
+              placeSquare(r, c, size);
+            }
+          }
+        }
+      });
+    }
+
+    // B. GYREUP & GYREDOWN VERTICAL COLUMNS TRACKER
+    else if (lowerSymbol.includes('diamond') || lowerSymbol.includes('triangle')) {
+      const isGyreUp = lowerSymbol.includes('diamond');
+
+      for (let c = 0; c < widthSpan; c++) {
+        let r = 0;
+        while (r < heightSpan) {
+          if (footprintMatrix[r][c]) {
+            r++;
+            continue;
+          }
+
+          let contiguousHeight = 0;
+          while (r + contiguousHeight < heightSpan && !footprintMatrix[r + contiguousHeight][c]) {
+            contiguousHeight++;
+          }
+
+          if (contiguousHeight > 0) {
+            const instance = isGyreUp ? new GyreUp(activeCaster) : new GyreDown(activeCaster);
+            instance.widthCells = 1;
+            instance.heightCells = contiguousHeight;
+
+            instance.setCellIndex({ i: minI + r, j: minJ + c });
+            instance.isPlaced = true;
+
+            // Clear any lingering stale cells in this column slot
+            for (let h = 0; h < contiguousHeight; h++) {
+              const targetCell = this.gameBoard.getCellAt({ i: minI + r + h, j: minJ + c });
+              if (targetCell) targetCell.setSpell(null);
+            }
+
+            this.placedSpells.addSpell(instance);
+            r += contiguousHeight;
+          } else {
+            r++;
+          }
+        }
+      }
+    }
+
+    // C. QUICKEN HORIZONTAL CHAINS & VERTICAL ROW SPLITTING PASSTHROUGH
+    else if (lowerSymbol.includes('line')) {
+      for (let r = 0; r < heightSpan; r++) {
+        let c = 0;
+        while (c < widthSpan) {
+          if (footprintMatrix[r][c]) {
+            c++;
+            continue;
+          }
+
+          let contiguousWidth = 0;
+          while (c + contiguousWidth < widthSpan && !footprintMatrix[r][c + contiguousWidth]) {
+            contiguousWidth++;
+          }
+
+          if (contiguousWidth > 0) {
+            const finalWidth = heightSpan > 1 ? 1 : contiguousWidth;
+
+            const instance = new Quicken(activeCaster);
+            instance.widthCells = finalWidth;
+            instance.heightCells = 1;
+
+            instance.setCellIndex({ i: minI + r, j: minJ + c });
+            instance.isPlaced = true;
+
+            for (let w = 0; w < finalWidth; w++) {
+              const targetCell = this.gameBoard.getCellAt({ i: minI + r, j: minJ + c + w });
+              if (targetCell) targetCell.setSpell(null);
+            }
+
+            this.placedSpells.addSpell(instance);
+            c += finalWidth;
+          } else {
+            c++;
+          }
+        }
+      }
+    }
+    this.placedSpells.combineSpellsMaximally(this.gameBoard);
+  };
 
   // CHECK FOR GAME OVER CONDITION...
   checkIfIsGameOver = (): void => {

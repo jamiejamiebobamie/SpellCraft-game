@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, RefObject } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import NpcSpellCanvasComponent from '../SpellCanvas/NpcSpellCanvasComponent';
 import { Game } from '../../DataClasses/Game';
-import { PlacedSpellsComponent } from './PlacedSpellsComponent';
 import { SpellBadgeComponent } from './SpellBadgeComponent';
 import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
 import { LockSymbolComponent } from './LockSymbolComponent';
@@ -20,10 +19,12 @@ const BoardWrapper = styled.div<{ $transparency: number, $isDisabled: boolean }>
 `;
 
 type WobblePhase = -1 | 0 | 1;
-const GridContainer = styled.div<{ $wobblePhase: -1 | 0 | 1 }>`
+const GridContainer = styled.div<{ $NUM_ROWS: number, $NUM_COLS: number, $wobblePhase: -1 | 0 | 1 }>`
   display: grid;
-  grid-template-rows: repeat(3, 1fr);
-  grid-template-columns: repeat(7, 1fr);
+  ${props => `
+      grid-template-rows: repeat(${props.$NUM_ROWS}, 1fr);
+      grid-template-columns: repeat(${props.$NUM_COLS}, 1fr);
+    `}
 `;
 
 const StyledCell = styled.div<{
@@ -113,14 +114,14 @@ const StyledCell = styled.div<{
     pointer-events: none;
   }
 
-  &::before {
-    /* Kept your existing hearts code intact */
-    ${props => props.$isPlayerCell && `content: '♥';`}
-    font-size: 5.3cqw;
-    color: rgba(216, 213, 213, 0.85); /* Slightly transparent to integrate with glass look */
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    z-index: 1; /* Pushes content above the gloss highlight gradient */
-  }
+//   &::before {
+//     /* Kept your existing hearts code intact */
+//     ${props => props.$isPlayerCell && `content: '♥';`}
+//     font-size: 5.3cqw;
+//     color: rgba(216, 213, 213, 0.85); /* Slightly transparent to integrate with glass look */
+//     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+//     z-index: 1; /* Pushes content above the gloss highlight gradient */
+//   }
 `;
 
 interface GameBoardComponentProps {
@@ -152,16 +153,10 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
             <LockSymbolComponent isLocked={isDisabled} />
             <HumanPlacementTilesComponent rootGameStore={rootGameStore} />
             {npcMoveData.map((npcMd, i) => <NpcSpellCanvasComponent key={npcMd.id} rootGameStore={rootGameStore} i={i} />)}
-            <PlacedSpellsComponent rootGameStore={rootGameStore} gridOverlayRef={gridOverlayRef}/>
-            {/* {snap.placedSpells.spells.map(
-                (s, i) =>
-                    <SpellComponent
-                        key={s.id}
-                        gridOverlayRef={gridOverlayRef}
-                        spell={rootGameStore.placedSpells.spells[i]}
-                    />
-            )} */}
-            <GridContainer $wobblePhase={wobblePhase}>
+            <GridContainer
+                $NUM_ROWS={GameBoard.NUM_ROWS}
+                $NUM_COLS={GameBoard.NUM_COLS}
+                $wobblePhase={wobblePhase}>
                 {snap.gameBoard.cells.map(c =>
                     <StyledCell
                         key={c.id}
@@ -179,7 +174,7 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                         $spellOwnerColor={c.getColor()}
                         $empoweredSpellColor={c.getEmpoweredColor()}
                         $isOccupied={!c.getIsFree()}
-                        $isPlayerCell={c.getIsPlayerCell()}
+                        // $isPlayerCell={c.getIsPlayerCell()}
                         $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}
                         // $isPlacingGameSymbol={isPlayerDoingTurn}
