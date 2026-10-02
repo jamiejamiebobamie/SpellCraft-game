@@ -161,6 +161,7 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
           (anim as any).initialized = true;
         }
 
+        // const interpolationSpeed = 2;
         const interpolationSpeed = 3.5;
         (anim as any).visualX += (targetCoords.x - (anim as any).visualX) * interpolationSpeed * deltaTime;
         (anim as any).visualY += (targetCoords.y - (anim as any).visualY) * interpolationSpeed * deltaTime;
@@ -170,15 +171,17 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
         const w = cellWidthPx * cellCols;
         const h = cellHeightPx * cellRows;
         const isRemove = spell.getIsRemove?.() || false;
-        const isBeingConsumed = spell.isBeingConsumed || false;
+        // const isBeingConsumed = spell.getIsBeingConsumed();
         const totalCells = cellCols * cellRows;
         const dir = Math.sign(spell.getPropertyValue('speedDirection')) || 1;
+
+        const isDisplay = !isRemove//!(isRemove && !isBeingConsumed);
 
         if (anim.spawnProgress < 1) {
           anim.spawnProgress = Math.min(1, anim.spawnProgress + deltaTime * 4.0);
         }
 
-        if (isRemove && !isBeingConsumed && !anim.hasSpawnedParticles) {
+        if (!isDisplay && !anim.hasSpawnedParticles) {
           anim.hasSpawnedParticles = true;
           const isPlayerHit = spell.isPlayerHitImpact;
           const isOpponentHit = spell.isOpponentHitImpact;
@@ -226,7 +229,8 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
             else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreParticles(anim.particles, w, h);
           }
         }
-        if (isBeingConsumed || !isRemove) {
+
+        if (isDisplay) {
           if (spellClass === 'Ether' && anim) {
             const cx = w / 2 + (w / 10) * dir; const cy = h / 2; const radius = Math.min(w, h) * 0.3;
             if (Math.random() < Math.min(0.95, 0.4 * totalCells)) {
@@ -269,22 +273,16 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
             anim.particles.push({ x: w / 2 + Math.cos(ang) * offset, y: h / 2 + Math.sin(ang) * (offset * ((h * 0.34) / (w * 0.44))), vx: (Math.random() * 40 - 20), vy: -(90 + Math.random() * 70), alpha: 1.0, size: Math.min(w, h) * (0.05 + Math.random() * 0.03) * (GameBoard.NUM_ROWS + 1 - cellRows), color: '#ffffff', shadowColor: '#a8ff69', rotation: Math.random() * Math.PI / 4, vRotation: Math.random() * 1.0 - 0.5, life: 1.0, decay: 0.4 + Math.random() * 0.4, type: 'healCross' });
           }
         }
-      });
 
-      placedSpells.forEach((spell: any) => {
-        if (spell.isRemove && !spell.isBeingConsumed) return;
-        const anim = animStatesRef.current.get(spell.id);
-        if (!anim) return;
-        ctx.save();
-        ctx.translate((anim as any).visualX + (cellWidthPx * (spell.getPropertyValue?.('widthCells') || 1)) / 2, (anim as any).visualY + (cellHeightPx * (spell.getPropertyValue?.('heightCells') || 1)) / 2);
-        ctx.scale(Math.sign(spell.getPropertyValue('speedDirection')) || 1, 1);
-        ctx.translate(-(cellWidthPx * (spell.getPropertyValue?.('widthCells') || 1)) / 2, -(cellHeightPx * (spell.getPropertyValue?.('heightCells') || 1)) / 2);
-        drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress);
-        ctx.restore();
-      });
+        if (isDisplay && anim) {
+          ctx.save();
+          ctx.translate((anim as any).visualX + (cellWidthPx * (spell.getPropertyValue?.('widthCells') || 1)) / 2, (anim as any).visualY + (cellHeightPx * (spell.getPropertyValue?.('heightCells') || 1)) / 2);
+          ctx.scale(Math.sign(spell.getPropertyValue('speedDirection')) || 1, 1);
+          ctx.translate(-(cellWidthPx * (spell.getPropertyValue?.('widthCells') || 1)) / 2, -(cellHeightPx * (spell.getPropertyValue?.('heightCells') || 1)) / 2);
+          drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress);
+          ctx.restore();
+        }
 
-      placedSpells.forEach((spell: any) => {
-        const anim = animStatesRef.current.get(spell.id);
         if (anim && anim.particles.length > 0) {
           ctx.save();
           ctx.translate((anim as any).visualX, (anim as any).visualY);
@@ -292,6 +290,7 @@ export const PlacedSpellsComponent = ({ rootGameStore, gridOverlayRef }: PlacedS
           ctx.restore();
         }
       });
+
       const dustParticles = drawingParticlesRef.current;
       for (let i = dustParticles.length - 1; i >= 0; i--) {
         const p = dustParticles[i];

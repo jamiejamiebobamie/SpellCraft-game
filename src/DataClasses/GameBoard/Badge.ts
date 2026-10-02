@@ -3,7 +3,7 @@ import { UniqueId } from '../UniqeId';
 
 export type BadgeValues = {
   secondaryModifiers: Array<SpellPropertyName>;
-  updateOrder: number;
+  // updateOrder: number;
   speedDirection: number;
   dmgHealth: number;
   rowShift: number;
@@ -93,12 +93,12 @@ export class DmgHealthBadge extends Badge {
   }
 }
 
-export class UpdateOrderBadge extends Badge {
-  constructor(value: number) {
-    // defaults: hide if zero, priority/clock tracking icon
-    super(value, false, 'icon-clock-priority');
-  }
-}
+// export class UpdateOrderBadge extends Badge {
+//   constructor(value: number) {
+//     // defaults: hide if zero, priority/clock tracking icon
+//     super(value, false, 'icon-clock-priority');
+//   }
+// }
 
 export class RowShiftBadge extends Badge {
   constructor(value: number, isVisibleIfZero: boolean) {

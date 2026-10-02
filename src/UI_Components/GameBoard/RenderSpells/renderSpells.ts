@@ -21,11 +21,11 @@ export function drawProceduralSpell(
   ctx.save();
 
   // --- REPLICATE CAUGHT IN GYRE MOTION FOR ANY ACTIVE UP/DOWN FLAG ---
-  const upDown = Math.sign(spell.getPropertyValue?.('consumedGyres') || 0);
-  if (upDown !== 0) {
+  const consumedGyres = Math.sign(spell.getPropertyValue?.('consumedGyres') || 0);
+  if (consumedGyres !== 0) {
     // Perform orbit math relative to the center of this specific spell's canvas bounds
     ctx.translate(w / 2, h / 2);
-    applyCaughtInGyreTransform(ctx, time, upDown);
+    applyCaughtInGyreTransform(ctx, time, consumedGyres);
     ctx.translate(-w / 2, -h / 2);
   }
 
@@ -268,13 +268,13 @@ export function updateAndDrawParticles(
  * Replicates your exact 'caughtInGyre' violent wobble orbital CSS keyframe animation.
  * @param ctx - The Canvas rendering context
  * @param time - Current loop timestamp in milliseconds
- * @param upDown - The movement flag (1 or -1) to influence direction/speed
+ * @param consumedGyres - The movement flag (1 or -1) to influence direction/speed
  */
-function applyCaughtInGyreTransform(ctx: CanvasRenderingContext2D, time: number, upDown: number) {
+function applyCaughtInGyreTransform(ctx: CanvasRenderingContext2D, time: number, consumedGyres: number) {
   // Loop speed matching your original '1s linear infinite' configuration
   // time * 0.002 * Math.PI completes 1 full cycle every 1000ms
   const speedModifier = 1.0;
-  const angle = (time * 0.002 * Math.PI * speedModifier) * upDown;
+  const angle = (time * 0.002 * Math.PI * speedModifier) * consumedGyres;
 
   // 1. REPLICATING TRANSLATE3D POSITION ORBIT
   // 0%  (angle = 0)     -> x = 15,  y = 0

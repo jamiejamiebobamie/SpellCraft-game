@@ -12,7 +12,7 @@ export class Cell extends UniqueId {
   isHighlighted: boolean = false;
   backgroundIcon: string = 'default-bg';
   color: string = '';
-  empoweredColor: string = '';
+  // empoweredColor: string = '';
   cellIndex: CellIndex;
 
   isClickDisabled: boolean = false;
@@ -91,13 +91,13 @@ export class Cell extends UniqueId {
     this.color = color;
   };
 
-  getEmpoweredColor = (): string => {
-    return this.empoweredColor;
-  };
+  // getEmpoweredColor = (): string => {
+  //   return this.empoweredColor;
+  // };
 
-  setEmpoweredColor = (color: string): void => {
-    this.empoweredColor = color;
-  };
+  // setEmpoweredColor = (color: string): void => {
+  //   this.empoweredColor = color;
+  // };
 
   setIsClickDisabled = (isDisabled: boolean): void => {
     this.isClickDisabled = isDisabled;
@@ -130,19 +130,19 @@ export class Cell extends UniqueId {
     this.isClickDisabled = false;
     this.isHoverDisabled = false;
     this.spell = null;
-    this.empoweredColor = '';
+    // this.empoweredColor = '';
   }
 
   getBadgeValues = (): BadgeValues => {
-    const dmgHealth = this.spell?.getPropertyValue('empoweredDmgHealth');
-    const speedDirection = this.spell?.getPropertyValue('empoweredSpeedDirection');
-    const gyreLives = this.spell?.getPropertyValue('gyreLives');
-    const updateOrder = this.spell?.getPropertyValue('updateOrder');
+    const dmgHealth = this.spell?.getPropertyValue('dmgHealth');
+    const speedDirection = this.spell?.getPropertyValue('speedDirection');
+    // const gyreLives = this.spell?.getPropertyValue('gyreLives');
+    // const updateOrder = this.spell?.getPropertyValue('updateOrder');
 
     return {
-      updateOrder: updateOrder ? updateOrder : 0,
+      // updateOrder: 0,
       speedDirection: speedDirection ? speedDirection : 0,
-      gyreLives: this.spell instanceof Gyre && gyreLives ? gyreLives : 0,
+      // gyreLives: 0,
       dmgHealth: dmgHealth ? dmgHealth : 0
     }
   };

@@ -2,7 +2,6 @@
 import { RefObject } from 'react';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
-import { GameLog, GameLogEntry } from './GameLog';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
@@ -31,7 +30,6 @@ export type GameOver = typeof GameOverStatus[keyof typeof GameOverStatus]; // "U
 export class Game {
   // Core Subsystem Managers
   gameBoard!: GameBoard;
-  gameLog!: GameLog;
   placedSpells!: PlacedSpells;
   model!: Model;
   spellCanvas!: SpellCanvas;
@@ -78,9 +76,8 @@ export class Game {
 
   init = (): void => {
     // 1. Create a fresh instance of the Logger
-    this.gameLog = proxy(new GameLog());
-    this.clearLog();
-    this.appendToLog('Initializing new mystical duel...', '#a78bfa');
+    // this.clearLog();
+    // this.appendToLog('Initializing new mystical duel...', '#a78bfa');
 
     // 2. Spawn fresh data layers for both players
     const humanPlayer = proxy(new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png'));
@@ -118,18 +115,6 @@ export class Game {
     this.gameOver = null;
     this.isClickDisabled = false;
     this.isHoverDisabled = false;
-    this.clearLog();
-    this.appendToLog('Initializing new mystical duel...', '#a78bfa');
-  };
-
-  // --- GameLog Delegation Wrappers ---
-
-  clearLog = (): void => {
-    this.gameLog.clearAllEntries();
-  };
-
-  appendToLog = (text: string, color: string = '#FFFFFF'): void => {
-    this.gameLog.appendEntry(text, color);
   };
 
   // --- GameState Input Delegation Wrappers ---
@@ -261,9 +246,9 @@ export class Game {
     return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
   }
 
-  getLogEntries = (): Array<GameLogEntry> => {
-    return this.gameLog.logEntries;
-  };
+  // getLogEntries = (): Array<GameLogEntry> => {
+  //   return this.gameLog.logEntries;
+  // };
 
   regenFocusForPlayers = () => {
     this.players.forEach(p => p.decrementFocus(p.getFocusRegenAmt()));
@@ -285,7 +270,7 @@ export class Game {
           spell.setCellIndex(cell.getCellIndex());
           this.placedSpells.addSpell(spell);
           this.gameBoard.setSpellAt(spell, cell);
-          spell.setIsPlaced(true);
+          // spell.setIsPlaced(true);
         }
       }
     }
@@ -438,17 +423,17 @@ export class Game {
     return this.gameBoard.hoveredCell?.getSpell() || null;
   }
 
-  getHoveredSpellBookSpell = (): SpellConstructor | null => {
-    return this.gameLog.getHoveredSpellBookSpell();
-  }
+  // getHoveredSpellBookSpell = (): SpellConstructor | null => {
+  //   return this.gameLog.getHoveredSpellBookSpell();
+  // }
 
-  setHoveredSpellBookSpell = (hoveredSpell: SpellConstructor | null): void => {
-    this.gameLog.setHoveredSpellBookSpell(hoveredSpell);
-  }
+  // setHoveredSpellBookSpell = (hoveredSpell: SpellConstructor | null): void => {
+  //   this.gameLog.setHoveredSpellBookSpell(hoveredSpell);
+  // }
 
-  setHoveredGameboardCell = (cell: Cell | null): void => {
-    this.gameBoard.hoverCell(cell);
-  }
+  // setHoveredGameboardCell = (cell: Cell | null): void => {
+  //   this.gameBoard.hoverCell(cell);
+  // }
 
   getIsPlacing = (): boolean => {
     return this.humanPlayer?.gameSymbol != null;
@@ -490,6 +475,7 @@ export class Game {
             this.setIsDoneWithTurn(true, this.humanPlayer);
           }
         }
+        this.forceUpdate();
       }
     }
 
@@ -523,8 +509,10 @@ export class Game {
 
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         this.humanPlayer?.incurPlayerCostForSpell(freeCells.length);
+        const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
+        console.log({ freeCells, freePositions })
 
-        this.spawnSizedSpellInstance(result, dominantCells, this.humanPlayer);
+        this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
       }
     }
 
@@ -569,7 +557,7 @@ export class Game {
         return;
       }
 
-      this.setHoveredGameboardCell(null);
+      // this.setHoveredGameboardCell(null);
       this.resetClock();
       this.pauseClock();
       this.incrementMinuteAngleAcc();
@@ -802,10 +790,12 @@ export class Game {
     points.forEach(p => {
       const idx = this.gameBoard.getCellIndexFromScreenCoord(p.x, p.y);
       if (idx) {
-        const key = `${idx.i},${idx.j}`;
-        const existing = cellFrequency.get(key) || { count: 0, index: idx };
-        existing.count++;
-        cellFrequency.set(key, existing);
+        const cell = this.gameBoard.getCellAt(idx);
+        if (cell) {
+          const existing = cellFrequency.get(cell.id) || { count: 0, index: idx };
+          existing.count++;
+          cellFrequency.set(cell.id, existing);
+        }
       }
     });
 
@@ -821,15 +811,15 @@ export class Game {
 
     // Fallback protection: if filtering leaves nothing, keep the single absolute highest count cell
     if (dominantCells.length === 0 && cellFrequency.size > 0) {
-      let bestKey = '';
+      let bestId: string = '';
       let maxCount = -1;
-      cellFrequency.forEach((data, key) => {
+      cellFrequency.forEach((data, id) => {
         if (data.count > maxCount) {
           maxCount = data.count;
-          bestKey = key;
+          bestId = id;
         }
       });
-      if (bestKey) dominantCells.push(cellFrequency.get(bestKey)!.index);
+      if (bestId) dominantCells.push(cellFrequency.get(bestId)!.index);
     }
 
     return dominantCells;
@@ -941,7 +931,7 @@ export class Game {
         instance.heightCells = size;
 
         instance.setCellIndex({ i: minI + startR, j: minJ + startC });
-        instance.isPlaced = true;
+        // instance.isPlaced = true;
         this.placedSpells.addSpell(instance);
 
         // Mark the local matrix slots as locked so smaller sizes don't stack inside it
@@ -987,7 +977,7 @@ export class Game {
             instance.heightCells = contiguousHeight;
 
             instance.setCellIndex({ i: minI + r, j: minJ + c });
-            instance.isPlaced = true;
+            // instance.isPlaced = true;
 
             // Clear any lingering stale cells in this column slot
             for (let h = 0; h < contiguousHeight; h++) {
@@ -1027,7 +1017,7 @@ export class Game {
             instance.heightCells = 1;
 
             instance.setCellIndex({ i: minI + r, j: minJ + c });
-            instance.isPlaced = true;
+            // instance.isPlaced = true;
 
             for (let w = 0; w < finalWidth; w++) {
               const targetCell = this.gameBoard.getCellAt({ i: minI + r, j: minJ + c + w });

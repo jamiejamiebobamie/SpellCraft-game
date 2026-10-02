@@ -1,7 +1,7 @@
 // PlacedSpells.ts — PART 1
 import { Spell, Phlegm, Ether, Gyre, GyreUp, GyreDown, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
-import { CellIndex } from '../types';
+import { CellIndex, CollisionResult } from '../types';
 import { proxy } from 'valtio';
 
 export class PlacedSpells {
@@ -9,15 +9,12 @@ export class PlacedSpells {
   static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 100; // for micro steps
   static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 1000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
-
-  getTop = (): Spell | null => {
-    return this.spells[this.spells.length - 1];
-  };
+  // static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 2000; // for micro steps
+  // static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 3000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
   addSpell = (spell: Spell): void => {
     if (!this.spells.includes(spell)) {
       this.spells.push(spell);
-      this.reindexUpdateOrder();
     }
   };
 
@@ -25,23 +22,33 @@ export class PlacedSpells {
     this.spells.splice(0);
   };
 
-  reindexUpdateOrder = (): void => {
-    let count = 1;
-    this.spells.forEach(s => {
-      if (!s.isRemove) {
-        s.updatePropertyValue('updateOrder', count);
-        count++;
+  removeConsumed = (): void => {
+    this.spells.filter(spell => !!spell.consumingSpellIds.size).forEach(s => s.markSpellForRemoval());
+  }
+
+  removeInvalidSpells = (gameBoard: GameBoard): void => {
+    const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
+    // console.log({ markedForRemoval })
+    markedForRemoval.forEach(s => {
+      const idx = this.spells.indexOf(s);
+      if (idx !== -1) {
+        const cellIndex = s.getCellIndex();
+        const width = s.widthCells, height = s.heightCells;
+        const dir = Math.sign(s.getPropertyValue('speedDirection'));
+        if (cellIndex) {
+          for (let i = 0; i < height; i++) {
+            for (let j = 0; j < width; j++) {
+              const cell = gameBoard.getCellAt({ i: cellIndex.i + i, j: cellIndex.j + j * dir });
+              if (cell) {
+                const spell = cell.getSpell(); // need to clear sized spells cells too
+                if (spell && spell.id == s.id) cell.setSpell(null);
+              }
+            }
+          }
+        }
+        this.spells.splice(idx, 1);
       }
     });
-  };
-
-  removeInvalidSpells = (): void => {
-    const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
-    markedForRemoval.forEach(s => {
-      const i = this.spells.indexOf(s);
-      if (i !== -1) this.spells.splice(i, 1);
-    });
-    this.reindexUpdateOrder();
   };
 
   static async* timedIterator<T>(items: T[], delayTime: number): AsyncGenerator<T, void, unknown> {
@@ -68,11 +75,11 @@ export class PlacedSpells {
     );
   };
 
-  // PlacedSpells.ts — PART 2
   updateSpells = async (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<void> => {
+    // console.log({ spells: this.spells })
     this.spells.forEach(s => {
-      if (!s.isRemove) {
-        const moves = Math.abs(s.getPropertyValue('empoweredSpeedDirection'));
+      if (!s.getIsRemove()) {
+        const moves = Math.abs(s.getPropertyValue('speedDirection'));
         s.remainingMoves = moves;
         s.recordedMovesCount = 0;
       }
@@ -81,10 +88,9 @@ export class PlacedSpells {
     let currentMicroStep = 1;
 
     while (true) {
-      // DECOUPLED TRACKER: Incorporate vertical gyre momentum limits alongside horizontal bounds
       let maxMovesNeeded = 0;
       this.spells.forEach(s => {
-        if (!s.isRemove) {
+        if (!s.getIsRemove()) {
           const totalSpellSteps = s.recordedMovesCount + s.remainingMoves + Math.abs(s.consumedGyres || 0);
           if (totalSpellSteps > maxMovesNeeded) {
             maxMovesNeeded = totalSpellSteps;
@@ -96,14 +102,22 @@ export class PlacedSpells {
         break;
       }
 
+      /*
+        2x2 Ether colliding with 1x3 GyreUp -> 
+          ISSUES:
+            - spawns 4 1x1 Ether INSIDE GYRE COLUMN
+            - 1 1x1 Ether who was not impacted by GYRE COLUMN moves 3 spaces(???)
+            - 1 1x1 Ether who was not impacted by GYRE COLUMN stays in place and is in then destroyed at end of turn...
+      */
+
       const positionCache = this.cachePositions();
-      this.handleLookAheadCollisions(positionCache);
+      this.handleLookAheadCollisions(positionCache, gameBoard);
       this.clearGridFootprints(gameBoard);
 
-      const anySpellMoved = this.executeSynchronousMicroSteps(gameBoard, decrementPlayerHealth);
+      const anySpellMoved = this.executeSynchronousMicroSteps(gameBoard, forceUpdate, decrementPlayerHealth);
       if (!anySpellMoved) break;
 
-      this.handleMidStepTunnelingSwaps(positionCache);
+      this.handleMidStepCollisions(positionCache, gameBoard);
 
       forceUpdate();
       await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
@@ -115,30 +129,29 @@ export class PlacedSpells {
     this.spells.forEach(s => {
       s.consumedGyres = 0;
       s.consumedPhlegms = 0;
-      s.isBeingConsumed = false;
     });
 
     this.combineSpellsMaximally(gameBoard);
-    gameBoard.setEmpoweredSpells();
+    this.removeConsumed();
     forceUpdate();
     await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI));
-    this.removeInvalidSpells();
+    this.removeInvalidSpells(gameBoard);
     forceUpdate();
   };
 
   private cachePositions = (): Map<string, CellIndex> => {
     const positionCache = new Map<string, CellIndex>();
     this.spells.forEach(s => {
-      if (s.isRemove) return;
+      if (s.getIsRemove()) return;
       const idx = s.getCellIndex();
       if (idx) {
-        positionCache.set(s.key, { i: idx.i, j: idx.j });
+        positionCache.set(s.id, { i: idx.i, j: idx.j });
       }
     });
     return positionCache;
   };
 
-  private handleLookAheadCollisions = (positionCache: Map<string, CellIndex>): void => {
+  private handleLookAheadCollisions = (positionCache: Map<string, CellIndex>, gameBoard: GameBoard): void => {
     const resolvedLookAheads = new Set<string>();
 
     for (let i = 0; i < this.spells.length; i++) {
@@ -146,14 +159,15 @@ export class PlacedSpells {
         const spellA = this.spells[i];
         const spellB = this.spells[j];
 
-        if (spellA.isRemove || spellB.isRemove || spellA.isBeingConsumed || spellB.isBeingConsumed) continue;
+        // if (spellA.isRemove || spellB.isRemove || spellA.isBeingConsumed || spellB.isBeingConsumed) continue;
+        if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA)) continue;
 
         const posA = spellA.getCellIndex();
         const posB = spellB.getCellIndex();
         if (!posA || !posB) continue;
 
-        const nextJA = posA.j + Math.sign(spellA.getPropertyValue('empoweredSpeedDirection')) * (spellA.remainingMoves > 0 ? 1 : 0);
-        const nextJB = posB.j + Math.sign(spellB.getPropertyValue('empoweredSpeedDirection')) * (spellB.remainingMoves > 0 ? 1 : 0);
+        const nextJA = posA.j + Math.sign(spellA.getPropertyValue('speedDirection')) * (spellA.remainingMoves > 0 ? 1 : 0);
+        const nextJB = posB.j + Math.sign(spellB.getPropertyValue('speedDirection')) * (spellB.remainingMoves > 0 ? 1 : 0);
 
         const futurePosA = { i: posA.i, j: nextJA };
         const futurePosB = { i: posB.i, j: nextJB };
@@ -163,16 +177,16 @@ export class PlacedSpells {
         const wB = spellB.widthCells;
         const hB = spellB.heightCells;
 
-        const willSwap =
+        const willCollide =
           this.checkBoundingBoxOverlap(futurePosA, wA, hA, posB, wB, hB) &&
           this.checkBoundingBoxOverlap(futurePosB, wB, hB, posA, wA, hA);
 
-        if (willSwap) {
-          const pairKey = [spellA.key, spellB.key].sort().join('-');
+        if (willCollide) {
+          const pairKey = [spellA.id, spellB.id].sort().join('_');
           if (resolvedLookAheads.has(pairKey)) continue;
           resolvedLookAheads.add(pairKey);
 
-          this.processCollisionPair(spellA, spellB, positionCache, true);
+          this.processCollisionPair(spellA, spellB, positionCache, true, gameBoard);
         }
       }
     }
@@ -180,7 +194,8 @@ export class PlacedSpells {
 
   private clearGridFootprints = (gameBoard: GameBoard): void => {
     this.spells.forEach(s => {
-      if (s.isRemove) return;
+      // if (s.isRemove) return;
+      if (s.getIsRemove()) return;
       const currentCellIndex = s.getCellIndex();
       if (currentCellIndex) {
         for (let r = 0; r < s.heightCells; r++) {
@@ -199,11 +214,13 @@ export class PlacedSpells {
     });
   };
 
-  private executeSynchronousMicroSteps = (gameBoard: GameBoard, decrementPlayerHealth: Function): boolean => {
+  private executeSynchronousMicroSteps = (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): boolean => {
     let anySpellMoved = false;
 
     for (const spell of this.spells) {
-      if (spell.isRemove || spell.isBeingConsumed) continue;
+
+      if (spell.getIsRemove() || spell.getIsBeingConsumed()) continue;
+
       // Terminate stepping if BOTH horizontal movement and vertical climbing states are spent
       if (spell.remainingMoves <= 0 && (!spell.consumedGyres || spell.consumedGyres === 0)) continue;
 
@@ -216,25 +233,25 @@ export class PlacedSpells {
       }
 
       spell.executeSingleMicroStep();
+      forceUpdate();
 
       const nextCellIndex = spell.getCellIndex();
-      if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: nextCellIndex.j })) {
-        if (nextCellIndex) {
-          const isLeftExit = nextCellIndex.j < 0;
-          const isRightExit = nextCellIndex.j >= GameBoard.NUM_COLS;
-          if (isLeftExit || isRightExit) {
-            const dmg = spell.getPropertyValue('empoweredDmgHealth');
-            const playerIndex = isLeftExit ? 0 : 1;
+      const headColumn = nextCellIndex.j + (spell.widthCells - 1) * Math.sign(spell.getPropertyValue('speedDirection'));
+      if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: headColumn })) {
+        const isLeftExit = headColumn < 0;
+        const isRightExit = headColumn >= GameBoard.NUM_COLS;
+        if (isLeftExit || isRightExit) {
+          const dmg = spell.getPropertyValue('dmgHealth');
+          const playerIndex = isLeftExit ? 0 : 1;
 
-            spell.hitDamageAmount = dmg;
-            if (isLeftExit) {
-              spell.isPlayerHitImpact = true;
-            } else {
-              spell.isOpponentHitImpact = true;
-            }
-
-            decrementPlayerHealth(playerIndex, dmg);
+          spell.hitDamageAmount = dmg;
+          if (isLeftExit) {
+            spell.isPlayerHitImpact = true;
+          } else {
+            spell.isOpponentHitImpact = true;
           }
+
+          decrementPlayerHealth(playerIndex, dmg);
         }
         spell.markSpellForRemoval();
       }
@@ -242,18 +259,18 @@ export class PlacedSpells {
     return anySpellMoved;
   };
 
-  private handleMidStepTunnelingSwaps = (positionCache: Map<string, CellIndex>): void => {
-    const resolvedSwaps = new Set<string>();
+  private handleMidStepCollisions = (positionCache: Map<string, CellIndex>, gameBoard: GameBoard): void => {
+    const resolvedCollisions = new Set<string>();
 
     for (let i = 0; i < this.spells.length; i++) {
       for (let j = i + 1; j < this.spells.length; j++) {
         const spellA = this.spells[i];
         const spellB = this.spells[j];
 
-        if (spellA.isRemove || spellB.isRemove || spellA.isBeingConsumed || spellB.isBeingConsumed) continue;
+        if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA)) continue;
 
-        const startA = positionCache.get(spellA.key);
-        const startB = positionCache.get(spellB.key);
+        const startA = positionCache.get(spellA.id);
+        const startB = positionCache.get(spellB.id);
         const endA = spellA.getCellIndex();
         const endB = spellB.getCellIndex();
 
@@ -269,87 +286,97 @@ export class PlacedSpells {
 
         const headingOpposed = Math.sign(deltaJA) !== Math.sign(deltaJB) && deltaJA !== 0;
         if (headingOpposed) {
-          const boxesSwapped =
+          const boxesOverlapped =
             this.checkBoundingBoxOverlap(endA, wA, hA, startB, wB, hB) &&
             this.checkBoundingBoxOverlap(endB, wB, hB, startA, wA, hA);
 
-          if (boxesSwapped) {
-            const pairKey = [spellA.key, spellB.key].sort().join('-');
-            if (resolvedSwaps.has(pairKey)) continue;
-            resolvedSwaps.add(pairKey);
+          if (boxesOverlapped) {
+            const pairKey = [spellA.id, spellB.id].sort().join('_');
+            if (resolvedCollisions.has(pairKey)) continue;
+            resolvedCollisions.add(pairKey);
 
-            this.processCollisionPair(spellA, spellB, positionCache, false);
+            this.processCollisionPair(spellA, spellB, positionCache, false, gameBoard);
           }
         }
       }
     }
   };
 
-  private processCollisionPair = (spellA: Spell, spellB: Spell, positionCache: Map<string, CellIndex>, isLookAhead: boolean): void => {
-    const dmgA = spellA.getPropertyValue('empoweredDmgHealth');
-    const dmgB = spellB.getPropertyValue('empoweredDmgHealth');
+  private processCollisionPair = async (spellA: Spell, spellB: Spell, positionCache: Map<string, CellIndex>, isLookAhead: boolean, gameBoard: GameBoard): Promise<void> => {
+    const { winner, loser } = await this.doCollision(spellA, spellB, gameBoard);
+    if (winner && loser) {
+      if (isLookAhead) {
+        loser.remainingMoves = 0;
+      } else {
+        const startOrigin = winner === spellA ? positionCache.get(spellA.id) : positionCache.get(spellB.id);
+        if (startOrigin) loser.setCellIndex({ i: startOrigin.i, j: startOrigin.j });
+      }
+    }
+  };
+
+  private doCollision = async (spellA: Spell, spellB: Spell, gameBoard: GameBoard): Promise<CollisionResult> => {
+    const dmgA = spellA.getPropertyValue('dmgHealth');
+    const dmgB = spellB.getPropertyValue('dmgHealth');
 
     let winner = spellA;
     let loser = spellB;
 
-    if (dmgA === dmgB) {
-      if (Math.random() < 0.5) {
-        winner = spellA;
-        loser = spellB;
-      } else {
-        winner = spellB;
-        loser = spellA;
-      }
-    } else if (spellA instanceof Phlegm && spellB instanceof Phlegm) {
-      if (dmgA > dmgB) { winner = spellB; loser = spellA; }
-    } else {
-      if (dmgB > dmgA) { winner = spellB; loser = spellA; }
+    if (
+      // !(spellA instanceof Gyre && spellB instanceof Gyre) &&
+      dmgA === dmgB) {
+      spellA.markSpellForRemoval();
+      spellB.markSpellForRemoval();
+      return { winner: null, loser: null };
     }
+    else if (dmgB > dmgA) { winner = spellB; loser = spellA; }
+    else if (dmgA > dmgB) { winner = spellA; loser = spellB; }
 
-    loser.isBeingConsumed = true;
+    const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
+    const isCollisionWithTerrain = loser instanceof Phlegm || loser instanceof Gyre;
+
+    // removed for 1x1 collisions to register...
+    // if (!isWinnerSized && isCollisionWithTerrain) {
+    //   continue;
+    // }
+
     winner.resolveSpellCollision(loser);
 
+    let extraMoves = 0;
     if (loser instanceof Phlegm) {
-      const phlegmDmg = loser.getPropertyValue('empoweredDmgHealth');
-      const winnerDmg = winner.getPropertyValue('empoweredDmgHealth');
+      const phlegmDmg = loser.getPropertyValue('dmgHealth');
+      const winnerDmg = winner.getPropertyValue('dmgHealth');
       const absoluteDiff = Math.abs(phlegmDmg) - Math.abs(winnerDmg);
-      const extraMoves = Math.max(Math.floor(absoluteDiff / 5), 1);
-      if (extraMoves > 0) {
-        winner.remainingMoves += extraMoves;
-      }
+      extraMoves = Math.max(Math.floor(absoluteDiff / 5), 1);
     }
 
-    if (winner.widthCells > 1 || winner.heightCells > 1) {
-      if (loser instanceof Phlegm || loser instanceof Gyre) {
-        this.shatterSpellIntoFragments(winner, loser instanceof Gyre ? loser : undefined);
-      }
+    if (isWinnerSized && isCollisionWithTerrain) {
+      const [fragments, remainingMoves] = await this.shatterSpellIntoFragments(winner, loser);
+      // await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
+      // fragments.forEach(s => s.remainingMoves = remainingMoves + extraMoves);
+      // this.combineSpellsMaximally(gameBoard);
     } else if (loser instanceof Gyre) {
-      // const sign = loser instanceof GyreUp ? - 1 : 1;
-      // winner.consumedGyres = sign * loser.rowShift * loser.heightCells;
-      winner.consumedGyres = loser.rowShift * loser.heightCells;
+      const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
+      winner.consumedGyres = rowShifts;
+    } else if (loser instanceof Phlegm && extraMoves > 0) {
+      winner.remainingMoves += extraMoves;
     }
 
-    if (isLookAhead) {
-      loser.remainingMoves = 0;
-    } else {
-      const startOrigin = winner === spellA ? positionCache.get(spellA.key) : positionCache.get(spellB.key);
-      if (startOrigin) loser.setCellIndex({ i: startOrigin.i, j: startOrigin.j });
-    }
-  };
+    return { winner, loser };
+  }
 
   private resolveGridCollisions = async (gameBoard: GameBoard, forceUpdate: Function): Promise<void> => {
     const resolvedPairs = new Set<string>();
 
     while (true) {
       let structuralCollisionFoundThisPass = false;
-      const activeSpells = this.spells.filter(s => !s.isRemove);
+      const activeSpells = this.spells.filter(s => !s.getIsRemove());
 
       for (let i = 0; i < activeSpells.length; i++) {
         for (let j = i + 1; j < activeSpells.length; j++) {
           const spellA = activeSpells[i];
           const spellB = activeSpells[j];
 
-          if (spellA.isRemove || spellB.isRemove) continue;
+          if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA)) continue;
 
           const idxA = spellA.getCellIndex();
           const idxB = spellB.getCellIndex();
@@ -363,55 +390,12 @@ export class PlacedSpells {
           );
 
           if (overlaps) {
-            const pairKey = [spellA.key, spellB.key].sort().join('-');
+            const pairKey = [spellA.id, spellB.id].sort().join('_');
             if (resolvedPairs.has(pairKey)) continue;
             resolvedPairs.add(pairKey);
-
             structuralCollisionFoundThisPass = true;
-
-            const dmgA = spellA.getPropertyValue('empoweredDmgHealth');
-            const dmgB = spellB.getPropertyValue('empoweredDmgHealth');
-
-            let winner = spellA;
-            let loser = spellB;
-
-            if (dmgA === dmgB) {
-              if (Math.random() < 0.5) { winner = spellA; loser = spellB; }
-              else { winner = spellB; loser = spellA; }
-            } else if (spellA instanceof Phlegm && spellB instanceof Phlegm) {
-              if (dmgA > dmgB) { winner = spellB; loser = spellA; }
-            } else {
-              if (dmgB >= dmgA) { winner = spellB; loser = spellA; }
-            }
-
-            const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
-            const isCollisionWithTerrain = loser instanceof Phlegm || loser instanceof Gyre;
-
-            // removed for 1x1 collisions to register...
-            // if (!isWinnerSized && isCollisionWithTerrain) {
-            //   continue;
-            // }
-
-            loser.isBeingConsumed = true;
-            winner.resolveSpellCollision(loser);
-
-            if (loser instanceof Phlegm) {
-              const phlegmDmg = loser.getPropertyValue('empoweredDmgHealth');
-              const winnerDmg = winner.getPropertyValue('empoweredDmgHealth');
-              const absoluteDiff = Math.abs(phlegmDmg) - Math.abs(winnerDmg);
-              const extraMoves = Math.max(Math.floor(absoluteDiff / 5), 1);
-              if (extraMoves > 0) {
-                winner.remainingMoves += extraMoves;
-              }
-            }
-
-            if (isWinnerSized && isCollisionWithTerrain) {
-              this.shatterSpellIntoFragments(winner, loser instanceof Gyre ? loser : undefined);
-            } else if (loser instanceof Gyre) {
-              // const sign = loser instanceof GyreUp ? - 1 : 1;
-              // winner.consumedGyres = sign * loser.rowShift * loser.heightCells;
-              winner.consumedGyres = loser.rowShift * loser.heightCells;
-            }
+            this.doCollision(spellA, spellB, gameBoard);
+            forceUpdate();
             break;
           }
         }
@@ -422,7 +406,7 @@ export class PlacedSpells {
     }
 
     this.spells.forEach(spell => {
-      if (spell.isRemove) return;
+      if (spell.getIsRemove()) return;
       const idx = spell.getCellIndex();
       if (!idx) return;
 
@@ -435,65 +419,159 @@ export class PlacedSpells {
     });
   };
 
-  private shatterSpellIntoFragments = (parent: Spell, gyreHit?: Gyre): void => {
+  private shatterSpellIntoFragments = (parent: Spell, hit: Spell): [Array<Spell>, number] => {
+    const fragments: Array<Spell> = [];
+
+    const dir = Math.sign(parent.getPropertyValue('speedDirection'));
+    const hitDir = Math.sign(hit.getPropertyValue('speedDirection'));
+    const hitColumn = hit.getCellIndex().j + (hit.widthCells - 1) * hitDir;
+
+    const hitMinRow = hit.getCellIndex().i
+    const hitMaxRow = hit.getCellIndex().i + (hit.heightCells - 1)
+
+    const remainingMoves = Math.max(0, parent.widthCells - Math.abs(hitColumn - parent.cellIndex.j) + (parent.consumedQuickens > 0 ? 1 : 0));//Math.max(0, parent.remainingMoves - parent.widthCells);
+
+    // if (!(parent instanceof Gyre && hit instanceof Gyre)) {
+    if (parent instanceof Gyre) {
+      // hit is Phlegm, get lowest point on Phlegm
+      if (parent instanceof GyreUp) {
+        // lowest point is root on GyreUp
+        const gyreRoot = parent.cellIndex.i + parent.heightCells - 1;
+        const lowestPoint = hit.cellIndex.i + hit.heightCells - 1
+
+        if (gyreRoot == lowestPoint) {
+          // do not split, just flip direction of Gyre 
+          // parent.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+          hit.conferModifierTo(parent);
+          return [[], remainingMoves]
+        } else {
+          // split Gyre in two, lowestPoint up is one Gyre w/ flipped direction
+
+          // FLIPPED DIRECTION
+          let frag = new (parent.constructor as any)(parent.caster);
+          frag.widthCells = 1;
+          frag.heightCells = parent.heightCells - (gyreRoot - lowestPoint);
+          let i = lowestPoint;
+          let j = hitColumn
+          frag.setCellIndex({ i, j });
+          frag.consumedEthers = parent.consumedEthers;
+          frag.consumedQuickens = parent.consumedQuickens;
+          frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+          let newFragment = proxy(frag);
+          this.spells.push(newFragment);
+          fragments.push(newFragment);
+
+          // NON-FLIPPED DIRECTION
+          frag = new (parent.constructor as any)(parent.caster);
+          frag.widthCells = 1;
+          frag.heightCells = gyreRoot - lowestPoint;
+          i = gyreRoot;
+          j = hitColumn
+          frag.setCellIndex({ i, j });
+          frag.consumedEthers = parent.consumedEthers;
+          frag.consumedQuickens = parent.consumedQuickens;
+          frag.recordedMovesCount = parent.recordedMovesCount;
+          newFragment = proxy(frag);
+          this.spells.push(newFragment);
+          fragments.push(newFragment);
+        }
+      }
+      else if (parent instanceof GyreDown) {
+        // highest point is root on GyreDown
+        const gyreRoot = parent.cellIndex.i;
+        const lowestPoint = hit.cellIndex.i;
+        if (gyreRoot == lowestPoint) {
+          // do not split, just flip direction of Gyre 
+          hit.conferModifierTo(parent);
+          return [[], remainingMoves]
+        } else {
+          // split Gyre in two, lowestPoint down is one Gyre w/ flipped direction
+
+          // FLIPPED DIRECTION
+          let frag = new (parent.constructor as any)(parent.caster);
+          frag.widthCells = 1;
+          frag.heightCells = parent.heightCells - (lowestPoint - gyreRoot);
+          let i = lowestPoint;
+          let j = hitColumn
+          frag.setCellIndex({ i, j });
+          frag.consumedEthers = parent.consumedEthers;
+          frag.consumedQuickens = parent.consumedQuickens;
+          frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+          let newFragment = proxy(frag);
+          this.spells.push(newFragment);
+          fragments.push(newFragment);
+
+          // NON-FLIPPED DIRECTION
+          frag = new (parent.constructor as any)(parent.caster);
+          frag.widthCells = 1;
+          frag.heightCells = lowestPoint - gyreRoot;
+          i = gyreRoot;
+          j = hitColumn
+          frag.setCellIndex({ i, j });
+          frag.consumedEthers = parent.consumedEthers;
+          frag.consumedQuickens = parent.consumedQuickens;
+          frag.recordedMovesCount = parent.recordedMovesCount;
+          newFragment = proxy(frag);
+          this.spells.push(newFragment);
+          fragments.push(newFragment);
+        }
+      }
+    } else {
+      for (let r = 0; r < parent.heightCells; r++) {
+        for (let c = 0; c < parent.widthCells; c++) {
+          const i = parent.cellIndex.i + r;
+          const j = parent.cellIndex.j + c * dir;
+
+          const frag = new (parent.constructor as any)(parent.caster);
+          frag.widthCells = 1;
+          frag.heightCells = 1;
+          frag.setCellIndex({ i, j });
+
+          frag.consumedEthers = parent.consumedEthers;
+          frag.consumedQuickens = parent.consumedQuickens;
+          frag.recordedMovesCount = parent.recordedMovesCount;
+
+          const isOverlappingColumn = j === hitColumn;
+          const isOverlappingRow = i >= hitMinRow && i <= hitMaxRow
+
+          // console.log({ i, j, dir, parentCellIndex: parent.cellIndex, isOverlappingColumn, isOverlappingRow, hitColumn, hitMinRow, hitMaxRow, condition: isOverlappingColumn && isOverlappingRow })
+
+          if (isOverlappingColumn && isOverlappingRow) {
+            hit.consumingSpellIds.add(frag);
+            frag.resolveSpellCollision(hit);
+          }
+
+          const newFragment = proxy(frag);
+          this.spells.push(newFragment);
+          fragments.push(newFragment);
+        }
+      }
+      // }
+
+    }
+
     parent.markSpellForRemoval();
 
-    for (let r = 0; r < parent.heightCells; r++) {
-      for (let c = 0; c < parent.widthCells; c++) {
-        const fragI = parent.cellIndex.i + r;
-        const fragJ = parent.cellIndex.j + c;
 
-        const frag = new (parent.constructor as any)(parent.caster);
-        frag.widthCells = 1;
-        frag.heightCells = 1;
-        frag.setCellIndex({ i: fragI, j: fragJ });
 
-        frag.consumedEthers = parent.consumedEthers;
-        frag.consumedQuickens = parent.consumedQuickens;
-        frag.isPlaced = true;
-        frag.recordedMovesCount = parent.recordedMovesCount;
-
-        if (gyreHit) {
-          const gyreRoot = gyreHit.getCellIndex();
-          const isOverlappingGyreColumn = gyreRoot && fragJ === gyreRoot.j;
-
-          if (isOverlappingGyreColumn && gyreRoot) {
-            if (gyreHit instanceof GyreUp) {
-              const gyreBottomRow = gyreRoot.i + gyreHit.heightCells - 1;
-              const relativeEntryFromBottom = gyreBottomRow - fragI;
-              frag.consumedGyres = -(gyreHit.heightCells - relativeEntryFromBottom + 1);
-            } else if (gyreHit instanceof GyreDown) {
-              const relativeEntryFromTop = fragI - gyreRoot.i;
-              frag.consumedGyres = (gyreHit.heightCells - relativeEntryFromTop + 1);
-            }
-
-            // DECOUPLED TRACKER FIX: Retain clean remaining moves without adding ghost horizontal actions
-            frag.remainingMoves = parent.remainingMoves;
-          } else {
-            frag.consumedGyres = 0;
-            frag.remainingMoves = parent.remainingMoves;
-          }
-        } else {
-          frag.consumedGyres = 0;
-          frag.remainingMoves = parent.remainingMoves;
-        }
-
-        this.spells.push(frag);
-      }
-    }
-    this.reindexUpdateOrder();
+    return [fragments, remainingMoves];
   };
 
   public combineSpellsMaximally = (gameBoard: GameBoard): void => {
+    console.log("maximal")
     const MAX_COLS = GameBoard.NUM_COLS;
     const MAX_ROWS = GameBoard.NUM_ROWS;
 
     // 1. Initialize a full board lookup matrix
     const matrix: Array<Array<Spell | null>> = Array(MAX_ROWS).fill(null).map(() => Array(MAX_COLS).fill(null));
 
+    const consumerIds = this.spells.reduce((acc, item) => [...acc, ...item.consumingSpellIds], new Array<string>())
+
     // POPULATION FIX: Map EVERY cell covered by a sized spell's footprint into the matrix
     this.spells.forEach(s => {
-      if (s.isRemove) return;
+      if (s.getIsRemove() || consumerIds.includes(s.id)) return;
       const idx = s.getCellIndex();
       if (idx) {
         for (let r = 0; r < s.heightCells; r++) {
@@ -511,22 +589,23 @@ export class PlacedSpells {
     const processed = new Set<string>();
 
     const componentsMatch = (a: Spell | null, b: Spell | null): boolean => {
-      if (!a || !b || a.isRemove || b.isRemove) return false;
-      if (processed.has(a.key) || processed.has(b.key)) return false;
-      const sameType = typeof a.constructor === typeof b.constructor;
+      if (!a || !b || a.getIsRemove() || b.getIsRemove()) return false;
+      if (processed.has(a.id) || processed.has(b.id)) return false;
+      const sameType = a.getSpellName() === b.getSpellName();
       const sameDir = Math.sign(a.getPropertyValue('speedDirection')) === Math.sign(b.getPropertyValue('speedDirection'));
       return sameType && sameDir;
     };
 
     // --- PASS 1: Reassemble Horizontal Chains for Quickens ---
     for (let i = 0; i < MAX_ROWS; i++) {
-      for (let j = 0; j < MAX_COLS; j++) {
+      for (let j = 0; j < MAX_COLS;) {
         const root = matrix[i][j];
-        if (root && root instanceof Quicken && !processed.has(root.key)) {
+        if (root && root instanceof Quicken && !processed.has(root.id)) {
           let chainWidth = root.widthCells;
           const matchesToMerge: Spell[] = [];
+          console.log({ root, chainWidth, i, j })
 
-          while (j + chainWidth < MAX_COLS && chainWidth < GameBoard.NUM_COLS) {
+          while (j + chainWidth < GameBoard.NUM_COLS) {
             const neighbor = matrix[i][j + chainWidth];
             if (componentsMatch(root, neighbor) && neighbor instanceof Quicken) {
               matchesToMerge.push(neighbor);
@@ -537,9 +616,9 @@ export class PlacedSpells {
           }
 
           if (matchesToMerge.length > 0) {
-            processed.add(root.key);
+            processed.add(root.id);
             matchesToMerge.forEach(m => {
-              processed.add(m.key);
+              processed.add(m.id);
               root.consumedQuickens += m.consumedQuickens;
               root.consumedEthers += m.consumedEthers;
               m.markSpellForRemoval();
@@ -547,15 +626,19 @@ export class PlacedSpells {
             root.widthCells = chainWidth;
             root.heightCells = 1;
           }
+
+          // Skip the entire width of this piece to prevent bugged evaluations on sub-cells
+          j += chainWidth;
+        } else {
+          j++;
         }
       }
     }
-
     // --- PASS 2: Reassemble Vertical Stacks for Gyres ---
     for (let j = 0; j < MAX_COLS; j++) {
-      for (let i = 0; i < MAX_ROWS; i++) {
+      for (let i = 0; i < MAX_ROWS;) {
         const root = matrix[i][j];
-        if (root && root instanceof Gyre && !processed.has(root.key)) {
+        if (root && root instanceof Gyre && !processed.has(root.id)) {
           let stackHeight = root.heightCells;
           const matchesToMerge: Spell[] = [];
 
@@ -570,14 +653,19 @@ export class PlacedSpells {
           }
 
           if (matchesToMerge.length > 0) {
-            processed.add(root.key);
+            processed.add(root.id);
             matchesToMerge.forEach(m => {
-              processed.add(m.key);
+              processed.add(m.id);
               m.markSpellForRemoval();
             });
             root.widthCells = 1;
             root.heightCells = stackHeight;
           }
+
+          // Skip the entire height of this stack to prevent bugged vertical evaluations
+          i += stackHeight;
+        } else {
+          i++;
         }
       }
     }
@@ -585,7 +673,7 @@ export class PlacedSpells {
     // --- PASS 3: Reassemble Square Structures for Phlegms and Ethers ---
     const attemptSquareMerge = (rootI: number, rootJ: number, targetSize: number): boolean => {
       const root = matrix[rootI][rootJ];
-      if (!root || processed.has(root.key)) return false;
+      if (!root || processed.has(root.id)) return false;
       if (!(root instanceof Phlegm || root instanceof Ether)) return false;
 
       const targetCluster = new Set<Spell>();
@@ -608,9 +696,9 @@ export class PlacedSpells {
         }
       }
 
-      processed.add(root.key);
+      processed.add(root.id);
       targetCluster.forEach(m => {
-        processed.add(m.key);
+        processed.add(m.id);
         root.consumedQuickens += m.consumedQuickens;
         root.consumedEthers += m.consumedEthers;
         m.markSpellForRemoval();
@@ -630,7 +718,7 @@ export class PlacedSpells {
 
     // FOOTPRINT SYNCHRONIZATION FIX: Map EVERY cell covered by the newly sized spells back to the gameBoard
     this.spells.forEach(s => {
-      if (!s.isRemove) {
+      if (!s.getIsRemove()) {
         const idx = s.getCellIndex();
         if (idx) {
           for (let r = 0; r < s.heightCells; r++) {
@@ -643,5 +731,6 @@ export class PlacedSpells {
       }
     });
   };
+
 
 }

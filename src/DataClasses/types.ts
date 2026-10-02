@@ -1,6 +1,7 @@
 import { Phlegm, Quicken, Ether, GyreUp, GyreDown } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
 import { UniqueId } from './UniqeId';
+import { Spell } from './PlacedSpells/Spell';
 
 // types
 export type CellIndex = {
@@ -8,7 +9,7 @@ export type CellIndex = {
   j: number; // Column index
 };
 
-export type SpellPropertyName = 'upDown' | 'speedDirection' | 'dmgHealth' | 'rowShift' | 'updateOrder' | 'gyreLives' | 'empoweredPng' | 'empoweredSpeedDirection' | 'empoweredDmgHealth' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
+export type SpellPropertyName = /*'upDown' | */ 'speedDirection' | 'dmgHealth' | 'rowShift' /* |/* 'updateOrder' |*/ /* 'gyreLives' | 'empoweredPng'*/ /*| 'empoweredSpeedDirection' | 'empoweredDmgHealth' */ | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 
@@ -37,8 +38,8 @@ export type GameStateProgressionPath = 'HappyPath' | 'UnHappyPath' | 'AltPath' |
 export type BadgeValues = {
   dmgHealth: number;
   speedDirection: number;
-  gyreLives: number;
-  updateOrder: number;
+  // gyreLives: number;
+  // updateOrder: number;
 }
 
 export interface Point {
@@ -98,4 +99,9 @@ export interface SpellAnimTracker {
   deathProgress: number;
   hasSpawnedParticles: boolean;
   particles: GameParticle[]; // Handles ANY style of destruction particles
+}
+
+export type CollisionResult = {
+  winner: Spell | null;
+  loser: Spell | null;
 }

@@ -172,19 +172,19 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                             // || 
                             c.getIsHighlighted()}
                         $spellOwnerColor={c.getColor()}
-                        $empoweredSpellColor={c.getEmpoweredColor()}
+                        // $empoweredSpellColor={c.getEmpoweredColor()}
                         $isOccupied={!c.getIsFree()}
                         // $isPlayerCell={c.getIsPlayerCell()}
                         $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}
                         // $isPlacingGameSymbol={isPlayerDoingTurn}
-                        onMouseEnter={() =>
+                        // onMouseEnter={() =>
                             // rootGameStore.getIsHoverDisabled() && 
-                            rootGameStore.setHoveredGameboardCell(c)}
-                        onMouseLeave={() => rootGameStore.setHoveredGameboardCell(null)}
-                        onClick={() => rootGameStore.placeSpellOnBoard(c)}
+                            // rootGameStore.setHoveredGameboardCell(c)}
+                        // onMouseLeave={() => rootGameStore.setHoveredGameboardCell(null)}
+                        // onClick={() => rootGameStore.placeSpellOnBoard(c)}
                     >
-                        <SpellBadgeComponent
+                        {/* <SpellBadgeComponent
                             propertyName={''}
                             // TO-DO: consider roman numerals
                             propertyValue={c.getBadgeValues().updateOrder}
@@ -195,7 +195,7 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                             $backgroundColor='transparent'// 'grey'
                             $color='black'//'white'
                             $opacityCondition={v => !!v ? .85 : 0}
-                        />
+                        /> */}
                         {/* SPEED DIRECTION 
                                 speedDirection: number = 0; // horizontal movement amt, positive = right, negative = left, '0' is not valid.
                                 content: "\21A4"; // Left Arrow from Bar
@@ -219,7 +219,7 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                                 content: "\2661"; // White Heart Suit
                                 content: "\2665"; // Black Heart Suit
                         */}
-                        <SpellBadgeComponent
+                        {/* <SpellBadgeComponent
                             propertyName={'Category'}
                             // TO-DO: consider removing and basing on dmgHealth value... moves and consumptions decrease dmgHealth
                             propertyValue={c.getBadgeValues().gyreLives}
@@ -229,7 +229,7 @@ const GameBoardComponent = ({ snap, rootGameStore, gridOverlayRef }: GameBoardCo
                             $backgroundColor='#ba913a'
                             $color='white'
                             $opacityCondition={v => !!v ? 1 : 0}
-                        />
+                        /> */}
                         {/* DMG HEALTH 
                             content: "\2605"; // Black Star
                             content: "\269D"; // Outlined White Star

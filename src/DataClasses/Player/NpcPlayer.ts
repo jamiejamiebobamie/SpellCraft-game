@@ -80,7 +80,7 @@ export class NPCPlayer extends Player {
     }
 
     resetNumRemainingMovesPerTurn = () => {
-        this.numRemainingMovesPerTurn = this.getRandomNumberInRange(5, 2);
+        this.numRemainingMovesPerTurn = 1;//this.getRandomNumberInRange(5, 2);
     }
 
     cycleThroughDifficulties = (): void => {
@@ -140,7 +140,7 @@ export class NPCPlayer extends Player {
 
 
     getRandomInferenceString = (): InferenceString => {
-        let GAME_SYMBOLS: Array<InferenceString> = ['line', 'circle', 'star', 'triangle', 'diamond'];
+        let GAME_SYMBOLS: Array<InferenceString> = ['star', 'circle']//'line', 'circle', 'star', 'triangle', 'diamond'];
         const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
         const inferenceString = GAME_SYMBOLS[rand];
         return inferenceString;
