@@ -375,7 +375,7 @@ export default function SpellBookComponent() {
   });
   return (
     <MenuAnchor data-click-type="ui-buttons">
-      <SparkleCanvasComponent />
+      {/* <SparkleCanvasComponent /> */}
       <TriggerBox
         onClick={() => setIsOpen(isOpen => {
           setIsClickedOnce(true);
@@ -407,9 +407,9 @@ export default function SpellBookComponent() {
           Book
         </CoverText>
       </TriggerBox>
-      <SlidingTray $isOpen={isOpen}>
+      {/* <SlidingTray $isOpen={isOpen}>
         {spells}
-      </SlidingTray>
+      </SlidingTray> */}
     </MenuAnchor >
   );
 }
