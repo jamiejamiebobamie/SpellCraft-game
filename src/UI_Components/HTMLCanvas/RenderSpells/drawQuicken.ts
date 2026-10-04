@@ -4,6 +4,10 @@ import { GameParticle } from "../../../DataClasses/types";
 export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, cellCols: number, time: number) {
     ctx.save();
 
+    // --- CACHE INHERITED ALPHA FACTOR ---
+    // Captures the fade state (1.0 on board, 0.0 to 1.0 cycle in the modal)
+    const baseInheritedAlpha = ctx.globalAlpha;
+
     // Use time variables to cleanly toggle randomized lightning jagged nodes every few frames
     const seed1 = Math.floor(time / 60);
     const seed2 = Math.floor(time * 2 / 60);
@@ -17,15 +21,15 @@ export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number,
     const x1: number = 0, y: number = h / 2, x2: number = w, crests: number = 4, amplitude: number = h / 5;
 
     // CENTER BOLT
-    drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed1, PALETTE.lightningMain, coreThickness, 0);
+    drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed1, PALETTE.lightningMain, coreThickness, 0, baseInheritedAlpha);
     if (cellCols > 1) {
         // BOTTOM BOLT
-        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed3, PALETTE.lightningMain, coreThickness / 2, -.5);
+        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed3, PALETTE.lightningMain, coreThickness / 2, -.5, baseInheritedAlpha);
         // // TOP BOLT
-        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed2, PALETTE.lightningMain, coreThickness / 2, .5);
+        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed2, PALETTE.lightningMain, coreThickness / 2, .5, baseInheritedAlpha);
     } else {
         // Repeat CENTER BOLT
-        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed1, PALETTE.lightningMain, coreThickness, 0);
+        drawLightningBranch(ctx, x1, y, x2, y, crests, amplitude, seed1, PALETTE.lightningMain, coreThickness, 0, baseInheritedAlpha);
     }
 
     ctx.restore();
@@ -39,13 +43,9 @@ export function getAsymmetricTaper(x: number): number {
 
     if (clampedX <= peak) {
         // --- LEFT SIDE FALLOFF ---
-        // Slopes up from 0 (at x = 0) to 1 (at x = 0.7)
-        // Adjust the subtraction factor if you don't want it starting all the way at 0
         return clampedX / peak;
     } else {
         // --- RIGHT SIDE FALLOFF (QUICKER) ---
-        // Slopes down from 1 (at x = 0.7) to 0 (at x = 1.0)
-        // Because it must drop 1 full unit over a distance of only 0.3, it naturally falls off ~2.3x faster
         return (1.0 - clampedX) / (1.0 - peak);
     }
 }
@@ -60,7 +60,8 @@ function drawLightningBranch(
     seed: number,
     color: string,
     thickness: number,
-    offset: number
+    offset: number,
+    inheritedAlpha: number // Accepted parent container loop transparency
 ) {
     const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
 
@@ -72,11 +73,10 @@ function drawLightningBranch(
         const ry = y1 + (y2 - y1) * ratio;
 
         const noise = Math.sin(seed * i * 14.23) * Math.cos(seed + i * 4.12);
-        const displacement = noise * amplitude * getAsymmetricTaper(ratio) + 2 * offset * getAsymmetricTaper(ratio);// * amplitude / 3;
+        const displacement = noise * amplitude * getAsymmetricTaper(ratio) + 2 * offset * getAsymmetricTaper(ratio);
 
         points.push({ x: rx, y: ry + displacement });
     }
-    // points.push({ x: x2, y: y2 });
 
     ctx.strokeStyle = color;
     ctx.lineCap = 'round';
@@ -87,21 +87,21 @@ function drawLightningBranch(
         const pStart = points[i];
         const pEnd = points[i + 1];
 
-        // first and last points excluded. use segments for ratio
         const ratio = i / segments;
         let taperMultiplier = 1.0;
         if (ratio < .5) {
-            // Linear scale up from 0 to 1 at the start edge
             taperMultiplier = ratio;
         } else {
-            // Linear scale down from 1 to 0 at the terminating edge
             taperMultiplier = (1.0 - ratio);
         }
 
         ctx.beginPath();
         ctx.moveTo(pStart.x, pStart.y);
         ctx.lineTo(pEnd.x, pEnd.y);
-        ctx.globalAlpha = getAsymmetricTaper(ratio);
+        
+        // --- MULTIPLY INHERITED FADE BY DESIGN ALPHA ---
+        ctx.globalAlpha = inheritedAlpha * getAsymmetricTaper(ratio);
+        
         ctx.lineWidth = thickness * getAsymmetricTaper(ratio) * taperMultiplier;
         ctx.stroke();
     }
@@ -117,7 +117,6 @@ export function spawnQuickenParticles(particles: GameParticle[], w: number, h: n
 
     for (let i = 0; i < sparkCount; i++) {
         const angle = Math.random() * Math.PI * 2;
-        // Velocity scales slightly with the actual width of the spell
         const speed = (Math.random() * 560 + 60) * (w / 400);
 
         particles.push({
@@ -127,10 +126,10 @@ export function spawnQuickenParticles(particles: GameParticle[], w: number, h: n
             vy: Math.sin(angle) * speed,
             alpha: 1.0,
             size: Math.random() * 3 + 1.5,
-            color: '#b3f2ff',   // Electric blue branch color
+            color: '#b3f2ff',
             shadowColor: '#00d0ff',
             life: 2.0,
-            decay: Math.random() * 1.5 + 2.0 // Fully dies over ~0.3 - 0.5s
+            decay: Math.random() * 1.5 + 2.0
         });
     }
 }
@@ -142,17 +141,18 @@ export function spawnQuickenParticles(particles: GameParticle[], w: number, h: n
  */
 export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, cellCols: number, time: number, progress: number) {
     ctx.save();
+    
+    // --- CACHE INHERITED ALPHA FACTOR ---
+    const baseInheritedAlpha = ctx.globalAlpha;
 
     if (progress < 0.7) {
-        // Blinding white blast frame arc
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 30;
-        const seed = Math.floor(time / 30); // Multi-crackle frequency speed
+        const seed = Math.floor(time / 30);
 
-        // Draw thick white line trunk
-        drawLightningBranch(ctx, 0, h / 2, w, h / 2, 4, h * 0.4, seed, '#ffffff', w * 0.12, 0);
+        // Pass inherited alpha through to the branch drawing stage
+        drawLightningBranch(ctx, 0, h / 2, w, h / 2, 4, h * 0.4, seed, '#ffffff', w * 0.12, 0, baseInheritedAlpha);
     } else {
-        // Smoothly fade down to normal lightning thickness
         drawQuicken(ctx, w, h, dir, cellCols, time);
     }
 
@@ -166,18 +166,16 @@ export function spawnQuickenHitParticles(particles: GameParticle[], targetX: num
     for (let i = 0; i < shockLinesCount; i++) {
         particles.push({
             x: targetX + (Math.random() * 40 - 20),
-            // Spread out vertically over the character height area
             y: targetY + (i - shockLinesCount / 2) * (boardHeight * 0.15),
             vx: 0,
-            vy: 0, // Shocks stay locked in place to look like a direct discharge
+            vy: 0,
             alpha: 1.0,
-            // Store the width/amplitude of this individual shock line in 'size'
             size: Math.random() * 50 + 40,
             color: '#00d0ff',
             shadowColor: '#b3f2ff',
-            rotation: Math.random() * Math.PI * 2, // Random angle for the shock bolt
+            rotation: Math.random() * Math.PI * 2,
             life: 1.0,
-            decay: Math.random() * 1.5 + 2.5, // Quick, erratic lifetime (~0.35s)
+            decay: Math.random() * 1.5 + 2.5,
             type: 'electricShock'
         });
     }

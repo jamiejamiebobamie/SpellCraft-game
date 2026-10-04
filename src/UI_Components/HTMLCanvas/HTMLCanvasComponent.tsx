@@ -3,6 +3,9 @@ import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { rootGameStore } from '../../DataClasses/store';
+import SpellBookComponent from './Buttons/SpellBookComponent';
+import ClockFaceComponent from './Buttons/ClockFaceComponent';
+import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';
 import { HARDCODED_SYMBOLS_FOR_DISPLAY } from '../../DataClasses/PlacedSpells/HardCodedSymbolsForDisplay';
 import { drawProceduralSpell, updateAndDrawParticles } from '../HTMLCanvas/RenderSpells/renderSpells';
 import { spawnQuickenParticles, spawnQuickenHitParticles } from '../HTMLCanvas/RenderSpells/drawQuicken';
@@ -11,8 +14,9 @@ import { spawnPhlegmParticles, spawnPhlegmHitParticles } from '../HTMLCanvas/Ren
 import { spawnGyreParticles, spawnGyreHitParticles } from '../HTMLCanvas/RenderSpells/drawGyre';
 import { SpellAnimTracker } from '../../DataClasses/types';
 import { PALETTE } from '../HTMLCanvas/RenderSpells/ColorPalette';
+import { useSnapshot } from 'valtio';
 
-const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
+const MasterCanvasOverlay = styled.canvas < { $zIndex: number, $cursor: string } > `
   position: absolute;
   top: 50%;
   left: 50%;
@@ -23,8 +27,8 @@ const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
   pointer-events: auto;
   touch-action: none;
   filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.4));
+  cursor: ${props => props.$cursor};
 `;
-
 interface PlacedSpellsProps {
   gridOverlayRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -60,13 +64,20 @@ class SymbolDrawingState {
   particles: DustParticle[] = [];
   loopTimeout: any = null;
 }
-
 class CanvasScrollUI {
   trayProgress: number = 0;
   hoveredSpellName: string | null = null;
   currentMousePos: { x: number; y: number } = { x: -1000, y: -1000 };
   symbolStates: Map<string, SymbolDrawingState> = new Map();
   bookSparkles: BookSparkleParticle[] = [];
+
+  // Loop timer variables for sizing sequence animation
+  sizeCycleTime: number = 0;
+  currentSizeIdx: number = 0; // 0=small, 1=medium, 2=large
+
+  // Local storage array tracking blinking pixie dust highlights
+  floatingTextSparkles: { x: number; y: number; size: number; alpha: number; maxAlpha: number; rate: number; color: string }[] = [];
+  clockGeometricSparkles: { x: number; y: number; size: number; alpha: number; rate: number; phase: number; maxAlpha: number; color: string }[] = [];
 
   config = {
     startXOffset: 0.1,
@@ -93,6 +104,10 @@ class CanvasScrollUI {
       }
     });
     this.bookSparkles = [];
+    this.sizeCycleTime = 0;
+    this.currentSizeIdx = 0;
+    this.floatingTextSparkles = [];
+    this.clockGeometricSparkles = [];
   }
 }
 
@@ -105,21 +120,30 @@ const displayNameLookup = new Map<string, string>([
 ]);
 
 const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
+  const snap = useSnapshot(rootGameStore);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boardLayoutRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const animStatesRef = useRef<Map<string, SpellAnimTracker>>(new Map());
   const drawingParticlesRef = useRef<DustParticle[]>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
   const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
+  const iceSilverColors = ['#e6f7ff', '#b3d9ff', '#ffffff', '#d9f2ff', '#ccf2ff'];
 
   const [isHovered, setIsHovered] = useState(false);
+
+  // Evaluate Turn Advancement Booleans to flag clock icons safely
+  const isGameBoardDisabled = snap.getIsGameBoardDisabled();
+  const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
+  const isShowClockSymbols = !isGameBoardDisabled && !isComputerPlayerDoingTurn;
+
+  const isSpellBookOpen = snap.getIsSpellBookOpen();
+
 
   const availableSymbols = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => ({
     inferenceString,
     spellName: spellClass.spellName,
     points: HARDCODED_SYMBOLS_FOR_DISPLAY.get(inferenceString) || []
   }));
-
   useEffect(() => {
     const boardElement = gridOverlayRef.current;
     if (!boardElement) return;
@@ -236,6 +260,188 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     setIsHovered(false);
   };
 
+  // NEW METHOD: Renders Book of Hours geometric prompts floating around top-center game clock button bounds
+  const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, viewH: number, currentTime: number) => {
+    ctx.save();
+
+    // Map a slow, breathing macro opacity loop modeled on Princess Mononoke forest spirits
+    const spiritFade = 0.45 + Math.sin(currentTime * 0.001) * 0.4;
+    ctx.globalAlpha = Math.max(0.05, Math.min(0.85, spiritFade));
+    ctx.shadowColor = '#b3e6ff';
+    ctx.shadowBlur = 10;
+
+    // Anchor context around layout button space coordinates
+    const clockCX = viewW * 0.5;
+    const clockCY = viewH * 0.2;
+    const orbitDistance = viewW * 0.08 * spiritFade;
+
+    const shapes = ['diamond', 'circleDot', 'hourglass'];
+    const pool = ui.clockGeometricSparkles;
+
+    shapes.forEach((shapeType, sIdx) => {
+      // Offset individual orbits so they split up around the clock cleanly
+      const baseAngle = (sIdx * (Math.PI * 2)) / 3 + (currentTime * 0.0008);
+      const shapeCX = clockCX + Math.cos(baseAngle) * orbitDistance * (1 + sIdx * .1);
+      const shapeCY = clockCY + Math.sin(baseAngle) * orbitDistance * (Math.sin(1 + sIdx * .1)) + Math.sin(currentTime * 0.003 + sIdx * 2) * 3; // Bobbing drift
+      const size = viewW * 0.012;
+      // Draw trace stroke paths with low opacity layout guidelines
+      ctx.save();
+      // ctx.strokeStyle = 'rgba(230, 247, 255, 0.06)';
+      ctx.strokeStyle = 'rgba(230, 247, 255, 0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (shapeType === 'diamond') {
+        ctx.moveTo(shapeCX, shapeCY - size);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY);
+        ctx.lineTo(shapeCX, shapeCY + size);
+        ctx.lineTo(shapeCX - size * 0.8, shapeCY);
+        ctx.closePath();
+      } else if (shapeType === 'circleDot') {
+        ctx.arc(shapeCX, shapeCY, size * 0.8, 0, Math.PI * 2);
+        ctx.moveTo(shapeCX + 1, shapeCY);
+        ctx.arc(shapeCX, shapeCY, 1.2, 0, Math.PI * 2);
+      } else if (shapeType === 'hourglass') {
+        ctx.moveTo(shapeCX - size * 0.8, shapeCY - size * 0.8);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY - size * 0.8);
+        ctx.lineTo(shapeCX - size * 0.2, shapeCY);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY + size * 0.8);
+        ctx.lineTo(shapeCX - size * 0.8, shapeCY + size * 0.8);
+        ctx.lineTo(shapeCX + size * 0.2, shapeCY);
+        ctx.closePath();
+      }
+      ctx.stroke();
+      ctx.restore();
+      // Spawn localized twinkling Elsa ice frost crystals along the specific shape coordinates
+      if (Math.random() < .3 && pool.length < 120) {
+        let spawnedPt = { x: shapeCX, y: shapeCY };
+        const randRatio = Math.random();
+        if (shapeType === 'diamond') {
+          const p = Math.floor(Math.random() * 4);
+          if (p === 0) { spawnedPt.x = shapeCX + (size * 0.8) * randRatio; spawnedPt.y = shapeCY - size * (1 - randRatio); }
+          else if (p === 1) { spawnedPt.x = shapeCX + (size * 0.8) * (1 - randRatio); spawnedPt.y = shapeCY + size * randRatio; }
+          else if (p === 2) { spawnedPt.x = shapeCX - (size * 0.8) * randRatio; spawnedPt.y = shapeCY + size * (1 - randRatio); }
+          else { spawnedPt.x = shapeCX - (size * 0.8) * (1 - randRatio); spawnedPt.y = shapeCY - size * randRatio; }
+        } else if (shapeType === 'circleDot') {
+          if (Math.random() > 0.2) {
+            const angle = Math.random() * Math.PI * 2;
+            spawnedPt.x = shapeCX + Math.cos(angle) * (size * 0.8);
+            spawnedPt.y = shapeCY + Math.sin(angle) * (size * 0.8);
+          }
+        } else if (shapeType === 'hourglass') {
+          if (Math.random() > 0.5) {
+            // Upper Triangle
+            const xOffset = (size * 0.8) * (1 - randRatio);
+            spawnedPt.x = shapeCX + (Math.random() > 0.5 ? xOffset : -xOffset);
+            spawnedPt.y = shapeCY - size * 0.8 * (1 - randRatio);
+          } else {
+            // Lower Triangle
+            const xOffset = (size * 0.8) * (1 - randRatio);
+            spawnedPt.x = shapeCX + (Math.random() > 0.5 ? xOffset : -xOffset);
+            spawnedPt.y = shapeCY + size * 0.8 * (1 - randRatio);
+          }
+        }
+        pool.push({
+          x: spawnedPt.x,
+          y: spawnedPt.y,
+          size: Math.random() * 1.6 + 0.4,
+          alpha: 0,
+          rate: Math.random() * 0.08 + 0.04,
+          phase: 0, // 0 = fade-in, 1 = fade-out
+          maxAlpha: Math.random() * 0.9 + 0.1,
+          color: iceSilverColors[Math.floor(Math.random() * iceSilverColors.length)]
+        });
+      }
+    });
+    // Animate and draw Elsa crystal point nodes cleanly over multiple cycles without positional down-drift vectors
+    for (let i = pool.length - 1; i >= 0; i--) {
+      const p = pool[i];
+      if (p.phase === 0) {
+        p.alpha += p.rate;
+        if (p.alpha >= p.maxAlpha) { p.alpha = p.maxAlpha; p.phase = 1; }
+      } else {
+        p.alpha -= p.rate;
+      }
+      if (p.alpha <= 0) {
+        pool.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = p.alpha * spiritFade;
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = p.size * 3;
+      ctx.shadowColor = '#ffffff';
+      ctx.beginPath();
+      // Draw 4-point frost star or standard soft circle
+      if (Math.random() > 0.8) {
+        draw4PointStar(ctx, p.x, p.y, p.size * 2, p.size * 0.4);
+      } else {
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+  const drawSinusoidalFloatingMessage = (
+    ctx: CanvasRenderingContext2D,
+    ui: CanvasScrollUI,
+    viewW: number,
+    startX: number,
+    bottomY: number,
+    currentTime: number,
+    activeTrayAlpha: number
+  ) => {
+    const message = "Hover for more info";
+    ctx.save();
+    ctx.globalAlpha = activeTrayAlpha;
+    ctx.font = `bold ${viewW * 0.03}px 'EnchantedLand', sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    const verticalSpacing = viewW * 0.005; // Spacing distance below bottom wave line
+    let runningX = startX + viewW * 0.02;
+    const textSparklePool = ui.floatingTextSparkles;
+    for (let i = 0; i < message.length; i++) {
+      const char = message[i];
+      const charW = ctx.measureText(char).width;
+      const waveCharY = bottomY + (Math.cos(runningX * 0.04 + currentTime * 0.003) * 2.2);
+      const targetCharY = waveCharY + verticalSpacing;
+      ctx.fillStyle = 'rgba(28, 18, 5, .5)';
+      ctx.fillText(char, runningX + 2, targetCharY + 2);
+      ctx.fillStyle = '#f0c24de2';
+      ctx.fillText(char, runningX, targetCharY);
+      if (char !== ' ' && Math.random() < 0.015 && textSparklePool.length < 60) {
+        textSparklePool.push({
+          x: runningX + Math.random() * charW,
+          y: targetCharY + Math.random() * (viewW * 0.035),
+          size: Math.random() * 1.5 + 0.5,
+          alpha: 0,
+          maxAlpha: Math.random() * 0.7 + 0.3,
+          rate: Math.random() * 4 + 2,
+          color: pixieColors[Math.floor(Math.random() * pixieColors.length)]
+        });
+      }
+      runningX += charW;
+    }
+    for (let pIdx = textSparklePool.length - 1; pIdx >= 0; pIdx--) {
+      const p = textSparklePool[pIdx];
+      p.alpha += p.rate * 0.016;
+      if (p.alpha >= p.maxAlpha * 2) {
+        textSparklePool.splice(pIdx, 1);
+        continue;
+      }
+      const currentRenderAlpha = p.alpha > p.maxAlpha ? p.maxAlpha * 2 - p.alpha : p.alpha;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(activeTrayAlpha, currentRenderAlpha));
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = p.size * 3;
+      ctx.shadowColor = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + Math.sin(currentTime * 0.002 + p.x) * 0.3, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  };
   const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, viewH: number, deltaTime: number, currentTime: number) => {
     const isTrayOpen = rootGameStore.isSpellBookOpen;
     const targetProgress = isTrayOpen ? 1.0 : 0.0;
@@ -249,27 +455,29 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     const currentW = currentMaxW * ui.trayProgress;
     const rightEdgeX = startX + currentW;
     ctx.save();
-    ctx.globalAlpha = Math.min(1.0, ui.trayProgress);
+    const activeTrayAlpha = Math.min(1.0, ui.trayProgress);
+    ctx.globalAlpha = activeTrayAlpha;
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetX = 4;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
+    // TOP EDGE: Sinusoidal flowing curve
     ctx.moveTo(startX, topY);
     for (let x = startX; x <= rightEdgeX; x += 12) {
-      const waveY = topY + (Math.sin(x * 0.04) * 1.5);
+      const waveY = topY + (Math.sin(x * 0.04 + currentTime * 0.003) * 2.2);
       ctx.lineTo(x, waveY);
     }
-
-    // EXCLUSIVE WIND RIPPLE MATH: Only added to the right edge path line mapping loop
+    // RIGHT EDGE: Wind ripple mapping loop
     for (let y = topY; y <= bottomY; y += 6) {
       const windWave = isTrayOpen ? Math.sin(y * 0.08 + currentTime * 0.002) * (viewW * 0.001) * ui.trayProgress : 0;
       const paperNick = Math.cos(y * 0.12) * 1.2 + (y % 18 === 0 ? -3.5 : 0);
       ctx.lineTo(rightEdgeX + paperNick + windWave, y);
     }
+    // BOTTOM EDGE: Sinusoidal out-of-phase curve (cosine waves out of phase with sine)
     for (let x = rightEdgeX; x >= startX; x -= 12) {
-      const waveY = bottomY + (Math.cos(x * 0.04) * 1.5);
+      const waveY = bottomY + (Math.cos(x * 0.04 + currentTime * 0.003) * 2.2);
       ctx.lineTo(x, waveY);
     }
     ctx.lineTo(startX, topY);
@@ -289,7 +497,30 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.restore();
-
+    // IRISH MONK PAGE MARGIN EMBELLISHMENTS ON SCROLL TRAY (SINUSOIDALLY SYNCHRONIZED)
+    if (currentW > viewW * 0.05) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(92, 45, 15, 0.18)';
+      ctx.lineWidth = 1.2;
+      const stepDist = 8;
+      ctx.beginPath();
+      for (let mx = startX + 6; mx < rightEdgeX - 6; mx += stepDist) {
+        const activeTopWaveY = topY + (Math.sin(mx * 0.04 + currentTime * 0.003) * 2.2);
+        ctx.moveTo(mx, activeTopWaveY + 4);
+        ctx.lineTo(mx + 3, activeTopWaveY + 8);
+        ctx.lineTo(mx + 6, activeTopWaveY + 4);
+        const activeBottomWaveY = bottomY + (Math.cos(mx * 0.04 + currentTime * 0.003) * 2.2);
+        ctx.moveTo(mx, activeBottomWaveY - 4);
+        ctx.lineTo(mx + 3, activeBottomWaveY - 8);
+        ctx.lineTo(mx + 6, activeBottomWaveY - 4);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    const isShowingModal = !!ui.hoveredSpellName && isTrayOpen;
+    if (!isShowingModal && currentW >= currentMaxW * 0.9) {
+      drawSinusoidalFloatingMessage(ctx, ui, viewW, startX, bottomY, currentTime, activeTrayAlpha);
+    }
     const leftPadding = viewW * (ui.config.paddingX + 0.025);
     const rightPadding = viewW * (ui.config.paddingX + 0.02);
     const drawZoneW = currentW - leftPadding - rightPadding;
@@ -297,7 +528,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     const baselineCenterY = topY + trayH * 0.45;
     const glyphBoundsDiameter = trayH * 0.6;
     let localHoveredSpell: string | null = null;
-
     availableSymbols.forEach((symbol, index) => {
       const relativeX = leftPadding + index * spacingX;
       if (relativeX > currentW) return;
@@ -346,19 +576,14 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.strokeStyle = '#f7cb44';
         ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = '#e8dfb9';
-
-
-
-        /*******/
-
-
         ctx.beginPath();
-        ctx.moveTo(pts[0].x * glyphBoundsDiameter, pts[0].y * glyphBoundsDiameter);
-
+        if (pts.length > 0 && pts[0]) {
+          ctx.moveTo(pts[0].x * glyphBoundsDiameter, pts[0].y * glyphBoundsDiameter);
+        }
         const activeTargetLength = state.progress * totalLen;
         let currentAccumulated = 0;
-        let tipX = pts[0].x * glyphBoundsDiameter;
-        let tipY = pts[0].y * glyphBoundsDiameter;
+        let tipX = (pts.length > 0 && pts[0]) ? pts[0].x * glyphBoundsDiameter : 0;
+        let tipY = (pts.length > 0 && pts[0]) ? pts[0].y * glyphBoundsDiameter : 0;
         if (state.progress >= 1.0) {
           for (let m = 1; m < pts.length; m++) {
             const p = pts[m] as any;
@@ -368,20 +593,21 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
               ctx.lineTo(p.x * glyphBoundsDiameter, p.y * glyphBoundsDiameter);
             }
           }
-          tipX = pts[pts.length - 1].x * glyphBoundsDiameter;
-          tipY = pts[pts.length - 1].y * glyphBoundsDiameter;
+          if (pts.length > 0 && pts[pts.length - 1]) {
+            tipX = pts[pts.length - 1].x * glyphBoundsDiameter;
+            tipY = pts[pts.length - 1].y * glyphBoundsDiameter;
+          }
         } else {
-          // ... Keep your existing incremental drawing logic for progress < 1.0 ...
           for (let m = 0; m < pts.length - 1; m++) {
             let p1 = pts[m]; let p2 = pts[m + 1]; let segLen = segments[m];
-            if (currentAccumulated + segLen >= activeTargetLength) {
+            if (p1 && p2 && currentAccumulated + segLen >= activeTargetLength) {
               let rem = activeTargetLength - currentAccumulated;
               let ratio = segLen > 0 ? rem / segLen : 0;
               tipX = (p1.x + (p2.x - p1.x) * ratio) * glyphBoundsDiameter;
               tipY = (p1.y + (p2.y - p1.y) * ratio) * glyphBoundsDiameter;
               ctx.lineTo(tipX, tipY);
               break;
-            } else {
+            } else if (p2) {
               ctx.lineTo(p2.x * glyphBoundsDiameter, p2.y * glyphBoundsDiameter);
               currentAccumulated += segLen;
               tipX = p2.x * glyphBoundsDiameter; tipY = p2.y * glyphBoundsDiameter;
@@ -389,9 +615,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           }
         }
         ctx.stroke();
-
         ctx.shadowBlur = 0;
-
         if (state.progress < 1.0) {
           for (let pCount = 0; pCount < 2; pCount++) {
             state.particles.push({
@@ -406,6 +630,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         }
         for (let q = state.particles.length - 1; q >= 0; q--) {
           let part = state.particles[q];
+          if (!part) continue;
           part.x += part.vx; part.y += part.vy; part.vy += 0.01; part.alpha -= part.decay;
           if (part.alpha <= 0) { state.particles.splice(q, 1); continue; }
           ctx.save(); ctx.globalAlpha = part.alpha; ctx.fillStyle = part.color;
@@ -419,86 +644,55 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     });
     if (localHoveredSpell !== ui.hoveredSpellName) {
       ui.hoveredSpellName = localHoveredSpell;
-      if (localHoveredSpell) {
-        const match = availableSymbols.find(s => s.spellName === localHoveredSpell);
-        if (match) {
-          setIsHovered(true);
-        }
-      } else {
-        setIsHovered(false);
+      setIsHovered(!!localHoveredSpell);
+      if (!localHoveredSpell) {
+        animStatesRef.current.forEach((val, key) => {
+          if (key.startsWith('modal-preview-')) {
+            animStatesRef.current.delete(key);
+          }
+        });
+        ui.sizeCycleTime = 0;
+        ui.currentSizeIdx = 0;
       }
-    }
-    if (ui.hoveredSpellName) {
-      const labelText = displayNameLookup.get(ui.hoveredSpellName) || ui.hoveredSpellName;
-      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,1)'; ctx.shadowBlur = viewW * 0.008;
-      ctx.fillStyle = '#ffffff'; ctx.font = `${viewW * 0.024}px 'EnchantedLand', sans-serif`;
-      ctx.textAlign = 'center'; ctx.fillText(labelText, startX + currentW * 0.5, bottomY + viewW * 0.035);
-      ctx.restore();
     }
     ctx.restore();
   };
-
   const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number) => {
     const isTrayOpen = rootGameStore.isSpellBookOpen;
-
     const baseAnchorX = viewW * ui.config.startXOffset;
     const baseAnchorY = viewW * ui.config.startYOffset;
     const trayH = viewW * ui.config.scrollTrayHeight;
     const currentW = (viewW * ui.config.maxScrollWidth) * ui.trayProgress;
-
     const goldColors = ['#ffd700', '#ffdf00', '#f3ce13', '#fff3a8'];
     const silverColors = ['#e6e6e6', '#cccccc', '#f2f2f2', '#ffffff'];
-
     if (ui.bookSparkles.length < 45 && Math.random() < 0.18) {
       const isGold = Math.random() > 0.5;
       const pool = isGold ? goldColors : silverColors;
-
       let spawnX = baseAnchorX + (Math.random() * 40 - 20);
       let spawnY = baseAnchorY + trayH * 0.3 + (Math.random() * 20 - 10);
-
       if (isTrayOpen && ui.trayProgress > 0.3 && Math.random() > 0.4) {
         spawnX = baseAnchorX + (Math.random() * currentW);
         spawnY = baseAnchorY + trayH * 0.85 + (Math.random() * 6 - 3);
       }
-
       ui.bookSparkles.push({
-        x: spawnX,
-        y: spawnY,
-        size: Math.random() * 2.2 + 0.8,
-        speedY: Math.random() * 0.3 + 0.15,
-        speedX: (Math.random() - 0.5) * 0.25,
-        alpha: Math.random() * 0.6 + 0.4,
-        decay: Math.random() * 0.005 + 0.002,
+        x: spawnX, y: spawnY, size: Math.random() * 2.2 + 0.8,
+        speedY: Math.random() * 0.3 + 0.15, speedX: (Math.random() - 0.5) * 0.25,
+        alpha: Math.random() * 0.6 + 0.4, decay: Math.random() * 0.005 + 0.002,
         color: pool[Math.floor(Math.random() * pool.length)]
       });
     }
-
     for (let i = ui.bookSparkles.length - 1; i >= 0; i--) {
-      const p = ui.bookSparkles[i];
-      p.y += p.speedY;
-      p.x += p.speedX;
-      p.alpha -= p.decay;
-
-      if (p.alpha <= 0) {
-        ui.bookSparkles.splice(i, 1);
-        continue;
-      }
-
-      ctx.save();
-      ctx.globalAlpha = p.alpha;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
+      const p = ui.bookSparkles[i]; if (!p) continue; p.y += p.speedY; p.x += p.speedX; p.alpha -= p.decay;
+      if (p.alpha <= 0) { ui.bookSparkles.splice(i, 1); continue; }
+      ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.beginPath();
       ctx.moveTo(p.x, p.y - p.size);
       ctx.quadraticCurveTo(p.x, p.y, p.x + p.size, p.y);
       ctx.quadraticCurveTo(p.x, p.y, p.x, p.y + p.size);
       ctx.quadraticCurveTo(p.x, p.y, p.x - p.size, p.y);
       ctx.quadraticCurveTo(p.x, p.y, p.x, p.y - p.size);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+      ctx.closePath(); ctx.fill(); ctx.restore();
     }
   };
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -518,8 +712,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       const cellWidthPx = boardWidth / GameBoard.NUM_COLS; const cellHeightPx = boardHeight / GameBoard.NUM_ROWS;
       const isTrayOpen = rootGameStore.isSpellBookOpen;
       const isShowingModal = !!scrollUIRef.current.hoveredSpellName && isTrayOpen;
-
-      // FULL-SCREEN ISOLATION CUTOFF: completely freeze board drawings if focused on full screen hover sheet description
+      // 1. RENDER BACKGROUND & GAME ELEMENT PATHS FIRST
       if (!isShowingModal) {
         const placedSpells = rootGameStore.placedSpells.spells || [];
         placedSpells.forEach((spell: any) => {
@@ -605,7 +798,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         });
         const dustParticles = drawingParticlesRef.current;
         for (let i = dustParticles.length - 1; i >= 0; i--) {
-          const p = dustParticles[i]; p.y += p.vy; p.x += p.vx; p.vy += 0.02; p.alpha -= p.decay;
+          const p = dustParticles[i]; if (!p) continue; p.y += p.vy; p.x += p.vx; p.vy += 0.02; p.alpha -= p.decay;
           if (p.alpha <= 0) { dustParticles.splice(i, 1); continue; }
           ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.shadowBlur = p.size * 2; ctx.shadowColor = p.color;
           if (p.isStar) draw4PointStar(ctx, p.x, p.y, p.size * 2, p.size * 0.4); else { ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }
@@ -618,79 +811,57 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.stroke(); ctx.restore();
         }
       }
-      // UPSTREAM LAYERING PATH: Sparks always render behind scroll trays and buttons natively
-      runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
-      // OPTIMIZED DISPLAY BARRIER: freeze backdrop updates entirely if user is looking over hover cards details
-      drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime);
-
+      if (isShowClockSymbols) {
+        drawClockAdvanceSymbols(ctx, scrollUIRef.current, viewW, viewH, currentTime);
+      }
+      // 2. MODAL RENDERING (UPDATED TEXT DESCRIPTIONS & ACTIVE MODAL PARTICLE CONTROLLER)
       if (isShowingModal) {
-        const currentTargetKey = scrollUIRef.current.hoveredSpellName || '';
+        const uiState = scrollUIRef.current;
+        // Advance sizing sequencer clock state manager tracking infinite fade states
+        uiState.sizeCycleTime += deltaTime;
+        if (uiState.sizeCycleTime >= 5.0) {
+          uiState.sizeCycleTime -= 5.0;
+          uiState.currentSizeIdx = (uiState.currentSizeIdx + 1) % 3;
+        }
+        // Evaluate animation sequence alpha curves
+        let activeFadeAlpha = 1.0;
+        if (uiState.sizeCycleTime < 1.0) {
+          activeFadeAlpha = uiState.sizeCycleTime; // Fade-in (1s)
+        } else if (uiState.sizeCycleTime > 4.0) {
+          activeFadeAlpha = 1.0 - (uiState.sizeCycleTime - 4.0); // Fade-out (1s)
+        }
+        const currentTargetKey = uiState.hoveredSpellName || '';
         const displayTitle = displayNameLookup.get(currentTargetKey) || currentTargetKey;
-        const match = availableSymbols.find(s => s.spellName === currentTargetKey);
-
-        const spellInfoData: Record<string, string[]> = {
-          'Ether': [
-            '• How to draw: Draw a circle or click on a Cell',
-            '• Cost: 1 Focus Point per Cell',
-            '• Damage: 5 per Cell + 5',
-            '• Speed: 1 per Horizontal Cell',
-            '• Deals damage to Players on collision.',
-            // '• Can be of sizes: 1x1, 2x2, and 3x3.',
-            '• First collision with another spell grants +5 Damage to that spell. (Effect does not stack.)'
-          ],
-          'Quicken': [
-            '• How to draw: Draw a line',
-            '• Cost: 1 Focus Point per Cell',
-            '• Damage: 5 per Cell',
-            '• Speed: 1 per Horizontal Cell + 1',
-            '• Deals damage to Players on collision.',
-            '• Can be chained horizontally to create a larger effect.',
-            '• First collision with another spell grants +1 Speed to that spell. (Effect does not stack.)'
-          ],
-          'GyreUp': [
-            '• How to draw: Draw a triangle pointing down',
-            '• Cost: 1 Focus Point per Cell',
-            '• Damage: 5 per Cell',
-            '• Speed: 1',
-            '• Deals damage to Players on collision.',
-            '• Can be stacked vertically to create a larger effect.',
-            '• Colliding spells are pushed upward. (Spells pushed off the board are destroyed.)'
-          ],
-          'GyreDown': [
-            '• How to draw: Draw a triangle pointing up',
-            '• Cost: 1 Focus Point per Cell',
-            '• Damage: 5 per Cell',
-            '• Speed: 1',
-            '• Deals damage to Players on collision.',
-            '• Can be stacked vertically to create a larger effect.',
-            '• Colliding spells are pushed downward. (Spells pushed off the board are destroyed.)'
-          ],
-          'Phlegm': [
-            '• How to draw: Draw a star',
-            '• Cost: 1 Focus Point per Cell',
-            '• Damage: -5 per Cell',
-            '• Speed: 1 per Horizontal Cell',
-            '• Restores health to Players on collision.',
-            // '• Can create Water Wheels of sizes: 1x1, 2x2, and 3x3 Cells.',
-            '• Every collision with another spell reverses that spell\'s direction.'
-          ]
+        const spellDescriptions: Record<string, { desc: string; stats: string }> = {
+          'Ether': {
+            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell that destroys it.\nDraw a  CIRCLE  or  CLICK  on a cell to cast.",
+            stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
+          },
+          'Quicken': {
+            desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell that destroys it.\nDraw a  LINE  to cast.",
+            stats: "Cost: 1 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
+          },
+          'Phlegm': {
+            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells back at their caster.\nDraw a  STAR  to cast.",
+            stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
+          },
+          'GyreUp': {
+            desc: "An upward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells upward.\n   Note: Spells pushed off the board are destroyed.\nDraw a  DOWNWARD TRIANGLE  to cast.",
+            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+          },
+          'GyreDown': {
+            desc: "A downward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells downward.\n   Note: Spells pushed off the board are destroyed.\nDraw an  UPWARD TRIANGLE  to cast.",
+            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+          }
         };
-
-        const currentBullets = spellInfoData[currentTargetKey] || [];
-
-        // Main Modal Dimensions
-        const infoW = viewW * 0.76; 
-        const infoH = viewH * 0.7; // Slightly reduced height to make sure it doesn't bleed off the bottom of the screen
+        const targetData = spellDescriptions[currentTargetKey] || { desc: '', stats: '' };
+        const infoW = viewW * 0.76;
+        const infoH = viewH * 0.7;
         const infoX = (viewW - infoW) * 0.5;
-        
-        // 🌟 SHIFT DOWNWARD: Change from 0.5 center multiplier to explicit lower-anchor position
-        const infoY = viewH * 0.22; // This leaves the top 32% of the canvas clear for scroll tray interactions!
-
+        const infoY = viewH * 0.22;
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
         ctx.fillRect(0, 0, viewW, viewH);
-
-        // Draw Card Background Window
         const cardRadius = viewW * 0.012;
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -698,7 +869,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(infoX, infoY, infoW, infoH, cardRadius);
         else ctx.rect(infoX, infoY, infoW, infoH);
-
         const infoGrad = ctx.createLinearGradient(infoX, infoY, infoX + infoW, infoY + infoH);
         infoGrad.addColorStop(0, '#ebdca5');
         infoGrad.addColorStop(1, '#c5b375');
@@ -708,140 +878,222 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         ctx.lineWidth = 2.5;
         ctx.stroke();
         ctx.restore();
-
-        // 1. HEADER LOGIC: Enormous Title String
-        ctx.fillStyle = '#2d1010';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.font = `bold ${viewW * 0.052}px 'EnchantedLand', sans-serif`; // Enormous Title Font size
-
+        // IRISH SCRIBE MONASTIC BORDERS AND CORNER FRAMES (BOOK OF KELLS ACCENTS)
+        ctx.save();
+        ctx.strokeStyle = '#4a2d0f';
+        ctx.lineWidth = 1.5;
+        const bPadding = viewW * 0.008;
+        const bx = infoX + bPadding;
+        const by = infoY + bPadding;
+        const bw = infoW - bPadding * 2;
+        const bh = infoH - bPadding * 2;
+        ctx.strokeRect(bx, by, bw, bh);
+        // Intricate Celtic knotwork-inspired corner patterns
+        const cSize = viewW * 0.016;
+        const drawCornerKnot = (cx: number, cy: number) => {
+          ctx.beginPath();
+          ctx.arc(cx, cy, cSize, 0, Math.PI * 2);
+          ctx.moveTo(cx - cSize * 0.5, cy);
+          ctx.lineTo(cx + cSize * 0.5, cy);
+          ctx.moveTo(cx, cy - cSize * 0.5);
+          ctx.lineTo(cx, cy + cSize * 0.5);
+          ctx.stroke();
+        };
+        drawCornerKnot(bx, by);
+        drawCornerKnot(bx + bw, by);
+        drawCornerKnot(bx, by + bh);
+        drawCornerKnot(bx + bw, by + bh);
+        ctx.restore();
+        // AESOP FABLE CHAPTER HEADING LOGIC WITH ILLUMINATED MANUSCRIPT STYLING
+        const firstLetter = displayTitle.charAt(0);
+        const restOfTitle = displayTitle.slice(1);
         const padLeft = infoW * 0.05;
-        const padTop = infoH * 0.05;
+        const padRight = infoX + infoW - (infoW * 0.05); // Correct right-align boundary calculation
+        const padTop = infoH * 0.06;
         const titleX = infoX + padLeft;
         const titleY = infoY + padTop;
-        ctx.fillText(displayTitle, titleX, titleY);
-
-        // 2. HEADER SYMBOL LOGIC: Large Floating Icon aligned with massive header text
-        const titleWidth = ctx.measureText(displayTitle).width;
-        if (match && match.points.length > 0) {
-          const symSize = viewW * 0.065; // Significantly enlarged symbol canvas scale
-          const symX = titleX + titleWidth + (viewW * 0.025);
-          const symY = titleY - (viewW * 0.002);
-
-          ctx.save();
-          ctx.translate(symX, symY);
-          ctx.beginPath();
-          ctx.lineWidth = 3.5; // Thicker border weighting to match text density
-          ctx.strokeStyle = '#4a3218';
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-
-          match.points.forEach((p: any, pIdx) => {
-            if (pIdx === 0 || p.moveTo) {
-              ctx.moveTo(p.x * symSize, p.y * symSize);
-            } else {
-              ctx.lineTo(p.x * symSize, p.y * symSize);
-            }
-          });
-          ctx.stroke();
-          ctx.restore();
+        // Render Book of Kells custom illuminated drop-cap background strokes
+        ctx.save();
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.font = `bold ${viewW * 0.075}px 'EnchantedLand', sans-serif`;
+        if (currentTargetKey === 'Ether') {
+          // Fireball (F) -> Orange flaring outline
+          ctx.strokeStyle = '#e65c00';
+          ctx.lineWidth = 6;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+          ctx.strokeStyle = '#ffb366';
+          ctx.lineWidth = 2;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+        } else if (currentTargetKey === 'Quicken') {
+          // Chain Lightning (C) -> Electric Blue pop outline
+          ctx.strokeStyle = '#00b3ff';
+          ctx.lineWidth = 6;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+          ctx.strokeStyle = '#b3f0ff';
+          ctx.lineWidth = 2;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+        } else if (currentTargetKey === 'Phlegm') {
+          // Water Wheel (W) -> Blue-ish Seagreen outline
+          ctx.strokeStyle = '#1a936f';
+          ctx.lineWidth = 6;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+          ctx.strokeStyle = '#a2e3c4';
+          ctx.lineWidth = 2;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+        } else if (currentTargetKey === 'GyreUp') {
+          // Updraft (U) -> Vertical linear gradient starting dark at the base, light at the crown
+          const uGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
+          uGrad.addColorStop(0, '#1a1a1a');
+          uGrad.addColorStop(0.5, '#737373');
+          uGrad.addColorStop(1, '#e6e6e6');
+          ctx.strokeStyle = uGrad;
+          ctx.lineWidth = 5;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
+        } else if (currentTargetKey === 'GyreDown') {
+          // Downdraft (D) -> Inverted vertical linear gradient starting light at the base, dark at the crown
+          const dGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
+          dGrad.addColorStop(0, '#e6e6e6');
+          dGrad.addColorStop(0.5, '#737373');
+          dGrad.addColorStop(1, '#1a1a1a');
+          ctx.strokeStyle = dGrad;
+          ctx.lineWidth = 5;
+          ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         }
-
-        // 3. INFORMATION BODY: Shifted lower & using custom EnchantedLand typography
+        // Fill core letter layer above the custom outline borders
+        ctx.fillStyle = '#501a1a';
+        ctx.fillText(firstLetter, titleX, titleY - viewW * 0.012);
+        const dropCapW = ctx.measureText(firstLetter).width;
+        ctx.fillStyle = '#2d1010';
+        ctx.font = `bold ${viewW * 0.046}px 'EnchantedLand', sans-serif`;
+        ctx.fillText(restOfTitle, titleX + dropCapW + (viewW * 0.003), titleY + viewW * 0.012);
+        ctx.restore();
+        // LORE PARAGRAPH BOUNDARY TEXT DISPATCHER WITH NEWLINE SEPARATORS
         ctx.save();
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillStyle = '#3a220e';
-        ctx.font = `500 ${viewW * 0.024}px 'EnchantedLand', sans-serif`; // Applied requested theme typography
-
-        // Pushed noticeably lower from top title edge layout boundary
-        let currentTextY = titleY + (viewW * 0.085);
-        const maxDescWidth = infoW * 0.52;
-        const lineHeight = viewW * 0.032; // Expanded height to provide breathing room for large font weights
-
-        currentBullets.forEach((bulletText) => {
-          const words = bulletText.split(' ');
-          let currentLine = '';
-
-          for (let n = 0; n < words.length; n++) {
-            let testLine = currentLine + words[n] + ' ';
-            let metrics = ctx.measureText(testLine);
-            if (metrics.width > maxDescWidth && n > 0) {
-              ctx.fillText(currentLine, titleX, currentTextY);
-              currentLine = words[n] + ' ';
-              currentTextY += lineHeight;
-            } else {
-              currentLine = testLine;
-            }
+        let currentTextY = titleY + (viewW * 0.095);
+        const lineHeight = viewW * 0.037;
+        const linesArray = targetData.desc.split('\n');
+        linesArray.forEach((lineText) => {
+          // Check for the destruction warning note to scale text smaller
+          if (lineText.includes("Note: Spells pushed off the board are destroyed.")) {
+            ctx.font = `500 ${viewW * 0.023}px 'EnchantedLand', sans-serif`;
+          } else {
+            ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
           }
-          ctx.fillText(currentLine, titleX, currentTextY);
-          currentTextY += lineHeight + (viewW * 0.002);
+          ctx.fillText(lineText, titleX + (viewW * 0.02), currentTextY);
+          currentTextY += lineHeight;
         });
         ctx.restore();
-
-        // 4. PREVIEW GRID: Dynamic grid matrices handling split layout sizes cleanly
+        // (1) RENDER CONSOLIDATED MIRRORED STATISTIC BLOCK AT THE BOTTOM RIGHT
+        ctx.save();
+        ctx.textAlign = 'right'; // Set right-align engine active
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#5c3317';
+        ctx.font = `bold ${viewW * 0.022}px 'EnchantedLand', sans-serif`;
+        const statsY = (infoY + infoH) - padTop;
+        ctx.fillText(targetData.stats, padRight, statsY);
+        ctx.restore();
+        // GRID CANVAS MATRIX RENDERING PIPELINE FOR COMPOSITE DRAW PREVIEWS
         const gridBoxW = infoW * 0.32;
         const rightGridX = infoX + infoW * 0.63;
-        const rightGridY = titleY + (viewW * 0.05); // Shifted down slightly to align nicely with body info
-
+        const rightGridY = titleY + (viewW * 0.03);
         ctx.save();
         ctx.translate(rightGridX, rightGridY);
-
-        ctx.fillStyle = '#4a3218';
-        ctx.textAlign = 'center';
-        ctx.font = `bold ${viewW * 0.024}px 'EnchantedLand', sans-serif`;
-        ctx.fillText("Sizes", gridBoxW / 2, -viewW * 0.025);
-
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
         ctx.fillRect(0, 0, gridBoxW, gridBoxW);
-
         const gridCellsCount = 3;
         const cellSz = gridBoxW / gridCellsCount;
-        ctx.strokeStyle = 'rgba(74, 50, 24, 0.2)';
+        ctx.strokeStyle = 'rgba(74, 50, 24, 0.15)';
         ctx.lineWidth = 1;
         for (let r = 0; r <= gridCellsCount; r++) {
           ctx.beginPath(); ctx.moveTo(0, r * cellSz); ctx.lineTo(gridBoxW, r * cellSz); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(r * cellSz, 0); ctx.lineTo(r * cellSz, gridBoxW); ctx.stroke();
         }
-
-        // Draw structural previews isolating specific growth frames across corresponding fields
-        if (currentTargetKey === 'Ether' || currentTargetKey === 'Phlegm') {
-          // Nested overlays (1x1, 2x2, 3x3)
-          const shades = currentTargetKey === 'Ether' ? ['#ff6b6b', '#e63946', '#9b1c1c'] : ['#72efdd', '#4ea8de', '#0077b6'];
-          const dimensions = [{ w: 1, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 3 }];
-
-          for (let sIdx = dimensions.length - 1; sIdx >= 0; sIdx--) {
-            ctx.fillStyle = shades[sIdx];
-            ctx.fillRect(2, 2, dimensions[sIdx].w * cellSz - 4, dimensions[sIdx].h * cellSz - 4);
+        // LIVE PARTICLE PREVIEW HOOK INTERCEPTOR WITH ACTIVE TIMED FADE CURVE LAYER ATTACHED
+        const drawPreviewSpellWithParticles = (tw: number, th: number, ox: number, oy: number) => {
+          const fakeSpellInstance = {
+            id: `modal - preview - ${currentTargetKey}-${tw} -${th}`,
+            constructor: { spellName: currentTargetKey },
+            getPropertyValue: (prop: string) => {
+              if (prop === 'widthCells') return tw;
+              if (prop === 'heightCells') return th;
+              if (prop === 'speedDirection') return 1;
+              return 0;
+            }
+          };
+          const wPx = cellSz * tw;
+          const hPx = cellSz * th;
+          if (!animStatesRef.current.has(fakeSpellInstance.id)) {
+            animStatesRef.current.set(fakeSpellInstance.id, { spawnProgress: 1.0, deathProgress: 0, hasSpawnedParticles: false, particles: [] } as any);
           }
+          const pAnim = animStatesRef.current.get(fakeSpellInstance.id)!;
+          if (currentTargetKey === 'Ether') {
+            const cx = wPx / 2 + (wPx / 10); const cy = hPx / 2; const radius = Math.min(wPx, hPx) * 0.3;
+            if (Math.random() < 0.25) {
+              const spreadX = (Math.random() - 0.85) * (radius * 1.75); const spawnX = cx + spreadX; const spawnY = cy + Math.sin(currentTime * 0.005) * (hPx * 0.04) + ((Math.random() - 0.5) * (radius * 1.75)); const ratio = Math.sqrt(Math.pow((cx - spawnX), 2) + Math.pow((cy - spawnY), 2)) / radius;
+              pAnim.particles.push({ x: spawnX, y: spawnY, vx: -(50 + Math.random() * 50), vy: -50 - Math.random() * 50, alpha: 1.0, size: Math.max((1 - ratio) * (radius * 0.1), radius * 0.05), color: ratio < .3 ? PALETTE.fireCore : ratio < .8 ? PALETTE.fireMid : PALETTE.fireOuter, life: 1.0, decay: 1.5 + Math.random() * 1, type: 'etherFlame' });
+            }
+          } else if (currentTargetKey === 'Phlegm') {
+            const rx = wPx * 0.44; const ry = hPx * 0.34;
+            if (Math.random() < 0.2) {
+              const angle = Math.random() * Math.PI * 2;
+              pAnim.particles.push({ x: wPx / 2 + Math.cos(angle) * rx, y: hPx / 2 + Math.sin(angle) * ry, vx: Math.cos(angle) * 20, vy: Math.sin(angle) * 20 - 20, alpha: 1.0, size: Math.min(wPx, hPx) * 0.015, color: Math.random() > 0.7 ? PALETTE.waterFroth : Math.random() > 0.4 ? PALETTE.waterMid : PALETTE.waterDeep, life: 1.0, decay: 1.2 + Math.random() * 1.0, type: 'droplet' });
+            }
+          } else if (currentTargetKey === 'Quicken' && Math.random() < 0.15) {
+            const sx = Math.random() * wPx; const sy = Math.random() * hPx; const len = Math.min(wPx, hPx) * 0.3; const ang = Math.random() * Math.PI * 2;
+            pAnim.particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.0 + Math.random() * 1.5, color: '#16e0d6', shadowColor: '#00ffff', life: 1.0, decay: 12.0, type: 'lightningArc' });
+          }
+          ctx.save();
+          ctx.globalAlpha = activeFadeAlpha; // Bind transparency safely inside context stack matrices
+          ctx.translate(ox * cellSz, oy * cellSz);
+          drawProceduralSpell(ctx, fakeSpellInstance, cellSz, cellSz, currentTime, 1.0);
+          if (pAnim && pAnim.particles.length > 0) {
+            updateAndDrawParticles(ctx, pAnim.particles, deltaTime);
+          }
+          ctx.restore();
+        };
+        // Render looping sequence dimensions dynamically based on active index counters
+        if (currentTargetKey === 'Ether' || currentTargetKey === 'Phlegm') {
+          const gridColorsArray = currentTargetKey === 'Ether'
+            ? ['rgba(230,57,70,0.18)', 'rgba(230,57,70,0.12)', 'rgba(230,57,70,0.06)']
+            : ['rgba(78,168,222,0.18)', 'rgba(78,168,222,0.12)', 'rgba(78,168,222,0.06)'];
+          const sIdx = uiState.currentSizeIdx + 1; // 1, 2, or 3 cells wide
+          ctx.fillStyle = gridColorsArray[sIdx - 1];
+          ctx.save();
+          ctx.globalAlpha = activeFadeAlpha;
+          ctx.fillRect(1, 1, sIdx * cellSz - 2, sIdx * cellSz - 2);
+          ctx.restore();
+          drawPreviewSpellWithParticles(sIdx, sIdx, 0, 0);
         }
         else if (currentTargetKey === 'Quicken') {
-          // Rows for horizontal layouts (Row 1: 1x1, Row 2: 2x1, Row 3: 3x1)
-          const shades = ['#90e0ef', '#00b4d8', '#0077b6'];
-          const widths = [1, 2, 3];
-
-          for (let row = 0; row < 3; row++) {
-            ctx.fillStyle = shades[row];
-            const yOffset = row * cellSz;
-            ctx.fillRect(2, yOffset + 2, widths[row] * cellSz - 4, cellSz - 4);
-          }
+          const rIdx = uiState.currentSizeIdx; // 0, 1, or 2 row offset placement
+          const wVal = rIdx + 1;
+          ctx.fillStyle = 'rgba(144,224,239,0.15)';
+          ctx.save();
+          ctx.globalAlpha = activeFadeAlpha;
+          ctx.fillRect(1, rIdx * cellSz + 1, wVal * cellSz - 2, cellSz - 2);
+          ctx.restore();
+          drawPreviewSpellWithParticles(wVal, 1, 0, rIdx);
         }
         else if (currentTargetKey === 'GyreUp' || currentTargetKey === 'GyreDown') {
-          // Columns for vertical layouts (Col 1: 1x1, Col 2: 1x2, Col 3: 1x3)
-          const shades = ['#d3d3d3', '#a9a9a9', '#696969'];
-          const heights = [1, 2, 3];
-
-          for (let col = 0; col < 3; col++) {
-            ctx.fillStyle = shades[col];
-            const xOffset = col * cellSz;
-            ctx.fillRect(xOffset + 2, 2, cellSz - 4, heights[col] * cellSz - 4);
-          }
+          const cIdx = uiState.currentSizeIdx; // 0, 1, or 2 col offset placement
+          const hVal = cIdx + 1;
+          ctx.fillStyle = 'rgba(169,169,169,0.15)';
+          ctx.save();
+          ctx.globalAlpha = activeFadeAlpha;
+          ctx.fillRect(cIdx * cellSz + 1, 1, cellSz - 2, hVal * cellSz - 2);
+          ctx.restore();
+          drawPreviewSpellWithParticles(1, hVal, cIdx, 0);
         }
-
         ctx.restore();
         ctx.restore();
       }
-
+      // 3. RENDER SCROLL TRAY & SPARKLES LATEST SO THEY LAYER HIGHEST ABOVE BACKDROP MASK
+      runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
+      drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime);
       animationFrameId = requestAnimationFrame(render);
     };
     animationFrameId = requestAnimationFrame(render);
@@ -856,18 +1108,27 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       y: canvasCenterY + ((cellIndex.i - (GameBoard.NUM_ROWS - 1) / 2) * cellHeightPx) - (cellHeightPx / 2)
     };
   }
-
+  const buttons = <>
+    <SpellBookComponent />
+    <NpcDifficultyComponent isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null}/>
+    <ClockFaceComponent />
+  </>
   return (
-    <MasterCanvasOverlay
-      ref={canvasRef}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      onTouchMove={handleMouseMove}
-      onTouchEnd={handleMouseUp}
-      $zIndex={isHovered ? 32 : 29}
-    />
+    <>
+      {buttons}
+      <MasterCanvasOverlay
+        ref={canvasRef}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        touchAction="none"
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleMouseUp}
+        $zIndex={isHovered ? 32 : 29}
+        $cursor={isHovered ? 'pointer' : 'default'}
+      />
+    </>
+
   );
 });
-
 export default HTMLCanvasComponent;

@@ -7,11 +7,13 @@ import { NpcDifficulty } from '../../../DataClasses/types';
 const darkRed = '#cf2b2b';
 
 // The Main Absolute Anchor
-const MenuAnchor = styled.div`
+const MenuAnchor = styled.div<{ $isShowingModal: boolean }>`
   position: absolute;
   top: 1cqw;   
   right: 4cqw; 
   z-index: 35;
+  // transition: filter .3s;
+  filter: brightness(${props => props.$isShowingModal ? .55 : 1});
 `;
 
 // The Visual Trigger Element
@@ -84,7 +86,11 @@ const MaskIcon = styled.div<{ $zIndex: number, $isShow: boolean, $difficulty: Np
   }
 `;
 
-export default function NpcDifficultyComponent() {
+type NpcDifficultyComponent = {
+  isShowingModal: boolean
+}
+
+export default function NpcDifficultyComponent({ isShowingModal }: NpcDifficultyComponent) {
   const localStorageKey = 'quickCast-npcDifficulty';
   const timeoutRef = useRef<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
@@ -132,6 +138,8 @@ export default function NpcDifficultyComponent() {
         setIsClickedOnce(true);
       }}
       data-click-type="ui-buttons"
+      title='Change difficulty'
+      $isShowingModal={isShowingModal}
     >
       <TriggerBox $isClicked={isClicked}>
         <DifficultyText

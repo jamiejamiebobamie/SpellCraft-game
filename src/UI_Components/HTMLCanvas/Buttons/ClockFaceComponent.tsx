@@ -6,7 +6,7 @@ import { useSnapshot } from 'valtio';
 
 const flashClockFace = keyframes`
   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
-  50% { filter: drop-shadow(0 0 .5cqw white) brightness(1.05); }
+  50% { filter: drop-shadow(0 0 .5cqw white) brightness(.95); }
 `;
 
 const MenuAnchor = styled.div<{ $isDisabled: boolean, $isFlashClock: boolean }>`
@@ -19,7 +19,7 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean, $isFlashClock: boolean }>`
   padding: 0.5cqw;
   border-radius: 50%;
   transition: filter 1s;
-  ${props => props.$isDisabled ? 'filter: drop-shadow(0 0 .5cqw white) brightness(1);' : 'filter: drop-shadow(0 0 .5cqw white) brightness(.7);'}
+  ${props => props.$isDisabled && /*? 'filter: drop-shadow(0 0 .5cqw white) brightness(1);' :*/ 'filter: drop-shadow(0 0 .5cqw white) brightness(.7);'}
   ${props => !props.$isDisabled && props.$isFlashClock && css`animation: ${flashClockFace} 2.5s ease-in-out infinite;`}
   &:hover{
     filter: drop-shadow(0 0 .5cqw white) brightness(1);
@@ -215,11 +215,12 @@ export default function ClockFaceComponent() {
     </ClockImgWrapper>
     <MenuAnchor
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
-      $isFlashClock={!isHovered && isPlayerOutOfFocus}
+      $isFlashClock={!isHovered && !isComputerPlayerDoingTurn/*isPlayerOutOfFocus*/}
       onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      data-click-type="ui-buttons">
+      data-click-type="ui-buttons"
+      title='End turn'>
       <ClockWrapper>
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
           {/* Clock Outer Rim */}

@@ -25,8 +25,12 @@ export function drawGyre(
 
   ctx.save();
 
-  // --- GLOBAL TRANSPARENCY CONTROLLER ---
-  ctx.globalAlpha = 0.15;
+  // --- CACHE INHERITED ALPHA FACTOR ---
+  // Captures the fade-in/fade-out value (normally 1.0 on the board, but cycles 0 to 1 in your modal)
+  const baseInheritedAlpha = ctx.globalAlpha;
+
+  // --- GLOBAL TRANSPARENCY CONTROLLER (MULTIPLIED) ---
+  ctx.globalAlpha = baseInheritedAlpha * 0.15;
 
   // 1. DENSE RING RESOLUTION FOR DETAILED RIVETS/DIVOTS
   const ringCount = 45;
@@ -51,7 +55,6 @@ export function drawGyre(
     const swayX = Math.sin(getAsymmetricTaper(t) * swayFreq + time * 0.003) * (w * 0.12) * (1 - k) * cellRows;
     
     // --- NEW: RIGHTWARD LEAN CALCULATION ---
-    // At the tip (t=0), lean is 0. At the wide top (t=1), it tilts right by 28% of width.
     const leanX = t * (w * 0.28); 
     const centerX = w * 0.5 + swayX + leanX;
 
@@ -84,6 +87,7 @@ export function drawGyre(
       ctx.save(); 
       ctx.strokeStyle = highlightColor;
       ctx.lineWidth = Math.max(1, w * 0.008 * t);
+      // Multiply against the currently managed context alpha to scale properly
       ctx.globalAlpha = ctx.globalAlpha * (0.4 + (t * 0.4));
       ctx.stroke();
       ctx.restore();
@@ -102,7 +106,6 @@ export function drawGyre(
     const rivetMod = 1.0 + Math.cos(sparkT * 16 - time * 0.005) * 0.18;
     const swayX = Math.sin(sparkT * 3.5 + time * 0.003) * (w * 0.12) * sparkT;
     
-    // Apply the exact same lean factor to the particle centers so they don't drift out of alignment
     const sparkLeanX = sparkT * (w * 0.28);
     const centerX = w * 0.5 + swayX + sparkLeanX;
     
@@ -124,9 +127,9 @@ export function drawGyre(
 
   // --- 7. GROUND DUST KICKING CLOUD LAYER ---
   ctx.save();
-  ctx.globalAlpha = 0.35; 
+  // Compound original fade sequence alpha factor into dust layers
+  ctx.globalAlpha = baseInheritedAlpha * 0.35; 
 
-  // At the tip contact point, t is effectively 0, meaning leanX is 0. Anchor stays centered.
   const tipSwayX = Math.sin(time * 0.003) * (w * 0.12) * 0.5; 
   const dustBaseX = w * 0.5 + tipSwayX;
 

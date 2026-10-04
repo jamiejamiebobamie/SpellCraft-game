@@ -10,7 +10,7 @@ import { GameSymbol } from './PlacedSpells/GameSymbol';
 import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
-import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
+import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
@@ -530,9 +530,8 @@ export class Game {
 
       this.resetNpcMove();
 
-      this.checkIfIsGameOver();
-      if (this.gameOver) {
-        this.forceUpdate();
+      let isGameOver = this.checkIfIsGameOverAndReset();
+      if (isGameOver) {
         return;
       }
 
@@ -545,9 +544,8 @@ export class Game {
       this.regenFocusForPlayers();
       this.enableGameBoard();
 
-      this.checkIfIsGameOver();
-      if (this.gameOver) {
-        this.forceUpdate();
+      isGameOver = this.checkIfIsGameOverAndReset();
+      if (isGameOver) {
         return;
       }
 
@@ -739,6 +737,10 @@ export class Game {
 
   resetNpcMove = () => {
     this.npcMoveData = proxy([]);
+  }
+
+  getIsSpellBookOpen = (): boolean => {
+    return this.isSpellBookOpen;
   }
 
   setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
@@ -1009,7 +1011,7 @@ export class Game {
   };
 
   // CHECK FOR GAME OVER CONDITION...
-  checkIfIsGameOver = (): void => {
+  checkIfIsGameOverAndReset = (): boolean => {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
     switch (deadPlayers.length) {
@@ -1037,9 +1039,12 @@ export class Game {
       }
     }
 
+    const isGameOver = this.gameOver !== null;
     if (this.gameOver) {
       this.disableGameBoard();
       this.resetGame();
+      this.forceUpdate();
     }
+    return isGameOver;
   }
 }

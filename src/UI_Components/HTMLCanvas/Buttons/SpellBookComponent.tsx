@@ -109,6 +109,7 @@ export default function SpellBookComponent() {
         $isClicked={isClicked}
         $isOpen={isOpen}
         $isClickedOnce={isClickedOnce}
+        title={`${isOpen ? 'Close' : 'Open'} book`}
       >
         <CoverText $isClickedOnce={isClickedOnce}>
           Spell

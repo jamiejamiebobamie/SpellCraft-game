@@ -3,11 +3,8 @@ import React, { useState, useEffect, useRef, useReducer, useCallback } from 'rea
 import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
-import SpellBookComponent from './UI_Elements/Buttons/SpellBookComponent';
-import ClockFaceComponent from './UI_Elements/Buttons/ClockFaceComponent';
-import NpcDifficultyComponent from './UI_Elements/Buttons/NpcDifficultyComponent';
-import StarrySkyComponent from './UI_Elements/SceneElements/StarrySkyComponent'
-import ChandelierComponent from './UI_Elements/SceneElements/ChandelierComponent';
+import StarrySkyComponent from './SceneElements/StarrySkyComponent'
+import ChandelierComponent from './SceneElements/ChandelierComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
@@ -178,11 +175,7 @@ export const GameComponent = () => {
     rootGameStore.setGameWrapperRef(gameWrapperRef);
   }, [gameWrapperRef]);
 
-  const buttons = <>
-    <SpellBookComponent />
-    <NpcDifficultyComponent />
-    <ClockFaceComponent />
-  </>
+
 
   const sceneElements = <>
     <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />
@@ -211,7 +204,6 @@ export const GameComponent = () => {
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}
-      {buttons}
       {mainUI}
     </GameWrapper>
   );

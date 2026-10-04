@@ -2,7 +2,6 @@ import { drawEtherSpawn } from "./drawEther";
 import { drawGyreSpawn } from "./drawGyre";
 import { drawPhlegmSpawn } from "./drawPhlegm";
 import { drawQuickenSpawn, getAsymmetricTaper } from "./drawQuicken";
-import { GameParticle } from '../../../DataClasses/types'; // or wherever you paste the interfaces
 
 export function drawProceduralSpell(
   ctx: CanvasRenderingContext2D,

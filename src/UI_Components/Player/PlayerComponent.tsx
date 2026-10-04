@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
-import { Spotlight } from '../UI_Elements/SceneElements/Spotlight'
+import { Spotlight } from '../SceneElements/Spotlight'
 import styled, { keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -131,7 +131,7 @@ import { useSnapshot } from 'valtio';
 interface UseHealthbarProps {
   healthAmt: number;
   setCachedHealth: Dispatch<SetStateAction<number>>;
-  healthRefTimeout: RefObject<number | null | undefined>;
+  healthRefTimeout: RefObject<any>;
   setHealthDiff: Dispatch<SetStateAction<number>>;
   ANIM_TIME: number;
 }
@@ -145,20 +145,26 @@ const useHealthbar = ({
 }: UseHealthbarProps) => {
   useEffect(() => {
     setCachedHealth(oldCachedAmt => {
-
-      if (healthRefTimeout?.current)
+      // Safely clear any active flash timeout so consecutive updates stack cleanly
+      if (healthRefTimeout?.current) {
         clearTimeout(healthRefTimeout.current);
+      }
 
       const diff = healthAmt - oldCachedAmt;
-      setHealthDiff(diff);
+      
+      // If there's an actual state change, apply it immediately
+      if (diff !== 0) {
+        setHealthDiff(diff);
 
-      healthRefTimeout.current = setTimeout(() => {
-        setHealthDiff(0);
-      }, ANIM_TIME * 1000);
+        healthRefTimeout.current = setTimeout(() => {
+          setHealthDiff(0);
+        }, ANIM_TIME * 100); // Shorter window so resets occur fast enough for rapid multi-hits
+      }
+
       return healthAmt;
     });
-  }, [healthAmt]);
-}
+  }, [healthAmt, setCachedHealth, setHealthDiff, ANIM_TIME, healthRefTimeout]);
+};
 
 type PlayerComponentProps = {
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
