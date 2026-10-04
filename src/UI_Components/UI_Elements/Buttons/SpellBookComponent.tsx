@@ -1,127 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import AutomaticSpellCanvasComponent from '../../SpellCanvas/AutomaticSpellCanvasComponent';
-import { GameSymbol } from '../../../DataClasses/PlacedSpells/GameSymbol';
-import { HARDCODED_SYMBOLS } from '../../../DataClasses/PlacedSpells/HardCodedSymbols';
+import React, { useState } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import styled, { css, keyframes } from 'styled-components';
-
-// --- Particle Sparkle System ---
-interface Particle {
-  x: number;
-  y: number;
-  size: number;
-  speedY: number;
-  speedX: number;
-  alpha: number;
-  decay: number;
-  color: string;
-}
-
-const SparkleCanvas = styled.canvas`
-  position: absolute;
-  top: -2cqw;   /* Slightly offset upward to cover the book's bounds */
-  left: -2cqw;  /* Offset outward to let particles float into view */
-  width: 12cqw;  /* Extends past the 6cqw TriggerBox */
-  height: 15cqw;
-  pointer-events: none;
-  z-index: 1;    /* Sits underneath the TriggerBox (z-index: 3) */
-`;
-
-function SparkleCanvasComponent() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let particles: Particle[] = [];
-
-    // Track real pixel sizing based on responsive cqw dimensions
-    const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    };
-
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    // Color pools for magical depth
-    const goldColors = ['#ffd700', '#ffdf00', '#f3ce13', '#fff3a8'];
-    const silverColors = ['#e6e6e6', '#cccccc', '#f2f2f2', '#ffffff'];
-
-    const createParticle = (): Particle => {
-      const rect = canvas.getBoundingClientRect();
-      const isGold = Math.random() > 0.5;
-      const pool = isGold ? goldColors : silverColors;
-
-      return {
-        // Spawn centered horizontally behind the book
-        x: rect.width / 2 + (Math.random() * 20 - 10),
-        // Spawn slightly hidden from the top/middle book region
-        y: rect.height * 0.3 + (Math.random() * 15 - 7),
-        size: Math.random() * 2.5 + 1,
-        speedY: Math.random() * 0.4 + 0.2, // Gentle downward drift
-        speedX: (Math.random() - 0.5) * 0.3, // Soft sway left/right
-        alpha: Math.random() * 0.6 + 0.4,
-        decay: Math.random() * 0.004 + 0.002,
-        color: pool[Math.floor(Math.random() * pool.length)],
-      };
-    };
-
-    const updateAndDraw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Maintain a maximum cap of 45 gentle sparkles for low CPU footprint
-      if (particles.length < 45 && Math.random() < 0.15) {
-        particles.push(createParticle());
-      }
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.y += p.speedY;
-        p.x += p.speedX;
-        p.alpha -= p.decay;
-
-        if (p.alpha <= 0) {
-          particles.splice(i, 1);
-          continue;
-        }
-
-        ctx.save();
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-
-        // Draw an elegant 4-pointed star magical sparkle
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y - p.size);
-        ctx.quadraticCurveTo(p.x, p.y, p.x + p.size, p.y);
-        ctx.quadraticCurveTo(p.x, p.y, p.x, p.y + p.size);
-        ctx.quadraticCurveTo(p.x, p.y, p.x - p.size, p.y);
-        ctx.quadraticCurveTo(p.x, p.y, p.x, p.y - p.size);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-
-      animationFrameId = requestAnimationFrame(updateAndDraw);
-    };
-
-    updateAndDraw();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', resizeCanvas);
-    };
-  }, []);
-
-  return <SparkleCanvas ref={canvasRef} />;
-}
-
 
 const repeatingGlow = keyframes`
   0% { filter: drop-shadow(0 0 .01cqw rgba(248, 255, 54, 0.6)) drop-shadow(0 0 .03cqw rgba(250, 244, 144, 0.3)) drop-shadow(0 0 .5cqw rgba(6, 6, 1, 0.56)); }
@@ -129,18 +8,11 @@ const repeatingGlow = keyframes`
   100% { filter: drop-shadow(0 0 .01cqw rgba(248, 255, 54, 0.6)) drop-shadow(0 0 .03cqw rgba(250, 244, 144, 0.3)) drop-shadow(0 0 .5cqw rgba(6, 6, 1, 0.56)); }
 `;
 
-const repeatingGlowText = keyframes`
-  0%,100% { color: rgba(248, 255, 54, 0.2); filter: drop-shadow(0 0 .5cqw rgba(248, 255, 54, 0.6)) drop-shadow(0 0 .8cqw rgba(250, 244, 144, 0.3)); }
-  50% { color: #2d101099; filter: drop-shadow(0 0 .1cqw rgba(248, 255, 54, 0.6)) drop-shadow(0 0 .3cqw rgba(250, 244, 144, 0.3)); }
-`;
-
 // The Main Absolute Anchor
 const MenuAnchor = styled.div`
   position: absolute;
   top: 2cqw;
   left: 3cqw; 
-  // top: 6cqw;   
-  // left: 5cqw; 
   z-index: 35;
 `;
 
@@ -199,83 +71,6 @@ const TriggerBox = styled.div<{ $isClicked: boolean, $isOpen: boolean, $isClicke
   ${props => !props.$isClickedOnce && css`animation: ${repeatingGlow} 7s ease-in-out infinite;`}
 `;
 
-// The Tray holding the columns
-const SlidingTray = styled.div<{ $isOpen: boolean }>`
-  display: flex;
-  flex-direction: row;
-  gap: 0.5cqw;
-
-  background-color: #000000a9;
-  padding: .25cqw .25cqw;
-  corner-shape: squircle;
-  border-radius: 1cqw;
-
-  /* 
-    By setting this to absolute, it is completely removed from the 
-    MenuAnchor's dimensional size calculations.
-  */
-  position: absolute;
-  top: 0;
-  left: 150%; /* Positions the right edge of the tray against the left edge of the anchor */
-  
-  z-index: 2; 
-  
-  /* Start completely hidden behind the TriggerBox */
-  transform: translateX(-100%); 
-  opacity: 0;
-  transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
-  pointer-events: none; 
-  ${props => props.$isOpen && 'transform: translateX(0); opacity: 1; pointer-events: auto;'}
-`;
-
-// The Square Images inside the columns
-const SquareImage = styled.img`
-  width: 4cqw;
-  height: 4cqw;
-  object-fit: cover;
-  border-radius: 4px;
-  background-color: transparent;
-  border: 0;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  padding: .5cqw;
-  pointer-events: none;
-`;
-
-const CanvasContainer = styled.div`
-  display: flex;
-  position: relative;
-  width: 4cqw;
-  height: 4cqw;
-  border-radius: 4px;
-  background-color: transparent;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  padding: .5cqw;
-  pointer-events: none;
-`;
-
-// Each Individual Slide-Out Column Group
-const ColumnGroup = styled.div<{ $isClicked: boolean, $isNotHovered: boolean, $index: number }>`
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  gap: .1cqw;
-  transition: filter 1s, transform .5s linear;
-
-  &:hover ${SquareImage},
-  &:hover  ${CanvasContainer} {
-    cursor: pointer;
-    pointer-events: auto;
-  }
-
-  &:hover{
-    transform: translateY(-0.5cqw) scale(1.05);
-    transition: transform 1s, filter 1s;
-  }
-
-  filter: brightness(${props => props.$isNotHovered ? .2 : 1});
-  will-change: filter, transform;
-`;
-
 const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
   width: 100%;
   height: 2cqw;
@@ -297,96 +92,16 @@ const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
   ${props => !!props.$style && props.$style}
 `;
 
-// The Tray holding the columns
-const SpellInfo = styled.div<{ $isHoveredSpell: boolean }>`
-  display: flex;
-  flex-direction: row;
-  gap: 0.5cqw;
-  width: fit-content;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  // background-color: #000000a9;
-  padding: 0.25cqw 0.5cqw;
-  corner-shape: squircle;
-  border-radius: 1cqw;
-
-  position: absolute;
-  top: 11cqw;
-  align-self: center;
-  
-  z-index: 1; 
-  pointer-events: none; 
-
-  transition: opacity .5s;
-  will-change: opacity;
-
-  opacity: ${props => props.$isHoveredSpell ? .7 : 0};
-
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 3cqw;
-
-  color: white;
-  filter: drop-shadow(0 0 .5cqw rgba(248, 255, 54, 1)) drop-shadow(0 0 1cqw rgba(250, 244, 144, 1)) drop-shadow(0 0 3cqw rgba(6, 6, 1, 1));
-`;
-
-const displayNameLookup = new Map<string, string>([
-  ['GyreDown', 'Downdraft'],
-  ['GyreUp', 'Updraft'],
-  ['Ether', 'Fireball'],
-  ['Phlegm', 'Water Wheel'],
-  ['Quicken', 'Chain Lightning'],
-]);
-
 export default function SpellBookComponent() {
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [hoveredSpell, setHoveredSpell] = useState<string | null>(null);
-  const [clickedSpell, setClickedSpell] = useState<string | null>(null);
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
-  const spells = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass], i) => {
-
-    const activatedSpell = hoveredSpell || clickedSpell;
-    return (<ColumnGroup
-      $index={i}
-      $isClicked={isClicked}
-      key={spellClass.spellName}
-      onClick={() => setClickedSpell(spellClass.spellName)}
-      onMouseEnter={() => {
-        setHoveredSpell(spellClass.spellName);
-        rootGameStore.setHoveredSpellBookSpell(spellClass)
-      }}
-      onMouseLeave={() => {
-        setHoveredSpell(null);
-        rootGameStore.setHoveredSpellBookSpell(null);
-      }}
-      $isNotHovered={!!activatedSpell && activatedSpell != spellClass.spellName}
-    >
-      <SquareImage src={`/spell-icons/${spellClass.spellName}Icon_mockup.png`} draggable="false" alt="SpellImg" />
-      <CanvasContainer>
-        <AutomaticSpellCanvasComponent points={HARDCODED_SYMBOLS.get(inferenceString)} size={'4cqw'} drawSpeed={.3} loopDelay={4000} isLooped={isOpen} />
-      </CanvasContainer>
-      <SpellInfo $isHoveredSpell={!!activatedSpell && activatedSpell == spellClass.spellName}>
-        {activatedSpell && displayNameLookup.get(activatedSpell)}
-      </SpellInfo>
-    </ColumnGroup>)
-  });
   return (
     <MenuAnchor data-click-type="ui-buttons">
-      {/* <SparkleCanvasComponent /> */}
       <TriggerBox
         onClick={() => setIsOpen(isOpen => {
           setIsClickedOnce(true);
           rootGameStore.setIsSpellBookOpen(!isOpen);
-          if (!isOpen) {
-            rootGameStore.pauseClock();
-            setHoveredSpell(null);
-            setClickedSpell(null);
-          } else {
-            rootGameStore.unpauseClock();
-          }
           return !isOpen;
         })}
         onMouseDown={() => setIsClicked(true)}
@@ -395,21 +110,13 @@ export default function SpellBookComponent() {
         $isOpen={isOpen}
         $isClickedOnce={isClickedOnce}
       >
-        <CoverText
-          // $style={'padding-top: 1.5cqw;'}
-          $isClickedOnce={isClickedOnce}
-        >
+        <CoverText $isClickedOnce={isClickedOnce}>
           Spell
         </CoverText>
-        <CoverText
-          $isClickedOnce={isClickedOnce}
-        >
+        <CoverText $isClickedOnce={isClickedOnce}>
           Book
         </CoverText>
       </TriggerBox>
-      {/* <SlidingTray $isOpen={isOpen}>
-        {spells}
-      </SlidingTray> */}
     </MenuAnchor >
   );
 }

@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect, useRef, useMemo, RefObject } from 'react';
+import React, { useState, useRef, useMemo, RefObject } from 'react';
 import AutomaticSpellCanvasComponent from './AutomaticSpellCanvasComponent';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
 import { Point } from '../../DataClasses/types';
-import { Game } from '../../DataClasses/Game';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
+import { rootGameStore } from '../../DataClasses/store';
 
-const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: number, $cellWidth: number, $scale: Point, $rotation: number, $translation: Point }>`
+
+const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: number, $cellWidth: number, $scale: Point, $rotation: number, $translation: Point | null }>`
   position: absolute;
   ${props => `top: ${props.$top}px; left: ${props.$left}px; width: ${props.$cellWidth * props.$scale.x}px; height: ${props.$cellWidth * props.$scale.y}px;`}
   opacity: ${props => props.$isShow ? 1 : 0};
@@ -18,12 +19,12 @@ const SpellCanvasWrapper = styled.div<{ $isShow: boolean, $top: number, $left: n
   display: flex;
   align-self: center;
   transform-origin: center center;
-  transform: ${props=> props.$translation? `translate(${props.$translation.x}px, ${props.$translation.y}px)` : `rotate(${props.$rotation}deg)`};
+  transform: ${props=> props.$translation ? `translate(${props.$translation.x}px, ${props.$translation.y}px)` : `rotate(${props.$rotation}deg)`};
   will-change: transform;
 `;
 
-interface NpcSpellCanvasComponentProps { rootGameStore: Game; i: number }
-const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentProps) => {
+interface NpcSpellCanvasComponentProps { i: number }
+const NpcSpellCanvasComponent = ({ i }: NpcSpellCanvasComponentProps) => {
     const ref = useRef<HTMLDivElement | null>(null);
     const snap = useSnapshot(rootGameStore);
     const { inferenceString, scale, rotation, translationNorm, storedSpell, speed } = snap.getNPCMoveDatum(i) || {
@@ -39,12 +40,8 @@ const NpcSpellCanvasComponent = ({ rootGameStore, i }: NpcSpellCanvasComponentPr
     const npcPlacementCellsX: number = useMemo(() => cellWidth * (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS), [cellWidth]);
     const normalizedPoints: Array<Point> | undefined = HARDCODED_SYMBOLS.get(inferenceString);
     const [isVisible, setIsVisible] = useState<boolean>(true);
-    const [translation, setTranslation] = useState<Point>(0);
-
-
-    translation
+    const [translation, setTranslation] = useState<Point | null>(null);
     const timeoutRef = useRef<number>(0);
-    // useEffect(() => { return () => clearTimeout(timeoutRef.current) });
     return (
         <SpellCanvasWrapper
             ref={ref}

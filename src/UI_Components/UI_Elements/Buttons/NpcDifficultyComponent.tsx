@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '../UseLocalStorage';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import { NpcDifficulty } from '../../../DataClasses/types';
 
 const darkRed = '#cf2b2b';
-// const darkerRed = '#883535';
-// const darkGreen = '#2e5e18';
 
 // The Main Absolute Anchor
 const MenuAnchor = styled.div`
@@ -114,12 +111,14 @@ export default function NpcDifficultyComponent() {
   }, [])
 
   useEffect(() => {
-    if (isClickedOnce && !isClicked && !isHovered) { // use changed difficulty with keyboard key. show change on UI.
+    // user changed difficulty with keyboard key. show change on UI.
+    if (isClickedOnce && !isClicked && !isHovered) {
       setIsHovered(true);
       clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setIsHovered(false), 2000);
     }
   }, [difficulty, isClickedOnce]);
+
   return (
     <MenuAnchor
       onMouseEnter={() => { setIsHovered(true); clearTimeout(timeoutRef.current); }}

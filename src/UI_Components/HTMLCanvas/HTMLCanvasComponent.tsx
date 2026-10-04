@@ -1,16 +1,16 @@
 import React, { useRef, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
-import { Game } from '../../DataClasses/Game';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
+import { rootGameStore } from '../../DataClasses/store';
 import { HARDCODED_SYMBOLS_FOR_DISPLAY } from '../../DataClasses/PlacedSpells/HardCodedSymbolsForDisplay';
-import { drawProceduralSpell, updateAndDrawParticles } from './RenderSpells/renderSpells';
-import { spawnQuickenParticles, spawnQuickenHitParticles } from './RenderSpells/drawQuicken';
-import { spawnEtherParticles, spawnEtherHitParticles } from './RenderSpells/drawEther';
-import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './RenderSpells/drawPhlegm';
-import { spawnGyreParticles, spawnGyreHitParticles } from './RenderSpells/drawGyre';
+import { drawProceduralSpell, updateAndDrawParticles } from '../HTMLCanvas/RenderSpells/renderSpells';
+import { spawnQuickenParticles, spawnQuickenHitParticles } from '../HTMLCanvas/RenderSpells/drawQuicken';
+import { spawnEtherParticles, spawnEtherHitParticles } from '../HTMLCanvas/RenderSpells/drawEther';
+import { spawnPhlegmParticles, spawnPhlegmHitParticles } from '../HTMLCanvas/RenderSpells/drawPhlegm';
+import { spawnGyreParticles, spawnGyreHitParticles } from '../HTMLCanvas/RenderSpells/drawGyre';
 import { SpellAnimTracker } from '../../DataClasses/types';
-import { PALETTE } from './RenderSpells/ColorPalette';
+import { PALETTE } from '../HTMLCanvas/RenderSpells/ColorPalette';
 
 const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
   position: absolute;
@@ -26,7 +26,6 @@ const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
 `;
 
 interface PlacedSpellsProps {
-  rootGameStore: Game;
   gridOverlayRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -105,7 +104,7 @@ const displayNameLookup = new Map<string, string>([
   ['Quicken', 'Chain Lightning'],
 ]);
 
-export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: PlacedSpellsProps) => {
+const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boardLayoutRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const animStatesRef = useRef<Map<string, SpellAnimTracker>>(new Map());
@@ -391,36 +390,6 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
         }
         ctx.stroke();
 
-        /******/
-        // ctx.beginPath();
-        // ctx.moveTo(pts[0].x * glyphBoundsDiameter, pts[0].y * glyphBoundsDiameter);
-        // const activeTargetLength = state.progress * totalLen;
-        // let currentAccumulated = 0;
-        // let tipX = pts[0].x * glyphBoundsDiameter; let tipY = pts[0].y * glyphBoundsDiameter;
-        // if (state.progress >= 1.0) {
-        //   for (let m = 1; m < pts.length; m++) {
-        //     ctx.lineTo(pts[m].x * glyphBoundsDiameter, pts[m].y * glyphBoundsDiameter);
-        //   }
-        //   tipX = pts[pts.length - 1].x * glyphBoundsDiameter;
-        //   tipY = pts[pts.length - 1].y * glyphBoundsDiameter;
-        // } else {
-        //   for (let m = 0; m < pts.length - 1; m++) {
-        //     let p1 = pts[m]; let p2 = pts[m + 1]; let segLen = segments[m];
-        //     if (currentAccumulated + segLen >= activeTargetLength) {
-        //       let rem = activeTargetLength - currentAccumulated;
-        //       let ratio = segLen > 0 ? rem / segLen : 0;
-        //       tipX = (p1.x + (p2.x - p1.x) * ratio) * glyphBoundsDiameter;
-        //       tipY = (p1.y + (p2.y - p1.y) * ratio) * glyphBoundsDiameter;
-        //       ctx.lineTo(tipX, tipY);
-        //       break;
-        //     } else {
-        //       ctx.lineTo(p2.x * glyphBoundsDiameter, p2.y * glyphBoundsDiameter);
-        //       currentAccumulated += segLen;
-        //       tipX = p2.x * glyphBoundsDiameter; tipY = p2.y * glyphBoundsDiameter;
-        //     }
-        //   }
-        // }
-        // ctx.stroke();
         ctx.shadowBlur = 0;
 
         if (state.progress < 1.0) {
@@ -469,11 +438,8 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
     ctx.restore();
   };
 
-  const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, deltaTime: number) => {
+  const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number) => {
     const isTrayOpen = rootGameStore.isSpellBookOpen;
-
-    // CLOSED-STATE FREEZE: Kill updates and allocations if completely hidden out of view
-    // if (!isTrayOpen && ui.trayProgress < 0.002) return;
 
     const baseAnchorX = viewW * ui.config.startXOffset;
     const baseAnchorY = viewW * ui.config.startYOffset;
@@ -653,7 +619,7 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
         }
       }
       // UPSTREAM LAYERING PATH: Sparks always render behind scroll trays and buttons natively
-      runGlobalBookSparkles(ctx, scrollUIRef.current, viewW, deltaTime);
+      runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
       // OPTIMIZED DISPLAY BARRIER: freeze backdrop updates entirely if user is looking over hover cards details
       drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime);
 
@@ -712,20 +678,13 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
 
         const currentBullets = spellInfoData[currentTargetKey] || [];
 
-                // Main Modal Dimensions
+        // Main Modal Dimensions
         const infoW = viewW * 0.76; 
         const infoH = viewH * 0.7; // Slightly reduced height to make sure it doesn't bleed off the bottom of the screen
         const infoX = (viewW - infoW) * 0.5;
         
         // 🌟 SHIFT DOWNWARD: Change from 0.5 center multiplier to explicit lower-anchor position
         const infoY = viewH * 0.22; // This leaves the top 32% of the canvas clear for scroll tray interactions!
-
-
-        // Main Modal Dimensions
-        // const infoW = viewW * 0.76;
-        // const infoH = viewH * 0.78;
-        // const infoX = (viewW - infoW) * 0.5;
-        // const infoY = (viewH - infoH) * 0.5;
 
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
@@ -831,7 +790,6 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
         ctx.fillStyle = '#4a3218';
         ctx.textAlign = 'center';
         ctx.font = `bold ${viewW * 0.024}px 'EnchantedLand', sans-serif`;
-        // ctx.fillText("Possible Growth Sizes", gridBoxW / 2, -viewW * 0.022);
         ctx.fillText("Sizes", gridBoxW / 2, -viewW * 0.025);
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
@@ -884,7 +842,6 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
         ctx.restore();
       }
 
-
       animationFrameId = requestAnimationFrame(render);
     };
     animationFrameId = requestAnimationFrame(render);
@@ -912,3 +869,5 @@ export const PlacedSpellsComponent = (({ rootGameStore, gridOverlayRef }: Placed
     />
   );
 });
+
+export default HTMLCanvasComponent;

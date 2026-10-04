@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { Game } from '../../../DataClasses/Game';
+import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
-
 
 const flashClockFace = keyframes`
   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
@@ -26,12 +26,6 @@ const MenuAnchor = styled.div<{ $isDisabled: boolean, $isFlashClock: boolean }>`
   }
 `;
 
-const chimeGlow = keyframes`
-  0% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1) saturate(.5); }
-  50%, { filter: drop-shadow(0 0 0.2cqw rgba(255, 248, 208, 0.95)) brightness(.5) saturate(1); }
-  100% { filter: drop-shadow(0 0 .7cqw rgba(250, 231, 125, 0.8)) brightness(1) saturate(.5); }
-`;
-
 const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
@@ -40,10 +34,6 @@ const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }
   transition: filter .5s;
   will-change: filter; 
   filter: brightness(.5);
-  // ${props => props.$isHovered ? 'filter: drop-shadow(0 0 .1cqw white) brightness(.7);' : 'filter: drop-shadow(0cqw 0cqw 0cqw white) brightness(.5);'}
-  // ${props => props.$isDisabled && css`
-  //   animation: ${chimeGlow} 3s ease-in-out infinite;
-  // `}
 `;
 
 const bellStrike = keyframes`
@@ -119,21 +109,6 @@ const ClockHands = styled.line<{ $brightness?: number, $transitionTime?: number 
   ${props => props.$brightness && `filter: brightness(${props.$brightness}) drop-shadow(0 0 .3cqw #fffb00) !important;`}
 `;
 
-
-interface UseSecondsHandTimerProps {
-  rootGameStore: Game;
-  setSecondsAngle: (secondsHandAngle: number) => void;
-}
-
-const useSecondsHandTimer = ({ rootGameStore, setSecondsAngle }: UseSecondsHandTimerProps) => {
-  const snap = useSnapshot(rootGameStore);
-  const secondsHandAngle = snap.getSecondsHandAngle();
-
-  useEffect(() => {
-    setSecondsAngle(Math.min(360, secondsHandAngle));
-  }, [secondsHandAngle]);
-}
-
 interface UseClockChimesAnimProps {
   rootGameStore: Game;
   setIsResetChime: (isReset: boolean) => void;
@@ -155,7 +130,7 @@ const useClockChimesAnim = ({ rootGameStore, setIsResetChime }: UseClockChimesAn
 
 interface UseMinuteAngleAccProps {
   rootGameStore: Game;
-  setAngles: (newClockHandAngles: { minute: number, hour: number }) => void; // Triggered onClick clock
+  setAngles: (newClockHandAngles: { minute: number, hour: number }) => void;
 }
 
 const useMinuteAngleAcc = ({ rootGameStore, setAngles }: UseMinuteAngleAccProps): void => {
@@ -176,13 +151,7 @@ type minuteHourAngles = {
   hour: number;
 }
 
-interface ClockFaceComponentProps {
-  rootGameStore: Game;
-}
-export default function ClockFaceComponent({
-  rootGameStore
-}: ClockFaceComponentProps) {
-
+export default function ClockFaceComponent() {
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
@@ -196,10 +165,6 @@ export default function ClockFaceComponent({
   // Plays the anim once and resets it for next play.    
   const [isResetChime, setIsResetChime] = useState<boolean>(true);
   useClockChimesAnim({ rootGameStore, setIsResetChime });
-
-  // Seconds hand acts as a timer for the player. Full circle triggers automatic end of turn.
-  const [secondsAngle, setSecondsAngle] = useState<number>(0);
-  useSecondsHandTimer({ rootGameStore, setSecondsAngle });
 
   return (<>
     {/* .png clock elements. */}
@@ -248,8 +213,6 @@ export default function ClockFaceComponent({
         $isResetChime={isResetChime}
       />
     </ClockImgWrapper>
-
-    {/* SVG clock elements */}
     <MenuAnchor
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
       $isFlashClock={!isHovered && isPlayerOutOfFocus}
@@ -282,14 +245,6 @@ export default function ClockFaceComponent({
             stroke="#5c4d37" strokeWidth="3.5" strokeLinecap="round"
             transform={`rotate(${angles.minute} 50 50)`}
           />
-          {/* Seconds Hand (Thinner-er, Longer-er) */}
-          {/* <ClockHands
-            x1="50" y1="50" x2="50" y2="9"
-            stroke="#787600" strokeWidth="1.5" strokeLinecap="round"
-            transform={`rotate(${secondsAngle} 50 50)`}
-            $brightness={1.5}
-            $transitionTime={.75}
-          /> */}
           {/* Center Pin */}
           <circle cx="50" cy="50" r="4" fill="#1a1a1a" />
         </svg>

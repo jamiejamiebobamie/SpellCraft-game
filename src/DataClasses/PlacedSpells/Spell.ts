@@ -7,7 +7,7 @@ import { proxy } from 'valtio';
 export abstract class Spell extends UniqueId {
   static readonly spellName: string;
   readonly caster: Player;
-  protected static readonly focusCost: number = 0;
+  static readonly FOCUS_COST: number = 0;
   cellIndex!: CellIndex;
   widthCells: number = 1;
   heightCells: number = 1;
@@ -249,7 +249,7 @@ export abstract class Spell extends UniqueId {
 // --- Subclasses ---
 
 export class Phlegm extends Spell {
-  protected static readonly focusCost: number = 1;
+  static readonly FOCUS_COST: number = 1;
   static readonly spellName = "Phlegm";
 
   constructor(caster: Player) {
@@ -290,11 +290,11 @@ export class Phlegm extends Spell {
     // this.markSpellForRemoval();
   };
 
-  getFocusCost = (): number => Phlegm.focusCost;
+  getFocusCost = (): number => Phlegm.FOCUS_COST;
 }
 
 export class Ether extends Spell {
-  protected static readonly focusCost: number = 1;
+  static readonly FOCUS_COST: number = 2;
   static readonly spellName = "Ether";
 
   constructor(caster: Player) {
@@ -309,12 +309,12 @@ export class Ether extends Spell {
     this.markSpellForRemoval();
   };
 
-  getFocusCost = (): number => Ether.focusCost;
+  getFocusCost = (): number => Ether.FOCUS_COST;
 }
 
 export abstract class Gyre extends Spell {
   baseCellDmg = 4;
-  protected static readonly focusCost: number = 1;
+  static readonly FOCUS_COST: number = 1;
 
   constructor(caster: Player) {
     super(caster);
@@ -352,7 +352,7 @@ export abstract class Gyre extends Spell {
     }
   // };
 
-  getFocusCost = (): number => Gyre.focusCost;
+  getFocusCost = (): number => Gyre.FOCUS_COST;
 }
 
 export class GyreUp extends Gyre {
@@ -372,7 +372,7 @@ export class GyreDown extends Gyre {
 }
 
 export class Quicken extends Spell {
-  protected static readonly focusCost: number = 1;
+  static readonly FOCUS_COST: number = 1;
   static readonly spellName = "Quicken";
   constructor(caster: Player) {
     super(caster);
@@ -389,5 +389,5 @@ export class Quicken extends Spell {
     this.markSpellForRemoval();
   };
 
-  getFocusCost = (): number => Quicken.focusCost;
+  getFocusCost = (): number => Quicken.FOCUS_COST;
 }

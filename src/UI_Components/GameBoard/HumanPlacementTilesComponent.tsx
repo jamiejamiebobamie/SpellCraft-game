@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Game } from '../../DataClasses/Game';
 import styled from 'styled-components';
+import { rootGameStore } from '../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 
 const PlacementArea = styled.div<{ $isPlayerDoingTurn: boolean }>`
@@ -19,11 +19,8 @@ const PlacementArea = styled.div<{ $isPlayerDoingTurn: boolean }>`
   transition: opacity 1s;
 `;
 
-interface HumanPlacementTilesComponentProps {
-    rootGameStore: Game;
-}
 // TO-DO: only show if: (1) isPlayerDoingTurn and (2) if player draws entirely off board... have flashing anim
-export const HumanPlacementTilesComponent = ({ rootGameStore }: HumanPlacementTilesComponentProps) => {
+export const HumanPlacementTilesComponent = () => {
     const snap = useSnapshot(rootGameStore);
     const isPlayerDoingTurn: boolean = !snap.getIsHumanPlayerDoneWithTurn();
     return <PlacementArea $isPlayerDoingTurn={false/*isPlayerDoingTurn*/} />

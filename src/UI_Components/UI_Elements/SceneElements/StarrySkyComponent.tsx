@@ -77,7 +77,7 @@ const StyledGlowStar = styled.div.attrs<StarProps>(props => ({
   pointer-events: none;
 `;
 
-export const StarrySkyComponent = ({ index }: { index: number }) => {
+const StarrySkyComponent = ({ index }: { index: number }) => {
     // Generate random coordinates and timings once to avoid re-renders popping stars around
     const starList = useMemo(() => {
         return Array.from({ length: 20 }).map((_, i) => ({
@@ -121,3 +121,5 @@ export const StarrySkyComponent = ({ index }: { index: number }) => {
         </SkyContainer>
     );
 };
+
+export default StarrySkyComponent;

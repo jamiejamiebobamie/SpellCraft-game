@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { ModifierTextComponent } from '../UI_Elements/ModifierTextComponent'
 import styled, { keyframes } from 'styled-components';
 
 const popIn = keyframes`
@@ -100,22 +99,6 @@ export const SpellBadgeComponent = ({
 
     return !!propertyValue && isDisplayBadgeCondition(propertyValue) && (
         <>
-            {/* {isAnim && <ModifierTextComponent
-                propertyName={propertyName}
-                propertyValue={propertyValue}
-                $opacityCondition={$opacityCondition}
-                $width={'10cqw'}
-                $height={'10cqw'}
-                $fontSize={'1.3cqw'}
-                $top={$top}
-                $left={$left}
-                $right={$right}
-                $bottom={$bottom}
-                $backgroundColor={$backgroundColor}
-                $content={$content}
-                $contentColor={$contentColor}
-                $color={$color}
-            />} */}
             <SpellBadge
                 $opacity={$opacityCondition(propertyValue)}
                 $top={$top}

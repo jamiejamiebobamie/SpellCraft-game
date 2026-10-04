@@ -11,7 +11,7 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UI_Elements/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, SpellConstructor, Point, NPCMoveData, DivRefDimensions } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
@@ -158,7 +158,26 @@ export class Game {
         keycodes,
         action: () => {
           const cell = this.gameBoard.getCellAt(cellIndex);
-          if (cell && this.humanPlayer) this.placeSpellOnBoard(cell);
+          if (cell && this.humanPlayer) {
+            const gameSymbol = this.humanPlayer.getGameSymbol();
+            if (!gameSymbol) return;
+            const inferenceString = gameSymbol.symbolName as InferenceString;
+            const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
+            if (spell) {
+              const s = new spell(this.humanPlayer);
+              const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
+              if (isPlayerHasFocus) {
+                const cost = s.getFocusCost();
+                this.humanPlayer.incurPlayerCostForSpell(cost);
+                this.placeSpellAt(inferenceString, cellIndex);
+                this.placedSpells.combineSpellsMaximally(this.gameBoard);
+                if (this.humanPlayer.getFocus() < 1) {
+                  this.setIsDoneWithTurn(true, this.humanPlayer);
+                }
+              }
+            }
+            this.forceUpdate();
+          }
         }
       });
     })
@@ -245,10 +264,6 @@ export class Game {
     const p = player ? player : this.humanPlayer;
     return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
   }
-
-  // getLogEntries = (): Array<GameLogEntry> => {
-  //   return this.gameLog.logEntries;
-  // };
 
   regenFocusForPlayers = () => {
     this.players.forEach(p => p.decrementFocus(p.getFocusRegenAmt()));
@@ -357,19 +372,6 @@ export class Game {
   }
 
   addRawPoint(x: number, y: number): void {
-    /*
-    
-      continously check if mouse is over gameboard
-      if mouse is over gameboard:
-        store cell index
-        mark rawPoint index (start of points for that cell)
-
-        if cell index is different than stored:
-          store cell index
-          mark rawPoint index (start of points for that cell)
-
-    */
-
     const nextPoint = { x, y };
     let lastPoint = undefined;
     const rawPoints = this.spellCanvas.getRawPoints();
@@ -391,13 +393,11 @@ export class Game {
       }
     }
     this.spellCanvas.addRawPoint(x, y);
-
   }
 
   getIsDrawing = (): boolean => {
     return this.spellCanvas.getIsDrawing();
   }
-
 
   getPlayerRawPoints(): Array<Point> {
     return this.spellCanvas.getRawPoints();
@@ -423,18 +423,6 @@ export class Game {
     return this.gameBoard.hoveredCell?.getSpell() || null;
   }
 
-  // getHoveredSpellBookSpell = (): SpellConstructor | null => {
-  //   return this.gameLog.getHoveredSpellBookSpell();
-  // }
-
-  // setHoveredSpellBookSpell = (hoveredSpell: SpellConstructor | null): void => {
-  //   this.gameLog.setHoveredSpellBookSpell(hoveredSpell);
-  // }
-
-  // setHoveredGameboardCell = (cell: Cell | null): void => {
-  //   this.gameBoard.hoverCell(cell);
-  // }
-
   getIsPlacing = (): boolean => {
     return this.humanPlayer?.gameSymbol != null;
   }
@@ -454,8 +442,6 @@ export class Game {
           this.placeSpellOnBoard(cell, p);
         }
       }
-      // clear gameSymbol regardless...
-      // this.cancelPlacingSymbol(p);
     }
   }
 
@@ -465,14 +451,18 @@ export class Game {
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
-        this.placeSpellAt('circle', cellIndex);
-        this.placedSpells.combineSpellsMaximally(this.gameBoard);
-
-        this.humanPlayer?.incurPlayerCostForSpell(1);
-
-        if (this.humanPlayer) {
-          if (this.humanPlayer.getFocus() < 1) {
-            this.setIsDoneWithTurn(true, this.humanPlayer);
+        const spell = GameSymbol.SPELL_LOOKUP.get('circle');
+        if (spell && this.humanPlayer) {
+          const s = new spell(this.humanPlayer);
+          const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
+          if (isPlayerHasFocus) {
+            const cost = s.getFocusCost();
+            this.humanPlayer.incurPlayerCostForSpell(cost);
+            this.placeSpellAt('circle', cellIndex);
+            this.placedSpells.combineSpellsMaximally(this.gameBoard);
+            if (this.humanPlayer.getFocus() < 1) {
+              this.setIsDoneWithTurn(true, this.humanPlayer);
+            }
           }
         }
         this.forceUpdate();
@@ -506,13 +496,16 @@ export class Game {
       // Extract dominant layout targets from the collection stream points
       const dominantCells = this.filterDominantCells(rawPoints);
       if (dominantCells.length > 0 && this.humanPlayer) {
-
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
-        this.humanPlayer?.incurPlayerCostForSpell(freeCells.length);
-        const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-        console.log({ freeCells, freePositions })
-
-        this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
+        const spell = GameSymbol.SPELL_LOOKUP.get(result);
+        if (this.humanPlayer && spell) {
+          const s = new spell(this.humanPlayer);
+          const focusCost = s.getFocusCost() * freeCells.length;
+          this.humanPlayer.incurPlayerCostForSpell(focusCost);
+          const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
+          console.log({ freeCells, freePositions, focusCost })
+          this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
+        }
       }
     }
 
@@ -532,20 +525,6 @@ export class Game {
     }
   }
 
-  /*
-   
-    TO-DO: Consider having a turn be a single placed spell move, not all placed spells move
-   
-    Every turn keep a curr index into placed spells and it goes around "round rob" (?)
-   
-   
-    TO-DO: Consider undo last move(?)
-   
-    TO-DO: ensure that endTurn is not being called on a Fizzle inference...
-
-    TO-DO: consider having left over focus from a turn become health points. example: 2 left over focus = +2 health at start of next turn.
-   
-  */
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
 
@@ -557,7 +536,6 @@ export class Game {
         return;
       }
 
-      // this.setHoveredGameboardCell(null);
       this.resetClock();
       this.pauseClock();
       this.incrementMinuteAngleAcc();
@@ -574,7 +552,6 @@ export class Game {
       }
 
       // TESTING - - - - -
-      // this.resetNpcMove();
       if (this.computerPlayer && this.humanPlayer) {
         this.setIsDoneWithTurn(false, this.computerPlayer);
         this.setIsDoneWithTurn(false, this.humanPlayer);
@@ -619,12 +596,6 @@ export class Game {
 
   setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
     player.setIsDoneWithTurn(isDoneWithTurn);
-    // if (isDoneWithTurn) {
-    //   const opponent = player == this.humanPlayer ? this.computerPlayer : this.humanPlayer;
-    //   if (!opponent) return;
-    //   const isOpponentDoneWithTurn = opponent.getIsDoneWithTurn();
-    //   if (isOpponentDoneWithTurn) setTimeout(() => this.endTurn(), 1500);
-    // }
   }
 
   // TO-DO: have end turn button enabled while NPC is drawing. if clicked, cancel the drawing and immediately place NPC symbols on board
@@ -705,10 +676,15 @@ export class Game {
         const dominantCells = this.filterDominantCells(rawPoints);
         if (dominantCells.length > 0) {
 
-          if (this.computerPlayer) {
-            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer));
-            this.computerPlayer?.incurPlayerCostForSpell(freeCells.length);
+          const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
 
+          if (this.computerPlayer && spell) {
+            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer as Player));
+            const s = new spell(this.computerPlayer);
+            const focusCost = s.getFocusCost() * freeCells.length;
+            const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
+            console.log({ freeCells, freePositions, focusCost })
+            this.computerPlayer.incurPlayerCostForSpell(focusCost);
             this.spawnSizedSpellInstance(inferenceString, dominantCells, this.computerPlayer);
           }
         }
@@ -777,7 +753,6 @@ export class Game {
     this.gameOver = status;
   }
 
-
   /**
    * Filters cell lists to discard accidental clipping boundaries based on point counts
    */
@@ -828,8 +803,6 @@ export class Game {
   /**
    * Instantiates the sizing constraints and evaluates focus expenses cleanly
    */
-  // Game.ts
-
   private spawnSizedSpellInstance = (symbol: string, cells: CellIndex[], activeCaster: any): void => {
     if (cells.length === 0 || !activeCaster) return;
 
@@ -903,11 +876,14 @@ export class Game {
       }
     }
 
+    const spell = GameSymbol.SPELL_LOOKUP.get(lowerSymbol as InferenceString);
+    if (!spell) return;
+
     // --- LAYER 5: TYPE-SPECIFIC COMPONENT DEPLOYMENT PASSTHROUGHS ---
 
     // A. ETHER & PHLEGM MAXIMAL SPATIAL GRID SWEEPER
-    if (lowerSymbol.includes('star') || lowerSymbol.includes('circle')) {
-      const isPhlegm = lowerSymbol.includes('star');
+    if (spell.spellName == 'Phlegm' || spell.spellName == 'Ether') {
+      const isPhlegm = spell.spellName == 'Phlegm';
 
       const canFitSquare = (startR: number, startC: number, size: number): boolean => {
         // 1. Structural Boundary Cap Check
@@ -931,7 +907,6 @@ export class Game {
         instance.heightCells = size;
 
         instance.setCellIndex({ i: minI + startR, j: minJ + startC });
-        // instance.isPlaced = true;
         this.placedSpells.addSpell(instance);
 
         // Mark the local matrix slots as locked so smaller sizes don't stack inside it
@@ -955,8 +930,8 @@ export class Game {
     }
 
     // B. GYREUP & GYREDOWN VERTICAL COLUMNS TRACKER
-    else if (lowerSymbol.includes('diamond') || lowerSymbol.includes('triangle')) {
-      const isGyreUp = lowerSymbol.includes('diamond');
+    else if (spell.spellName == 'GyreUp' || spell.spellName == 'GyreDown') {
+      const isGyreUp = spell.spellName == 'GyreUp';
 
       for (let c = 0; c < widthSpan; c++) {
         let r = 0;
@@ -977,7 +952,6 @@ export class Game {
             instance.heightCells = contiguousHeight;
 
             instance.setCellIndex({ i: minI + r, j: minJ + c });
-            // instance.isPlaced = true;
 
             // Clear any lingering stale cells in this column slot
             for (let h = 0; h < contiguousHeight; h++) {
@@ -995,7 +969,7 @@ export class Game {
     }
 
     // C. QUICKEN HORIZONTAL CHAINS & VERTICAL ROW SPLITTING PASSTHROUGH
-    else if (lowerSymbol.includes('line')) {
+    else if (spell.spellName == 'Quicken') {
       for (let r = 0; r < heightSpan; r++) {
         let c = 0;
         while (c < widthSpan) {
@@ -1017,7 +991,6 @@ export class Game {
             instance.heightCells = 1;
 
             instance.setCellIndex({ i: minI + r, j: minJ + c });
-            // instance.isPlaced = true;
 
             for (let w = 0; w < finalWidth; w++) {
               const targetCell = this.gameBoard.getCellAt({ i: minI + r, j: minJ + c + w });
@@ -1064,10 +1037,8 @@ export class Game {
       }
     }
 
-    if (this.gameOver) { // TESTING
+    if (this.gameOver) {
       this.disableGameBoard();
-      // this.appendToLog(`${GameOverStatus.toString(), this.gameOver}`, '#a78bfa');
-      // this.resetMinuteAngleAcc();
       this.resetGame();
     }
   }

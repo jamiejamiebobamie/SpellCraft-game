@@ -138,16 +138,14 @@ export class Player extends UniqueId {
   }
 
   incurPlayerCostForSpell = (focusCost: number): void => {
-    if (this.getFocus() >= focusCost) {
-      this.decrementFocus(focusCost);
-      // getBloodMagicCost
-      // return true;
+    // Cap focus cost to between 1 and 8 inclusive
+    const cost = Math.max(1, Math.min(8, Math.ceil(focusCost)));
+    if (this.getFocus() >= cost) {
+      this.decrementFocus(cost);
     } else {
-      // Calculate how much focus is missing
-      const difference = focusCost - this.getFocus();
+      const difference = cost - this.getFocus();
       this.depleteFocusToZero();
       this.decrementHealth(difference * this.getBloodMagicCost()); // Health covers the remaining resource debt
     }
-    // return true;
   }
 };

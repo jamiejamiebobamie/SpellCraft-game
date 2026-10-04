@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, RefObject } from 'react';
-import { Player } from '../../DataClasses/Player/Player';
+import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../UI_Elements/SceneElements/Spotlight'
@@ -35,15 +35,15 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   margin-bottom: 7cqw;
 `;
 
-const BarBorder = styled.div<{ $direction: 1 | -1 }>`
+const BarBorder = styled.div<{ $direction: number }>`
   position: relative; width: 150%; align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'}; height: 2.5cqw; margin-bottom: .5cqw; border: 0.15cqw solid #666; background: #222; border-radius: 0.3cqw; overflow: hidden;
 `;
 
-const BarFill = styled.div<{ $pct: number, $direction: 1 | -1 }>`
+const BarFill = styled.div<{ $pct: number, $direction: number }>`
   width: ${props => props.$pct}%; height: 100%; background: #570a0a; ${props => props.$direction == 1 ? 'float: right;' : 'float: left;'} transition: width 0.2s ease; overflow: visible;
 `;
 
-const BarTextContainer = styled.div<{ $direction: 1 | -1, $pct: number }>`
+const BarTextContainer = styled.div<{ $direction: number, $pct: number }>`
     display: flex;
     position: absolute;
     z-index: 1;
@@ -53,11 +53,7 @@ const BarTextContainer = styled.div<{ $direction: 1 | -1, $pct: number }>`
     ${props => props.$direction == -1 ? `left: ${props.$pct > 12 ? `${props.$pct - 9}%` : '.9dvw'};` : `right: ${props.$pct > 12 ? `${props.$pct - 9}%` : '.9dvw'};`}
     
     transition: left 1s, right 1s;
-    // width: 100%;
-    // width: ${props => props.$pct}%;
     height: 100%;
-    // ${props => props.$pct <= 5 ? 'min-width: 1dvw;' : ''}
-
     
     /* Perfectly center child text horizontally and vertically */
     justify-content: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
@@ -75,20 +71,12 @@ const BarTextContainer = styled.div<{ $direction: 1 | -1, $pct: number }>`
 `;
 
 const BarText = styled.div`
-    // padding: 0cqw .2cqw;
-    // color: #e2afaf;
     color: #ffcaca;
-
     filter: drop-shadow(0px 0px 5px #ffcaca);
-
-
-
     transition: width 0.2s ease;
-    // background-color: green;
-    // width: 2cqw;
 `;
 
-const FocusContainer = styled.div<{ $direction: 1 | -1 }>`
+const FocusContainer = styled.div<{ $direction: number }>`
     display: flex;
     align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
     padding: 1cqw 0cqw;// 3cqw .2cqw 2cqw;
@@ -138,6 +126,7 @@ const ExcessFocusBadge = styled(FocusBadge)`
     animation: none;
 `;
 import { Dispatch, SetStateAction } from 'react';
+import { useSnapshot } from 'valtio';
 
 interface UseHealthbarProps {
   healthAmt: number;
@@ -170,61 +159,35 @@ const useHealthbar = ({
     });
   }, [healthAmt]);
 }
-interface UseFocusDotsProps {
-  focusAmt: number;
-  setCachedFocus: Dispatch<SetStateAction<number>>;
-  /* Clears linter rules for browser setTimeout trackers */
-  focusRefTimeout: RefObject<number | null | undefined>;
-  setFocusDiff: Dispatch<SetStateAction<number>>;
-  ANIM_TIME: number;
-}
-
-const useFocusDots = ({
-  focusAmt,
-  setCachedFocus,
-  focusRefTimeout,
-  setFocusDiff,
-  ANIM_TIME
-}: UseFocusDotsProps) => {
-  useEffect(() => {
-    setCachedFocus(oldCachedAmt => {
-
-      if (focusRefTimeout?.current)
-        clearTimeout(focusRefTimeout.current);
-
-      const diff = focusAmt - oldCachedAmt;
-      setFocusDiff(diff);
-
-      focusRefTimeout.current = setTimeout(() => {
-        setFocusDiff(0);
-      }, ANIM_TIME * 1000);
-
-      return focusAmt;
-    });
-  }, [focusAmt]);
-}
 
 type PlayerComponentProps = {
-  playerSnap: Player;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
   isPlayerOutOfFocus: boolean;
+  playerIndex: number;
 }
 
-const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
+const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
+  const snap = useSnapshot(rootGameStore);
+  const playerSnap = playerIndex == 0 ? snap.getHumanPlayer() : rootGameStore.getNpcPlayer();
   const ANIM_TIME = 6;
-  const healthAmt = playerSnap.getHealth();
-  const direction = playerSnap.getDirection();
+  const healthAmt = playerSnap?.getHealth() || 0;
+  const pct = playerSnap?.getHealthPrct() || 0;
+  const focusAmt = playerSnap?.getFocus()  || 0;
+  const maxFocus = playerSnap?.getMaxFocus() || 0;
+  const maxExcessFocus = playerSnap?.getMaxExcessFocus() || 0;
+  const src = playerSnap?.avatarUrl || '';
+  const direction = playerSnap?.getDirection() || 1;
 
   const healthRefTimeout = useRef<number | null | undefined>(0);
-  const [_, setCachedHealth] = useState(playerSnap.getHealth());
+  const [_, setCachedHealth] = useState(healthAmt);
   const [healthDiff, setHealthDiff] = useState(0);
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
 
-  const avatar = (<AvatarFrame $src={playerSnap.avatarUrl} $direction={direction}>
+  const avatar = (<AvatarFrame $src={src} $direction={direction}>
     <Damageable $healthDiff={healthDiff}>
-      <AvatarRobe $healthDiff={healthDiff} $src={playerSnap.avatarRobeUrl}>
-        <AvatarHead $healthDiff={healthDiff} $src={playerSnap.avatarHeadUrl} />
-        <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap.avatarRightArmUrl} />
+      <AvatarRobe $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
+        <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
+        <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
         <IK_ArmComponent mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
       <FloorShadow />
@@ -232,10 +195,10 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
   </AvatarFrame>);
 
   const healthbar = (<BarBorder $direction={direction}>
-    <BarFill $pct={playerSnap.getHealthPrct()} $direction={direction}>
-      <BarTextContainer $pct={playerSnap.getHealthPrct()} $direction={direction}>
+    <BarFill $pct={pct} $direction={direction}>
+      <BarTextContainer $pct={pct} $direction={direction}>
         <BarText>
-          {playerSnap.getHealth() != 0 ? playerSnap.getHealth() : ''}
+          {healthAmt > 0 ? healthAmt : ''}
         </BarText>
       </BarTextContainer>
     </BarFill>
@@ -244,9 +207,9 @@ const PlayerComponent = ({ playerSnap, mousePosRef, isPlayerOutOfFocus }: Player
   const focusDots = (
     <FocusContainer $direction={direction}>
       {/* STORED FOCUS */}
-      {direction == -1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={playerSnap.getMaxFocus() - i - 1} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+      {direction == -1 ? Array.from({ length: maxExcessFocus }).map((_, i) => <ExcessFocusBadge key={i} $i={maxFocus - i - 1} $focusAmt={focusAmt - maxFocus} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: maxFocus }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={focusAmt} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       {/* EXCESS STORED FOCUS */}
-      {direction == 1 ? Array.from({ length: playerSnap.getMaxExcessFocus() }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus() - playerSnap.getMaxFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: playerSnap.getMaxFocus() }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={playerSnap.getFocus()} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
+      {direction == 1 ? Array.from({ length: maxExcessFocus }).map((_, i) => <ExcessFocusBadge key={i} $i={i} $focusAmt={focusAmt - maxFocus} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: maxFocus }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={focusAmt} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
     </FocusContainer>
   );
 

@@ -1,6 +1,4 @@
 import styled, { keyframes, css } from 'styled-components';
-
-import { caughtInGyre } from '../GameBoard/SpellAnims';
 import { InferenceString } from '../../DataClasses/types';
 
 export const bob = keyframes`
