@@ -61,6 +61,8 @@ export const GameComponent = () => {
   const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
+  const isOutOfFocus = snap.getIsOutOfFocus();
+
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!gameWrapperRef.current) return;
@@ -186,7 +188,7 @@ export const GameComponent = () => {
   </>
 
   const mainUI = <>
-    <PlayerComponent playerIndex={0} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus} />
+    <PlayerComponent playerIndex={0} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus || isOutOfFocus} />
     <MainColumn>
       <GameBoardComponent gridOverlayRef={gridOverlayRef} />
     </MainColumn>

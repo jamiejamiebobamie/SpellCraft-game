@@ -1,8 +1,8 @@
 // GameBoard.ts
 import { RefObject } from 'react';
-import { CellIndex, SpellPropertyName, DivRefDimensions, Point } from '../types';
+import { CellIndex, DivRefDimensions, Point } from '../types';
 import { Cell } from './Cell';
-import { Spell, Quicken, Gyre } from '../PlacedSpells/Spell';
+import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { proxy } from 'valtio';
 
@@ -288,24 +288,10 @@ export class GameBoard {
   }
 
   enableBoard = (): void => {
-    // this.setIsClickDisabled(false);
     this.setIsHoverDisabled(false);
-    // this.setBoardTransparencyAmt(GameBoard.SHOWN_TRANSPARENCY_AMT)
   }
 
   disableBoard = (): void => {
-    // this.setIsClickDisabled(true);
     this.setIsHoverDisabled(true);
-    // this.setBoardTransparencyAmt(GameBoard.HIDDEN_TRANSPARENCY_AMT)
   }
-
-  // --- Note: Handling hoveredCell and clickedCell updates ---
-  // Rather than managing dynamic indexing hooks directly via setters here, 
-  // you can simply capture cell instances explicitly directly within your engine loops:
-
-  selectCell = (cell: Cell): void => {
-    this.clickedCell = cell;
-    cell.onClick();
-  };
-  
 }

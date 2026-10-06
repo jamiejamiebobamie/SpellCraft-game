@@ -1,8 +1,7 @@
 
-import React, { useState, useRef, useEffect, RefObject } from 'react';
+import React, { RefObject } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import NpcSpellCanvasComponent from '../SpellCanvas/NpcSpellCanvasComponent';
-import { SpellBadgeComponent } from './SpellBadgeComponent';
 import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
 import { LockSymbolComponent } from './LockSymbolComponent';
 import styled from 'styled-components';
@@ -55,12 +54,6 @@ const StyledCell = styled.div<{
     inset 0 -1px 1px rgba(0, 0, 0, 0.1),         /* Bottom inner grounding shadow */
     0 4px 12px rgba(0, 0, 0, 0.08);              /* Subtle ambient shadow onto elements below */
 
-  /* Game logic positioning borders (making them slightly emissive/neon glass) */
-  ${props => (!props.$isDisabled && props.$isPlace && props.$i == 0) && 'border-top: 0.05cqw solid rgba(219, 214, 104, 0.9); box-shadow: inset 0 2px 4px rgba(219, 214, 104, 0.3);'}
-  ${props => (!props.$isDisabled && props.$isPlace && props.$j == props.$maxJ - props.$numPlacementCells + 1) && 'border-left: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
-  ${props => (!props.$isDisabled && props.$isPlace && props.$j == props.$maxJ) && 'border-right: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
-  ${props => (!props.$isDisabled && props.$isPlace && props.$i == props.$maxI) && 'border-bottom: 0.05cqw solid rgba(219, 214, 104, 0.9);'}
-
   /* Layout and Sizing */
   aspect-ratio: 1 / 1;
   position: relative;
@@ -72,7 +65,6 @@ const StyledCell = styled.div<{
   /* Transitions */
   transition: opacity 1s ease, background 0.3s ease, border 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
   opacity: .1;
-  //${props => props.$transparency}; // TESTING
 
   /* 3. ENVIRONMENTAL GLASS HOVER EFFECT */
   ${props => props.$isHighlighted && `
@@ -116,19 +108,6 @@ const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
     const npcMoveData = snap.getNPCMoveData();
     const isDisabled: boolean = snap.getIsGameBoardDisabled();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
-    const intervalRef = useRef<number | undefined>(undefined);
-    const [wobblePhase, setWobblePhase] = useState<WobblePhase>(0);
-    useEffect(() => {
-        if (isDisabled) {
-            setWobblePhase(1);
-            intervalRef.current = setInterval(() => {
-                setWobblePhase(wp => wp == 1 ? -1 : 1);
-            }, 1000);
-        } else {
-            setWobblePhase(0);
-            clearInterval(intervalRef.current);
-        }
-    }, [isDisabled]);
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
             <LockSymbolComponent isLocked={isDisabled} />
@@ -153,28 +132,7 @@ const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
                         $isOccupied={!c.getIsFree()}
                         $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}
-                    >
-                        <SpellBadgeComponent
-                            propertyName={'Speed'}
-                            propertyValue={c.getBadgeValues().speedDirection}
-                            isDisplayBadgeCondition={(v: number) => Math.abs(v) > 1}
-                            $left='.3cqw'
-                            $top='.3cqw'
-                            $backgroundColor='#57d1ea'
-                            $color='white'
-                            $opacityCondition={v => !!v ? 1 : 0}
-                        />
-                        <SpellBadgeComponent
-                            propertyName={c.getBadgeValues().dmgHealth < 0 ? 'Healing' : 'Damage'}
-                            propertyValue={c.getBadgeValues().dmgHealth}
-                            isDisplayBadgeCondition={(v: number) => Math.abs(v) > 1}
-                            $left='.3cqw'
-                            $bottom='.3cqw'
-                            $backgroundColor={c.getBadgeValues().dmgHealth > 0 ? '#752020' : c.getBadgeValues().dmgHealth < 0 ? '#1e7b5e' : 'transparent'}
-                            $color='white'
-                            $opacityCondition={v => !!v ? 1 : 0}
-                        />
-                    </StyledCell>
+                    />
                 )}
             </GridContainer>
         </BoardWrapper>

@@ -27,24 +27,19 @@ export class PlacedSpells {
   }
 
   removeInvalidSpells = (gameBoard: GameBoard): void => {
+    // Unset Cells of Invalid Spells
+    const validSpellIds = this.spells.filter(spell => !spell.getIsRemove() && !!spell.cellIndex).map(s => s.id);
+    gameBoard.cells.forEach(c => {
+      if (c.spell && !validSpellIds.includes(c.spell.id)) {
+        c.setSpell(null);
+      }
+    })
+
+    // Remove Invalid Spells
     const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
     markedForRemoval.forEach(s => {
       const idx = this.spells.indexOf(s);
       if (idx !== -1) {
-        const cellIndex = s.getCellIndex();
-        const width = s.widthCells, height = s.heightCells;
-        const dir = Math.sign(s.getPropertyValue('speedDirection'));
-        if (cellIndex) {
-          for (let i = 0; i < height; i++) {
-            for (let j = 0; j < width; j++) {
-              const cell = gameBoard.getCellAt({ i: cellIndex.i + i, j: cellIndex.j + j * dir });
-              if (cell) {
-                const spell = cell.getSpell(); // need to clear sized spells cells too
-                if (spell && spell.id == s.id) cell.setSpell(null);
-              }
-            }
-          }
-        }
         this.spells.splice(idx, 1);
       }
     });

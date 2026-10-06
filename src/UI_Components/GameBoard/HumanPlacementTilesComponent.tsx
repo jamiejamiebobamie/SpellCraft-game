@@ -2,26 +2,39 @@
 import React from 'react';
 import styled from 'styled-components';
 import { rootGameStore } from '../../DataClasses/store';
+import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { useSnapshot } from 'valtio';
 
-const PlacementArea = styled.div<{ $isPlayerDoingTurn: boolean }>`
+const PlacementArea = styled.div<{ $isShow: boolean }>`
   position: absolute;
-  display: grid;
+  // display: ${props => props.$isShow ? 'grid' : 'none'};
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(3, 1fr);
-  width: ${3/7 * 100}%;
+  width: ${GameBoard.NUM_ROWS / GameBoard.NUM_COLS * 100}%;
   height: 100%;
   border: 0.05cqw solid #fff4f494;
   filter: drop-shadow(0 0 .1cqw rgba(248, 255, 54, 0.6)) 
             drop-shadow(0 0 .3cqw rgba(250, 244, 144, 0.3));
   z-index: 15;
-  opacity: ${props => props.$isPlayerDoingTurn ? .2 : 0};
+
+  animation: ${props => props.$isShow && 'flashOpacity'} 1s infinite alternate ease-in-out;
+
+  opacity: ${props => props.$isShow ? .2 : 0};
   transition: opacity 1s;
+
+  @keyframes flashOpacity {
+    0%, 100%  {
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.2;
+    }
+  }
 `;
 
-// TO-DO: only show if: (1) isPlayerDoingTurn and (2) if player draws entirely off board... have flashing anim
 export const HumanPlacementTilesComponent = () => {
-    const snap = useSnapshot(rootGameStore);
-    const isPlayerDoingTurn: boolean = !snap.getIsHumanPlayerDoneWithTurn();
-    return <PlacementArea $isPlayerDoingTurn={false/*isPlayerDoingTurn*/} />
+  const snap = useSnapshot(rootGameStore);
+  const isDrawingOffBoard = snap.getIsDrawingOffBoard();
+  const isGameBoardDisabled: boolean = snap.getIsGameBoardDisabled();
+  return <PlacementArea $isShow={!isGameBoardDisabled && isDrawingOffBoard} />
 }

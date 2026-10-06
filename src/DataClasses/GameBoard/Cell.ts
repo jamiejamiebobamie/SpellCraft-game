@@ -1,6 +1,6 @@
 // Cell.ts
 import { CellIndex, BadgeValues } from '../types';
-import { Gyre, Spell } from '../PlacedSpells/Spell';
+import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
 
@@ -12,7 +12,6 @@ export class Cell extends UniqueId {
   isHighlighted: boolean = false;
   backgroundIcon: string = 'default-bg';
   color: string = '';
-  // empoweredColor: string = '';
   cellIndex: CellIndex;
 
   isClickDisabled: boolean = false;
@@ -60,11 +59,6 @@ export class Cell extends UniqueId {
     return this.playerOfPlacementCell;
   };
 
-  getIsPlayerCell = (): boolean => {
-    // If there is an assigned player owner, it is a player base/endzone cell
-    return this.playerCellOwner !== null;
-  };
-
   getTransparencyAmt = (): number => {
     return this.transparencyAmt;
   };
@@ -73,13 +67,6 @@ export class Cell extends UniqueId {
 
   setSpell = (spell: Spell | null): void => {
     this.spell = spell;
-    // if (spell) {
-    //   // Update cell color to indicate direction
-    //   const direction = Math.sign(spell.getPropertyValue('speedDirection'));
-    //   this.setColor(direction > 0 ? 'blue' : 'red');
-    // } else {
-    //   this.setColor('');
-    // }
   };
 
   setIsHighlighted = (isHighlighted: boolean): boolean => {
@@ -90,14 +77,6 @@ export class Cell extends UniqueId {
   setColor = (color: string): void => {
     this.color = color;
   };
-
-  // getEmpoweredColor = (): string => {
-  //   return this.empoweredColor;
-  // };
-
-  // setEmpoweredColor = (color: string): void => {
-  //   this.empoweredColor = color;
-  // };
 
   setIsClickDisabled = (isDisabled: boolean): void => {
     this.isClickDisabled = isDisabled;
@@ -115,47 +94,10 @@ export class Cell extends UniqueId {
     this.playerOfPlacementCell = playerOfPlacementCell;
   };
 
-  // --- Badge Management ---
-
-  hideBadges = (): void => {
-
-  };
-
-  showBadges = (): void => {
-
-  };
-
   reset = (): void => {
     this.isHighlighted = false;
     this.isClickDisabled = false;
     this.isHoverDisabled = false;
     this.spell = null;
-    // this.empoweredColor = '';
   }
-
-  getBadgeValues = (): BadgeValues => {
-    const dmgHealth = this.spell?.getPropertyValue('dmgHealth');
-    const speedDirection = this.spell?.getPropertyValue('speedDirection');
-    // const gyreLives = this.spell?.getPropertyValue('gyreLives');
-    // const updateOrder = this.spell?.getPropertyValue('updateOrder');
-
-    return {
-      // updateOrder: 0,
-      speedDirection: speedDirection ? speedDirection : 0,
-      // gyreLives: 0,
-      dmgHealth: dmgHealth ? dmgHealth : 0
-    }
-  };
-
-  // --- Interaction Event Stubs ---
-
-  onHover = (): void => {
-    if (this.isHoverDisabled) return;
-    // Engine hook placeholder: compute highlighting paths, show valid moves, etc.
-  };
-
-  onClick = (): void => {
-    if (this.isClickDisabled) return;
-    // Engine hook placeholder: accept cursor spells, target selection, etc.
-  };
 }

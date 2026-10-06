@@ -49,6 +49,14 @@ export class Game {
   isSpellBookOpen: boolean = false;
   hoveredSpell: Spell | null = null;
   gameOver: GameOver | null = null;
+  isToolTips: boolean = true;
+
+  drawingOffBoardCount: number = 0;
+  isDrawingOffBoard: boolean = false;
+  drawingOffBoardRef = 0;
+
+  isOutOfFocus: boolean = false;
+  isOutOfFocusRef = 0;
 
   npcMoveData: Array<NPCMoveData> = [];
   gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
@@ -66,7 +74,6 @@ export class Game {
 
     - drawing off the board completely or completely off placement cells
     - casting more than 4 spells per turn (blood magic)
-    - creating an "empowered" spell
     - healing with Phelgm
     - reversing with Phlegm
     - out of focus -> end turn -> progressing time necessary, but increases chances of getting caught by a teacher!
@@ -74,7 +81,6 @@ export class Game {
     - NPC casting a spell -> what is the conceit of the game? what is the goal?
 
     TO-DO: store "toggle-off tool tips" in local storage
-
   
   */
 
@@ -170,8 +176,13 @@ export class Game {
                 if (this.humanPlayer.getFocus() < 1) {
                   this.setIsDoneWithTurn(true, this.humanPlayer);
                 }
+              } else {
+                clearTimeout(this.isOutOfFocusRef);
+                this.isOutOfFocus = true;
+                this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; this.forceUpdate(); }, 3000);
               }
             }
+            this.cancelPlacingSymbol();
             this.forceUpdate();
           }
         }
@@ -207,43 +218,6 @@ export class Game {
       this.audioHandler.startBackgroundMusic()
     }
   }
-
-
-
-
-
-
-
-
-  // handleAudio = () => {
-
-  //   /*
-
-  //   736598__gregorquendel__classical-music-collection-vol.mp3
-  //   */
-
-  //   // Create a global audio system context container
-  //   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-  //   async function loadAndPlaySound(url: string) {
-  //     // 1. Fetch the file data
-  //     const response = await fetch(url);
-  //     const arrayBuffer = await response.arrayBuffer();
-
-  //     // 2. Decode the raw compressed file binary audio array
-  //     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-  //     // 3. Create a player node source buffer
-  //     const source = audioContext.createBufferSource();
-  //     source.buffer = audioBuffer;
-
-  //     // 4. Connect source directly to hardware output speaker destination nodes
-  //     source.connect(audioContext.destination);
-
-  //     // 5. Fire immediate zero-latency blast
-  //     source.start(0);
-  //   }
-  // }
 
   // --- Action Dispatcher Utilities ---
 
@@ -351,6 +325,8 @@ export class Game {
     const cell = this.gameBoard.getCellAt(cellIndex);
     return cell;
   }
+
+  getIsOutOfFocus = (): boolean => this.isOutOfFocus;
 
   getHasFocus = (): boolean => {
     if (this.humanPlayer) {
@@ -497,7 +473,6 @@ export class Game {
     p?.setGameSymbol(null);
     if (p === this.humanPlayer) {
       this.playerGameSymbolSpellName = null;
-      // console.log({ playerGameSymbolSpellName: this.playerGameSymbolSpellName })
       this.forceUpdate();
     }
   }
@@ -540,6 +515,8 @@ export class Game {
           }
         }
         this.forceUpdate();
+      } else {
+        this.incrementDrawingOffBoard();
       }
       this.cancelPlacingSymbol();
     }
@@ -574,12 +551,11 @@ export class Game {
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         const spell = GameSymbol.SPELL_LOOKUP.get(result);
         if (this.humanPlayer && spell) {
-          // const s = new spell(this.humanPlayer);
-          // const focusCost = s.getFocusCost() * freeCells.length;
-          // this.humanPlayer.incurPlayerCostForSpell(focusCost);
           const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
           this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
         }
+      } else {
+        this.incrementDrawingOffBoard();
       }
     }
 
@@ -590,6 +566,22 @@ export class Game {
     }
     this.forceUpdate();
   }
+
+  incrementDrawingOffBoard = (): void => {
+    this.drawingOffBoardCount++;
+    if (this.drawingOffBoardCount > 1) {
+      clearTimeout(this.drawingOffBoardRef);
+      this.isDrawingOffBoard = true;
+      this.forceUpdate();
+      this.drawingOffBoardRef = setTimeout(() => {
+        this.isDrawingOffBoard = false;
+        this.drawingOffBoardCount = 0;
+        this.forceUpdate();
+      }, 2000);
+    }
+  }
+
+  getIsDrawingOffBoard = (): boolean => this.isDrawingOffBoard;
 
   instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
     const p = player ? player : this.humanPlayer;
