@@ -125,6 +125,7 @@ export const GameComponent = () => {
   }, []);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
@@ -132,6 +133,7 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();

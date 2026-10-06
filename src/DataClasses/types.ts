@@ -181,3 +181,37 @@ export class CanvasScrollUI {
     this.clockGeometricSparkles = [];
   }
 }
+
+export type SoundEffectName =
+  'clock-chime'
+  | 'spell-GyreUp-1'
+  | 'spell-GyreDown-1'
+  | 'spell-Ether-1' | 'spell-Ether-4' | 'spell-Ether-9'
+  | 'spell-Phlegm-1'
+  | 'spell-Quicken-1'
+  | 'wizard-Grunt-0'
+  | 'wizard-Grunt-1'
+  | 'wizard-Grunt-2'
+  | 'wizard-Grunt-3'
+  | 'wizard-Grunt-4'
+  | 'wizard-Grunt-5'
+  | 'wizard-Death-Cry'
+  ;
+
+export const SFX_REGISTRY: Record<SoundEffectName, string> = {
+  'clock-chime': './Audio/Effects/Clock/805325__designerschoice__clockchim-samsung-galaxy-smartphone-cu_grandfather-clock-third-quarter-chimes_nicholas-judy_tdc.m4a',
+  'spell-GyreUp-1': './Audio/Effects/Spells/Gyre/711441__f3ather__a-gust-of-wind-blowing-some-leaves.wav',
+  'spell-GyreDown-1': './Audio/Effects/Spells/Gyre/711441__f3ather__a-gust-of-wind-blowing-some-leaves.wav',
+  'spell-Ether-1': './Audio/Effects/Spells/Ether/77691__joelaudio__sfx_magic_fireball_001.wav',
+  'spell-Ether-4': './Audio/Effects/Spells/Ether/671309__gregorquendel__fire-swooshes-wind-05.wav',
+  'spell-Ether-9': './Audio/Effects/Spells/Ether/671312__gregorquendel__fire-impacts-complex-20.wav',
+  'spell-Phlegm-1': './Audio/Effects/Spells/Phlegm/485796__univ_lyon3__reynas_fanny_2019_2020_water.wav',
+  'spell-Quicken-1': './Audio/Effects/Spells/Quicken/19487__halleck__jacobsladdersingle2.flac',
+  'wizard-Grunt-0': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-0.m4a',
+  'wizard-Grunt-1': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-1.m4a',
+  'wizard-Grunt-2': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-2.m4a',
+  'wizard-Grunt-3': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-3.m4a',
+  'wizard-Grunt-4': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-4.m4a',
+  'wizard-Grunt-5': './Audio/Effects/Wizard-Grunts/338145__artordie__scream-ugh.wav',
+  'wizard-Death-Cry': './Audio/Effects/Wizard-Death-Cry/695386__fmaudio__male-death-cry-3.wav'
+};

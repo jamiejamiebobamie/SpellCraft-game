@@ -1,5 +1,6 @@
 // Game.ts
 import { RefObject } from 'react';
+import { AudioHandler } from './AudioHandler';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Cell } from './GameBoard/Cell';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
@@ -11,7 +12,7 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SpellConstructor } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
@@ -29,6 +30,7 @@ export type GameOver = typeof GameOverStatus[keyof typeof GameOverStatus]; // "U
 
 export class Game {
   // Core Subsystem Managers
+  audioHandler!: AudioHandler;
   gameBoard!: GameBoard;
   placedSpells!: PlacedSpells;
   model!: Model;
@@ -77,11 +79,6 @@ export class Game {
   */
 
   init = (): void => {
-    // 1. Create a fresh instance of the Logger
-    // this.clearLog();
-    // this.appendToLog('Initializing new mystical duel...', '#a78bfa');
-
-    // 2. Spawn fresh data layers for both players
     const humanPlayer = proxy(new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png'));
     const computerPlayer = proxy(new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png'));
     this.players = [humanPlayer, computerPlayer];
@@ -100,12 +97,7 @@ export class Game {
 
     this.setupGameplayKeyBindings();
 
-    // setTimeout(() => {
-    //   if (this.computerPlayer) {
-    //     this.computerPlayer.resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-    //     this.doNpcMove();
-    //   }
-    // }, 1500);
+    this.audioHandler = new AudioHandler();
   };
 
   resetGame = (): void => {
@@ -171,6 +163,8 @@ export class Game {
               if (isPlayerHasFocus) {
                 const cost = s.getFocusCost();
                 this.humanPlayer.incurPlayerCostForSpell(cost);
+                const spellName = s.getSpellName();
+                this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
                 this.placeSpellAt(inferenceString, cellIndex);
                 this.placedSpells.combineSpellsMaximally(this.gameBoard);
                 if (this.humanPlayer.getFocus() < 1) {
@@ -206,6 +200,50 @@ export class Game {
   setForceUpdate = (forceUpdate: () => void) => {
     this.forceUpdate = forceUpdate;
   }
+
+
+  startBackgroundMusic = (): void => {
+    if (!this.audioHandler.getIsBackgroundMusicStarted()) {
+      this.audioHandler.startBackgroundMusic()
+    }
+  }
+
+
+
+
+
+
+
+
+  // handleAudio = () => {
+
+  //   /*
+
+  //   736598__gregorquendel__classical-music-collection-vol.mp3
+  //   */
+
+  //   // Create a global audio system context container
+  //   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  //   async function loadAndPlaySound(url: string) {
+  //     // 1. Fetch the file data
+  //     const response = await fetch(url);
+  //     const arrayBuffer = await response.arrayBuffer();
+
+  //     // 2. Decode the raw compressed file binary audio array
+  //     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+  //     // 3. Create a player node source buffer
+  //     const source = audioContext.createBufferSource();
+  //     source.buffer = audioBuffer;
+
+  //     // 4. Connect source directly to hardware output speaker destination nodes
+  //     source.connect(audioContext.destination);
+
+  //     // 5. Fire immediate zero-latency blast
+  //     source.start(0);
+  //   }
+  // }
 
   // --- Action Dispatcher Utilities ---
 
@@ -272,8 +310,21 @@ export class Game {
   }
 
   decrementPlayerHealth = (playerIndex: number, dmg: number): void => {
-    if ([0, 1].includes(playerIndex) && dmg)
+    if ([0, 1].includes(playerIndex) && dmg) {
       this.players[playerIndex].decrementHealth(dmg);
+      const remainingHealth = (this.players[playerIndex].getHealth() - dmg);
+      if (remainingHealth <= 0) {
+        // death-cry
+        this.audioHandler.startSoundEffect('wizard-Death-Cry', .7);
+      } else if (dmg > 10) {
+        // scream
+        this.audioHandler.startSoundEffect('wizard-Grunt-5', .5);
+      } else {
+        // grunt
+        const randInt = Math.floor(Math.random() * 5);
+        this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName, .5);
+      }
+    }
   }
 
   placeSpellOnBoard = async (cell: Cell, player?: Player): Promise<void> => {
@@ -443,7 +494,7 @@ export class Game {
     p?.setGameSymbol(null);
     if (p === this.humanPlayer) {
       this.playerGameSymbolSpellName = null;
-      console.log({ playerGameSymbolSpellName: this.playerGameSymbolSpellName })
+      // console.log({ playerGameSymbolSpellName: this.playerGameSymbolSpellName })
       this.forceUpdate();
     }
   }
@@ -475,6 +526,8 @@ export class Game {
             if (isPlayerHasFocus) {
               const cost = s.getFocusCost();
               this.humanPlayer.incurPlayerCostForSpell(cost);
+              const spellName = s.getSpellName();
+              this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
               this.placeSpellAt(inferenceString, cellIndex);
               this.placedSpells.combineSpellsMaximally(this.gameBoard);
               if (this.humanPlayer.getFocus() < 1) {
@@ -540,6 +593,10 @@ export class Game {
     if (p) {
       const gameSymbol = proxy(new GameSymbol(inferenceString, p));
       p.setGameSymbol(gameSymbol);
+
+      const spellName = gameSymbol.getSpellClass()?.spellName
+      this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
+
       if (p === this.humanPlayer) {
         this.playerGameSymbolSpellName = gameSymbol.getSpellClass()?.spellName || null;
         this.forceUpdate();
@@ -556,6 +613,8 @@ export class Game {
       if (isGameOver) {
         return;
       }
+
+      this.audioHandler.startSoundEffect('clock-chime', 0.1);
 
       this.resetClock();
       this.pauseClock();
@@ -700,11 +759,11 @@ export class Game {
 
           if (this.computerPlayer && spell) {
             const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer as Player));
-            const s = new spell(this.computerPlayer);
-            const focusCost = s.getFocusCost() * freeCells.length;
+            // const s = new spell(this.computerPlayer);
+            // const focusCost = s.getFocusCost() * freeCells.length;
             const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-            this.computerPlayer.incurPlayerCostForSpell(focusCost);
-            this.spawnSizedSpellInstance(inferenceString, dominantCells, this.computerPlayer);
+            // this.computerPlayer.incurPlayerCostForSpell(focusCost);
+            this.spawnSizedSpellInstance(inferenceString, freePositions, this.computerPlayer);
           }
         }
       }
@@ -1033,10 +1092,12 @@ export class Game {
         }
       }
     }
-    if (instance && this.humanPlayer) {
-      const s = new spell(this.humanPlayer);
+    if (instance && activeCaster) {
+      const s = new spell(activeCaster);
+      const spellName = s.getSpellName();
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
-      this.humanPlayer.incurPlayerCostForSpell(focusCost);
+      activeCaster.incurPlayerCostForSpell(focusCost);
+      this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
   };

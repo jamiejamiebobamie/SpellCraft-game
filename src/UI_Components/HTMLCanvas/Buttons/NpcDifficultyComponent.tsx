@@ -107,7 +107,7 @@ export default function NpcDifficultyComponent({ isShowingModal }: NpcDifficulty
         val = JSON.parse(item);
       }
     } catch (error) {
-      console.warn(`Error reading localStorage key :`, error);
+      // console.warn(`Error reading localStorage key :`, error);
     }
     if (val) {
       setIsClickedOnce(true);

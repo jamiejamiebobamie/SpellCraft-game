@@ -461,15 +461,15 @@ export const drawModalDetails = (
     const displayTitle = displayNameLookup.get(currentTargetKey) || currentTargetKey;
     const spellDescriptions: Record<string, { desc: string; stats: string }> = {
         'Ether': {
-            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   That destroys it.",
+            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   that destroys it.",
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
         },
         'Quicken': {
-            desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell\n   That destroys it.",
+            desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell\n   that destroys it.",
             stats: "Cost: 1 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
         },
         'Phlegm': {
-            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells back\n   At their caster.",
+            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward.",
             stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
         },
         'GyreUp': {
