@@ -31,7 +31,9 @@ export const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number
         const finalW = customW ? customW : keySize;
         ctx.save();
 
-        ctx.fillStyle = 'rgba(80, 26, 26, 0.25)';
+        ctx.beginPath();
+
+        ctx.fillStyle = 'rgba(80, 26, 26, .5)';
         ctx.strokeStyle = '#ebdca5';
         ctx.lineWidth = 2;
 
@@ -150,7 +152,7 @@ export const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number
     });
 
     // 2b. Cancel Spell Row Placement
-    const cancelTextY = midGridStartY + (keySize + keyGap) * 3 + viewH * 0.03;
+    const cancelTextY = midGridStartY + (keySize + keyGap) * 3 + viewH * 0.07;
     ctx.fillStyle = '#ebdca5';
     ctx.fillText("Cancel Readied Spell", midColX + colW * 0.5, cancelTextY);
 
@@ -178,7 +180,7 @@ export const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number
     renderSingleKeyNode('SPACE', spaceX, spaceY, spaceWidth);
 
     // Dotted horizontal line partition underneath spacebar
-    const dividerRightY = spaceY + keySize + viewH * 0.05;
+    const dividerRightY = spaceY + keySize + viewH * 0.063;
     ctx.save();
     ctx.strokeStyle = 'rgba(235, 220, 165, 0.2)';
     ctx.lineWidth = 1.5;
@@ -191,12 +193,12 @@ export const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number
 
     // Appended NPC Configuration Sub-Header track block inside Right Column width limits
     ctx.fillStyle = '#ebdca5';
-    ctx.fillText("Change Difficulty", lastColHeader, dividerRightY + viewH * 0.04);
+    ctx.fillText("Change Difficulty", lastColHeader, cancelTextY);
 
     const shiftWidth = colW * 0.55;
     const shiftX = rightColX + (colW - shiftWidth) * 0.73;
-    const shiftY = dividerRightY + viewH * 0.12;
-    renderSingleKeyNode('SHIFT', shiftX, shiftY, shiftWidth);
+    // const shiftY = dividerRightY + viewH * 0.12;
+    renderSingleKeyNode('SHIFT', shiftX, cancelKeyY, shiftWidth);
 
 
     // =========================================================================

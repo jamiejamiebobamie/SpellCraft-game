@@ -6,15 +6,15 @@ const MenuAnchor = styled.div<{ $isShowingModal: boolean }>`
   display:${props => props.$isShowingModal ? 'none' : 'initial'};
   position: absolute;
   bottom: 1cqw;   
-  left: 45cqw; 
+  left: 47.5cqw; 
   z-index: 35;
   filter: brightness(${props => props.$isShowingModal ? .55 : 1});
 `;
 
 // The Visual Trigger Element
 const TriggerBox = styled.div<{ $isClicked: boolean }>`
-  width: 8.5cqw;
-  aspect-ratio: 58/73;
+  width: 5.5cqw;
+  height: 5.5cqw;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -31,9 +31,17 @@ const TriggerBox = styled.div<{ $isClicked: boolean }>`
     transform: scale(1.1);
     ${props => props.$isClicked && 'transform: scale(.9);'}
   }
-    
-  background-color: red;
 
+  &::before{
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    color: grey;
+    content: '\u2699\uFE0F';
+    transform: translate(-50%,-50%);
+    filter: brightness(.5) drop-shadow(.2cqw .2cqw .3cqw black);
+    font-size: 5cqw;
+  }
 `;
 
 type KeyBindingComponentProps = {
