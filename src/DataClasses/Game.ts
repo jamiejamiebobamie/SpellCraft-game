@@ -1129,7 +1129,7 @@ export class Game {
     const isGameOver = this.gameOver !== null;
     if (this.gameOver) {
       this.disableGameBoard();
-      this.resetGame();
+      setTimeout(() => this.resetGame(), 3000); // TESTING
       this.forceUpdate();
     }
     return isGameOver;

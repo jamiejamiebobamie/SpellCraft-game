@@ -79,9 +79,10 @@ interface IKArmComponentProps {
   playerSnap: Player | undefined;
   healthDiff: number;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
+  isDead: boolean;
 }
 
-export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, direction, healthDiff, mousePosRef }) => {
+export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerSnap, direction, healthDiff, mousePosRef }) => {
   
   const avatarBicepSrc = playerSnap?.avatarBicepUrl || '';
   const avatarForearmSrc = playerSnap?.avatarForearmUrl || '';
@@ -96,7 +97,7 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ playerSnap, dir
 
   return (
     <ArmOverlayContainer $direction={direction}>
-      <AvatarBicep $healthDiff={healthDiff} ref={bicepRef} $src={avatarBicepSrc} $angle={theta[0] * direction}>
+      <AvatarBicep $isDead={isDead} $healthDiff={healthDiff} ref={bicepRef} $src={avatarBicepSrc} $angle={theta[0] * direction}>
         <AvatarForearm $healthDiff={healthDiff} $src={avatarForearmSrc} $angle={theta[1] * direction}>
           <AvatarWandHand $speed={'2s'} $gameSymbol={gameSymbol?.symbolName} $healthDiff={healthDiff} ref={handRef} $src={avatarWandHandSrc} $angle={theta[2] * direction} />
         </AvatarForearm>

@@ -189,14 +189,16 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const [healthDiff, setHealthDiff] = useState(0);
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
 
+  const isDead = healthAmt <= 0;
+
   const avatar = (<AvatarFrame $src={src} $direction={direction}>
-    <Damageable $healthDiff={healthDiff}>
+    <Damageable $healthDiff={healthDiff} $isDead={isDead}>
       <AvatarRobe $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
         <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
         <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
-        <IK_ArmComponent mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
+        <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
       </AvatarRobe>
-      <FloorShadow />
+      <FloorShadow $isHide={isDead} />
     </Damageable>
   </AvatarFrame>);
 

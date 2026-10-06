@@ -155,7 +155,6 @@ export default function ClockFaceComponent() {
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
-  const isPlayerOutOfFocus = !snap.getHasFocus();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Rotation angles (minute, hour)
@@ -215,7 +214,7 @@ export default function ClockFaceComponent() {
     </ClockImgWrapper>
     <MenuAnchor
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
-      $isFlashClock={!isHovered && !isComputerPlayerDoingTurn/*isPlayerOutOfFocus*/}
+      $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}
       onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -224,30 +223,30 @@ export default function ClockFaceComponent() {
       <ClockWrapper>
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
           {/* Clock Outer Rim */}
-          <circle cx="50" cy="50" r="46" fill="#F1E9D2" stroke="#c3b091" strokeWidth="4" />
+          <circle cx="50" cy="50" r="46" fill="#F1E9D2" stroke="#e5c667" strokeWidth="4" />
           {/* Hour Tick Markers */}
           {[...Array(12)].map((_, i) => (
             <line
               key={i}
               x1="50" y1="8" x2="50" y2="14"
-              stroke="#5c4d37" strokeWidth="3" strokeLinecap="round"
+              stroke="#c0a657" strokeWidth="3" strokeLinecap="round"
               transform={`rotate(${i * 30} 50 50)`}
             />
           ))}
           {/* Hour Hand (Thicker, Shorter) */}
           <ClockHands
             x1="50" y1="50" x2="50" y2="28"
-            stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round"
+            stroke="#917d41" strokeWidth="5" strokeLinecap="round"
             transform={`rotate(${angles.hour} 50 50)`}
           />
           {/* Minute Hand (Thinner, Longer) */}
           <ClockHands
             x1="50" y1="50" x2="50" y2="16"
-            stroke="#5c4d37" strokeWidth="3.5" strokeLinecap="round"
+            stroke="#917d41" strokeWidth="3.5" strokeLinecap="round"
             transform={`rotate(${angles.minute} 50 50)`}
           />
           {/* Center Pin */}
-          <circle cx="50" cy="50" r="4" fill="#1a1a1a" />
+          <circle cx="50" cy="50" r="4" fill="#917d41" />
         </svg>
       </ClockWrapper>
     </MenuAnchor >

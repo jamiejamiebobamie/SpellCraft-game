@@ -23,6 +23,12 @@ export const shake = keyframes`
   40%, 60% { transform: translate3d(.75cqw, 0, 0) var(--extra-transform, ); }
 `;
 
+// Wand Arm Death Anim
+export const armFlingUp = keyframes`
+  0% { transform: rotate(var(--part-angle, 0deg)); }
+  100% { transform: rotate(-75deg); } /* Forces arm to point straight "up" skyward */
+`;
+
 export const noAnim = keyframes`
   0%, 100% { var(--extra-transform, ); }
 `;
@@ -33,11 +39,35 @@ const flashDamage = keyframes`
   100% { opacity: 0; }
 `;
 
-export const Damageable = styled.div<{ $healthDiff: number }>`
+// Body Death Anim
+export const fallAndSquash = keyframes`
+  0% {
+    transform: rotate(0deg) scale(1, 1) skewX(0deg) translate(0cqw, 0cqw);
+    opacity: 1;
+  }
+  /* The fall accelerates naturally. The squash, skew, and slide 
+     happen rapidly right as the body impacts the ground. */
+  85% {
+    transform: rotate(75deg) scale(1, 1) skewX(-5deg) translate(0.5cqw, 1cqw);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(90deg) scale(0.6, 1.2) skewX(-15deg) translate(2cqw, 3cqw);
+    opacity: 0; /* Fades out smoothly at the very end */
+  }
+`;
+
+export const Damageable = styled.div<{ $healthDiff: number; $isDead: boolean }>`
   width: 100%;
   height: 100%;
   
-  ${props => props.$healthDiff < 0 && css`
+  /* Set the transform-origin near the feet/base so the body tilts forward naturally */
+  transform-origin: bottom center;
+  
+  ${props => props.$isDead ? css`
+    /* Switched to cubic-bezier(0.32, 0, 0.67, 0) which mimics gravitational acceleration (Ease-In) */
+    animation: ${fallAndSquash} 0.8s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
   `}
 `;
@@ -121,7 +151,7 @@ const shadowPulse = keyframes`
   }
 `;
 
-export const FloorShadow = styled.div`
+export const FloorShadow = styled.div<{ $isHide: boolean }>`
   position: absolute;
   z-index: -1;
   top: 21.5cqw;
@@ -133,7 +163,10 @@ export const FloorShadow = styled.div`
   border-radius: 50%;
   filter: blur(2px);
   
-  animation: ${shadowPulse} 3.5s ease-in-out infinite; 
+  animation: ${props => !props.$isHide && shadowPulse} 3.5s ease-in-out infinite; 
+
+  transition: opacity .2s;
+  opacity: ${props => props.$isHide ? 0 : 1};
 `;
 
 
@@ -152,35 +185,6 @@ export const AvatarHead = styled(CharacterPart)`
   animation-iteration-count: infinite;
 `;
 
-export const AvatarRightArm = styled(CharacterPart)`
-  top: 5.5cqw;
-  left: -2cqw;
-  width: 4cqw;
-  aspect-ratio: 168/215;
-  z-index: -1;
-  transform-origin: top left;
-
-  --extra-transform: translateZ(-1px);
-
-  animation-name: ${sway};
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-`;
-
-export const AvatarBicep = styled(CharacterPart)`
-  top: 0cqw;
-  left: 6.6cqw;
-  width: 6.05cqw;
-  aspect-ratio: 255/149; 
-  transform-origin: .75cqw 1.5cqw;
-
-  --extra-transform: rotate(var(--part-angle));
-
-  animation-name: ${sway};
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-`;
-
 export const AvatarForearm = styled(CharacterPart)`
   top: .1cqw;
   left: 4cqw;
@@ -193,6 +197,38 @@ export const AvatarForearm = styled(CharacterPart)`
   animation-name: ${sway};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
+`;
+
+// Update AvatarRightArm to fling up when dead
+export const AvatarRightArm = styled(CharacterPart) <{ $isDead?: boolean }>`
+  top: 5.5cqw;
+  left: -2cqw;
+  width: 4cqw;
+  aspect-ratio: 168/215;
+  z-index: -1;
+  transform-origin: top left;
+  --extra-transform: translateZ(-1px);
+  animation-name: ${sway};
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+`;
+
+// Update AvatarBicep to fling up when dead
+export const AvatarBicep = styled(CharacterPart) <{ $isDead?: boolean }>`
+  top: 0cqw;
+  left: 6.6cqw;
+  width: 6.05cqw;
+  aspect-ratio: 255/149; 
+  transform-origin: .75cqw 1.5cqw;
+  --extra-transform: rotate(var(--part-angle));
+
+  ${props => props.$isDead ? css`
+    animation: ${armFlingUp} 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  ` : css`
+    animation-name: ${sway};
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  `}
 `;
 
 export const castingDiamondOrTriangle = keyframes`
@@ -341,7 +377,7 @@ export const castingCircle = keyframes`
   }
 `;
 
-export const AvatarWandHand = styled(CharacterPart)<{ $gameSymbol?: InferenceString }>`
+export const AvatarWandHand = styled(CharacterPart) <{ $gameSymbol?: InferenceString }>`
   top: -.5cqw;
   left: 2.5cqw;
   width: 7.8cqw;
@@ -351,7 +387,7 @@ export const AvatarWandHand = styled(CharacterPart)<{ $gameSymbol?: InferenceStr
 
   --extra-transform: rotate(var(--part-angle));
 
-  animation-name: ${props => props.$gameSymbol == 'line' ? castingLine : props.$gameSymbol == 'circle' ? castingCircle : props.$gameSymbol == 'triangle' || props.$gameSymbol == 'diamond' ? castingDiamondOrTriangle :  props.$gameSymbol == 'star' ? castingStar : shift};
+  animation-name: ${props => props.$gameSymbol == 'line' ? castingLine : props.$gameSymbol == 'circle' ? castingCircle : props.$gameSymbol == 'triangle' || props.$gameSymbol == 'diamond' ? castingDiamondOrTriangle : props.$gameSymbol == 'star' ? castingStar : shift};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 `;
