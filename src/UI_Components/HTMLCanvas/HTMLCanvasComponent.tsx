@@ -44,7 +44,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
   const [isGearHovered, setIsGearHovered] = useState(false);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
-  const isShowClockSymbols = !isGameBoardDisabled && !isComputerPlayerDoingTurn;
+  const isShowClockSymbols = !(isGameBoardDisabled || isComputerPlayerDoingTurn);
   const isSpellBookOpen = snap.getIsSpellBookOpen();
   const readiedSpell = snap.getReadiedSpell();
 
@@ -158,7 +158,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
             }
           }
 
-
           if (isDisplay) {
             if (spellClass === 'Ether' && anim) {
               const cx = w / 2 + (w / 10) * dir; const cy = h / 2; const radius = Math.min(w, h) * 0.3;
@@ -247,7 +246,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     };
     animationFrameId = requestAnimationFrame(render);
     return () => { cancelAnimationFrame(animationFrameId); if (scrollUIRef.current) scrollUIRef.current.cleanup(); };
-  }, [rootGameStore, isGearHovered, readiedSpell]);
+  }, [rootGameStore, isGearHovered, readiedSpell, isShowClockSymbols]);
 
   function calculateCanvasCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
     const cellIndex = spell.getCellIndex(); return {
