@@ -196,6 +196,7 @@ export type SoundEffectName =
   | 'wizard-Grunt-4'
   | 'wizard-Grunt-5'
   | 'wizard-Death-Cry'
+  | 'wizard-Heal'
   ;
 
 export const SFX_REGISTRY: Record<SoundEffectName, string> = {
@@ -213,5 +214,6 @@ export const SFX_REGISTRY: Record<SoundEffectName, string> = {
   'wizard-Grunt-3': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-3.m4a',
   'wizard-Grunt-4': './Audio/Effects/Wizard-Grunts/727827__abraksil__male-grunts-4.m4a',
   'wizard-Grunt-5': './Audio/Effects/Wizard-Grunts/338145__artordie__scream-ugh.wav',
-  'wizard-Death-Cry': './Audio/Effects/Wizard-Death-Cry/695386__fmaudio__male-death-cry-3.wav'
+  'wizard-Death-Cry': './Audio/Effects/Wizard-Death-Cry/695386__fmaudio__male-death-cry-3.wav',
+  'wizard-Heal': './Audio/Effects/Wizard-Heal/853303__tommasomotteran__magic-healing-spell-sfx-fantasy-rpg-restore-effect.wav'
 };

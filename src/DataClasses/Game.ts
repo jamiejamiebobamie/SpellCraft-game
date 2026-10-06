@@ -319,10 +319,13 @@ export class Game {
       } else if (dmg > 10) {
         // scream
         this.audioHandler.startSoundEffect('wizard-Grunt-5', .5);
-      } else {
+      } else if (dmg > 0) {
         // grunt
         const randInt = Math.floor(Math.random() * 5);
         this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName, .5);
+      } else {
+        // heal
+        this.audioHandler.startSoundEffect('wizard-Heal', .5);
       }
     }
   }
