@@ -1,5 +1,5 @@
 import { PALETTE, FX_PALETTE } from "./ColorPalette";
-import { GameParticle } from "../../../DataClasses/types";
+import { GameParticle } from "../../../../DataClasses/types";
 import { getAsymmetricTaper } from './drawQuicken'
 
 /**

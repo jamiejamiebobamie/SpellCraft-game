@@ -105,3 +105,84 @@ export type CollisionResult = {
   winner: Spell | null;
   loser: Spell | null;
 }
+
+export interface PlacedSpellsProps {
+  gridOverlayRef: React.RefObject<HTMLDivElement | null>;
+}
+
+export interface DustParticle {
+  x: number;
+  y: number;
+  size: number;
+  vx: number;
+  vy: number;
+  alpha: number;
+  decay: number;
+  color: string;
+  isStar: boolean;
+  text?: string;
+  life?: number;
+  type?: string;
+}
+
+export interface BookSparkleParticle {
+  x: number;
+  y: number;
+  size: number;
+  speedY: number;
+  speedX: number;
+  alpha: number;
+  decay: number;
+  color: string;
+}
+
+export class SymbolDrawingState {
+  progress: number = 0;
+  particles: DustParticle[] = [];
+  loopTimeout: any = null;
+}
+
+export class CanvasScrollUI {
+  trayProgress: number = 0;
+  hoveredSpellName: string | null = null;
+  currentMousePos: { x: number; y: number } = { x: -1000, y: -1000 };
+  symbolStates: Map<string, SymbolDrawingState> = new Map();
+  bookSparkles: BookSparkleParticle[] = [];
+
+  // Loop timer variables for sizing sequence animation
+  sizeCycleTime: number = 0;
+  currentSizeIdx: number = 0; // 0=small, 1=medium, 2=large
+
+  // Local storage array tracking blinking pixie dust highlights
+  floatingTextSparkles: { x: number; y: number; size: number; alpha: number; maxAlpha: number; rate: number; color: string }[] = [];
+  clockGeometricSparkles: { x: number; y: number; size: number; alpha: number; rate: number; phase: number; maxAlpha: number; color: string }[] = [];
+  config = {
+    startXOffset: 0.1,
+    startYOffset: 0.04,
+    maxScrollWidth: 0.35,
+    scrollTrayHeight: 0.085,
+    paddingX: 0.03,
+    zigZagOffset: 7,
+    symbolDrawSpeed: 0.55
+  };
+  getSymbolState(name: string): SymbolDrawingState {
+    if (!this.symbolStates.has(name)) {
+      this.symbolStates.set(name, new SymbolDrawingState());
+    }
+    return this.symbolStates.get(name)!;
+  }
+
+  cleanup() {
+    this.symbolStates.forEach(s => {
+      if (s.loopTimeout) {
+        clearTimeout(s.loopTimeout);
+        s.loopTimeout = null;
+      }
+    });
+    this.bookSparkles = [];
+    this.sizeCycleTime = 0;
+    this.currentSizeIdx = 0;
+    this.floatingTextSparkles = [];
+    this.clockGeometricSparkles = [];
+  }
+}

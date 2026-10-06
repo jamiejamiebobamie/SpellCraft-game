@@ -1,5 +1,5 @@
 import { PALETTE } from "./ColorPalette";
-import { GameParticle } from "../../../DataClasses/types";
+import { GameParticle } from "../../../../DataClasses/types";
 
 export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, cellCols: number, time: number) {
     ctx.save();

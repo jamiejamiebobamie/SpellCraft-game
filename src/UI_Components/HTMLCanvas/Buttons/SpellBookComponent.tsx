@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
+import { useSnapshot } from 'valtio';
 import styled, { css, keyframes } from 'styled-components';
 
 const repeatingGlow = keyframes`
@@ -9,11 +10,12 @@ const repeatingGlow = keyframes`
 `;
 
 // The Main Absolute Anchor
-const MenuAnchor = styled.div`
+const MenuAnchor = styled.div<{ $isGearHovered: boolean }>`
   position: absolute;
   top: 2cqw;
   left: 3cqw; 
   z-index: 35;
+  filter: brightness(${props => props.$isGearHovered ? .55 : 1});
 `;
 
 // The Visual Trigger Element
@@ -92,18 +94,28 @@ const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
   ${props => !!props.$style && props.$style}
 `;
 
-export default function SpellBookComponent() {
+
+type SpellBookComponentProps = {
+  isGearHovered: boolean
+}
+
+export default function SpellBookComponent({ isGearHovered }: SpellBookComponentProps) {
   const [isClicked, setIsClicked] = useState<boolean>(false);
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  // const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
+  const snap = useSnapshot(rootGameStore) //
+  const isOpen = snap.getIsSpellBookOpen();
   return (
-    <MenuAnchor data-click-type="ui-buttons">
+    <MenuAnchor $isGearHovered={isGearHovered} data-click-type="ui-buttons">
       <TriggerBox
-        onClick={() => setIsOpen(isOpen => {
-          setIsClickedOnce(true);
+        onClick={() => {
           rootGameStore.setIsSpellBookOpen(!isOpen);
-          return !isOpen;
-        })}
+          setIsClickedOnce(true);
+        }}
+        //   setIsOpen(isOpen => {
+        //   setIsClickedOnce(true);
+        //   return !isOpen;
+        // })}
         onMouseDown={() => setIsClicked(true)}
         onMouseUp={() => setIsClicked(false)}
         $isClicked={isClicked}

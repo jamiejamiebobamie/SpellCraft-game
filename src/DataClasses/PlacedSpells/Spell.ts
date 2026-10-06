@@ -294,7 +294,7 @@ export class Phlegm extends Spell {
 }
 
 export class Ether extends Spell {
-  static readonly FOCUS_COST: number = 2;
+  static readonly FOCUS_COST: number = 1.25;
   static readonly spellName = "Ether";
 
   constructor(caster: Player) {

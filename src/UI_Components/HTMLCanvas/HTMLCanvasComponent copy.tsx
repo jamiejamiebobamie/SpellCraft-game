@@ -3,6 +3,10 @@ import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { rootGameStore } from '../../DataClasses/store';
+import KeyBindingComponent from './Buttons/KeyBindingComponent';
+import SpellBookComponent from './Buttons/SpellBookComponent';
+import ClockFaceComponent from './Buttons/ClockFaceComponent';
+import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';
 import { HARDCODED_SYMBOLS_FOR_DISPLAY } from '../../DataClasses/PlacedSpells/HardCodedSymbolsForDisplay';
 import { drawProceduralSpell, updateAndDrawParticles } from '../HTMLCanvas/RenderSpells/renderSpells';
 import { spawnQuickenParticles, spawnQuickenHitParticles } from '../HTMLCanvas/RenderSpells/drawQuicken';
@@ -11,8 +15,9 @@ import { spawnPhlegmParticles, spawnPhlegmHitParticles } from '../HTMLCanvas/Ren
 import { spawnGyreParticles, spawnGyreHitParticles } from '../HTMLCanvas/RenderSpells/drawGyre';
 import { SpellAnimTracker } from '../../DataClasses/types';
 import { PALETTE } from '../HTMLCanvas/RenderSpells/ColorPalette';
+import { useSnapshot } from 'valtio';
 
-const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
+const MasterCanvasOverlay = styled.canvas < { $zIndex: number, $cursor: string } > `
   position: absolute;
   top: 50%;
   left: 50%;
@@ -23,7 +28,9 @@ const MasterCanvasOverlay = styled.canvas < { $zIndex: number } > `
   pointer-events: auto;
   touch-action: none;
   filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.4));
+  cursor: ${props => props.$cursor};
 `;
+
 interface PlacedSpellsProps {
   gridOverlayRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -59,6 +66,7 @@ class SymbolDrawingState {
   particles: DustParticle[] = [];
   loopTimeout: any = null;
 }
+
 class CanvasScrollUI {
   trayProgress: number = 0;
   hoveredSpellName: string | null = null;
@@ -72,7 +80,7 @@ class CanvasScrollUI {
 
   // Local storage array tracking blinking pixie dust highlights
   floatingTextSparkles: { x: number; y: number; size: number; alpha: number; maxAlpha: number; rate: number; color: string }[] = [];
-
+  clockGeometricSparkles: { x: number; y: number; size: number; alpha: number; rate: number; phase: number; maxAlpha: number; color: string }[] = [];
   config = {
     startXOffset: 0.1,
     startYOffset: 0.04,
@@ -101,6 +109,7 @@ class CanvasScrollUI {
     this.sizeCycleTime = 0;
     this.currentSizeIdx = 0;
     this.floatingTextSparkles = [];
+    this.clockGeometricSparkles = [];
   }
 }
 
@@ -113,20 +122,30 @@ const displayNameLookup = new Map<string, string>([
 ]);
 
 const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
+  const snap = useSnapshot(rootGameStore);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boardLayoutRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const animStatesRef = useRef<Map<string, SpellAnimTracker>>(new Map());
   const drawingParticlesRef = useRef<DustParticle[]>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
   const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
+  const iceSilverColors = ['#e6f7ff', '#b3d9ff', '#ffffff', '#d9f2ff', '#ccf2ff'];
 
   const [isHovered, setIsHovered] = useState(false);
+  const [isGearHovered, setIsGearHovered] = useState(false);
+  // Evaluate Turn Advancement Booleans to flag clock icons safely
+  const isGameBoardDisabled = snap.getIsGameBoardDisabled();
+  const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
+  const isShowClockSymbols = !isGameBoardDisabled && !isComputerPlayerDoingTurn;
+
+  const isSpellBookOpen = snap.getIsSpellBookOpen();
 
   const availableSymbols = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => ({
     inferenceString,
     spellName: spellClass.spellName,
     points: HARDCODED_SYMBOLS_FOR_DISPLAY.get(inferenceString) || []
   }));
+
   useEffect(() => {
     const boardElement = gridOverlayRef.current;
     if (!boardElement) return;
@@ -207,7 +226,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     }
     rootGameStore.addRawPoint(clientX, clientY);
   };
-
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -243,7 +261,116 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     setIsHovered(false);
   };
 
-  // NEW METHOD: Draws legible text moving with scroll edge wave embedded with blinking pixie sparkles
+  const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, viewH: number, currentTime: number) => {
+    ctx.save();
+    const spiritFade = 0.45 + Math.sin(currentTime * 0.001) * 0.4;
+    ctx.globalAlpha = Math.max(0.05, Math.min(0.85, spiritFade));
+    ctx.shadowColor = '#b3e6ff';
+    ctx.shadowBlur = 10;
+
+    const clockCX = viewW * 0.5;
+    const clockCY = viewH * 0.2;
+    const orbitDistance = viewW * 0.08 * spiritFade;
+
+    const shapes = ['diamond', 'circleDot', 'hourglass'];
+    const pool = ui.clockGeometricSparkles;
+    shapes.forEach((shapeType, sIdx) => {
+      const baseAngle = (sIdx * (Math.PI * 2)) / 3 + (currentTime * 0.0008);
+      const shapeCX = clockCX + Math.cos(baseAngle) * orbitDistance * (1 + sIdx * .1);
+      const shapeCY = clockCY + Math.sin(baseAngle) * orbitDistance * (Math.sin(1 + sIdx * .1)) + Math.sin(currentTime * 0.003 + sIdx * 2) * 3;
+      const size = viewW * 0.012;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(230, 247, 255, 0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (shapeType === 'diamond') {
+        ctx.moveTo(shapeCX, shapeCY - size);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY);
+        ctx.lineTo(shapeCX, shapeCY + size);
+        ctx.lineTo(shapeCX - size * 0.8, shapeCY);
+        ctx.closePath();
+      } else if (shapeType === 'circleDot') {
+        ctx.arc(shapeCX, shapeCY, size * 0.8, 0, Math.PI * 2);
+        ctx.moveTo(shapeCX + 1, shapeCY);
+        ctx.arc(shapeCX, shapeCY, 1.2, 0, Math.PI * 2);
+      } else if (shapeType === 'hourglass') {
+        ctx.moveTo(shapeCX - size * 0.8, shapeCY - size * 0.8);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY - size * 0.8);
+        ctx.lineTo(shapeCX - size * 0.2, shapeCY);
+        ctx.lineTo(shapeCX + size * 0.8, shapeCY + size * 0.8);
+        ctx.lineTo(shapeCX - size * 0.8, shapeCY + size * 0.8);
+        ctx.lineTo(shapeCX + size * 0.2, shapeCY);
+        ctx.closePath();
+      }
+      ctx.stroke();
+      ctx.restore();
+      if (Math.random() < .3 && pool.length < 120) {
+        let spawnedPt = { x: shapeCX, y: shapeCY };
+        const randRatio = Math.random();
+        if (shapeType === 'diamond') {
+          const p = Math.floor(Math.random() * 4);
+          if (p === 0) { spawnedPt.x = shapeCX + (size * 0.8) * randRatio; spawnedPt.y = shapeCY - size * (1 - randRatio); }
+          else if (p === 1) { spawnedPt.x = shapeCX + (size * 0.8) * (1 - randRatio); spawnedPt.y = shapeCY + size * randRatio; }
+          else if (p === 2) { spawnedPt.x = shapeCX - (size * 0.8) * randRatio; spawnedPt.y = shapeCY + size * (1 - randRatio); }
+          else { spawnedPt.x = shapeCX - (size * 0.8) * (1 - randRatio); spawnedPt.y = shapeCY - size * randRatio; }
+        } else if (shapeType === 'circleDot') {
+          if (Math.random() > 0.2) {
+            const angle = Math.random() * Math.PI * 2;
+            spawnedPt.x = shapeCX + Math.cos(angle) * (size * 0.8);
+            spawnedPt.y = shapeCY + Math.sin(angle) * (size * 0.8);
+          }
+        } else if (shapeType === 'hourglass') {
+          if (Math.random() > 0.5) {
+            const xOffset = (size * 0.8) * (1 - randRatio);
+            spawnedPt.x = shapeCX + (Math.random() > 0.5 ? xOffset : -xOffset);
+            spawnedPt.y = shapeCY - size * 0.8 * (1 - randRatio);
+          } else {
+            const xOffset = (size * 0.8) * (1 - randRatio);
+            spawnedPt.x = shapeCX + (Math.random() > 0.5 ? xOffset : -xOffset);
+            spawnedPt.y = shapeCY + size * 0.8 * (1 - randRatio);
+          }
+        }
+        pool.push({
+          x: spawnedPt.x,
+          y: spawnedPt.y,
+          size: Math.random() * 1.6 + 0.4,
+          alpha: 0,
+          rate: Math.random() * 0.08 + 0.04,
+          phase: 0,
+          maxAlpha: Math.random() * 0.9 + 0.1,
+          color: iceSilverColors[Math.floor(Math.random() * iceSilverColors.length)]
+        });
+      }
+    });
+    for (let i = pool.length - 1; i >= 0; i--) {
+      const p = pool[i];
+      if (p.phase === 0) {
+        p.alpha += p.rate;
+        if (p.alpha >= p.maxAlpha) { p.alpha = p.maxAlpha; p.phase = 1; }
+      } else {
+        p.alpha -= p.rate;
+      }
+      if (p.alpha <= 0) {
+        pool.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = p.alpha * spiritFade;
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = p.size * 3;
+      ctx.shadowColor = '#ffffff';
+      ctx.beginPath();
+      if (Math.random() > 0.8) {
+        draw4PointStar(ctx, p.x, p.y, p.size * 2, p.size * 0.4);
+      } else {
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+
   const drawSinusoidalFloatingMessage = (
     ctx: CanvasRenderingContext2D,
     ui: CanvasScrollUI,
@@ -253,44 +380,24 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     currentTime: number,
     activeTrayAlpha: number
   ) => {
-    const message = "Hover over a spell for more info";
-
+    const message = "Hover for more info";
     ctx.save();
     ctx.globalAlpha = activeTrayAlpha;
     ctx.font = `bold ${viewW * 0.03}px 'EnchantedLand', sans-serif`;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-
-    const verticalSpacing = viewW * 0.005; // Spacing distance below bottom wave line
-    // let runningX = startX + viewW * 0.05;
+    const verticalSpacing = viewW * 0.005;
     let runningX = startX + viewW * 0.02;
-
-    // Track active particles locally for in-character updates
     const textSparklePool = ui.floatingTextSparkles;
-
     for (let i = 0; i < message.length; i++) {
       const char = message[i];
       const charW = ctx.measureText(char).width;
-
-      // Pull matching bottom sinusoidal phase calculation
       const waveCharY = bottomY + (Math.cos(runningX * 0.04 + currentTime * 0.003) * 2.2);
       const targetCharY = waveCharY + verticalSpacing;
-
-      // 1. Draw Legible Shadow Core
       ctx.fillStyle = 'rgba(28, 18, 5, .5)';
       ctx.fillText(char, runningX + 2, targetCharY + 2);
-
-      // ctx.fillStyle = 'rgba(28, 18, 5, 1)';
-      // ctx.fillText(char, runningX - 1, targetCharY - 1);
-
-      // 2. Draw Legible Golden Vellum text core
-      // ctx.fillStyle = '#f0c24d';
       ctx.fillStyle = '#f0c24de2';
-
       ctx.fillText(char, runningX, targetCharY);
-
-
-      // 3. Procedural Blinking Pixie Dust generator bounded to character boxes
       if (char !== ' ' && Math.random() < 0.015 && textSparklePool.length < 60) {
         textSparklePool.push({
           x: runningX + Math.random() * charW,
@@ -298,22 +405,20 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           size: Math.random() * 1.5 + 0.5,
           alpha: 0,
           maxAlpha: Math.random() * 0.7 + 0.3,
-          rate: Math.random() * 4 + 2, // Blink lifecycle speed
+          rate: Math.random() * 4 + 2,
           color: pixieColors[Math.floor(Math.random() * pixieColors.length)]
         });
       }
       runningX += charW;
     }
-    // Update and cycle running blink particles safely
     for (let pIdx = textSparklePool.length - 1; pIdx >= 0; pIdx--) {
       const p = textSparklePool[pIdx];
-      p.alpha += p.rate * 0.016; // Increment alpha safely
+      p.alpha += p.rate * 0.016;
       if (p.alpha >= p.maxAlpha * 2) {
         textSparklePool.splice(pIdx, 1);
         continue;
       }
       const currentRenderAlpha = p.alpha > p.maxAlpha ? p.maxAlpha * 2 - p.alpha : p.alpha;
-      // Keep sparkles locked to text position by adding subtle variance updates without falling vectors
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(activeTrayAlpha, currentRenderAlpha));
       ctx.fillStyle = p.color;
@@ -339,7 +444,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     const currentW = currentMaxW * ui.trayProgress;
     const rightEdgeX = startX + currentW;
     ctx.save();
-    // Evaluate active vellum tray opacity
     const activeTrayAlpha = Math.min(1.0, ui.trayProgress);
     ctx.globalAlpha = activeTrayAlpha;
     ctx.save();
@@ -348,19 +452,16 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     ctx.shadowOffsetX = 4;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    // TOP EDGE: Sinusoidal flowing curve
     ctx.moveTo(startX, topY);
     for (let x = startX; x <= rightEdgeX; x += 12) {
       const waveY = topY + (Math.sin(x * 0.04 + currentTime * 0.003) * 2.2);
       ctx.lineTo(x, waveY);
     }
-    // RIGHT EDGE: Wind ripple mapping loop
     for (let y = topY; y <= bottomY; y += 6) {
       const windWave = isTrayOpen ? Math.sin(y * 0.08 + currentTime * 0.002) * (viewW * 0.001) * ui.trayProgress : 0;
       const paperNick = Math.cos(y * 0.12) * 1.2 + (y % 18 === 0 ? -3.5 : 0);
       ctx.lineTo(rightEdgeX + paperNick + windWave, y);
     }
-    // BOTTOM EDGE: Sinusoidal out-of-phase curve (cosine waves out of phase with sine)
     for (let x = rightEdgeX; x >= startX; x -= 12) {
       const waveY = bottomY + (Math.cos(x * 0.04 + currentTime * 0.003) * 2.2);
       ctx.lineTo(x, waveY);
@@ -382,7 +483,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.restore();
-    // IRISH MONK PAGE MARGIN EMBELLISHMENTS ON SCROLL TRAY (SINUSOIDALLY SYNCHRONIZED)
     if (currentW > viewW * 0.05) {
       ctx.save();
       ctx.strokeStyle = 'rgba(92, 45, 15, 0.18)';
@@ -390,12 +490,10 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       const stepDist = 8;
       ctx.beginPath();
       for (let mx = startX + 6; mx < rightEdgeX - 6; mx += stepDist) {
-        // Calculate the moving base wave position for the top edge
         const activeTopWaveY = topY + (Math.sin(mx * 0.04 + currentTime * 0.003) * 2.2);
         ctx.moveTo(mx, activeTopWaveY + 4);
         ctx.lineTo(mx + 3, activeTopWaveY + 8);
         ctx.lineTo(mx + 6, activeTopWaveY + 4);
-        // Calculate the moving base wave position for the bottom edge
         const activeBottomWaveY = bottomY + (Math.cos(mx * 0.04 + currentTime * 0.003) * 2.2);
         ctx.moveTo(mx, activeBottomWaveY - 4);
         ctx.lineTo(mx + 3, activeBottomWaveY - 8);
@@ -404,7 +502,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       ctx.stroke();
       ctx.restore();
     }
-    // Render Legible Pixie-Dust floating instruction text below edge if book container is open and modal is inactive
     const isShowingModal = !!ui.hoveredSpellName && isTrayOpen;
     if (!isShowingModal && currentW >= currentMaxW * 0.9) {
       drawSinusoidalFloatingMessage(ctx, ui, viewW, startX, bottomY, currentTime, activeTrayAlpha);
@@ -534,7 +631,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       ui.hoveredSpellName = localHoveredSpell;
       setIsHovered(!!localHoveredSpell);
       if (!localHoveredSpell) {
-        // Modal is closed: clear particle memory caches safely
         animStatesRef.current.forEach((val, key) => {
           if (key.startsWith('modal-preview-')) {
             animStatesRef.current.delete(key);
@@ -546,6 +642,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     }
     ctx.restore();
   };
+
   const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number) => {
     const isTrayOpen = rootGameStore.isSpellBookOpen;
     const baseAnchorX = viewW * ui.config.startXOffset;
@@ -582,6 +679,248 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       ctx.closePath(); ctx.fill(); ctx.restore();
     }
   };
+
+  const drawWidgetLineOverlay = (
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    centerY: number,
+    spellKey: string,
+    sizeIdx: number,
+    viewW: number,
+    activeCol: number,
+    fadeAlpha: number
+  ) => {
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha * 0.35;
+
+    const cellMultiplier = sizeIdx + 1;
+    let cost = 1 * cellMultiplier;
+    let damageOrHeal = 5 * cellMultiplier;
+    let speed = 1;
+    let isHealing = false;
+    let labelText = "Damage";
+
+    if (spellKey === 'Ether') {
+      cost = 2 * cellMultiplier;
+      damageOrHeal = 5 * cellMultiplier + 5;
+    } else if (spellKey === 'Quicken') {
+      cost = 1 * cellMultiplier;
+      damageOrHeal = 5 * cellMultiplier;
+      speed = 1 + 1;
+    } else if (spellKey === 'Phlegm') {
+      cost = 1 * cellMultiplier;
+      damageOrHeal = 5 * cellMultiplier;
+      isHealing = true;
+      labelText = "Heal";
+    } else if (spellKey === 'GyreUp' || spellKey === 'GyreDown') {
+      cost = 1;
+      damageOrHeal = 4 * cellMultiplier;
+    }
+
+    const isRightColumn = (activeCol === 2);
+    const sideDirectionSign = isRightColumn ? -1 : 1;
+
+    const horizontalFirstSegmentLength = (viewW * 0.015) * sideDirectionSign;
+    const curveUpLengthX = (viewW * 0.02) * sideDirectionSign;
+    const curveUpLengthY = viewW * 0.025;
+    const horizontalEndSegmentLength = (viewW * 0.015) * sideDirectionSign;
+
+    const pt1X = centerX;
+    const pt1Y = centerY;
+    const pt2X = pt1X + horizontalFirstSegmentLength;
+    const pt2Y = pt1Y;
+    const pt3X = pt2X + curveUpLengthX;
+    const pt3Y = pt2Y - curveUpLengthY;
+    const pt4X = pt3X + horizontalEndSegmentLength;
+    const pt4Y = pt3Y;
+
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#f0c24d';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(pt1X, pt1Y);
+    ctx.lineTo(pt2X, pt2Y);
+    ctx.lineTo(pt3X, pt3Y);
+    ctx.lineTo(pt4X, pt4Y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f0c24d';
+    ctx.beginPath();
+    ctx.arc(pt1X, pt1Y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha;
+    ctx.shadowBlur = 0;
+    ctx.textAlign = isRightColumn ? 'right' : 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${viewW * 0.015}px 'EnchantedLand', sans-serif`;
+
+    const horizontalTextSpacer = (viewW * 0.006) * sideDirectionSign;
+    const columnTextX = pt4X + horizontalTextSpacer;
+    const verticalLineSpacingDelta = viewW * 0.018;
+    const columnLineItems = [
+      `Cost: ${cost}`,
+      `${labelText}: ${damageOrHeal}`,
+      `Speed: ${speed}`
+    ];
+    columnLineItems.forEach((textLineString, lineIndexOffset) => {
+      const renderYPosition = pt4Y + (lineIndexOffset - 1) * verticalLineSpacingDelta;
+      ctx.fillStyle = 'rgba(40, 25, 10, 0.7)';
+      ctx.fillText(textLineString, columnTextX + 1, renderYPosition + 1);
+      if (lineIndexOffset === 1) {
+        ctx.fillStyle = isHealing ? '#1abc9c' : '#c0392b';
+      } else {
+        ctx.fillStyle = '#4a2d0f';
+      }
+      ctx.fillText(textLineString, columnTextX, renderYPosition);
+    });
+    ctx.restore();
+  };
+  const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number, viewH: number) => {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(0, 0, viewW, viewH);
+    const keyboardW = viewW * 0.65;
+    const keyboardH = viewH * 0.45;
+    const keyboardX = (viewW - keyboardW) * 0.5;
+    const keyboardY = (viewH - keyboardH) * 0.45;
+    ctx.fillStyle = '#ebdca5';
+    ctx.strokeStyle = '#4a2d0f';
+    ctx.lineWidth = 3;
+    if (ctx.roundRect) ctx.roundRect(keyboardX, keyboardY, keyboardW, keyboardH, viewW * 0.01);
+    else ctx.rect(keyboardX, keyboardY, keyboardW, keyboardH);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeRect(keyboardX + 6, keyboardY + 6, keyboardW - 12, keyboardH - 12);
+    ctx.fillStyle = '#2d1010';
+    ctx.font = `bold ${viewW * 0.038}px 'EnchantedLand', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText("Arcane Key Bindings Configuration", viewW * 0.5, keyboardY - viewW * 0.015);
+    const activeKeys = new Set([
+      '1', '2', '3', '4', '5', '6',
+      'Q', 'W', 'E',
+      'A', 'S', 'D',
+      'Z', 'X', 'C',
+      'SPACE', 'ESC', 'SHIFT'
+    ]);
+    const row1 = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+    const row2 = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'];
+    const row3 = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';'];
+    const row4 = ['SHIFT', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.'];
+    const row5 = ['ESC', 'SPACE'];
+    const keySize = keyboardW * 0.065;
+    const gap = keyboardW * 0.012;
+    const keyPositions = new Map<string, { x: number; y: number; w: number }>();
+    const drawRow = (rowKeys: string[], startY: number, xOffset: number) => {
+      let currentX = keyboardX + xOffset;
+      rowKeys.forEach(k => {
+        let currentKeyWidth = keySize;
+        if (k === 'SHIFT') currentKeyWidth = keySize * 1.6;
+        if (k === 'SPACE') currentKeyWidth = keySize * 4.5;
+        if (k === 'ESC') currentKeyWidth = keySize * 1.5;
+        const isUsed = activeKeys.has(k);
+        ctx.save();
+        ctx.fillStyle = isUsed ? 'rgba(80, 26, 26, 0.15)' : 'transparent';
+        ctx.strokeStyle = '#4a2d0f';
+        ctx.lineWidth = isUsed ? 2 : 1;
+        if (ctx.roundRect) ctx.roundRect(currentX, startY, currentKeyWidth, keySize, viewW * 0.004);
+        else ctx.rect(currentX, startY, currentKeyWidth, keySize);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = isUsed ? '#501a1a' : 'rgba(74, 45, 15, 0.4)';
+        ctx.font = `bold ${viewW * 0.014}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(k, currentX + currentKeyWidth * 0.5, startY + keySize * 0.5);
+        ctx.restore();
+        keyPositions.set(k, { x: currentX, y: startY, w: currentKeyWidth });
+        currentX += currentKeyWidth + gap;
+      });
+    };
+    const initialRowY = keyboardY + keyboardH * 0.08;
+    const rowStepY = keySize + gap;
+    drawRow(row1, initialRowY, keyboardW * 0.08);
+    drawRow(row2, initialRowY + rowStepY, keyboardW * 0.095);
+    drawRow(row3, initialRowY + rowStepY * 2, keyboardW * 0.11);
+    drawRow(row4, initialRowY + rowStepY * 3, keyboardW * 0.06);
+    drawRow(row5, initialRowY + rowStepY * 4, keyboardW * 0.22);
+    const drawKeyWidgetConnectorLine = (
+      keyLabel: string,
+      actionLabel: string,
+      extendLeft: boolean,
+      lenMultiplier = 1.0
+    ) => {
+      const pos = keyPositions.get(keyLabel);
+      if (!pos) return;
+      const keyCenterX = pos.x + pos.w * 0.5;
+      const keyCenterY = pos.y + keySize * 0.5;
+      ctx.save();
+      ctx.globalAlpha = 0.35; // Diminished primacy
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#501a1a';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const sideSign = extendLeft ? -1 : 1;
+      const horizontalFirst = viewW * 0.015 * sideSign;
+      const angleX = viewW * 0.02 * sideSign * lenMultiplier;
+      const angleY = viewW * 0.025 * (keyCenterY > viewH * 0.5 ? -1 : 1);
+      const horizontalEnd = viewW * 0.015 * sideSign;
+      const p1X = keyCenterX;
+      const p1Y = keyCenterY;
+      const p2X = p1X + horizontalFirst;
+      const p2Y = p1Y;
+      const p3X = p2X + angleX;
+      const p3Y = p2Y + angleY;
+      const p4X = p3X + horizontalEnd;
+      const p4Y = p3Y;
+      ctx.beginPath();
+      ctx.moveTo(p1X, p1Y);
+      ctx.lineTo(p2X, p2Y);
+      ctx.lineTo(p3X, p3Y);
+      ctx.lineTo(p4X, p4Y);
+      ctx.stroke();
+      ctx.fillStyle = '#501a1a';
+      ctx.beginPath();
+      ctx.arc(p1X, p1Y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.font = `bold ${viewW * 0.014}px 'EnchantedLand', sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = extendLeft ? 'right' : 'left';
+      const lines = actionLabel.split('\n');
+      const textX = p4X + (viewW * 0.005 * sideSign);
+      const rowGap = viewW * 0.015;
+      lines.forEach((lineText, lineIdx) => {
+        const textY = p4Y + (lineIdx - (lines.length - 1) * 0.5) * rowGap;
+        ctx.fillStyle = 'rgba(40, 25, 10, 0.7)';
+        ctx.fillText(lineText, textX + 1, textY + 1);
+        ctx.fillStyle = '#4a2d0f';
+        ctx.fillText(lineText, textX, textY);
+      });
+      ctx.restore();
+    };
+    drawKeyWidgetConnectorLine('1', "Ready Spell:\nChain Lightning", true, 1.4);
+    drawKeyWidgetConnectorLine('2', "Ready Spell:\nFireball", true, 1.0);
+    drawKeyWidgetConnectorLine('3', "Ready Spell:\nUpdraft", true, 0.7);
+    drawKeyWidgetConnectorLine('4', "Ready Spell:\nDowndraft", false, 0.7);
+    drawKeyWidgetConnectorLine('5', "Ready Spell:\nWater Wheel", false, 1.1);
+    drawKeyWidgetConnectorLine('6', "Cancel / Clear\nReadied Spell", false, 1.5);
+    drawKeyWidgetConnectorLine('Q', "Place Readied Spell:\nRow 1, Col 1", true, 1.2);
+    drawKeyWidgetConnectorLine('W', "Place Readied Spell:\nRow 1, Col 2", true, 0.8);
+    drawKeyWidgetConnectorLine('E', "Place Readied Spell:\nRow 1, Col 3", false, 0.8);
+    drawKeyWidgetConnectorLine('D', "Place Readied Spell:\nRow 2, Col 3", false, 1.2);
+    drawKeyWidgetConnectorLine('Z', "Place Readied Spell:\nRow 3, Col 1", true, 1.2);
+    drawKeyWidgetConnectorLine('C', "Place Readied Spell:\nRow 3, Col 3", false, 1.2);
+    drawKeyWidgetConnectorLine('SHIFT', "Change Difficulty", true, 0.8);
+    drawKeyWidgetConnectorLine('ESC', "End Turn", true, 0.8);
+    drawKeyWidgetConnectorLine('SPACE', "End Turn", false, 0.6);
+    ctx.restore();
+  };
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -601,8 +940,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       const cellWidthPx = boardWidth / GameBoard.NUM_COLS; const cellHeightPx = boardHeight / GameBoard.NUM_ROWS;
       const isTrayOpen = rootGameStore.isSpellBookOpen;
       const isShowingModal = !!scrollUIRef.current.hoveredSpellName && isTrayOpen;
-      // 1. RENDER BACKGROUND & GAME ELEMENT PATHS FIRST
-      if (!isShowingModal) {
+      if (!isShowingModal && !isGearHovered) {
         const placedSpells = rootGameStore.placedSpells.spells || [];
         placedSpells.forEach((spell: any) => {
           const id = spell.id; const spellClass = spell.constructor.spellName;
@@ -700,43 +1038,43 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.stroke(); ctx.restore();
         }
       }
-      // 2. MODAL RENDERING (UPDATED TEXT DESCRIPTIONS & ACTIVE MODAL PARTICLE CONTROLLER)
+      if (isShowClockSymbols) {
+        drawClockAdvanceSymbols(ctx, scrollUIRef.current, viewW, viewH, currentTime);
+      }
       if (isShowingModal) {
         const uiState = scrollUIRef.current;
-        // Advance sizing sequencer clock state manager tracking infinite fade states
         uiState.sizeCycleTime += deltaTime;
         if (uiState.sizeCycleTime >= 5.0) {
           uiState.sizeCycleTime -= 5.0;
           uiState.currentSizeIdx = (uiState.currentSizeIdx + 1) % 3;
         }
-        // Evaluate animation sequence alpha curves
         let activeFadeAlpha = 1.0;
         if (uiState.sizeCycleTime < 1.0) {
-          activeFadeAlpha = uiState.sizeCycleTime; // Fade-in (1s)
+          activeFadeAlpha = uiState.sizeCycleTime;
         } else if (uiState.sizeCycleTime > 4.0) {
-          activeFadeAlpha = 1.0 - (uiState.sizeCycleTime - 4.0); // Fade-out (1s)
+          activeFadeAlpha = 1.0 - (uiState.sizeCycleTime - 4.0);
         }
         const currentTargetKey = uiState.hoveredSpellName || '';
         const displayTitle = displayNameLookup.get(currentTargetKey) || currentTargetKey;
         const spellDescriptions: Record<string, { desc: string; stats: string }> = {
           'Ether': {
-            desc: "A crackling ball of fire,\n   Explodes on impact.\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell that destroys it.\nDraw a circle or click on a cell to cast.",
+            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell that destroys it.\nDraw a  CIRCLE  or  CLICK  on a cell to cast.",
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
           },
           'Quicken': {
-            desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell that destroys it.\nDraw a line to cast.",
+            desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell that destroys it.\nDraw a  LINE  to cast.",
             stats: "Cost: 1 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
           },
           'Phlegm': {
-            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells back at their caster.\nDraw a star to cast.",
+            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells back at their caster.\nDraw a  STAR  to cast.",
             stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
           },
           'GyreUp': {
-            desc: "An upward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells upward.\n   (Note: Spells pushed off the board are destroyed.)\nDraw a downward pointing triangle to cast.",
+            desc: "An upward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells upward.\n   Note: Spells pushed off the board are destroyed.\nDraw a  DOWNWARD TRIANGLE  to cast.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
           },
           'GyreDown': {
-            desc: "A downward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells downward.\n   (Note: Spells pushed off the board are destroyed.)\nDraw an upward pointing triangle to cast.",
+            desc: "A downward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells downward.\n   Note: Spells pushed off the board are destroyed.\nDraw an  UPWARD TRIANGLE  to cast.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
           }
         };
@@ -764,7 +1102,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         ctx.lineWidth = 2.5;
         ctx.stroke();
         ctx.restore();
-        // IRISH SCRIBE MONASTIC BORDERS AND CORNER FRAMES (BOOK OF KELLS ACCENTS)
         ctx.save();
         ctx.strokeStyle = '#4a2d0f';
         ctx.lineWidth = 1.5;
@@ -774,7 +1111,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         const bw = infoW - bPadding * 2;
         const bh = infoH - bPadding * 2;
         ctx.strokeRect(bx, by, bw, bh);
-        // Intricate Celtic knotwork-inspired corner patterns
         const cSize = viewW * 0.016;
         const drawCornerKnot = (cx: number, cy: number) => {
           ctx.beginPath();
@@ -790,21 +1126,18 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         drawCornerKnot(bx, by + bh);
         drawCornerKnot(bx + bw, by + bh);
         ctx.restore();
-        // AESOP FABLE CHAPTER HEADING LOGIC WITH ILLUMINATED MANUSCRIPT STYLING
         const firstLetter = displayTitle.charAt(0);
         const restOfTitle = displayTitle.slice(1);
         const padLeft = infoW * 0.05;
-        const padRight = infoX + infoW - (infoW * 0.05); // Correct right-align boundary calculation
+        const padRight = infoX + infoW - (infoW * 0.05);
         const padTop = infoH * 0.06;
         const titleX = infoX + padLeft;
         const titleY = infoY + padTop;
-        // Render Book of Kells custom illuminated drop-cap background strokes
         ctx.save();
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.font = `bold ${viewW * 0.075}px 'EnchantedLand', sans-serif`;
         if (currentTargetKey === 'Ether') {
-          // Fireball (F) -> Orange flaring outline
           ctx.strokeStyle = '#e65c00';
           ctx.lineWidth = 6;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
@@ -812,7 +1145,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.lineWidth = 2;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         } else if (currentTargetKey === 'Quicken') {
-          // Chain Lightning (C) -> Electric Blue pop outline
           ctx.strokeStyle = '#00b3ff';
           ctx.lineWidth = 6;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
@@ -820,7 +1152,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.lineWidth = 2;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         } else if (currentTargetKey === 'Phlegm') {
-          // Water Wheel (W) -> Blue-ish Seagreen outline
           ctx.strokeStyle = '#1a936f';
           ctx.lineWidth = 6;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
@@ -828,7 +1159,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.lineWidth = 2;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         } else if (currentTargetKey === 'GyreUp') {
-          // Updraft (U) -> Vertical linear gradient starting dark at the base, light at the crown
           const uGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
           uGrad.addColorStop(0, '#1a1a1a');
           uGrad.addColorStop(0.5, '#737373');
@@ -837,7 +1167,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.lineWidth = 5;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         } else if (currentTargetKey === 'GyreDown') {
-          // Downdraft (D) -> Inverted vertical linear gradient starting light at the base, dark at the crown
           const dGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
           dGrad.addColorStop(0, '#e6e6e6');
           dGrad.addColorStop(0.5, '#737373');
@@ -846,7 +1175,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.lineWidth = 5;
           ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
         }
-        // Fill core letter layer above the custom outline borders
         ctx.fillStyle = '#501a1a';
         ctx.fillText(firstLetter, titleX, titleY - viewW * 0.012);
         const dropCapW = ctx.measureText(firstLetter).width;
@@ -854,7 +1182,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         ctx.font = `bold ${viewW * 0.046}px 'EnchantedLand', sans-serif`;
         ctx.fillText(restOfTitle, titleX + dropCapW + (viewW * 0.003), titleY + viewW * 0.012);
         ctx.restore();
-        // LORE PARAGRAPH BOUNDARY TEXT DISPATCHER WITH NEWLINE SEPARATORS
         ctx.save();
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
@@ -863,8 +1190,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
         const lineHeight = viewW * 0.037;
         const linesArray = targetData.desc.split('\n');
         linesArray.forEach((lineText) => {
-          // Check for the destruction warning note to scale text smaller
-          if (lineText.includes("(Note: Spells pushed off the board are destroyed.)")) {
+          if (lineText.includes("Note: Spells pushed off the board are destroyed.")) {
             ctx.font = `500 ${viewW * 0.023}px 'EnchantedLand', sans-serif`;
           } else {
             ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
@@ -873,16 +1199,14 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           currentTextY += lineHeight;
         });
         ctx.restore();
-        // (1) RENDER CONSOLIDATED MIRRORED STATISTIC BLOCK AT THE BOTTOM RIGHT
         ctx.save();
-        ctx.textAlign = 'right'; // Set right-align engine active
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = '#5c3317';
         ctx.font = `bold ${viewW * 0.022}px 'EnchantedLand', sans-serif`;
         const statsY = (infoY + infoH) - padTop;
         ctx.fillText(targetData.stats, padRight, statsY);
         ctx.restore();
-        // GRID CANVAS MATRIX RENDERING PIPELINE FOR COMPOSITE DRAW PREVIEWS
         const gridBoxW = infoW * 0.32;
         const rightGridX = infoX + infoW * 0.63;
         const rightGridY = titleY + (viewW * 0.03);
@@ -898,7 +1222,9 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.beginPath(); ctx.moveTo(0, r * cellSz); ctx.lineTo(gridBoxW, r * cellSz); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(r * cellSz, 0); ctx.lineTo(r * cellSz, gridBoxW); ctx.stroke();
         }
-        // LIVE PARTICLE PREVIEW HOOK INTERCEPTOR WITH ACTIVE TIMED FADE CURVE LAYER ATTACHED
+        let targetWidgetCenterX = 0;
+        let targetWidgetCenterY = 0;
+        let currentActiveGridCol = 0;
         const drawPreviewSpellWithParticles = (tw: number, th: number, ox: number, oy: number) => {
           const fakeSpellInstance = {
             id: `modal - preview - ${currentTargetKey}-${tw} -${th}`,
@@ -932,8 +1258,11 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
             const sx = Math.random() * wPx; const sy = Math.random() * hPx; const len = Math.min(wPx, hPx) * 0.3; const ang = Math.random() * Math.PI * 2;
             pAnim.particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.0 + Math.random() * 1.5, color: '#16e0d6', shadowColor: '#00ffff', life: 1.0, decay: 12.0, type: 'lightningArc' });
           }
+          targetWidgetCenterX = rightGridX + (ox * cellSz) + (wPx / 2);
+          targetWidgetCenterY = rightGridY + (oy * cellSz) + (hPx / 2);
+          currentActiveGridCol = ox + Math.floor((tw - 1) / 2);
           ctx.save();
-          ctx.globalAlpha = activeFadeAlpha; // Bind transparency safely inside context stack matrices
+          ctx.globalAlpha = activeFadeAlpha;
           ctx.translate(ox * cellSz, oy * cellSz);
           drawProceduralSpell(ctx, fakeSpellInstance, cellSz, cellSz, currentTime, 1.0);
           if (pAnim && pAnim.particles.length > 0) {
@@ -941,12 +1270,11 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           }
           ctx.restore();
         };
-        // Render looping sequence dimensions dynamically based on active index counters
         if (currentTargetKey === 'Ether' || currentTargetKey === 'Phlegm') {
           const gridColorsArray = currentTargetKey === 'Ether'
             ? ['rgba(230,57,70,0.18)', 'rgba(230,57,70,0.12)', 'rgba(230,57,70,0.06)']
             : ['rgba(78,168,222,0.18)', 'rgba(78,168,222,0.12)', 'rgba(78,168,222,0.06)'];
-          const sIdx = uiState.currentSizeIdx + 1; // 1, 2, or 3 cells wide
+          const sIdx = uiState.currentSizeIdx + 1;
           ctx.fillStyle = gridColorsArray[sIdx - 1];
           ctx.save();
           ctx.globalAlpha = activeFadeAlpha;
@@ -955,7 +1283,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           drawPreviewSpellWithParticles(sIdx, sIdx, 0, 0);
         }
         else if (currentTargetKey === 'Quicken') {
-          const rIdx = uiState.currentSizeIdx; // 0, 1, or 2 row offset placement
+          const rIdx = uiState.currentSizeIdx;
           const wVal = rIdx + 1;
           ctx.fillStyle = 'rgba(144,224,239,0.15)';
           ctx.save();
@@ -965,7 +1293,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           drawPreviewSpellWithParticles(wVal, 1, 0, rIdx);
         }
         else if (currentTargetKey === 'GyreUp' || currentTargetKey === 'GyreDown') {
-          const cIdx = uiState.currentSizeIdx; // 0, 1, or 2 col offset placement
+          const cIdx = uiState.currentSizeIdx;
           const hVal = cIdx + 1;
           ctx.fillStyle = 'rgba(169,169,169,0.15)';
           ctx.save();
@@ -975,9 +1303,33 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           drawPreviewSpellWithParticles(1, hVal, cIdx, 0);
         }
         ctx.restore();
+        if (targetWidgetCenterX > 0 && targetWidgetCenterY > 0) {
+          const currentSizeIdx = uiState.currentSizeIdx;
+          let currentOX = 0;
+          let currentTW = currentSizeIdx + 1;
+          if (currentTargetKey === 'Quicken') {
+            currentOX = 0;
+            currentTW = currentSizeIdx + 1;
+          } else if (currentTargetKey === 'GyreUp' || currentTargetKey === 'GyreDown') {
+            currentOX = currentSizeIdx;
+            currentTW = 1;
+          }
+          drawWidgetLineOverlay(
+            ctx,
+            targetWidgetCenterX,
+            targetWidgetCenterY,
+            currentTargetKey,
+            currentSizeIdx,
+            viewW,
+            currentActiveGridCol,
+            activeFadeAlpha
+          );
+        }
         ctx.restore();
       }
-      // 3. RENDER SCROLL TRAY & SPARKLES LATEST SO THEY LAYER HIGHEST ABOVE BACKDROP MASK
+      if (isGearHovered && !isShowingModal) {
+        drawKeyboardOverlay(ctx, viewW, viewH);
+      }
       runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
       drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime);
       animationFrameId = requestAnimationFrame(render);
@@ -986,7 +1338,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     return () => {
       cancelAnimationFrame(animationFrameId); if (scrollUIRef.current) scrollUIRef.current.cleanup();
     };
-  }, [availableSymbols, rootGameStore]);
+  }, [availableSymbols, rootGameStore, isGearHovered]);
   function calculateCanvasCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
     const cellIndex = spell.getCellIndex(); const canvasCenterX = canvasWidth / 2; const canvasCenterY = canvasHeight / 2;
     return {
@@ -994,18 +1346,27 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       y: canvasCenterY + ((cellIndex.i - (GameBoard.NUM_ROWS - 1) / 2) * cellHeightPx) - (cellHeightPx / 2)
     };
   }
+  const buttons = <>
+    <SpellBookComponent isGearHovered={isGearHovered} />
+    <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+    <ClockFaceComponent />
+    <KeyBindingComponent setIsGearHovered={setIsGearHovered} isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+  </>
   return (
-    <MasterCanvasOverlay
-      ref={canvasRef}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      touchAction="none"
-      onTouchMove={handleMouseMove}
-      onTouchEnd={handleMouseUp}
-      $zIndex={isHovered ? 32 : 29}
-    />
+    <>
+      {buttons}
+      <MasterCanvasOverlay
+        ref={canvasRef}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        touchAction="none"
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleMouseUp}
+        $zIndex={isHovered || isGearHovered ? 32 : 29}
+        $cursor={isHovered ? 'pointer' : 'default'}
+      />
+    </>
   );
 });
-
 export default HTMLCanvasComponent;
