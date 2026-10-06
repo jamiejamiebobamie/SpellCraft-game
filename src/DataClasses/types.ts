@@ -15,11 +15,6 @@ export type Direction = 1 | -1 | 0; // 0 = not valid value
 
 export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal';
 
-// export type EmpoweredPng = 'Singular' | 'Beginning' | 'Middle' | 'End';
-// export type EmpoweredPng = 0 | 1 | 2 | 3;
-
-// export type SpellConstructor = new (caster: Player) => Quicken | Ether | Phlegm | GyreUp | GyreDown;
-
 export type SpellInstance = Quicken | Ether | Phlegm | GyreUp | GyreDown;
 
 // This defines what the Class itself looks like, including its static properties

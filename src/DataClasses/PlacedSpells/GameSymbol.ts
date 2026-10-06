@@ -25,10 +25,8 @@ export class GameSymbol extends UniqueId {
   static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
     ['line', 'Quicken'],
     ['circle', 'Ether'],
-    // ['circle', 'Phlegm'],
     ['diamond', 'Gyre'],
     ['star', 'Phlegm'],
-    // ['star', 'Ether'],
     ['triangle', 'Gyre'],
   ]);
 
@@ -36,6 +34,11 @@ export class GameSymbol extends UniqueId {
     super();
     this.caster = caster;
     this.symbolName = symbolName;
+    this.SpellClass = GameSymbol.SPELL_LOOKUP.get(symbolName) || null;
+  }
+
+  getSpellClass(): SpellConstructor | null {
+    return this.SpellClass;
   }
 
   setSpellClass(SpellClass: SpellConstructor) {

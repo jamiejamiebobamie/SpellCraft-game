@@ -113,7 +113,6 @@ export abstract class Spell extends UniqueId {
   };
 
   executeSingleMicroStep = (): void => {
-    console.log({ spell: this, consumedGyres: this.consumedGyres, phlegm: this.isInPhlegmField && this.phlegmCenterIndex })
     // 1. Gyre vertical movement overrides horizontal tracks
     if (this.consumedGyres !== 0 && this.consumedSpellRef && this.consumedSpellRef.cellIndex.j == this.cellIndex.j) {
       this.moveVertically();
@@ -264,7 +263,6 @@ export class Phlegm extends Spell {
 
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
-    // console.log({ consumer, consumed: this })
     consumer.isInPhlegmField = true;
     consumer.phlegmCenterIndex = proxy({ ...this.cellIndex });
     consumer.phlegmSize = phlegmSize;

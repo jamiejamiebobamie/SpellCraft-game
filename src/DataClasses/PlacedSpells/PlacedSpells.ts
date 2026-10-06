@@ -28,7 +28,6 @@ export class PlacedSpells {
 
   removeInvalidSpells = (gameBoard: GameBoard): void => {
     const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
-    // console.log({ markedForRemoval })
     markedForRemoval.forEach(s => {
       const idx = this.spells.indexOf(s);
       if (idx !== -1) {
@@ -76,7 +75,6 @@ export class PlacedSpells {
   };
 
   updateSpells = async (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<void> => {
-    // console.log({ spells: this.spells })
     this.spells.forEach(s => {
       if (!s.getIsRemove()) {
         const moves = Math.abs(s.getPropertyValue('speedDirection'));
@@ -536,8 +534,6 @@ export class PlacedSpells {
           const isOverlappingColumn = j === hitColumn;
           const isOverlappingRow = i >= hitMinRow && i <= hitMaxRow
 
-          // console.log({ i, j, dir, parentCellIndex: parent.cellIndex, isOverlappingColumn, isOverlappingRow, hitColumn, hitMinRow, hitMaxRow, condition: isOverlappingColumn && isOverlappingRow })
-
           if (isOverlappingColumn && isOverlappingRow) {
             hit.consumingSpellIds.add(frag);
             frag.resolveSpellCollision(hit);
@@ -560,7 +556,6 @@ export class PlacedSpells {
   };
 
   public combineSpellsMaximally = (gameBoard: GameBoard): void => {
-    console.log("maximal")
     const MAX_COLS = GameBoard.NUM_COLS;
     const MAX_ROWS = GameBoard.NUM_ROWS;
 
@@ -603,7 +598,6 @@ export class PlacedSpells {
         if (root && root instanceof Quicken && !processed.has(root.id)) {
           let chainWidth = root.widthCells;
           const matchesToMerge: Spell[] = [];
-          console.log({ root, chainWidth, i, j })
 
           while (j + chainWidth < GameBoard.NUM_COLS) {
             const neighbor = matrix[i][j + chainWidth];

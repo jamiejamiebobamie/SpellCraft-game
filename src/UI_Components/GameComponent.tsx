@@ -105,6 +105,7 @@ export const GameComponent = () => {
     } else
       if (!rootGameStore.getHasFocus()) {
         setIsPlayerOutOfFocus(true);
+        rootGameStore.cancelPlacingSymbol();
       }
   }, []);
 
@@ -119,6 +120,7 @@ export const GameComponent = () => {
     } else
       if (!rootGameStore.getHasFocus()) {
         setIsPlayerOutOfFocus(true);
+        rootGameStore.cancelPlacingSymbol();
       }
   }, []);
 
@@ -174,8 +176,6 @@ export const GameComponent = () => {
   useEffect(() => {
     rootGameStore.setGameWrapperRef(gameWrapperRef);
   }, [gameWrapperRef]);
-
-
 
   const sceneElements = <>
     <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />

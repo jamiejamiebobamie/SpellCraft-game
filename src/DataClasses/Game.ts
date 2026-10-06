@@ -11,7 +11,7 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SpellConstructor } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
@@ -39,6 +39,8 @@ export class Game {
   players!: [Player, Player];
   humanPlayer: Player | null = null;
   computerPlayer: NPCPlayer | null = null;
+
+  playerGameSymbolSpellName: string | null = null;
 
   isClickDisabled: boolean = false; // TO-DO: reduce disabled variables... to 'isGameBoardDisabled'
   isHoverDisabled: boolean = false;
@@ -427,9 +429,23 @@ export class Game {
     return this.humanPlayer?.gameSymbol != null;
   }
 
+  getReadiedSpell = (): string | null => {
+    return this.playerGameSymbolSpellName;
+  }
+
+  getGameSymbol = (): GameSymbol | null => {
+    const gameSymbol = this.humanPlayer?.getGameSymbol();
+    return gameSymbol || null;
+  }
+
   cancelPlacingSymbol = (player?: Player): void => {
     const p = player ? player : this.humanPlayer;
     p?.setGameSymbol(null);
+    if (p === this.humanPlayer) {
+      this.playerGameSymbolSpellName = null;
+      console.log({ playerGameSymbolSpellName: this.playerGameSymbolSpellName })
+      this.forceUpdate();
+    }
   }
 
   placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
@@ -446,27 +462,30 @@ export class Game {
   }
 
   runInference = async (mouseCoords?: Point): Promise<void> => {
-
-    // Single click on cell creates Ether
+    // place num key spell or Fireball if no spell readied
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
-        const spell = GameSymbol.SPELL_LOOKUP.get('circle');
-        if (spell && this.humanPlayer) {
-          const s = new spell(this.humanPlayer);
-          const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
-          if (isPlayerHasFocus) {
-            const cost = s.getFocusCost();
-            this.humanPlayer.incurPlayerCostForSpell(cost);
-            this.placeSpellAt('circle', cellIndex);
-            this.placedSpells.combineSpellsMaximally(this.gameBoard);
-            if (this.humanPlayer.getFocus() < 1) {
-              this.setIsDoneWithTurn(true, this.humanPlayer);
+        if (this.humanPlayer) {
+          const inferenceString = this.humanPlayer?.getGameSymbol()?.symbolName || 'circle';
+          const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
+          if (spell) {
+            const s = new spell(this.humanPlayer);
+            const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
+            if (isPlayerHasFocus) {
+              const cost = s.getFocusCost();
+              this.humanPlayer.incurPlayerCostForSpell(cost);
+              this.placeSpellAt(inferenceString, cellIndex);
+              this.placedSpells.combineSpellsMaximally(this.gameBoard);
+              if (this.humanPlayer.getFocus() < 1) {
+                this.setIsDoneWithTurn(true, this.humanPlayer);
+              }
             }
           }
         }
         this.forceUpdate();
       }
+      this.cancelPlacingSymbol();
     }
 
     if (this.spellCanvas.getNumPoints() == 0) return;
@@ -499,11 +518,10 @@ export class Game {
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         const spell = GameSymbol.SPELL_LOOKUP.get(result);
         if (this.humanPlayer && spell) {
-          const s = new spell(this.humanPlayer);
-          const focusCost = s.getFocusCost() * freeCells.length;
-          this.humanPlayer.incurPlayerCostForSpell(focusCost);
+          // const s = new spell(this.humanPlayer);
+          // const focusCost = s.getFocusCost() * freeCells.length;
+          // this.humanPlayer.incurPlayerCostForSpell(focusCost);
           const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-          console.log({ freeCells, freePositions, focusCost })
           this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
         }
       }
@@ -522,6 +540,10 @@ export class Game {
     if (p) {
       const gameSymbol = proxy(new GameSymbol(inferenceString, p));
       p.setGameSymbol(gameSymbol);
+      if (p === this.humanPlayer) {
+        this.playerGameSymbolSpellName = gameSymbol.getSpellClass()?.spellName || null;
+        this.forceUpdate();
+      }
     }
   }
 
@@ -681,7 +703,6 @@ export class Game {
             const s = new spell(this.computerPlayer);
             const focusCost = s.getFocusCost() * freeCells.length;
             const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-            console.log({ freeCells, freePositions, focusCost })
             this.computerPlayer.incurPlayerCostForSpell(focusCost);
             this.spawnSizedSpellInstance(inferenceString, dominantCells, this.computerPlayer);
           }
@@ -808,6 +829,8 @@ export class Game {
   private spawnSizedSpellInstance = (symbol: string, cells: CellIndex[], activeCaster: any): void => {
     if (cells.length === 0 || !activeCaster) return;
 
+    let instance, count = 0;
+
     // 1. Establish absolute placement boundaries by caster direction / side
     const isHuman = activeCaster.getDirection() === 1;
     const minAllowedI = 0;
@@ -904,12 +927,13 @@ export class Game {
       };
 
       const placeSquare = (startR: number, startC: number, size: number): void => {
-        const instance = isPhlegm ? new Phlegm(activeCaster) : new Ether(activeCaster);
+        instance = isPhlegm ? new Phlegm(activeCaster) : new Ether(activeCaster);
         instance.widthCells = size;
         instance.heightCells = size;
 
         instance.setCellIndex({ i: minI + startR, j: minJ + startC });
         this.placedSpells.addSpell(instance);
+        count++;
 
         // Mark the local matrix slots as locked so smaller sizes don't stack inside it
         for (let r = 0; r < size; r++) {
@@ -949,7 +973,7 @@ export class Game {
           }
 
           if (contiguousHeight > 0) {
-            const instance = isGyreUp ? new GyreUp(activeCaster) : new GyreDown(activeCaster);
+            instance = isGyreUp ? new GyreUp(activeCaster) : new GyreDown(activeCaster);
             instance.widthCells = 1;
             instance.heightCells = contiguousHeight;
 
@@ -962,6 +986,7 @@ export class Game {
             }
 
             this.placedSpells.addSpell(instance);
+            count++;
             r += contiguousHeight;
           } else {
             r++;
@@ -988,7 +1013,7 @@ export class Game {
           if (contiguousWidth > 0) {
             const finalWidth = heightSpan > 1 ? 1 : contiguousWidth;
 
-            const instance = new Quicken(activeCaster);
+            instance = new Quicken(activeCaster);
             instance.widthCells = finalWidth;
             instance.heightCells = 1;
 
@@ -1000,12 +1025,18 @@ export class Game {
             }
 
             this.placedSpells.addSpell(instance);
+            count++;
             c += finalWidth;
           } else {
             c++;
           }
         }
       }
+    }
+    if (instance && this.humanPlayer) {
+      const s = new spell(this.humanPlayer);
+      const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
+      this.humanPlayer.incurPlayerCostForSpell(focusCost);
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
   };
