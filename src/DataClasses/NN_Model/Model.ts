@@ -71,7 +71,7 @@ export class Model {
 
         const maxDistance = this.findMaxDistance(rawPoints);
 
-        if(maxDistance < 30) return 'squiggle'; // too short 
+        if (maxDistance < 30) return 'squiggle'; // too short 
 
         const simplifiedPoints = this.ramerDouglasPeucker(rawPoints.map(p => {
             const normalizedPoint: Point = {

@@ -5,6 +5,20 @@ import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
 import { UniqueId } from '../UniqeId';
 import { proxy } from 'valtio';
 
+/*
+
+  In-between helper class.
+  Links player-drawn inference symbol/string to "Spell" class.
+
+  FUNCTIONS:
+    - maps inference string to Spell class
+    - used to start/stop IK_ARMComponent CSS anims
+    - used to display "Readied Spell" cursor spell
+
+  "Player" class HAS a GameSymbol.
+  "Game" class HAS a Player GameSymbol.
+
+*/
 export class GameSymbol extends UniqueId {
   symbolName!: InferenceString;
   readonly caster: Player;
@@ -20,14 +34,6 @@ export class GameSymbol extends UniqueId {
     ['diamond', GyreUp],
     ['triangle', GyreDown],
     ['star', Phlegm],
-  ]);
-
-  static readonly SPELL_NAME_LOOKUP = new Map<InferenceString, string>([
-    ['line', 'Quicken'],
-    ['circle', 'Ether'],
-    ['diamond', 'Gyre'],
-    ['star', 'Phlegm'],
-    ['triangle', 'Gyre'],
   ]);
 
   constructor(symbolName: InferenceString, caster: Player) {
@@ -65,35 +71,6 @@ export class GameSymbol extends UniqueId {
     }
 
     const spell = proxy(new this.SpellClass(this.caster));
-    let focusCost: number = spell.getFocusCost();
-
-    // this.incurPlayerCostForSpell(focusCost);
     return proxy(spell);
-
-    // const isHasFocus = this.incurPlayerCostForSpell(focusCost);
-
-    // if (isHasFocus) {
-    //   // Spawn the spell instance
-    //   return proxy(spell);
-    // } else {
-    //   return null;
-    // }
   };
-
-  /**
-   * Deducts focus resource. Converts focus deficit into direct health damage.
-   */
-  incurPlayerCostForSpell = (focusCost: number): void => {
-    if (this.caster.getFocus() >= focusCost) {
-      this.caster.decrementFocus(focusCost);
-      // getBloodMagicCost
-      // return true;
-    } else {
-      // Calculate how much focus is missing
-      const difference = focusCost - this.caster.getFocus();
-      this.caster.depleteFocusToZero();
-      this.caster.decrementHealth(difference * this.caster.getBloodMagicCost()); // Health covers the remaining resource debt
-    }
-    // return true;
-  }
 }

@@ -1,7 +1,7 @@
 import { PALETTE } from "./ColorPalette";
 import { GameParticle } from "../../../../DataClasses/types";
 
-export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, cellCols: number, time: number) {
+export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number, cellCols: number, time: number) {
     ctx.save();
 
     // --- CACHE INHERITED ALPHA FACTOR ---
@@ -139,7 +139,7 @@ export function spawnQuickenParticles(particles: GameParticle[], w: number, h: n
  * Creates a blinding pure-white laser flash channel during the first 30% of spawn timeframe,
  * before cracking down to standard electric blue details.
  */
-export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, cellCols: number, time: number, progress: number) {
+export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, cellCols: number, time: number, progress: number) {
     ctx.save();
     
     // --- CACHE INHERITED ALPHA FACTOR ---
@@ -153,7 +153,7 @@ export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: nu
         // Pass inherited alpha through to the branch drawing stage
         drawLightningBranch(ctx, 0, h / 2, w, h / 2, 4, h * 0.4, seed, '#ffffff', w * 0.12, 0, baseInheritedAlpha);
     } else {
-        drawQuicken(ctx, w, h, dir, cellCols, time);
+        drawQuicken(ctx, w, h, cellCols, time);
     }
 
     ctx.restore();
@@ -162,7 +162,6 @@ export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: nu
 
 export function spawnQuickenHitParticles(particles: GameParticle[], targetX: number, targetY: number, boardHeight: number) {
     const shockLinesCount = 6;
-
     for (let i = 0; i < shockLinesCount; i++) {
         particles.push({
             x: targetX + (Math.random() * 40 - 20),

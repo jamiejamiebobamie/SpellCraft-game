@@ -284,8 +284,6 @@ export class Phlegm extends Spell {
 
     // Extend active step limits so the engine doesn't cut the animation path early
     consumer.remainingMoves += Math.max(1, consumer.phlegmOrbitStepsRemaining);
-
-    // this.markSpellForRemoval();
   };
 
   getFocusCost = (): number => Phlegm.FOCUS_COST;
@@ -319,36 +317,13 @@ export abstract class Gyre extends Spell {
   }
 
   conferModifierTo = (consumer: Spell): void => {
-    // if (consumer instanceof Gyre) {
-    //   const sameDirection = (consumer instanceof GyreUp && this instanceof GyreUp) || (consumer instanceof GyreDown && this instanceof GyreDown);
-    //   if (sameDirection) {
-    //     // Increase structural sizing height
-    //     consumer.heightCells = Math.min(3, consumer.heightCells + this.heightCells);
-    //     this.markSpellForRemoval();
-    //   } else {
-    //     // Decrement height from opposing cancelations
-    //     consumer.heightCells = Math.max(0, consumer.heightCells - this.heightCells);
-    //     this.markSpellForRemoval();
-    //     if (consumer.heightCells <= 0) {
-    //       consumer.markSpellForRemoval();
-    //     }
-    //   }
-    // } else {
-
-
-      //       const rowShifts = this instanceof GyreDown ? this.cellIndex.i + this.heightCells : this.cellIndex.i - 1 - consumer.cellIndex.i;
-      // consumer.consumedGyres = rowShifts;
-
       // Push regular items vertically relative to entry index
       consumer.consumedGyres = this.rowShift * (this.heightCells + 1);
       // Give dynamic max extension loops tracking visibility
       consumer.remainingMoves += Math.abs(consumer.consumedGyres);
-      // this.markSpellForRemoval();
-
       consumer.consumedSpellRef = this;
       this.consumingSpellIds.add(consumer.id);
     }
-  // };
 
   getFocusCost = (): number => Gyre.FOCUS_COST;
 }

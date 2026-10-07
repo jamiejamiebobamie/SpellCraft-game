@@ -189,7 +189,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const [healthDiff, setHealthDiff] = useState(0);
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
 
-  const isDead = healthAmt <= 0;
+  const isDead = playerSnap?.getIsDead() || false;
 
   const avatar = (<AvatarFrame $src={src} $direction={direction}>
     <Damageable $healthDiff={healthDiff} $isDead={isDead}>

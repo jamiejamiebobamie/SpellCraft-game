@@ -171,7 +171,6 @@ export function drawGyre(
  */
 export function spawnGyreParticles(particles: GameParticle[], w: number, h: number) {
   const cx = w / 2;
-  const cy = h / 2;
   const lineCount = 15;
 
   for (let i = 0; i < lineCount; i++) {

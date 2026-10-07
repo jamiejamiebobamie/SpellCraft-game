@@ -5,7 +5,6 @@ import { UniqueId } from '../UniqeId';
 export class Player extends UniqueId {
   // Constants
   readonly direction: -1 | 1; // -1 (going left) or 1 (going right)
-  readonly color: string;     // Hex code
   readonly avatarUrl!: string;
 
   readonly avatarRightArmUrl: string = './player_avatars/RightArm.png';
@@ -30,10 +29,9 @@ export class Player extends UniqueId {
   gameSymbol: GameSymbol | null = null;
   isDoneWithTurn: boolean = true;
 
-  constructor(direction: -1 | 1, color: string, avatarUrl: string) {
+  constructor(direction: -1 | 1, avatarUrl: string) {
     super();
     this.direction = direction;
-    this.color = color;
     this.avatarUrl = avatarUrl;
   }
 
@@ -49,10 +47,6 @@ export class Player extends UniqueId {
 
   getHealth = (): number => {
     return this.healthAmt;
-  };
-
-  getMaxHealth = (): number => {
-    return Player.MAX_HEALTH_AMT;
   };
 
   getHealthPrct = (): number => {
@@ -82,10 +76,6 @@ export class Player extends UniqueId {
   // excess focus allowed above normal max
   getMaxExcessFocus = (): number => {
     return Player.MAX_EXCESS_FOCUS_AMT;
-  };
-
-  getColor = (): string => {
-    return this.color;
   };
 
   getDirection = (): number => {

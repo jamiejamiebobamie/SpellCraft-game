@@ -1,3 +1,4 @@
+// Used for SpellBook Symbol display.
 export const HARDCODED_SYMBOLS_FOR_DISPLAY = new Map([
     [
         'circle', [

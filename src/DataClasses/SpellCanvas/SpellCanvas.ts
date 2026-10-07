@@ -23,23 +23,10 @@ type CellPoint = {
 }
 
 export class SpellCanvas {
-    private isShowCanvas: boolean = false; // show/hide canvas
     private isDrawing: boolean = false; // controls adding points in React component
     private rawPoints: Point[] = [];
     private cellPoints: Array<CellPoint> = [];
     private currCellIndex: CellIndex | null = null;
-
-    public getIsShowCanvas(): boolean {
-        return this.isShowCanvas;
-    }
-
-    public toggleShowCanvas(): void {
-        this.isShowCanvas = !this.isShowCanvas;
-    }
-
-    public setIsShowCanvas(isShowCanvas: boolean): void {
-        this.isShowCanvas = isShowCanvas;
-    }
 
     public getIsDrawing(): boolean {
         return this.isDrawing;

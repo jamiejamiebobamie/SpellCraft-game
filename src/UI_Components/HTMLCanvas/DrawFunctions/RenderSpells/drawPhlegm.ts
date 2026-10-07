@@ -7,7 +7,7 @@ import { GameParticle } from "../../../../DataClasses/types";
  * streaming into itself with jagged, crested white froth barriers.
  * Infused with magical, glowing healing air bubbles.
  */
-export function drawPhlegm(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, time: number) {
+export function drawPhlegm(ctx: CanvasRenderingContext2D, w: number, h: number, time: number) {
   const cx = w / 2;
   const cy = h / 2;
   const rx = w * 0.44;
@@ -155,8 +155,6 @@ export function drawPhlegm(ctx: CanvasRenderingContext2D, w: number, h: number, 
   ctx.restore();
 }
 
-
-
 /**
  * 2. PHLEGM DESTRUCTION (Water Wheel)
  * Churning water splits outward into chunks that are heavily affected by gravity,
@@ -201,7 +199,7 @@ export function drawPhlegmSpawn(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.translate(-w / 2, -h / 2);
 
   // Fallback straight into your original drawing engine
-  drawPhlegm(ctx, w, h, 1, fastTime);
+  drawPhlegm(ctx, w, h, fastTime);
   ctx.restore();
 }
 
@@ -209,7 +207,7 @@ export function drawPhlegmSpawn(ctx: CanvasRenderingContext2D, w: number, h: num
  * 3. PHLEGM HIT EFFECT (Green Healing Symbols Rising)
  * Spawns bright green cross shapes (+) that gently float upward, rotating over time.
  */
-export function spawnPhlegmHitParticles(particles: GameParticle[], targetX: number, targetY: number, boardHeight: number) {
+export function spawnPhlegmHitParticles(particles: GameParticle[], targetX: number, targetY: number) {
   const crossCount = 12;
   for (let i = 0; i < crossCount; i++) {
     particles.push({

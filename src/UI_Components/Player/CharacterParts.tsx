@@ -169,7 +169,6 @@ export const FloorShadow = styled.div<{ $isHide: boolean }>`
   opacity: ${props => props.$isHide ? 0 : 1};
 `;
 
-
 export const AvatarHead = styled(CharacterPart)`
   top: -7.5cqw;
   left: 3.5cqw;
@@ -271,7 +270,6 @@ export const castingDiamondOrTriangle = keyframes`
   }
 `;
 
-// 2s
 export const castingLine = keyframes`
   0%, 100% {
     /* Base resting position */
@@ -318,8 +316,8 @@ export const castingLine = keyframes`
     transform: var(--extra-transform) translate(0.02cqw, -0.01cqw) rotate(1deg);
   }
 `;
-// TO-DO: check anims at different speeds. ('castingDiamondOrTriangle' and 'castingLine' should be fine...) adjust anims so that speed does not need to be changed per anim...
-export const castingStar = keyframes`
+
+export const castingCircle = keyframes`
   0% {
     /* Base resting position - compressing the spark */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);
@@ -354,7 +352,7 @@ export const castingStar = keyframes`
   }
 `;
 
-export const castingCircle = keyframes`
+export const castingStar = keyframes`
   0% {
     /* Base resting position */
     transform: var(--extra-transform) translate(0, 0) rotate(0deg);

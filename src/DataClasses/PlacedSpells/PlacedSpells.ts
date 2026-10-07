@@ -1,4 +1,3 @@
-// PlacedSpells.ts — PART 1
 import { Spell, Phlegm, Ether, Gyre, GyreUp, GyreDown, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex, CollisionResult } from '../types';
@@ -45,18 +44,6 @@ export class PlacedSpells {
     });
   };
 
-  static async* timedIterator<T>(items: T[], delayTime: number): AsyncGenerator<T, void, unknown> {
-    const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-    for (const item of items) {
-      await wait(delayTime);
-      yield item;
-    }
-  }
-
-  static getRangedArray = (range: number): Array<number> => {
-    return Array(range).fill(0).map((_, i) => i);
-  };
-
   private checkBoundingBoxOverlap = (
     posA: CellIndex, wA: number, hA: number,
     posB: CellIndex, wB: number, hB: number
@@ -95,22 +82,14 @@ export class PlacedSpells {
         break;
       }
 
-      /*
-        2x2 Ether colliding with 1x3 GyreUp -> 
-          ISSUES:
-            - spawns 4 1x1 Ether INSIDE GYRE COLUMN
-            - 1 1x1 Ether who was not impacted by GYRE COLUMN moves 3 spaces(???)
-            - 1 1x1 Ether who was not impacted by GYRE COLUMN stays in place and is in then destroyed at end of turn...
-      */
-
       const positionCache = this.cachePositions();
-      this.handleLookAheadCollisions(positionCache, gameBoard);
+      this.handleLookAheadCollisions(positionCache);
       this.clearGridFootprints(gameBoard);
 
       const anySpellMoved = this.executeSynchronousMicroSteps(gameBoard, forceUpdate, decrementPlayerHealth);
       if (!anySpellMoved) break;
 
-      this.handleMidStepCollisions(positionCache, gameBoard);
+      this.handleMidStepCollisions(positionCache);
 
       forceUpdate();
       await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
@@ -144,7 +123,7 @@ export class PlacedSpells {
     return positionCache;
   };
 
-  private handleLookAheadCollisions = (positionCache: Map<string, CellIndex>, gameBoard: GameBoard): void => {
+  private handleLookAheadCollisions = (positionCache: Map<string, CellIndex>): void => {
     const resolvedLookAheads = new Set<string>();
 
     for (let i = 0; i < this.spells.length; i++) {
@@ -179,7 +158,7 @@ export class PlacedSpells {
           if (resolvedLookAheads.has(pairKey)) continue;
           resolvedLookAheads.add(pairKey);
 
-          this.processCollisionPair(spellA, spellB, positionCache, true, gameBoard);
+          this.processCollisionPair(spellA, spellB, positionCache, true);
         }
       }
     }
@@ -252,7 +231,7 @@ export class PlacedSpells {
     return anySpellMoved;
   };
 
-  private handleMidStepCollisions = (positionCache: Map<string, CellIndex>, gameBoard: GameBoard): void => {
+  private handleMidStepCollisions = (positionCache: Map<string, CellIndex>): void => {
     const resolvedCollisions = new Set<string>();
 
     for (let i = 0; i < this.spells.length; i++) {
@@ -288,15 +267,15 @@ export class PlacedSpells {
             if (resolvedCollisions.has(pairKey)) continue;
             resolvedCollisions.add(pairKey);
 
-            this.processCollisionPair(spellA, spellB, positionCache, false, gameBoard);
+            this.processCollisionPair(spellA, spellB, positionCache, false);
           }
         }
       }
     }
   };
 
-  private processCollisionPair = async (spellA: Spell, spellB: Spell, positionCache: Map<string, CellIndex>, isLookAhead: boolean, gameBoard: GameBoard): Promise<void> => {
-    const { winner, loser } = await this.doCollision(spellA, spellB, gameBoard);
+  private processCollisionPair = async (spellA: Spell, spellB: Spell, positionCache: Map<string, CellIndex>, isLookAhead: boolean): Promise<void> => {
+    const { winner, loser } = await this.doCollision(spellA, spellB);
     if (winner && loser) {
       if (isLookAhead) {
         loser.remainingMoves = 0;
@@ -307,7 +286,7 @@ export class PlacedSpells {
     }
   };
 
-  private doCollision = async (spellA: Spell, spellB: Spell, gameBoard: GameBoard): Promise<CollisionResult> => {
+  private doCollision = async (spellA: Spell, spellB: Spell): Promise<CollisionResult> => {
     const dmgA = spellA.getPropertyValue('dmgHealth');
     const dmgB = spellB.getPropertyValue('dmgHealth');
 
@@ -315,7 +294,6 @@ export class PlacedSpells {
     let loser = spellB;
 
     if (
-      // !(spellA instanceof Gyre && spellB instanceof Gyre) &&
       dmgA === dmgB) {
       spellA.markSpellForRemoval();
       spellB.markSpellForRemoval();
@@ -326,11 +304,6 @@ export class PlacedSpells {
 
     const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
     const isCollisionWithTerrain = loser instanceof Phlegm || loser instanceof Gyre;
-
-    // removed for 1x1 collisions to register...
-    // if (!isWinnerSized && isCollisionWithTerrain) {
-    //   continue;
-    // }
 
     winner.resolveSpellCollision(loser);
 
@@ -387,7 +360,7 @@ export class PlacedSpells {
             if (resolvedPairs.has(pairKey)) continue;
             resolvedPairs.add(pairKey);
             structuralCollisionFoundThisPass = true;
-            this.doCollision(spellA, spellB, gameBoard);
+            this.doCollision(spellA, spellB);
             forceUpdate();
             break;
           }
@@ -720,6 +693,4 @@ export class PlacedSpells {
       }
     });
   };
-
-
 }

@@ -1,5 +1,5 @@
+// Used for NPC-drawing Symbol display.
 export const HARDCODED_SYMBOLS = new Map([
-
     [
         'circle', [
             { x: 0.51, y: 0.02 }, // Top center

@@ -54,11 +54,13 @@ const MainColumn = styled.div`
   z-index: 11;
 `;
 
+// TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
+
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const gameWrapperRef = useRef<HTMLDivElement | null>(null);
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
-  const mousePos = useRef({ x: 0, y: 0 }); // mouseCoords in 'mousePos' useRef to throttle state updates
+  const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();

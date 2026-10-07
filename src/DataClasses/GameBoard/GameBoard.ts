@@ -10,22 +10,18 @@ export class GameBoard {
   // Config Constants
   static readonly NUM_ROWS: number = 3;
   static readonly NUM_COLS: number = 7;
-
-  static readonly NUM_PLAYER_CELLS: number = 1;
   static readonly NUM_PLACEMENT_CELLS: number = 3;
-
-  readonly numPlayerCells: number = GameBoard.NUM_PLAYER_CELLS;     // Column size for endzones/home bases
-  readonly numPlacementCells: number = GameBoard.NUM_PLACEMENT_CELLS;  // Column depth allowing spell spawning
-
   static readonly HIDDEN_TRANSPARENCY_AMT = .3;
   static readonly SHOWN_TRANSPARENCY_AMT = .9;
+
+  // Column depth allowing spell spawning
+  readonly numPlacementCells: number = GameBoard.NUM_PLACEMENT_CELLS;
 
   // Board Data Layers
   readonly cells: Array<Cell> = [];
 
   // Interactive Overrides
-  private isClickDisabled: boolean = false;
-  private isHoverDisabled: boolean = false;
+  private isGameBoardDisabled: boolean = false;
   private transparencyAmt: number = GameBoard.SHOWN_TRANSPARENCY_AMT;
 
   gameBoardRef: RefObject<HTMLDivElement | null> | null = null;
@@ -46,17 +42,7 @@ export class GameBoard {
     for (let i = 0; i < GameBoard.NUM_ROWS; i++) {
       for (let j = 0; j < GameBoard.NUM_COLS; j++) {
         const cell = proxy(new Cell({ j, i })); // Map (j, i) matching coordinate logic
-
-        // 1. Assign Home-Bases / Player Owners (First columns vs Last columns)
-        if (j < this.numPlayerCells) {
-          cell.playerCellOwner = p1;
-          cell.backgroundIcon = 'p1-home-zone';
-        } else if (j >= GameBoard.NUM_COLS - this.numPlayerCells) {
-          cell.playerCellOwner = p2;
-          cell.backgroundIcon = 'p2-home-zone';
-        }
-
-        // 2. Assign Spawnable Deployment Zones (Within placement column boundaries)
+                // 2. Assign Spawnable Deployment Zones (Within placement column boundaries)
         const isP1SpellPlacementZone = j < this.numPlacementCells;
         const isP2SpellPlacementZone = j >= GameBoard.NUM_COLS - this.numPlacementCells;
 
@@ -93,7 +79,6 @@ export class GameBoard {
     const { width } = this.gameBoardRef.current.getBoundingClientRect();
     return width / GameBoard.NUM_COLS;
   }
-
 
   // --- Grid Index Calculators ---
 
@@ -149,7 +134,6 @@ export class GameBoard {
     return { i, j };
   };
 
-
   getCellAt = (index: CellIndex): Cell | null => {
     const idx1D = this.getOneDIndexFrom(index);
     if (idx1D === -1) return null;
@@ -178,30 +162,40 @@ export class GameBoard {
     return cell ? cell.getIsFree() : false;
   };
 
-  getIsClickDisabled = (): boolean => {
-    return this.isClickDisabled;
+  getIsGameBoardDisabled = (): boolean => {
+    return this.isGameBoardDisabled;
   };
 
-  getIsHoverDisabled = (): boolean => {
-    return this.isHoverDisabled;
+  // --- Interaction Configurations ---
+
+  setIsGameBoardDisabled = (isDisabled: boolean): void => {
+    this.isGameBoardDisabled = isDisabled;
   };
 
-  getRandomPlacementCell = (player: Player, rowIndex?: number): Cell => {
-    let placeCells = this.cells.filter(c =>
-      c.getIsFree() &&
-      c.getIsPlaceCell(player) &&
-      (rowIndex != undefined ?
-        c.getCellIndex().i == rowIndex
-        : true));
-    if (!placeCells.length) {
-      placeCells = this.cells.filter(c =>
-        c.getIsFree() &&
-        c.getIsPlaceCell(player));
-    }
+  getBoardTransparencyAmt = (): number => {
+    return this.transparencyAmt;
+  };
 
-    const rand = Math.floor(Math.random() * placeCells.length);
-    return placeCells[rand];
+  setBoardTransparencyAmt = (transparencyAmt: number): void => {
+    this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
+    this.cells.forEach(cell => cell.setTransparencyAmt(this.transparencyAmt));
+  };
+
+  reset = (): void => {
+    this.isGameBoardDisabled = false;
+    this.transparencyAmt = GameBoard.SHOWN_TRANSPARENCY_AMT;
+    this.cells.forEach(c => c.reset())
   }
+
+  enableBoard = (): void => {
+    this.setIsGameBoardDisabled(false);
+  }
+
+  disableBoard = (): void => {
+    this.setIsGameBoardDisabled(true);
+  }
+
+  // --- NPC Helper Functions ---
 
   npcGetFutureSpellCollisionRow = (): number => {
 
@@ -257,41 +251,4 @@ export class GameBoard {
     }).map(c => c.getSpell()).filter(s => s != null);
   }
 
-  // --- Interaction Configurations ---
-
-  setIsClickDisabled = (isDisabled: boolean): void => {
-    this.isClickDisabled = isDisabled;
-    this.cells.forEach(cell => cell.setIsClickDisabled(isDisabled));
-  };
-
-  setIsHoverDisabled = (isDisabled: boolean): void => {
-    this.isHoverDisabled = isDisabled;
-    this.cells.forEach(cell => cell.setIsHoverDisabled(isDisabled));
-  };
-
-  getBoardTransparencyAmt = (): number => {
-    return this.transparencyAmt;
-  };
-
-  setBoardTransparencyAmt = (transparencyAmt: number): void => {
-    this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
-    this.cells.forEach(cell => cell.setTransparencyAmt(this.transparencyAmt));
-  };
-
-  reset = (): void => {
-    this.isHoverDisabled = false;
-    this.isClickDisabled = false;
-    this.transparencyAmt = GameBoard.SHOWN_TRANSPARENCY_AMT;
-    this.hoveredCell = null;
-    this.clickedCell = null;
-    this.cells.forEach(c => c.reset())
-  }
-
-  enableBoard = (): void => {
-    this.setIsHoverDisabled(false);
-  }
-
-  disableBoard = (): void => {
-    this.setIsHoverDisabled(true);
-  }
 }

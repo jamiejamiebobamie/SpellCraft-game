@@ -26,10 +26,7 @@ const GridContainer = styled.div<{ $NUM_ROWS: number, $NUM_COLS: number }>`
 `;
 
 const StyledCell = styled.div<{
-    $isPlace: boolean;
-    $isHighlighted: boolean;
     $isDisabled: boolean;
-    $spellOwnerColor?: string;
     $transparency: number;
     $i: number;
     $j: number;
@@ -38,7 +35,6 @@ const StyledCell = styled.div<{
     $numPlacementCells: number;
     $isOccupied: boolean;
 }>`
-  /* 1. LIQUID GLASS BACKGROUND & BLUR */
   /* Replaced opaque colors with semi-transparent ones to allow backdrop-filter to work */
   background: rgba(200, 200, 210, 0.12);
 
@@ -46,7 +42,6 @@ const StyledCell = styled.div<{
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 
-  /* 2. REFRACED GLASS BORDERS & DEPTH */
   /* A very thin white-tinted border that acts as a shining edge highlight */
   border: 0.05cqw solid rgba(255, 255, 255, 0.35);
   box-shadow: 
@@ -66,16 +61,9 @@ const StyledCell = styled.div<{
   transition: opacity 1s ease, background 0.3s ease, border 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
   opacity: .1;
 
-  /* 3. ENVIRONMENTAL GLASS HOVER EFFECT */
-  ${props => props.$isHighlighted && `
-    filter: brightness(1.25);
-    box-shadow: 
-      inset 0 1px 2px rgba(255, 255, 255, 0.6),
-      0 0 15px rgba(255, 255, 255, 0.2);
-  `}
 
   &:hover {
-    ${props => (!props.$isDisabled && props.$isPlace || !props.$isDisabled)
+    ${props => !props.$isDisabled
         && `
         filter: brightness(1.2);
         box-shadow: 
@@ -84,9 +72,6 @@ const StyledCell = styled.div<{
       `};
   }
 
-  cursor: ${props => !props.$isDisabled && props.$isPlace ? 'pointer' : props.$isOccupied ? 'help' : 'inherit'};
-
-  /* 4. GLOSS SHIMMER LAYER (Liquid Surface Aspect) */
   &::after {
     content: '';
     position: absolute;
@@ -110,7 +95,7 @@ const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
-            <LockSymbolComponent isLocked={isDisabled} />
+            {/* <LockSymbolComponent isLocked={isDisabled} /> */}
             <HumanPlacementTilesComponent />
             {npcMoveData.map((npcMd, i) => <NpcSpellCanvasComponent key={npcMd.id} i={i} />)}
             <GridContainer
@@ -126,9 +111,6 @@ const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
                         $i={c.getCellIndex().i}
                         $j={c.getCellIndex().j}
                         $numPlacementCells={snap.gameBoard.numPlacementCells}
-                        $isPlace={snap.isCanPlaceGameSymbolOn(c)}
-                        $isHighlighted={c.getIsHighlighted()}
-                        $spellOwnerColor={c.getColor()}
                         $isOccupied={!c.getIsFree()}
                         $isDisabled={isDisabled}
                         $transparency={c.getTransparencyAmt()}

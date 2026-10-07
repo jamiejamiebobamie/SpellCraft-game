@@ -7,7 +7,7 @@ import { GameParticle } from "../../../../DataClasses/types";
  * A buoyant, rhythmically bobbing central core with trailing fire plumes 
  * that flame out opposite to the travel direction.
  */
-export function drawEther(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, time: number) {
+export function drawEther(ctx: CanvasRenderingContext2D, w: number, h: number, time: number) {
   const cx = w / 2 + (w / 10);
   const cy = h / 2;
   const radius = Math.min(w, h) * 0.3;
@@ -136,7 +136,7 @@ export function spawnEtherParticles(particles: GameParticle[], w: number, h: num
  * ETHER SPAWN (Fireball)
  * Springs into space with an elastic bounce while gathering environmental energy.
  */
-export function drawEtherSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, time: number, progress: number) {
+export function drawEtherSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, time: number, progress: number) {
   ctx.save();
 
   // 1. Elastic Curve Math: Starts at 0, overshoots to 1.15, settles smoothly back to 1.0
@@ -181,17 +181,16 @@ export function drawEtherSpawn(ctx: CanvasRenderingContext2D, w: number, h: numb
   }
 
   // 3. Fall straight back into your original base drawing script
-  drawEther(ctx, w, h, dir, time);
+  drawEther(ctx, w, h, time);
 
   ctx.restore();
 }
-
 
 /**
  * 2. ETHER HIT EFFECT (Flames Rising)
  * Engulfs the target in burning embers and fire plumes that rapidly drift upwards.
  */
-export function spawnEtherHitParticles(particles: GameParticle[], targetX: number, targetY: number, boardHeight: number) {
+export function spawnEtherHitParticles(particles: GameParticle[], targetX: number, targetY: number) {
   const flameCount = 35;
   for (let i = 0; i < flameCount; i++) {
     particles.push({

@@ -9,7 +9,7 @@ export type CellIndex = {
   j: number; // Column index
 };
 
-export type SpellPropertyName = /*'upDown' | */ 'speedDirection' | 'dmgHealth' | 'rowShift' /* |/* 'updateOrder' |*/ /* 'gyreLives' | 'empoweredPng'*/ /*| 'empoweredSpeedDirection' | 'empoweredDmgHealth' */ | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
+export type SpellPropertyName = 'speedDirection' | 'dmgHealth' | 'rowShift' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
 
 export type Direction = 1 | -1 | 0; // 0 = not valid value
 
@@ -27,15 +27,6 @@ export interface SpellClassBlueprint {
 export type SpellConstructor = SpellClassBlueprint;
 
 export type InferenceString = 'line' | 'circle' | 'star' | 'triangle' | 'diamond' | 'square' | 'squiggle' | 'SKIP'; // 'SKIP' for NPC AI
-
-export type GameStateProgressionPath = 'HappyPath' | 'UnHappyPath' | 'AltPath' | 'Esc' | null;
-
-export type BadgeValues = {
-  dmgHealth: number;
-  speedDirection: number;
-  // gyreLives: number;
-  // updateOrder: number;
-}
 
 export interface Point {
   x: number;
@@ -219,3 +210,14 @@ export const SFX_REGISTRY: Record<SoundEffectName, string> = {
 };
 
 export type AudioType = 'fx' | 'music';
+
+
+export const GameOverStatus = {
+  BothDead: 0,
+  PlayerWon: 1,
+  NpcWon: 2,
+  TimesUp: 3,
+} as const;
+
+// Create a type out of the object if needed
+export type GameOver = typeof GameOverStatus[keyof typeof GameOverStatus]; // "UP" | "DOWN"

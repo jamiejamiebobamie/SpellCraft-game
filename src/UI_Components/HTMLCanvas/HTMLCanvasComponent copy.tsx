@@ -146,8 +146,8 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
               const tGlobalY = bTopY + (cellHeightPx * 1.5), tGlobalX = isPlayerHit ? bLeftX - (cellWidthPx * 1.5) : bRightX + (cellWidthPx * 1.5);
               const tLocalX = tGlobalX - anim.visualX, tLocalY = tGlobalY - anim.visualY;
               if (spellClass === 'Quicken') spawnQuickenHitParticles(anim.particles, tLocalX, tLocalY, boardHeight);
-              else if (spellClass === 'Ether') spawnEtherHitParticles(anim.particles, tLocalX, tLocalY, boardHeight);
-              else if (spellClass === 'Phlegm') spawnPhlegmHitParticles(anim.particles, tLocalX, tLocalY, boardHeight);
+              else if (spellClass === 'Ether') spawnEtherHitParticles(anim.particles, tLocalX, tLocalY);
+              else if (spellClass === 'Phlegm') spawnPhlegmHitParticles(anim.particles, tLocalX, tLocalY);
               else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreHitParticles(anim.particles, tLocalX, tLocalY, isOpponentHit ? 'right' : 'left', cellWidthPx);
               anim.particles.push({ x: tLocalX + (Math.random() * 120 - 60), y: tLocalY + (Math.random() * 80 - 40), vx: (Math.random() * 30 - 15), vy: -110 - Math.random() * 30, alpha: 1.0, size: 50, color: spell.hitDamageAmount < 0 ? '#3bed8e' : '#ee3737', text: spell.hitDamageAmount < 0 ? `+${Math.abs(spell.hitDamageAmount)}` : `-${spell.hitDamageAmount}`, life: 1.0, decay: 0.8, type: 'floatingText' } as any);
             } else {
@@ -197,7 +197,6 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
 
         // LIVE MOUSE HOVER SPELL PREVIEW PIPELINE
         if (readiedSpell && scrollUIRef.current.currentMousePos.x > -500) {
-          console.log({ readiedSpell }, 'inside');
 
           const mX = scrollUIRef.current.currentMousePos.x;
           const mY = scrollUIRef.current.currentMousePos.y;

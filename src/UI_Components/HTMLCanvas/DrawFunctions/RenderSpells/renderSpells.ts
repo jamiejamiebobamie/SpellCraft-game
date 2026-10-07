@@ -31,7 +31,7 @@ export function drawProceduralSpell(
   const spellClass = spell.constructor.spellName;
 
   if (spellClass === 'Ether') {
-    drawEtherSpawn(ctx, w, h, dir, time, spawnProgress);
+    drawEtherSpawn(ctx, w, h, time, spawnProgress);
   } else if (spellClass === 'Phlegm') {
     drawPhlegmSpawn(ctx, w, h, time, spawnProgress);
   } else if (spellClass === 'GyreUp') {
@@ -50,7 +50,7 @@ export function drawProceduralSpell(
     drawGyreSpawn(ctx, w * 0.9, h, dir, 'down', time, spawnProgress, cellRows);
     ctx.restore();
   } else if (spellClass === 'Quicken') {
-    drawQuickenSpawn(ctx, w, h, dir, cellCols, time, spawnProgress);
+    drawQuickenSpawn(ctx, w, h, cellCols, time, spawnProgress);
   }
 
   ctx.restore();

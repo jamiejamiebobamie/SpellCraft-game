@@ -12,55 +12,59 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
 
-// TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
-export const GameOverStatus = {
-  BothDead: 0,
-  PlayerWon: 1,
-  NpcWon: 2,
-  TimesUp: 3,
-} as const;
+/*
 
-// Create a type out of the object if needed
-export type GameOver = typeof GameOverStatus[keyof typeof GameOverStatus]; // "UP" | "DOWN"
+  Interface class for UI_Components.
+  Initializes and delegates to subclasses for specific functionality.
+  Wraps subclass functions enabling easy delegation
 
+*/
 export class Game {
-  // Core Subsystem Managers
+
+  // GAME OVER
+  gameOver: GameOver | null = null;
+
+  // CLASS DELEGATES
   audioHandler!: AudioHandler;
   gameBoard!: GameBoard;
   placedSpells!: PlacedSpells;
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameClock!: GameClock;
-  keyActions: Array<KeyAction> = []; // TO-DO: consider KeyBindings class
 
+  /*
+  / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  TO-DO: consider making classes for below variables:
+  / - - - - - - - - - - - - - - - - - -
+  */
+  // PLAYERS
   players!: [Player, Player];
   humanPlayer: Player | null = null;
   computerPlayer: NPCPlayer | null = null;
-
-  playerGameSymbolSpellName: string | null = null;
-
-  isClickDisabled: boolean = false; // TO-DO: reduce disabled variables... to 'isGameBoardDisabled'
-  isHoverDisabled: boolean = false;
-  isSpellBookOpen: boolean = false;
-  hoveredSpell: Spell | null = null;
-  gameOver: GameOver | null = null;
-  isToolTips: boolean = true;
-
+  // DRAWING OFF BOARD
   drawingOffBoardCount: number = 0;
   isDrawingOffBoard: boolean = false;
   drawingOffBoardRef = 0;
-
+  // OUT OF FOCUS
   isOutOfFocus: boolean = false;
   isOutOfFocusRef = 0;
-
+  //
+  playerGameSymbolSpellName: string | null = null;
+  isSpellBookOpen: boolean = false;
+  isToolTips: boolean = true;
+  keyActions: Array<KeyAction> = [];
   npcMoveData: Array<NPCMoveData> = [];
-  gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
+  /*
+  / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  */
 
+
+  gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
   forceUpdate: () => void = () => { };
 
   constructor() {
@@ -85,24 +89,18 @@ export class Game {
   */
 
   init = (): void => {
-    const humanPlayer = proxy(new Player(1, '#3b82f6', './player_avatars/PlayerAvatar.png'));
-    const computerPlayer = proxy(new NPCPlayer(-1, '#ef4444', './player_avatars/PlayerAvatar_NPC.png'));
+    const humanPlayer = proxy(new Player(1, './player_avatars/PlayerAvatar.png'));
+    const computerPlayer = proxy(new NPCPlayer(-1, './player_avatars/PlayerAvatar_NPC.png'));
     this.players = [humanPlayer, computerPlayer];
     this.humanPlayer = humanPlayer;
     this.computerPlayer = computerPlayer;
-
     this.gameBoard = proxy(new GameBoard(humanPlayer, computerPlayer));
-
     this.placedSpells = proxy(new PlacedSpells());
     this.model = proxy(new Model());
     this.model.init();
-
     this.spellCanvas = proxy(new SpellCanvas());
-
     this.gameClock = proxy(new GameClock(this.endTurn));
-
     this.setupGameplayKeyBindings();
-
     this.audioHandler = new AudioHandler();
   };
 
@@ -111,10 +109,7 @@ export class Game {
     this.gameBoard.reset();
     this.players.forEach(p => p.reset());
     this.resetMinuteAngleAcc();
-    this.hoveredSpell = null;
     this.gameOver = null;
-    this.isClickDisabled = false;
-    this.isHoverDisabled = false;
     this.resetClock();
     this.enableGameBoard();
   };
@@ -214,7 +209,6 @@ export class Game {
     this.forceUpdate = forceUpdate;
   }
 
-
   startBackgroundMusic = (): void => {
     if (!this.audioHandler.getIsBackgroundMusicStarted()) {
       this.audioHandler.startBackgroundMusic()
@@ -272,16 +266,12 @@ export class Game {
   }
 
   getIsGameBoardDisabled = (): boolean => {
-    return this.gameBoard.getIsHoverDisabled();
+    return this.gameBoard.getIsGameBoardDisabled();
   }
 
-  enableGameBoard = (): void => {
-    this.gameBoard.enableBoard();
-  }
+  enableGameBoard = (): void => this.gameBoard.enableBoard();
 
-  disableGameBoard = (): void => {
-    this.gameBoard.disableBoard();
-  }
+  disableGameBoard = (): void => this.gameBoard.disableBoard();
 
   isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
     const p = player ? player : this.humanPlayer;
@@ -324,7 +314,6 @@ export class Game {
           spell.setCellIndex(cell.getCellIndex());
           this.placedSpells.addSpell(spell);
           this.gameBoard.setSpellAt(spell, cell);
-          // spell.setIsPlaced(true);
         }
       }
     }
@@ -369,11 +358,6 @@ export class Game {
     }
   }
 
-  getRandomPlacementCell = (player: Player, rowIndex?: number): Cell | null => {
-    const cell = this.gameBoard.getRandomPlacementCell(player, rowIndex);
-    return cell;
-  }
-
   npcGetFutureSpellCollisionRow = (): number => {
     return this.gameBoard.npcGetFutureSpellCollisionRow();
   }
@@ -395,12 +379,10 @@ export class Game {
   }
 
   beginDrawing = (): void => {
-    this.spellCanvas.setIsShowCanvas(true);
     this.spellCanvas.setIsDrawing(true);
   }
 
   endDrawing = (): void => {
-    this.spellCanvas.setIsShowCanvas(false);
     this.spellCanvas.setIsDrawing(false);
   }
 
@@ -444,30 +426,6 @@ export class Game {
     return this.spellCanvas.getRawPoints();
   }
 
-  getIsClickDisabled = (): boolean => {
-    return this.isClickDisabled;
-  }
-
-  setIsClickDisabled = (isClickDisabled: boolean): void => {
-    this.isClickDisabled = isClickDisabled;
-  }
-
-  getIsHoverDisabled = (): boolean => {
-    return this.isHoverDisabled;
-  }
-
-  setIsHoverDisabled = (isHoverDisabled: boolean): void => {
-    this.isHoverDisabled = isHoverDisabled;
-  }
-
-  getHoveredPlacedSpell = (): Spell | null => {
-    return this.gameBoard.hoveredCell?.getSpell() || null;
-  }
-
-  getIsPlacing = (): boolean => {
-    return this.humanPlayer?.gameSymbol != null;
-  }
-
   getReadiedSpell = (): string | null => {
     return this.playerGameSymbolSpellName;
   }
@@ -499,9 +457,11 @@ export class Game {
     }
   }
 
+  // Called "onMouseUp"
   runInference = async (mouseCoords?: Point): Promise<void> => {
-    // place num key spell or Fireball if no spell readied
+
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
+      // IF "CLICK" -> place num key spell or Fireball if no spell readied
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
         if (this.humanPlayer) {
@@ -532,6 +492,7 @@ export class Game {
 
     if (this.spellCanvas.getNumPoints() == 0) return;
 
+    // ELSE -> user drew symbol. runInference
     const rawPoints = this.spellCanvas.getRawPoints();
     const rawPointsSubsets = this.spellCanvas.getRawPointSubsets();
     this.spellCanvas.clearDrawing();
@@ -655,19 +616,8 @@ export class Game {
     return cellWidth;
   }
 
-  getGameWrapperRefDims = (): DivRefDimensions => {
-    return this.gameWrapperRef?.current?.getBoundingClientRect() || { width: 0, height: 0, top: 0, left: 0 };
-  }
-
   getBoardRefDimensions = (): DivRefDimensions => {
     return this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
-  }
-
-  getIsHumanPlayerDoneWithTurn = (): boolean => {
-    if (this.humanPlayer) {
-      return this.humanPlayer.getIsDoneWithTurn();
-    }
-    return true; // default to true...
   }
 
   getIsComputerPlayerDoneWithTurn = (): boolean => {
@@ -763,10 +713,7 @@ export class Game {
 
           if (this.computerPlayer && spell) {
             const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer as Player));
-            // const s = new spell(this.computerPlayer);
-            // const focusCost = s.getFocusCost() * freeCells.length;
             const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-            // this.computerPlayer.incurPlayerCostForSpell(focusCost);
             this.spawnSizedSpellInstance(inferenceString, freePositions, this.computerPlayer);
           }
         }

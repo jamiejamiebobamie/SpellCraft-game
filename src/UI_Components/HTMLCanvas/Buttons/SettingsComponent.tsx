@@ -100,11 +100,9 @@ const localStorageKeys = [
 
 export default function SettingsComponent({ isShowingModal, setIsGearHovered }: SettingsComponentComponentProps) {
   const snap = useSnapshot(rootGameStore);
-
   const isMusicMuted = snap.getIsMusicMuted();
   const isFxMuted = snap.getIsFxMuted();
   const [isClicked, setIsClicked] = useState<boolean>(false);
-
 
   useEffect(() => {
     localStorageKeys.forEach((k, i) => {

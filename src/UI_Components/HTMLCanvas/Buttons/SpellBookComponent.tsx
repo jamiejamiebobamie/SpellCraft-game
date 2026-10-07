@@ -94,17 +94,12 @@ const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
   ${props => !!props.$style && props.$style}
 `;
 
-
-type SpellBookComponentProps = {
-  isGearHovered: boolean
-}
-
+type SpellBookComponentProps = { isGearHovered: boolean }
 export default function SpellBookComponent({ isGearHovered }: SpellBookComponentProps) {
-  const [isClicked, setIsClicked] = useState<boolean>(false);
-  // const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
-  const snap = useSnapshot(rootGameStore) //
+  const snap = useSnapshot(rootGameStore);
   const isOpen = snap.getIsSpellBookOpen();
+  const [isClicked, setIsClicked] = useState<boolean>(false);
+  const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
   return (
     <MenuAnchor $isGearHovered={isGearHovered} data-click-type="ui-buttons">
       <TriggerBox
@@ -112,10 +107,6 @@ export default function SpellBookComponent({ isGearHovered }: SpellBookComponent
           rootGameStore.setIsSpellBookOpen(!isOpen);
           setIsClickedOnce(true);
         }}
-        //   setIsOpen(isOpen => {
-        //   setIsClickedOnce(true);
-        //   return !isOpen;
-        // })}
         onMouseDown={() => setIsClicked(true)}
         onMouseUp={() => setIsClicked(false)}
         $isClicked={isClicked}
