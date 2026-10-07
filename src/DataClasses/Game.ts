@@ -2,6 +2,8 @@
 import { RefObject } from 'react';
 import { AudioHandler } from './AudioHandler';
 import { GameBoard } from './GameBoard/GameBoard';
+import { Players } from './Player/Players';
+import { TooltipManager } from './TooltipManager/TooltipManager'
 import { Cell } from './GameBoard/Cell';
 import { PlacedSpells } from './PlacedSpells/PlacedSpells';
 import { Model } from './NN_Model/Model';
@@ -26,8 +28,15 @@ import { proxy } from 'valtio';
 */
 export class Game {
 
+  // UI-SPECIFIC
+  gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
+  forceUpdate: () => void = () => { };
+
   // GAME OVER
   gameOver: GameOver | null = null;
+
+  // KEY BINDINGS
+  keyActions: Array<KeyAction> = [];
 
   // CLASS DELEGATES
   audioHandler!: AudioHandler;
@@ -36,86 +45,138 @@ export class Game {
   model!: Model;
   spellCanvas!: SpellCanvas;
   gameClock!: GameClock;
+  players!: Players;
+  tooltipManager!: TooltipManager;
 
   /*
   / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  TO-DO: consider making classes for below variables:
+  TO-DO: npcMoveData and NPV move logic into NpcPlayer class...
   / - - - - - - - - - - - - - - - - - -
   */
-  // PLAYERS
-  players!: [Player, Player];
-  humanPlayer: Player | null = null;
-  computerPlayer: NPCPlayer | null = null;
-  // DRAWING OFF BOARD
-  drawingOffBoardCount: number = 0;
-  isDrawingOffBoard: boolean = false;
-  drawingOffBoardRef = 0;
-  // OUT OF FOCUS
-  isOutOfFocus: boolean = false;
-  isOutOfFocusRef = 0;
-  //
-  playerGameSymbolSpellName: string | null = null;
-  isSpellBookOpen: boolean = false;
-  isToolTips: boolean = true;
-  keyActions: Array<KeyAction> = [];
   npcMoveData: Array<NPCMoveData> = [];
   /*
   / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   */
 
-
-  gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
-  forceUpdate: () => void = () => { };
-
   constructor() {
     this.init();
   }
 
-  /*
-  
-
-  TO-DO: consider showing tips (that can be toggled off) for certain actions the first time they are triggered:
-
-    - drawing off the board completely or completely off placement cells
-    - casting more than 4 spells per turn (blood magic)
-    - healing with Phelgm
-    - reversing with Phlegm
-    - out of focus -> end turn -> progressing time necessary, but increases chances of getting caught by a teacher!
-    - consuming a spell
-    - NPC casting a spell -> what is the conceit of the game? what is the goal?
-
-    TO-DO: store "toggle-off tool tips" in local storage
-  
-  */
-
   init = (): void => {
-    const humanPlayer = proxy(new Player(1, './player_avatars/PlayerAvatar.png'));
-    const computerPlayer = proxy(new NPCPlayer(-1, './player_avatars/PlayerAvatar_NPC.png'));
-    this.players = [humanPlayer, computerPlayer];
-    this.humanPlayer = humanPlayer;
-    this.computerPlayer = computerPlayer;
-    this.gameBoard = proxy(new GameBoard(humanPlayer, computerPlayer));
+    this.players = proxy(new Players());
+    this.players.init();
+    const humanPlayer = this.players.getHumanPlayer(), npcPlayer = this.players.getNpcPlayer();
+    if (humanPlayer && npcPlayer)
+      this.gameBoard = proxy(new GameBoard(humanPlayer, npcPlayer));
     this.placedSpells = proxy(new PlacedSpells());
     this.model = proxy(new Model());
     this.model.init();
     this.spellCanvas = proxy(new SpellCanvas());
     this.gameClock = proxy(new GameClock(this.endTurn));
+    this.audioHandler = proxy(new AudioHandler());
+    this.tooltipManager = proxy(new TooltipManager());
+
     this.setupGameplayKeyBindings();
-    this.audioHandler = new AudioHandler();
   };
 
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
-    this.players.forEach(p => p.reset());
+    this.players.reset();
     this.resetMinuteAngleAcc();
     this.gameOver = null;
     this.resetClock();
     this.enableGameBoard();
   };
 
-  // --- GameState Input Delegation Wrappers ---
+  getGameOver = (): GameOver | null => this.gameOver;
 
+  setGameOver = (status: GameOver): void => {
+    this.gameOver = status;
+  }
+
+  // CHECK FOR GAME OVER CONDITION...
+  checkIfIsGameOverAndReset = (): boolean => {
+    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+    const deadPlayers = this.players.getDeadPlayers();
+    switch (deadPlayers.length) {
+      case 2:
+        this.gameOver = GameOverStatus.BothDead;
+        break;
+      case 1:
+        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
+        break;
+    }
+
+    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
+    if (!deadPlayers.length) {
+
+      const MINUTES_HAND = 12;
+      const HOURS_HAND = 6;
+      const SUNRISE = MINUTES_HAND * HOURS_HAND;
+
+      const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
+
+      const isPastSunrise = currTotalMinutes > SUNRISE; // TO-DO: test this...
+
+      if (isPastSunrise) {
+        this.gameOver = GameOverStatus.TimesUp
+      }
+    }
+
+    const isGameOver = this.gameOver !== null;
+    if (this.gameOver) {
+      this.disableGameBoard();
+      setTimeout(() => { this.resetGame(); this.forceUpdate(); }, 3000); // TESTING
+      this.forceUpdate();
+    }
+    return isGameOver;
+  }
+
+  endTurn = async (): Promise<void> => {
+    if (!this.getIsGameBoardDisabled()) {
+
+      this.resetNpcMove();
+
+      let isGameOver = this.checkIfIsGameOverAndReset();
+      if (isGameOver) {
+        return;
+      }
+
+      this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
+
+      this.resetClock();
+      this.pauseClock();
+      this.incrementMinuteAngleAcc();
+      this.forceUpdate();
+      this.disableGameBoard();
+      await this.updatePlacedSpells();
+      this.regenFocusForPlayers();
+      this.enableGameBoard();
+
+      isGameOver = this.checkIfIsGameOverAndReset();
+      if (isGameOver) {
+        return;
+      }
+
+      const [humanPlayer, npcPlayer] = this.players.getPlayers();
+
+      // TESTING - - - - -
+      if (humanPlayer && npcPlayer) {
+        this.setIsDoneWithTurn(false, npcPlayer);
+        this.setIsDoneWithTurn(false, humanPlayer);
+        npcPlayer.setGameSymbol(null);
+        humanPlayer.setGameSymbol(null);
+        (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
+        setTimeout(() => this.doNpcMove(), 1000);
+      }
+      // TESTING - - - - -
+
+      this.forceUpdate();
+    }
+  }
+
+  // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   setupGameplayKeyBindings = (): void => {
     const keyActions: Array<KeyAction> = [];
 
@@ -155,28 +216,27 @@ export class Game {
         keycodes,
         action: () => {
           const cell = this.gameBoard.getCellAt(cellIndex);
-          if (cell && this.humanPlayer) {
-            const gameSymbol = this.humanPlayer.getGameSymbol();
+          const humanPlayer = this.players.getHumanPlayer();
+          if (cell && humanPlayer) {
+            const gameSymbol = humanPlayer.getGameSymbol();
             if (!gameSymbol) return;
             const inferenceString = gameSymbol.symbolName as InferenceString;
             const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
             if (spell) {
-              const s = new spell(this.humanPlayer);
-              const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
+              const s = new spell(humanPlayer);
+              const isPlayerHasFocus = humanPlayer.getFocus() != 0;
               if (isPlayerHasFocus) {
                 const cost = s.getFocusCost();
-                this.humanPlayer.incurPlayerCostForSpell(cost);
+                humanPlayer.incurPlayerCostForSpell(cost);
                 const spellName = s.getSpellName();
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
                 this.placeSpellAt(inferenceString, cellIndex);
                 this.placedSpells.combineSpellsMaximally(this.gameBoard);
-                if (this.humanPlayer.getFocus() < 1) {
-                  this.setIsDoneWithTurn(true, this.humanPlayer);
+                if (humanPlayer.getFocus() < 1) {
+                  this.setIsDoneWithTurn(true, humanPlayer);
                 }
               } else {
-                clearTimeout(this.isOutOfFocusRef);
-                this.isOutOfFocus = true;
-                this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; this.forceUpdate(); }, 3000);
+                this.tooltipManager.doOutOfFocusFlash(this.forceUpdate);
               }
             }
             this.cancelPlacingSymbol();
@@ -201,91 +261,120 @@ export class Game {
     this.keyActions = proxy(keyActions);
   }
 
-  useGameplayKeyBindings = (): void => {
-    useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate });
-  }
+  useGameplayKeyBindings = (): void => useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate });
+  // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+  // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => this.gameBoard.setGameBoardRef(gameBoardRef);
+  setGameWrapperRef = (gameWrapperRef: RefObject<HTMLDivElement | null>): void => {
+    this.gameWrapperRef = gameWrapperRef;
+  }
   setForceUpdate = (forceUpdate: () => void) => {
     this.forceUpdate = forceUpdate;
   }
+  // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+  // AUDIO MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   startBackgroundMusic = (): void => {
     if (!this.audioHandler.getIsBackgroundMusicStarted()) {
       this.audioHandler.startBackgroundMusic()
     }
   }
-
   getIsMusicMuted = (): boolean => this.audioHandler.getIsMusicMuted()
   getIsFxMuted = (): boolean => this.audioHandler.getIsFxMuted();
   toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
     this.audioHandler.toggleAudio(audioType, isMuted);
     this.forceUpdate();
   }
+  // AUDIO MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  // --- Action Dispatcher Utilities ---
 
-  getMinuteAngleAcc = (): number => {
-    return this.gameClock.getMinuteAngleAcc();
-  }
+  // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getIsSpellBookOpen = (): boolean => this.tooltipManager.getIsSpellBookOpen();
+  setIsSpellBookOpen = (isSpellBookOpen: boolean): void => { this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen); }
+  incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
+  getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
+  getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();
+  // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  incrementMinuteAngleAcc = (): void => {
-    this.gameClock.incrementMinuteAngleAcc();
-  }
 
-  resetMinuteAngleAcc = (): void => {
-    this.gameClock.resetMinuteAngleAcc();
-  }
-
-  getSecondsHandAngle = (): number => {
-    return this.gameClock.getSecondsHandAngle();
-  }
-
-  resetClock = (): void => {
-    this.gameClock.resetClock();
-  }
-
-  pauseClock = (): void => {
-    this.gameClock.pauseClock();
-  }
-
-  unpauseClock = (): void => {
-    this.gameClock.unpauseClock();
-  }
-
-  startClock = (): void => {
-    this.gameClock.startClock();
-  }
-
-  stopClock = (): void => {
-    this.gameClock.stopClock();
-  }
-
+  // GAMECLOCK - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getMinuteAngleAcc = (): number => this.gameClock.getMinuteAngleAcc();
+  incrementMinuteAngleAcc = (): void => this.gameClock.incrementMinuteAngleAcc();
+  resetMinuteAngleAcc = (): void => this.gameClock.resetMinuteAngleAcc();
+  getSecondsHandAngle = (): number => this.gameClock.getSecondsHandAngle();
+  resetClock = (): void => this.gameClock.resetClock();
+  pauseClock = (): void => this.gameClock.pauseClock();
+  unpauseClock = (): void => this.gameClock.unpauseClock();
+  startClock = (): void => this.gameClock.startClock();
+  stopClock = (): void => this.gameClock.stopClock();
   getClockChimeSeconds = (): number => {
     const numTotalMoves = this.placedSpells.spells.reduce((acc, item) => acc + Math.abs(item.speedDirection), 0);
     return Math.max(4, Math.floor(numTotalMoves * PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 1000));
   }
+  // GAMECLOCK - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  getIsGameBoardDisabled = (): boolean => {
-    return this.gameBoard.getIsGameBoardDisabled();
-  }
 
+  // GAMEBOARD - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getCellWidth = (): number | null => this.gameBoard.getCellWidth();
+  getBoardRefDimensions = (): DivRefDimensions => this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
+  getIsGameBoardDisabled = (): boolean => this.gameBoard.getIsGameBoardDisabled();
   enableGameBoard = (): void => this.gameBoard.enableBoard();
-
   disableGameBoard = (): void => this.gameBoard.disableBoard();
-
   isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
-    const p = player ? player : this.humanPlayer;
+    const p = player ? player : this.players.getHumanPlayer();
     return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
   }
-
-  regenFocusForPlayers = () => {
-    this.players.forEach(p => p.decrementFocus(p.getFocusRegenAmt()));
+  placeSpellOnBoard = async (cell: Cell, player?: Player): Promise<void> => {
+    const p = player ? player : this.players.getHumanPlayer();
+    if (p && this.isCanPlaceGameSymbolOn(cell, p)) {
+      const gameSymbol = p.getGameSymbol();
+      if (gameSymbol) {
+        const spell = gameSymbol.instantiateSpell();
+        if (spell instanceof Spell) {
+          p.setGameSymbol(null);
+          spell.setCellIndex(cell.getCellIndex());
+          this.placedSpells.addSpell(spell);
+          this.gameBoard.setSpellAt(spell, cell);
+        }
+      }
+    }
   }
+  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
+    const p = player ? player : this.players.getHumanPlayer();
+    if (p) {
+      this.instantiateGameSymbolFromInferenceString(inferenceString, p);
+      const cell = this.getCellAt(cellIndex);
+      if (cell) {
+        if (this.isCanPlaceGameSymbolOn(cell, p)) {
+          this.placeSpellOnBoard(cell, p);
+        }
+      }
+    }
+  }
+  getCellAt = (cellIndex: CellIndex): Cell | null => this.gameBoard.getCellAt(cellIndex);
+  npcGetFutureSpellCollisionRow = (): number => this.gameBoard.npcGetFutureSpellCollisionRow();
+  // GAMEBOARD - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+  // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getHasFocus = (): boolean => {
+    const humanPlayer = this.players.getHumanPlayer();
+    if (humanPlayer) {
+      return humanPlayer.getFocus() > 0;
+    } else return false;
+  }
+  getGameSymbolIcon = (): string => this.players.getGameSymbolIcon();
+  getHumanPlayer = (): Player | null => this.players.getHumanPlayer();
+  getNpcPlayer = (): NPCPlayer | null => this.players.getNpcPlayer();
+  regenFocusForPlayers = () => this.players.regenFocusForPlayers();
   decrementPlayerHealth = (playerIndex: number, dmg: number): void => {
     if ([0, 1].includes(playerIndex) && dmg) {
-      this.players[playerIndex].decrementHealth(dmg);
-      const remainingHealth = (this.players[playerIndex].getHealth() - dmg);
+      const p = this.players.getPlayer(playerIndex);
+      p.decrementHealth(dmg);
+      const remainingHealth = (p.getHealth() - dmg);
       if (remainingHealth <= 0) {
         // death-cry
         this.audioHandler.startSoundEffect('wizard-Death-Cry');
@@ -302,98 +391,30 @@ export class Game {
       }
     }
   }
-
-  placeSpellOnBoard = async (cell: Cell, player?: Player): Promise<void> => {
-    const p = player ? player : this.humanPlayer;
-    if (p && this.isCanPlaceGameSymbolOn(cell, p)) {
-      const gameSymbol = p.getGameSymbol();
-      if (gameSymbol) {
-        const spell = gameSymbol.instantiateSpell();
-        if (spell instanceof Spell) {
-          p.setGameSymbol(null);
-          spell.setCellIndex(cell.getCellIndex());
-          this.placedSpells.addSpell(spell);
-          this.gameBoard.setSpellAt(spell, cell);
-        }
-      }
+  getReadiedSpell = (): string | null => this.players.getReadiedSpell();
+  getGameSymbol = (): GameSymbol | null => this.players.getGameSymbol();
+  cancelPlacingSymbol = (player?: Player): void => {
+    this.players.cancelPlacingSymbol(player);
+    this.forceUpdate();
+  }
+  getIsComputerPlayerDoneWithTurn = (): boolean => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      return npc.getIsDoneWithTurn();
     }
+    return false; // default to false...
   }
-
-  getCellAt = (cellIndex: CellIndex): Cell | null => {
-    const cell = this.gameBoard.getCellAt(cellIndex);
-    return cell;
+  setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
+    player.setIsDoneWithTurn(isDoneWithTurn);
   }
+  // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  getIsOutOfFocus = (): boolean => this.isOutOfFocus;
 
-  getHasFocus = (): boolean => {
-    if (this.humanPlayer) {
-      return this.humanPlayer.getFocus() > 0;
-    } else return false;
-  }
-
-  getHumanPlayer = (): Player | null => {
-    return this.humanPlayer;
-  }
-
-  getNpcPlayer = (): NPCPlayer | null => {
-    return this.computerPlayer;
-  }
-
-  getNpcDifficulty = (): NpcDifficulty => {
-    if (this.computerPlayer) return this.computerPlayer.difficulty;
-    else return 'Normal'
-  }
-
-  setNpcDifficulty = (difficulty: NpcDifficulty): void => {
-    if (this.computerPlayer) {
-      this.computerPlayer.setNpcDifficulty(difficulty)
-    }
-  }
-
-  cycleThroughDifficulties = (): void => {
-    if (this.computerPlayer) {
-      this.computerPlayer.cycleThroughDifficulties();
-      this.forceUpdate();
-    }
-  }
-
-  npcGetFutureSpellCollisionRow = (): number => {
-    return this.gameBoard.npcGetFutureSpellCollisionRow();
-  }
-
-  updatePlacedSpells = async () => {
-    // uses a generator/iterator
-    await this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
-  }
-
-  getGameSymbolIcon = (): string => {
-    if (this.humanPlayer) {
-      const gameSymbol = this.humanPlayer.getGameSymbol();
-      if (gameSymbol) {
-        const SpellClass = GameSymbol.SPELL_LOOKUP.get(gameSymbol.symbolName);
-        return SpellClass ? `spell-icons/${SpellClass.spellName}Icon_mockup.png` : '';
-      }
-    }
-    return '';
-  }
-
-  beginDrawing = (): void => {
-    this.spellCanvas.setIsDrawing(true);
-  }
-
-  endDrawing = (): void => {
-    this.spellCanvas.setIsDrawing(false);
-  }
-
-  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => {
-    this.gameBoard.setGameBoardRef(gameBoardRef);
-  }
-
-  setGameWrapperRef = (gameWrapperRef: RefObject<HTMLDivElement | null>): void => {
-    this.gameWrapperRef = gameWrapperRef;
-  }
-
+  // SPELL CANVAS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  beginDrawing = (): void => this.spellCanvas.setIsDrawing(true);
+  endDrawing = (): void => this.spellCanvas.setIsDrawing(false);
+  getIsDrawing = (): boolean => this.spellCanvas.getIsDrawing();
+  getPlayerRawPoints = (): Array<Point> => this.spellCanvas.getRawPoints();
   addRawPoint(x: number, y: number): void {
     const nextPoint = { x, y };
     let lastPoint = undefined;
@@ -417,44 +438,16 @@ export class Game {
     }
     this.spellCanvas.addRawPoint(x, y);
   }
+  // SPELL CANVAS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  getIsDrawing = (): boolean => {
-    return this.spellCanvas.getIsDrawing();
-  }
 
-  getPlayerRawPoints(): Array<Point> {
-    return this.spellCanvas.getRawPoints();
-  }
 
-  getReadiedSpell = (): string | null => {
-    return this.playerGameSymbolSpellName;
-  }
 
-  getGameSymbol = (): GameSymbol | null => {
-    const gameSymbol = this.humanPlayer?.getGameSymbol();
-    return gameSymbol || null;
-  }
 
-  cancelPlacingSymbol = (player?: Player): void => {
-    const p = player ? player : this.humanPlayer;
-    p?.setGameSymbol(null);
-    if (p === this.humanPlayer) {
-      this.playerGameSymbolSpellName = null;
-      this.forceUpdate();
-    }
-  }
 
-  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
-    const p = player ? player : this.humanPlayer;
-    if (p) {
-      this.instantiateGameSymbolFromInferenceString(inferenceString, p);
-      const cell = this.getCellAt(cellIndex);
-      if (cell) {
-        if (this.isCanPlaceGameSymbolOn(cell, p)) {
-          this.placeSpellOnBoard(cell, p);
-        }
-      }
-    }
+  updatePlacedSpells = async () => {
+    // uses a generator/iterator
+    await this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
   }
 
   // Called "onMouseUp"
@@ -464,21 +457,22 @@ export class Game {
       // IF "CLICK" -> place num key spell or Fireball if no spell readied
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
-        if (this.humanPlayer) {
-          const inferenceString = this.humanPlayer?.getGameSymbol()?.symbolName || 'circle';
+        const humanPlayer = this.players.getHumanPlayer();
+        if (humanPlayer) {
+          const inferenceString = humanPlayer?.getGameSymbol()?.symbolName || 'circle';
           const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
           if (spell) {
-            const s = new spell(this.humanPlayer);
-            const isPlayerHasFocus = this.humanPlayer.getFocus() != 0;
+            const s = new spell(humanPlayer);
+            const isPlayerHasFocus = humanPlayer.getFocus() != 0;
             if (isPlayerHasFocus) {
               const cost = s.getFocusCost();
-              this.humanPlayer.incurPlayerCostForSpell(cost);
+              humanPlayer.incurPlayerCostForSpell(cost);
               const spellName = s.getSpellName();
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
               this.placeSpellAt(inferenceString, cellIndex);
               this.placedSpells.combineSpellsMaximally(this.gameBoard);
-              if (this.humanPlayer.getFocus() < 1) {
-                this.setIsDoneWithTurn(true, this.humanPlayer);
+              if (humanPlayer.getFocus() < 1) {
+                this.setIsDoneWithTurn(true, humanPlayer);
               }
             }
           }
@@ -493,6 +487,7 @@ export class Game {
     if (this.spellCanvas.getNumPoints() == 0) return;
 
     // ELSE -> user drew symbol. runInference
+    const humanPlayer = this.players.getHumanPlayer();
     const rawPoints = this.spellCanvas.getRawPoints();
     const rawPointsSubsets = this.spellCanvas.getRawPointSubsets();
     this.spellCanvas.clearDrawing();
@@ -517,278 +512,29 @@ export class Game {
     if (!GameSymbol.FIZZLE_INFERENCES.includes(result)) {
       // Extract dominant layout targets from the collection stream points
       const dominantCells = this.filterDominantCells(rawPoints);
-      if (dominantCells.length > 0 && this.humanPlayer) {
+      if (dominantCells.length > 0 && humanPlayer) {
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         const spell = GameSymbol.SPELL_LOOKUP.get(result);
-        if (this.humanPlayer && spell) {
+        if (humanPlayer && spell) {
           const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-          this.spawnSizedSpellInstance(result, freePositions, this.humanPlayer);
+          this.spawnSizedSpellInstance(result, freePositions, humanPlayer);
         }
       } else {
         this.incrementDrawingOffBoard();
       }
     }
 
-    if (this.humanPlayer) {
-      if (this.humanPlayer.getFocus() < 1) {
-        this.setIsDoneWithTurn(true, this.humanPlayer);
+    if (humanPlayer) {
+      if (humanPlayer.getFocus() < 1) {
+        this.setIsDoneWithTurn(true, humanPlayer);
       }
     }
     this.forceUpdate();
-  }
-
-  incrementDrawingOffBoard = (): void => {
-    this.drawingOffBoardCount++;
-    if (this.drawingOffBoardCount > 1) {
-      clearTimeout(this.drawingOffBoardRef);
-      this.isDrawingOffBoard = true;
-      this.forceUpdate();
-      this.drawingOffBoardRef = setTimeout(() => {
-        this.isDrawingOffBoard = false;
-        this.drawingOffBoardCount = 0;
-        this.forceUpdate();
-      }, 2000);
-    }
-  }
-
-  getIsDrawingOffBoard = (): boolean => this.isDrawingOffBoard;
-
-  instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
-    const p = player ? player : this.humanPlayer;
-    if (p) {
-      const gameSymbol = proxy(new GameSymbol(inferenceString, p));
-      p.setGameSymbol(gameSymbol);
-
-      const spellName = gameSymbol.getSpellClass()?.spellName
-      this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
-
-      if (p === this.humanPlayer) {
-        this.playerGameSymbolSpellName = gameSymbol.getSpellClass()?.spellName || null;
-        this.forceUpdate();
-      }
-    }
-  }
-
-  endTurn = async (): Promise<void> => {
-    if (!this.getIsGameBoardDisabled()) {
-
-      this.resetNpcMove();
-
-      let isGameOver = this.checkIfIsGameOverAndReset();
-      if (isGameOver) {
-        return;
-      }
-
-      this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
-
-      this.resetClock();
-      this.pauseClock();
-      this.incrementMinuteAngleAcc();
-      this.forceUpdate();
-      this.disableGameBoard();
-      await this.updatePlacedSpells();
-      this.regenFocusForPlayers();
-      this.enableGameBoard();
-
-      isGameOver = this.checkIfIsGameOverAndReset();
-      if (isGameOver) {
-        return;
-      }
-
-      // TESTING - - - - -
-      if (this.computerPlayer && this.humanPlayer) {
-        this.setIsDoneWithTurn(false, this.computerPlayer);
-        this.setIsDoneWithTurn(false, this.humanPlayer);
-        this.computerPlayer.setGameSymbol(null);
-        this.humanPlayer.setGameSymbol(null);
-        this.computerPlayer.resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-        setTimeout(() => this.doNpcMove(), 1000);
-      }
-      // TESTING - - - - -
-
-      if (!this.isSpellBookOpen) this.unpauseClock();
-      this.forceUpdate();
-    }
-  }
-
-  getCellWidth = (): number | null => {
-    const cellWidth = this.gameBoard.getCellWidth()
-    return cellWidth;
-  }
-
-  getBoardRefDimensions = (): DivRefDimensions => {
-    return this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
-  }
-
-  getIsComputerPlayerDoneWithTurn = (): boolean => {
-    if (this.computerPlayer) {
-      return this.computerPlayer.getIsDoneWithTurn();
-    }
-    return false; // default to false...
-  }
-
-  setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
-    player.setIsDoneWithTurn(isDoneWithTurn);
-  }
-
-  // TO-DO: have end turn button enabled while NPC is drawing. if clicked, cancel the drawing and immediately place NPC symbols on board
-  doNpcMove = (): void => {
-    if (!this.computerPlayer) return;
-
-    if (!this.computerPlayer.getFocus() || this.computerPlayer.getIsDead()) {
-      this.computerPlayer.clearNumRemaningMovesPerTurn();
-      return;
-    }
-
-    const npcMoveData = this.computerPlayer.getRandomMoveForTesting();
-    const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
-
-    const cellWidth = this.gameBoard.getCellWidth()
-    if (!cellWidth) return;
-
-    const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
-    if (!normalizedPoints) return;
-
-    // Convert degrees to radians for Math.cos and Math.sin
-    const radians = (rotation * Math.PI) / 180;
-    const cos = Math.cos(radians);
-    const sin = Math.sin(radians);
-
-    // Center of rotation for normalized space
-    const cx = 0.5;
-    const cy = 0.5;
-
-    const { left, top, width, height } = this.gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
-    if (!width) return;
-
-
-    const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
-    const startOfNpcPlacementCellsY = top;
-    const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
-
-
-    let lastPoint: Point | null = null;
-    const rawPoints: Array<Point> = []
-    normalizedPoints.forEach(({ x, y }) => {
-      // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
-      const tx = x - cx;
-      const ty = y - cy;
-
-      // Step 2: Apply 2D Rotation Matrix
-      const rotatedX = tx * cos - ty * sin;
-      const rotatedY = tx * sin + ty * cos;
-
-      // Step 3: Translate back from origin to center space
-      const finalNormX = rotatedX + cx;
-      const finalNormY = rotatedY + cy;
-
-      const newPoint = {
-        x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
-        y: startOfNpcPlacementCellsY + height * translationNorm.y + finalNormY * scale.y * cellWidth
-      }
-      if (lastPoint) {
-        const numMorePoints = 200;
-        const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
-        // generate more points for board interaction...
-        for (let i = 0; i < numMorePoints; i++) {
-          rawPoints.push(
-            {
-              x: lastPoint.x + i * vec.x / numMorePoints,
-              y: lastPoint.y + i * vec.y / numMorePoints
-            }
-          )
-        }
-      }
-      rawPoints.push(newPoint);
-      lastPoint = newPoint
-    });
-
-    // Within doNpcMove -> storedSpell container:
-    const storedSpell = () => {
-      if (this.computerPlayer) {
-        const dominantCells = this.filterDominantCells(rawPoints);
-        if (dominantCells.length > 0) {
-
-          const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
-
-          if (this.computerPlayer && spell) {
-            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, this.computerPlayer as Player));
-            const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-            this.spawnSizedSpellInstance(inferenceString, freePositions, this.computerPlayer);
-          }
-        }
-      }
-
-      if (!this.computerPlayer) return;
-      this.cancelPlacingSymbol(this.computerPlayer);
-      this.computerPlayer.decrementNumRemaningMovesPerTurn();
-
-      if (this.computerPlayer.getNumRemainingMovesPerTurn() > 0 && this.computerPlayer.getFocus() > 0) {
-        setTimeout(() => this.doNpcMove(), Math.random() * 1000);
-      } else {
-        this.setIsDoneWithTurn(true, this.computerPlayer);
-        this.forceUpdate();
-      }
-    };
-
-
-    this.computerPlayer.setNpcDrawingPoints(rawPoints);
-    // set to get arm-wand movements while drawing
-    this.computerPlayer.setGameSymbol(new GameSymbol(inferenceString, this.computerPlayer))
-    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
-    this.forceUpdate();
-  }
-
-  getNPCMoveData = (): Array<NPCMoveData> => {
-    return this.npcMoveData;
-  }
-
-  getNPCMoveDatum = (i: number): NPCMoveData | null => {
-    return this.npcMoveData[i] || null
-  }
-
-  getNpcMousePos = (): Point => {
-    if (this.computerPlayer) {
-      return this.computerPlayer.getNpcMousePos();
-    }
-    return { x: 0, y: 0 };
-  }
-
-  setNpcMousePos = (npcMousePos: Point) => {
-    if (this.computerPlayer) {
-      this.computerPlayer.setNpcMousePos(npcMousePos);
-    }
-  }
-
-  getNpcDrawingPoints = (): Array<Point> | null => {
-    if (this.computerPlayer)
-      return this.computerPlayer.getNpcDrawingPoints();
-    return null
-  }
-
-  resetNpcMove = () => {
-    this.npcMoveData = proxy([]);
-  }
-
-  getIsSpellBookOpen = (): boolean => {
-    return this.isSpellBookOpen;
-  }
-
-  setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
-    this.isSpellBookOpen = isSpellBookOpen;
-  }
-
-  getGameOver = (): GameOver | null => {
-    return this.gameOver;
-  }
-
-  setGameOver = (status: GameOver): void => {
-    this.gameOver = status;
   }
 
   /**
-   * Filters cell lists to discard accidental clipping boundaries based on point counts
-   */
+ * Filters cell lists to discard accidental clipping boundaries based on point counts
+ */
   private filterDominantCells = (points: Array<{ x: number; y: number }>): CellIndex[] => {
     if (points.length === 0) return [];
 
@@ -1053,41 +799,194 @@ export class Game {
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
   };
 
-  // CHECK FOR GAME OVER CONDITION...
-  checkIfIsGameOverAndReset = (): boolean => {
-    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
-    const deadPlayers = this.players.filter(p => p.getHealth() <= 0);
-    switch (deadPlayers.length) {
-      case 2:
-        this.gameOver = GameOverStatus.BothDead;
-        break;
-      case 1:
-        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
-        break;
-    }
 
-    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
-    if (!deadPlayers.length) {
+  instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
+    const p = player ? player : this.players.getHumanPlayer();
+    if (p) {
+      const gameSymbol = proxy(new GameSymbol(inferenceString, p));
+      p.setGameSymbol(gameSymbol);
 
-      const MINUTES_HAND = 12;
-      const HOURS_HAND = 6;
-      const SUNRISE = MINUTES_HAND * HOURS_HAND;
+      const spellName = gameSymbol.getSpellClass()?.spellName
+      this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
 
-      const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
-
-      const isPastSunrise = currTotalMinutes > SUNRISE; // TO-DO: test this...
-
-      if (isPastSunrise) {
-        this.gameOver = GameOverStatus.TimesUp
+      if (p === this.players.getHumanPlayer()) {
+        this.players.setReadiedSpell(gameSymbol.getSpellClass()?.spellName || null);
+        this.forceUpdate();
       }
     }
+  }
 
-    const isGameOver = this.gameOver !== null;
-    if (this.gameOver) {
-      this.disableGameBoard();
-      setTimeout(() => { this.resetGame(); this.forceUpdate(); }, 3000); // TESTING
+
+
+
+
+
+
+
+  // TO-DO: MOVE NPC MOVE LOGIC INTO NpcPlayer class...
+  getNpcDifficulty = (): NpcDifficulty => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) return npc.difficulty;
+    else return 'Normal'
+  }
+
+  setNpcDifficulty = (difficulty: NpcDifficulty): void => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      npc.setNpcDifficulty(difficulty)
+    }
+  }
+
+  cycleThroughDifficulties = (): void => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      npc.cycleThroughDifficulties();
       this.forceUpdate();
     }
-    return isGameOver;
   }
+
+  doNpcMove = (): void => {
+    const npc = this.players.getNpcPlayer();
+    if (!npc) return;
+
+    if (!npc.getFocus() || npc.getIsDead()) {
+      npc.clearNumRemaningMovesPerTurn();
+      return;
+    }
+
+    const npcMoveData = npc.getRandomMoveForTesting();
+    const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
+
+    const cellWidth = this.gameBoard.getCellWidth()
+    if (!cellWidth) return;
+
+    const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
+    if (!normalizedPoints) return;
+
+    // Convert degrees to radians for Math.cos and Math.sin
+    const radians = (rotation * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+
+    // Center of rotation for normalized space
+    const cx = 0.5;
+    const cy = 0.5;
+
+    const { left, top, width, height } = this.gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
+    if (!width) return;
+
+
+    const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
+    const startOfNpcPlacementCellsY = top;
+    const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
+
+
+    let lastPoint: Point | null = null;
+    const rawPoints: Array<Point> = []
+    normalizedPoints.forEach(({ x, y }) => {
+      // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
+      const tx = x - cx;
+      const ty = y - cy;
+
+      // Step 2: Apply 2D Rotation Matrix
+      const rotatedX = tx * cos - ty * sin;
+      const rotatedY = tx * sin + ty * cos;
+
+      // Step 3: Translate back from origin to center space
+      const finalNormX = rotatedX + cx;
+      const finalNormY = rotatedY + cy;
+
+      const newPoint = {
+        x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
+        y: startOfNpcPlacementCellsY + height * translationNorm.y + finalNormY * scale.y * cellWidth
+      }
+      if (lastPoint) {
+        const numMorePoints = 200;
+        const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
+        // generate more points for board interaction...
+        for (let i = 0; i < numMorePoints; i++) {
+          rawPoints.push(
+            {
+              x: lastPoint.x + i * vec.x / numMorePoints,
+              y: lastPoint.y + i * vec.y / numMorePoints
+            }
+          )
+        }
+      }
+      rawPoints.push(newPoint);
+      lastPoint = newPoint
+    });
+
+    // Within doNpcMove -> storedSpell container:
+    const storedSpell = () => {
+      if (npc) {
+        const dominantCells = this.filterDominantCells(rawPoints);
+        if (dominantCells.length > 0) {
+
+          const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
+
+          if (npc && spell) {
+            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, npc as Player));
+            const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
+            this.spawnSizedSpellInstance(inferenceString, freePositions, npc);
+          }
+        }
+      }
+
+      if (!npc) return;
+      this.cancelPlacingSymbol(npc);
+      npc.decrementNumRemaningMovesPerTurn();
+
+      if (npc.getNumRemainingMovesPerTurn() > 0 && npc.getFocus() > 0) {
+        setTimeout(() => this.doNpcMove(), Math.random() * 1000);
+      } else {
+        this.setIsDoneWithTurn(true, npc);
+        this.forceUpdate();
+      }
+    };
+
+
+    npc.setNpcDrawingPoints(rawPoints);
+    // set to get arm-wand movements while drawing
+    npc.setGameSymbol(new GameSymbol(inferenceString, npc))
+    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
+    this.forceUpdate();
+  }
+
+  getNPCMoveData = (): Array<NPCMoveData> => {
+    return this.npcMoveData;
+  }
+
+  getNPCMoveDatum = (i: number): NPCMoveData | null => {
+    return this.npcMoveData[i] || null
+  }
+
+  getNpcMousePos = (): Point => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      return npc.getNpcMousePos();
+    }
+    return { x: 0, y: 0 };
+  }
+
+  setNpcMousePos = (npcMousePos: Point) => {
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      npc.setNpcMousePos(npcMousePos);
+    }
+  }
+
+  getNpcDrawingPoints = (): Array<Point> | null => {
+    const npc = this.players.getNpcPlayer();
+    if (npc)
+      return npc.getNpcDrawingPoints();
+    return null
+  }
+
+  resetNpcMove = () => {
+    this.npcMoveData = proxy([]);
+  }
+
+
+
 }

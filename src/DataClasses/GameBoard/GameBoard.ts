@@ -26,10 +26,6 @@ export class GameBoard {
 
   gameBoardRef: RefObject<HTMLDivElement | null> | null = null;
 
-  // Trackers
-  hoveredCell: Cell | null = null;
-  clickedCell: Cell | null = null;
-
   constructor(player1: Player, player2: Player) {
     this.initializeGrid(player1, player2);
   }
@@ -42,17 +38,15 @@ export class GameBoard {
     for (let i = 0; i < GameBoard.NUM_ROWS; i++) {
       for (let j = 0; j < GameBoard.NUM_COLS; j++) {
         const cell = proxy(new Cell({ j, i })); // Map (j, i) matching coordinate logic
-                // 2. Assign Spawnable Deployment Zones (Within placement column boundaries)
+        // 2. Assign Spawnable Deployment Zones (Within placement column boundaries)
         const isP1SpellPlacementZone = j < this.numPlacementCells;
         const isP2SpellPlacementZone = j >= GameBoard.NUM_COLS - this.numPlacementCells;
 
-        if (isP1SpellPlacementZone) {
+        if (isP1SpellPlacementZone)
           cell.setPlayerOfPlacementCell(p1);
-        }
-
-        if (isP2SpellPlacementZone) {
+        if (isP2SpellPlacementZone)
           cell.setPlayerOfPlacementCell(p2);
-        }
+
 
         this.cells.push(cell);
       }
@@ -250,5 +244,4 @@ export class GameBoard {
       return isMovingLeft;
     }).map(c => c.getSpell()).filter(s => s != null);
   }
-
 }

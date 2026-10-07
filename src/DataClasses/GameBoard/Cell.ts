@@ -4,10 +4,9 @@ import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqeId';
 
-// TO-DO: Cell hover speedDirection progress highlight is not working...
 export class Cell extends UniqueId {
   // Properties
-    playerOfPlacementCell: Player | null = null;
+  playerOfPlacementCell: Player | null = null;
 
   cellIndex: CellIndex;
   transparencyAmt: number = 1.0;
@@ -32,7 +31,7 @@ export class Cell extends UniqueId {
     return this.cellIndex;
   };
 
-    getIsPlaceCell = (player: Player): boolean => {
+  getIsPlaceCell = (player: Player): boolean => {
     return player === this.playerOfPlacementCell;
   };
 
@@ -49,7 +48,8 @@ export class Cell extends UniqueId {
   setTransparencyAmt = (transparencyAmt: number): void => {
     this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
   };
-    setPlayerOfPlacementCell = (playerOfPlacementCell: Player | null): void => {
+
+  setPlayerOfPlacementCell = (playerOfPlacementCell: Player | null): void => {
     this.playerOfPlacementCell = playerOfPlacementCell;
   };
 
