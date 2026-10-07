@@ -47,7 +47,6 @@ export class GameBoard {
         if (isP2SpellPlacementZone)
           cell.setPlayerOfPlacementCell(p2);
 
-
         this.cells.push(cell);
       }
     }

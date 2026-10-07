@@ -15,7 +15,6 @@ import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
-import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
 
@@ -23,7 +22,7 @@ import { proxy } from 'valtio';
 
   Interface class for UI_Components.
   Initializes and delegates to subclasses for specific functionality.
-  Wraps subclass functions enabling easy delegation
+  Wraps subclass functions enabling easy delegation.
 
 */
 export class Game {
@@ -48,26 +47,17 @@ export class Game {
   players!: Players;
   tooltipManager!: TooltipManager;
 
-  /*
-  / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  TO-DO: npcMoveData and NPV move logic into NpcPlayer class...
-  / - - - - - - - - - - - - - - - - - -
-  */
-  npcMoveData: Array<NPCMoveData> = [];
-  /*
-  / - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  */
-
   constructor() {
     this.init();
   }
 
+  // GAME - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   init = (): void => {
     this.players = proxy(new Players());
     this.players.init();
     const humanPlayer = this.players.getHumanPlayer(), npcPlayer = this.players.getNpcPlayer();
     if (humanPlayer && npcPlayer)
-      this.gameBoard = proxy(new GameBoard(humanPlayer, npcPlayer));
+      this.gameBoard = proxy(new GameBoard(humanPlayer, npcPlayer as Player));
     this.placedSpells = proxy(new PlacedSpells());
     this.model = proxy(new Model());
     this.model.init();
@@ -75,10 +65,8 @@ export class Game {
     this.gameClock = proxy(new GameClock(this.endTurn));
     this.audioHandler = proxy(new AudioHandler());
     this.tooltipManager = proxy(new TooltipManager());
-
     this.setupGameplayKeyBindings();
   };
-
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
@@ -88,14 +76,10 @@ export class Game {
     this.resetClock();
     this.enableGameBoard();
   };
-
   getGameOver = (): GameOver | null => this.gameOver;
-
   setGameOver = (status: GameOver): void => {
     this.gameOver = status;
   }
-
-  // CHECK FOR GAME OVER CONDITION...
   checkIfIsGameOverAndReset = (): boolean => {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     const deadPlayers = this.players.getDeadPlayers();
@@ -117,7 +101,7 @@ export class Game {
 
       const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
 
-      const isPastSunrise = currTotalMinutes > SUNRISE; // TO-DO: test this...
+      const isPastSunrise = currTotalMinutes > SUNRISE;
 
       if (isPastSunrise) {
         this.gameOver = GameOverStatus.TimesUp
@@ -135,16 +119,12 @@ export class Game {
 
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
-
       this.resetNpcMove();
-
       let isGameOver = this.checkIfIsGameOverAndReset();
       if (isGameOver) {
         return;
       }
-
       this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
-
       this.resetClock();
       this.pauseClock();
       this.incrementMinuteAngleAcc();
@@ -153,14 +133,11 @@ export class Game {
       await this.updatePlacedSpells();
       this.regenFocusForPlayers();
       this.enableGameBoard();
-
       isGameOver = this.checkIfIsGameOverAndReset();
       if (isGameOver) {
         return;
       }
-
       const [humanPlayer, npcPlayer] = this.players.getPlayers();
-
       // TESTING - - - - -
       if (humanPlayer && npcPlayer) {
         this.setIsDoneWithTurn(false, npcPlayer);
@@ -171,10 +148,11 @@ export class Game {
         setTimeout(() => this.doNpcMove(), 1000);
       }
       // TESTING - - - - -
-
       this.forceUpdate();
     }
   }
+  // GAME - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
   // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   setupGameplayKeyBindings = (): void => {
@@ -441,10 +419,7 @@ export class Game {
   // SPELL CANVAS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-
-
-
-
+  // PLACED SPELLS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   updatePlacedSpells = async () => {
     // uses a generator/iterator
     await this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
@@ -815,28 +790,21 @@ export class Game {
       }
     }
   }
+  // PLACED SPELLS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 
-
-
-
-
-
-
-  // TO-DO: MOVE NPC MOVE LOGIC INTO NpcPlayer class...
+  // NPC PLAYER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   getNpcDifficulty = (): NpcDifficulty => {
     const npc = this.players.getNpcPlayer();
     if (npc) return npc.difficulty;
     else return 'Normal'
   }
-
   setNpcDifficulty = (difficulty: NpcDifficulty): void => {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.setNpcDifficulty(difficulty)
     }
   }
-
   cycleThroughDifficulties = (): void => {
     const npc = this.players.getNpcPlayer();
     if (npc) {
@@ -844,123 +812,26 @@ export class Game {
       this.forceUpdate();
     }
   }
-
   doNpcMove = (): void => {
     const npc = this.players.getNpcPlayer();
-    if (!npc) return;
-
-    if (!npc.getFocus() || npc.getIsDead()) {
-      npc.clearNumRemaningMovesPerTurn();
-      return;
-    }
-
-    const npcMoveData = npc.getRandomMoveForTesting();
-    const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
-
-    const cellWidth = this.gameBoard.getCellWidth()
-    if (!cellWidth) return;
-
-    const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
-    if (!normalizedPoints) return;
-
-    // Convert degrees to radians for Math.cos and Math.sin
-    const radians = (rotation * Math.PI) / 180;
-    const cos = Math.cos(radians);
-    const sin = Math.sin(radians);
-
-    // Center of rotation for normalized space
-    const cx = 0.5;
-    const cy = 0.5;
-
-    const { left, top, width, height } = this.gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
-    if (!width) return;
-
-
-    const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
-    const startOfNpcPlacementCellsY = top;
-    const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
-
-
-    let lastPoint: Point | null = null;
-    const rawPoints: Array<Point> = []
-    normalizedPoints.forEach(({ x, y }) => {
-      // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
-      const tx = x - cx;
-      const ty = y - cy;
-
-      // Step 2: Apply 2D Rotation Matrix
-      const rotatedX = tx * cos - ty * sin;
-      const rotatedY = tx * sin + ty * cos;
-
-      // Step 3: Translate back from origin to center space
-      const finalNormX = rotatedX + cx;
-      const finalNormY = rotatedY + cy;
-
-      const newPoint = {
-        x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
-        y: startOfNpcPlacementCellsY + height * translationNorm.y + finalNormY * scale.y * cellWidth
-      }
-      if (lastPoint) {
-        const numMorePoints = 200;
-        const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
-        // generate more points for board interaction...
-        for (let i = 0; i < numMorePoints; i++) {
-          rawPoints.push(
-            {
-              x: lastPoint.x + i * vec.x / numMorePoints,
-              y: lastPoint.y + i * vec.y / numMorePoints
-            }
-          )
-        }
-      }
-      rawPoints.push(newPoint);
-      lastPoint = newPoint
-    });
-
-    // Within doNpcMove -> storedSpell container:
-    const storedSpell = () => {
-      if (npc) {
-        const dominantCells = this.filterDominantCells(rawPoints);
-        if (dominantCells.length > 0) {
-
-          const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
-
-          if (npc && spell) {
-            const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell, npc as Player));
-            const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
-            this.spawnSizedSpellInstance(inferenceString, freePositions, npc);
-          }
-        }
-      }
-
-      if (!npc) return;
-      this.cancelPlacingSymbol(npc);
-      npc.decrementNumRemaningMovesPerTurn();
-
-      if (npc.getNumRemainingMovesPerTurn() > 0 && npc.getFocus() > 0) {
-        setTimeout(() => this.doNpcMove(), Math.random() * 1000);
-      } else {
-        this.setIsDoneWithTurn(true, npc);
-        this.forceUpdate();
-      }
-    };
-
-
-    npc.setNpcDrawingPoints(rawPoints);
-    // set to get arm-wand movements while drawing
-    npc.setGameSymbol(new GameSymbol(inferenceString, npc))
-    this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
-    this.forceUpdate();
+    if (npc) npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
   }
-
   getNPCMoveData = (): Array<NPCMoveData> => {
-    return this.npcMoveData;
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      return npc.getNPCMoveData();
+    } else {
+      return [];
+    }
   }
-
   getNPCMoveDatum = (i: number): NPCMoveData | null => {
-    return this.npcMoveData[i] || null
+    const npc = this.players.getNpcPlayer();
+    if (npc) {
+      return npc.getNPCMoveDatum(i)
+    } else {
+      return null;
+    }
   }
-
   getNpcMousePos = (): Point => {
     const npc = this.players.getNpcPlayer();
     if (npc) {
@@ -968,25 +839,22 @@ export class Game {
     }
     return { x: 0, y: 0 };
   }
-
   setNpcMousePos = (npcMousePos: Point) => {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.setNpcMousePos(npcMousePos);
     }
   }
-
   getNpcDrawingPoints = (): Array<Point> | null => {
     const npc = this.players.getNpcPlayer();
     if (npc)
       return npc.getNpcDrawingPoints();
     return null
   }
-
-  resetNpcMove = () => {
-    this.npcMoveData = proxy([]);
+  resetNpcMove = (): void => {
+    const npc = this.players.getNpcPlayer();
+    if (npc)
+      npc.resetNpcMove();
   }
-
-
-
+  // NPC PLAYER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 }

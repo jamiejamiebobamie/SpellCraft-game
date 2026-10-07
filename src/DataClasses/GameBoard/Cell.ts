@@ -31,9 +31,8 @@ export class Cell extends UniqueId {
     return this.cellIndex;
   };
 
-  getIsPlaceCell = (player: Player): boolean => {
-    return player === this.playerOfPlacementCell;
-  };
+  getIsPlaceCell = (player: Player): boolean => !!this.playerOfPlacementCell && player.id === this.playerOfPlacementCell.id;
+
 
   getTransparencyAmt = (): number => {
     return this.transparencyAmt;
