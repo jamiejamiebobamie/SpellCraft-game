@@ -1,7 +1,10 @@
-import { SoundEffectName, SFX_REGISTRY } from './types'
+import { AudioType, SoundEffectName, SFX_REGISTRY } from './types'
 
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/736598__gregorquendel__classical-music-collection-vol.mp3';
+
+    private readonly MAX_SOUND_EFFECT_LVL = 0.5;
+    private readonly MAX_MUSIC_LVL = 0.3;
 
     private backgroundMusic: HTMLAudioElement | null = null;
     private backgroundMusicStarted: boolean = false;
@@ -11,7 +14,7 @@ export class AudioHandler {
 
     // A memory registry holding our preloaded audio blueprints
     private sfxLibrary: Map<SoundEffectName, HTMLAudioElement> = new Map();
-    
+
     // A tracker cataloging currently playing audio tracks so we can kill them instantly
     private activeSfxInstances: HTMLAudioElement[] = [];
 
@@ -89,7 +92,30 @@ export class AudioHandler {
         }
     }
 
+    toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
+        if (audioType == 'fx') {
+            this.effectsAudioLevel = isMuted || this.effectsAudioLevel == this.MAX_SOUND_EFFECT_LVL ? 0 : this.MAX_SOUND_EFFECT_LVL
+        } else {
+            this.musicAudioLevel = isMuted || this.musicAudioLevel == this.MAX_MUSIC_LVL ? 0 : this.MAX_MUSIC_LVL;
+            if (this.backgroundMusic) {
+                this.backgroundMusic.volume = this.musicAudioLevel;
+            }
+        }
+    }
+
+    getIsMusicMuted = (): boolean => {
+        return this.musicAudioLevel != this.MAX_MUSIC_LVL;
+    }
+
+    getIsFxMuted = (): boolean => {
+        return this.effectsAudioLevel != this.MAX_SOUND_EFFECT_LVL;
+    }
+
     getIsBackgroundMusicStarted = (): boolean => {
         return this.backgroundMusicStarted;
+    }
+
+    getEffectsAudioLevel = (): number => {
+        return this.effectsAudioLevel;
     }
 }

@@ -217,3 +217,5 @@ export const SFX_REGISTRY: Record<SoundEffectName, string> = {
   'wizard-Death-Cry': './Audio/Effects/Wizard-Death-Cry/695386__fmaudio__male-death-cry-3.wav',
   'wizard-Heal': './Audio/Effects/Wizard-Heal/853303__tommasomotteran__magic-healing-spell-sfx-fantasy-rpg-restore-effect.wav'
 };
+
+export type AudioType = 'fx' | 'music';

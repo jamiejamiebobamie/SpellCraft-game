@@ -66,7 +66,7 @@ export const Damageable = styled.div<{ $healthDiff: number; $isDead: boolean }>`
   
   ${props => props.$isDead ? css`
     /* Switched to cubic-bezier(0.32, 0, 0.67, 0) which mimics gravitational acceleration (Ease-In) */
-    animation: ${fallAndSquash} 0.8s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+    animation: ${fallAndSquash} 3s cubic-bezier(0.32, 0, 0.67, 0) forwards;
   ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
   `}

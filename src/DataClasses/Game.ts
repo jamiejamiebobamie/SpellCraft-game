@@ -12,7 +12,7 @@ import { GameClock } from './GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType } from './types';
 import { HARDCODED_SYMBOLS } from './PlacedSpells/HardCodedSymbols'
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
@@ -221,6 +221,13 @@ export class Game {
     }
   }
 
+  getIsMusicMuted = (): boolean => this.audioHandler.getIsMusicMuted()
+  getIsFxMuted = (): boolean => this.audioHandler.getIsFxMuted();
+  toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
+    this.audioHandler.toggleAudio(audioType, isMuted);
+    this.forceUpdate();
+  }
+
   // --- Action Dispatcher Utilities ---
 
   getMinuteAngleAcc = (): number => {
@@ -291,17 +298,17 @@ export class Game {
       const remainingHealth = (this.players[playerIndex].getHealth() - dmg);
       if (remainingHealth <= 0) {
         // death-cry
-        this.audioHandler.startSoundEffect('wizard-Death-Cry', .7);
+        this.audioHandler.startSoundEffect('wizard-Death-Cry');
       } else if (dmg > 10) {
         // scream
-        this.audioHandler.startSoundEffect('wizard-Grunt-5', .5);
+        this.audioHandler.startSoundEffect('wizard-Grunt-5');
       } else if (dmg > 0) {
         // grunt
         const randInt = Math.floor(Math.random() * 5);
-        this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName, .5);
+        this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName);
       } else {
         // heal
-        this.audioHandler.startSoundEffect('wizard-Heal', .5);
+        this.audioHandler.startSoundEffect('wizard-Heal');
       }
     }
   }
@@ -611,7 +618,7 @@ export class Game {
         return;
       }
 
-      this.audioHandler.startSoundEffect('clock-chime', 0.1);
+      this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
 
       this.resetClock();
       this.pauseClock();

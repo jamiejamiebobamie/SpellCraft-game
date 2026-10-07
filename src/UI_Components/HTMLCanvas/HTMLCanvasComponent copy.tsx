@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { rootGameStore } from '../../DataClasses/store';
-import KeyBindingComponent from './Buttons/KeyBindingComponent';
+import KeyBindingComponent from './Buttons/SettingsComponent';
 import SpellBookComponent from './Buttons/SpellBookComponent';
 import ClockFaceComponent from './Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';

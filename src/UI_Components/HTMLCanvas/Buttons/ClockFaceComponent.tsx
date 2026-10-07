@@ -223,6 +223,7 @@ export default function ClockFaceComponent() {
       <ClockWrapper>
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
           {/* Clock Outer Rim */}
+          <circle cx="50" cy="50" r="48" fill="#F1E9D2" stroke="#917d41" strokeWidth="4" />
           <circle cx="50" cy="50" r="46" fill="#F1E9D2" stroke="#e5c667" strokeWidth="4" />
           {/* Hour Tick Markers */}
           {[...Array(12)].map((_, i) => (
