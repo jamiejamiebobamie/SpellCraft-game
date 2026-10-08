@@ -222,7 +222,7 @@ export const GameComponent = () => {
     // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
-      {data}
+      {/* {data} */}
       {sceneElements}
       {mainUI}
     </GameWrapper>
