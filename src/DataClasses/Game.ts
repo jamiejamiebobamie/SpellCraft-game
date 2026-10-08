@@ -271,7 +271,7 @@ export class Game {
 
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getIsSpellBookOpen = (): boolean => this.tooltipManager.getIsSpellBookOpen();
-  setIsSpellBookOpen = (isSpellBookOpen: boolean): void => { this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen); }
+  setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => { this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen); this.forceUpdate(); }
   incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
   getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
   getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();

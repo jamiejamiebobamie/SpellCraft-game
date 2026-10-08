@@ -144,7 +144,7 @@ export const GameComponent = () => {
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
-    if (!rootGameStore.getIsDrawing()) return;
+    // if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
     // if (e.touches.length === 0) return;
 

@@ -41,8 +41,8 @@ export class TooltipManager {
 
     // SPELLBOOK
     getIsSpellBookOpen = (): boolean => this.isSpellBookOpen;
-    setIsSpellBookOpen = (isSpellBookOpen: boolean): void => {
-        this.isSpellBookOpen = isSpellBookOpen;
+    setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => {
+        this.isSpellBookOpen = typeof isSpellBookOpen === 'boolean' ? isSpellBookOpen : !this.isSpellBookOpen;
     }
 
     // DRAWING OFF BOARD

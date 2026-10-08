@@ -122,7 +122,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
       const boardWidth = boardLayoutRef.current.width; const boardHeight = boardLayoutRef.current.height;
       if (boardWidth === 0 || boardHeight === 0) { animationFrameId = requestAnimationFrame(render); return; }
       const cellWidthPx = boardWidth / GameBoard.NUM_COLS; const cellHeightPx = boardHeight / GameBoard.NUM_ROWS;
-      const isTrayOpen = rootGameStore.isSpellBookOpen; const isShowingModal = !!scrollUIRef.current.hoveredSpellName && isTrayOpen;
+      const isTrayOpen = rootGameStore.getIsSpellBookOpen(); const isShowingModal = !!scrollUIRef.current.hoveredSpellName && isTrayOpen;
       if (!isShowingModal && !isGearHovered) {
         const placedSpells = rootGameStore.placedSpells.spells || [];
         placedSpells.forEach((spell: any) => {

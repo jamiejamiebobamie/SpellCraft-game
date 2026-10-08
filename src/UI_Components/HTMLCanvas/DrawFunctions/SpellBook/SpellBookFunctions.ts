@@ -24,7 +24,7 @@ export const availableSymbols = Array.from(GameSymbol.SPELL_LOOKUP.entries()).ma
 }));
 
 export const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number) => {
-    const isTrayOpen = rootGameStore.isSpellBookOpen;
+    const isTrayOpen = rootGameStore.getIsSpellBookOpen();
     const baseAnchorX = viewW * ui.config.startXOffset;
     const baseAnchorY = viewW * ui.config.startYOffset;
     const trayH = viewW * ui.config.scrollTrayHeight;
@@ -61,7 +61,7 @@ export const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasS
 };
 
 export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, viewH: number, deltaTime: number, currentTime: number, setIsHovered: Function, animStates: Map<string, SpellAnimTracker>) => {
-    const isTrayOpen = rootGameStore.isSpellBookOpen;
+    const isTrayOpen = rootGameStore.getIsSpellBookOpen();
     const targetProgress = isTrayOpen ? 1.0 : 0.0;
     ui.trayProgress += (targetProgress - ui.trayProgress) * 5.5 * deltaTime;
     if (ui.trayProgress < 0.002) return;

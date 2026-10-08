@@ -104,7 +104,7 @@ export default function SpellBookComponent({ isGearHovered }: SpellBookComponent
     <MenuAnchor $isGearHovered={isGearHovered} data-click-type="ui-buttons">
       <TriggerBox
         onClick={() => {
-          rootGameStore.setIsSpellBookOpen(!isOpen);
+          rootGameStore.setIsSpellBookOpen();
           setIsClickedOnce(true);
         }}
         onMouseDown={() => setIsClicked(true)}
