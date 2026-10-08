@@ -67,7 +67,7 @@ export const GameComponent = () => {
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
-  const [count, setCount] = useState<number>(0);
+  const [data, setData] = useState<string>('');
   // const [wrapperHeight, setWrapperHeight] = useState<number>(100);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();
@@ -137,13 +137,13 @@ export const GameComponent = () => {
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
-    // if (!rootGameStore.getIsDrawing()) return;
+    if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
-    rootGameStore.runInference({ x: e.clientX, y: e.clientY });
+    rootGameStore.runInference({ x: e.clientX, y: e.clientY }, setData);
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    setCount(c => ++c);
+    // setCount(c => ++c);
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     // if (!rootGameStore.getIsDrawing()) return;
@@ -153,7 +153,7 @@ export const GameComponent = () => {
     const touch = e.touches[0];
     const x = touch.clientX;
     const y = touch.clientY;
-    rootGameStore.runInference({ x, y });
+    rootGameStore.runInference({ x, y }, setData);
   }, []);
 
   // Safely bind non-passive touch listeners for iOS Safari compatibility
@@ -216,7 +216,7 @@ export const GameComponent = () => {
       // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
-      {count}
+      {data}
       {sceneElements}
       {mainUI}
     </GameWrapper>

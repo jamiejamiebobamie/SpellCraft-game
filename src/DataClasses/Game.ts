@@ -426,7 +426,9 @@ export class Game {
   }
 
   // Called "onMouseUp"
-  runInference = async (mouseCoords?: Point): Promise<void> => {
+  runInference = async (mouseCoords?: Point, setter?: Function): Promise<void> => {
+
+    setter && setter(`${mouseCoords && mouseCoords.x} ${mouseCoords && mouseCoords.y} ${this.spellCanvas.getNumPoints()}`);
 
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       // IF "CLICK" -> place num key spell or Fireball if no spell readied
