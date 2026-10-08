@@ -28,6 +28,7 @@
   width: 100dvw;
   height: 100dvh;
   overflow: hidden;
+
   /* Prevents both vertical and horizontal scrolling */
 
   @media (max-width: 1024px) {

@@ -17,19 +17,11 @@ const GameWrapper = styled.div<{ $height: number }>`
   overflow: hidden;
   position: relative;
 
-  // aspect-ratio: 16 / 9;
-
-  // ${props => `height: ${props.$height}dvh;`}
-
-  // min-width: 100px;
-  // max-width: 1200px;
-
-  // transition: width 1s, height 1s;
-
-    /* Perfect 16:9 containment formula using CSS */
   aspect-ratio: 16 / 9;
   width: 100%;
   height: auto;
+
+  align-self: center;
   
   /* Fallbacks to make sure it never overflows the height or boundaries */
   max-width: min(1200px, calc(100dvh * 16 / 9));

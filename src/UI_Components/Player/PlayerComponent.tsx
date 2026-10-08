@@ -33,7 +33,7 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   background-position: center;
   z-index: 1;
   position: relative;
-  margin-bottom: 10cqh;
+  margin-bottom: 6.3cqw;
 `;
 
 const BarBorder = styled.div<{ $direction: number }>`
