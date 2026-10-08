@@ -67,6 +67,7 @@ export const GameComponent = () => {
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
+  const [count, setCount] = useState<number>(0);
   // const [wrapperHeight, setWrapperHeight] = useState<number>(100);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();
@@ -142,6 +143,7 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    setCount(c => c++);
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     // if (!rootGameStore.getIsDrawing()) return;
@@ -214,6 +216,7 @@ export const GameComponent = () => {
       // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
+      {count}
       {sceneElements}
       {mainUI}
     </GameWrapper>
