@@ -37,11 +37,12 @@ export class AudioHandler {
 
     startBackgroundMusic = () => {
         if (this.backgroundMusicStarted) return;
+        this.backgroundMusicStarted = true;
         this.backgroundMusic = new Audio(this.BACKGROUND_MUSIC_SRC);
         this.backgroundMusic.loop = true;
         this.backgroundMusic.volume = this.musicAudioLevel;
         this.backgroundMusic.play()
-            .then(_ => { this.backgroundMusicStarted = true; })
+            .then(_ => { /* this.backgroundMusicStarted = true; */ })
             .catch(err => console.log("Autoplay blocked:", err));
     }
 

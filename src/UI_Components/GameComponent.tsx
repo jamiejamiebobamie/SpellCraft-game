@@ -9,7 +9,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
 
-const GameWrapper = styled.div<{ $height: number }>`
+const GameWrapper = styled.div`
   margin: 0 auto; 
   display: flex;
   flex-direction: row;
@@ -146,7 +146,7 @@ export const GameComponent = () => {
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
-    if (e.touches.length === 0) return;
+    // if (e.touches.length === 0) return;
 
     const touch = e.touches[0];
     const x = touch.clientX;
@@ -177,29 +177,6 @@ export const GameComponent = () => {
   useEffect(() => {
     rootGameStore.setForceUpdate(forceUpdate);
   }, []);
-
-
-  // useEffect(() => {
-  //   // Only execute on the client side
-  //   if (typeof window === 'undefined') return;
-
-  //   const handleResize = () => {
-  //     const desiredHeight = (window.innerWidth / 16) * 9;
-  //     if (desiredHeight > window.innerHeight) {
-
-  //       setWrapperHeight(100);
-  //     } else {
-  //       setWrapperHeight(window.innerHeight / desiredHeight);
-  //     }
-  //   };
-
-  //   window.addEventListener('resize', handleResize);
-
-  //   // Call handler right away so state gets updated with initial window size
-  //   handleResize();
-
-  //   return () => window.removeEventListener('resize', handleResize);
-  // }, []);
 
   snap.useGameplayKeyBindings();
 
@@ -232,10 +209,9 @@ export const GameComponent = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onTouchStart={handleTouchDown}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchUp}
-      // $height={wrapperHeight}
+      // onTouchStart={handleTouchDown}
+      // onTouchMove={handleTouchMove}
+      // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}
