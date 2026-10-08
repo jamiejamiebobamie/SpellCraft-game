@@ -17,6 +17,7 @@ const DuelistSideColumn = styled.div`
   gap: 1cqw;
   z-index: 12;
   pointer-events: none;
+  width: 100%;
 `;
 
 const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
@@ -32,7 +33,7 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   background-position: center;
   z-index: 1;
   position: relative;
-  margin-bottom: 7cqw;
+  margin-bottom: 10cqh;
 `;
 
 const BarBorder = styled.div<{ $direction: number }>`

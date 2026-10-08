@@ -9,7 +9,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
 
-const GameWrapper = styled.div`
+const GameWrapper = styled.div<{ $height: number }>`
   margin: 0 auto; 
   display: flex;
   flex-direction: row;
@@ -17,13 +17,26 @@ const GameWrapper = styled.div`
   overflow: hidden;
   position: relative;
 
+  // aspect-ratio: 16 / 9;
+
+  // ${props => `height: ${props.$height}dvh;`}
+
+  // min-width: 100px;
+  // max-width: 1200px;
+
+  // transition: width 1s, height 1s;
+
+    /* Perfect 16:9 containment formula using CSS */
   aspect-ratio: 16 / 9;
   width: 100%;
-  max-width: 1200px;
+  height: auto;
   
+  /* Fallbacks to make sure it never overflows the height or boundaries */
+  max-width: min(1200px, calc(100dvh * 16 / 9));
   max-height: 100dvh;
-  min-width: 400px;             
 
+  transition: width 1s, height 1s;
+  
   container-type: inline-size;
   container-name: game-canvas;
   border: 0.15cqw solid #2d2d2d;
@@ -62,9 +75,9 @@ export const GameComponent = () => {
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
+  // const [wrapperHeight, setWrapperHeight] = useState<number>(100);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();
-
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!gameWrapperRef.current) return;
@@ -173,6 +186,29 @@ export const GameComponent = () => {
     rootGameStore.setForceUpdate(forceUpdate);
   }, []);
 
+
+  // useEffect(() => {
+  //   // Only execute on the client side
+  //   if (typeof window === 'undefined') return;
+
+  //   const handleResize = () => {
+  //     const desiredHeight = (window.innerWidth / 16) * 9;
+  //     if (desiredHeight > window.innerHeight) {
+
+  //       setWrapperHeight(100);
+  //     } else {
+  //       setWrapperHeight(window.innerHeight / desiredHeight);
+  //     }
+  //   };
+
+  //   window.addEventListener('resize', handleResize);
+
+  //   // Call handler right away so state gets updated with initial window size
+  //   handleResize();
+
+  //   return () => window.removeEventListener('resize', handleResize);
+  // }, []);
+
   snap.useGameplayKeyBindings();
 
   useEffect(() => {
@@ -207,6 +243,7 @@ export const GameComponent = () => {
       onTouchStart={handleTouchDown}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchUp}
+      // $height={wrapperHeight}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}
