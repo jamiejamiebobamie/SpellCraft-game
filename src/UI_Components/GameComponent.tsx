@@ -151,10 +151,15 @@ export const GameComponent = () => {
     rootGameStore.endDrawing();
     // if (e.touches.length === 0) return;
 
-    const touch = e.touches[0];
-    const x = touch.clientX;
-    const y = touch.clientY;
-    rootGameStore.runInference({ x, y }, setData);
+    let touch = undefined;
+    if (e && e.touches) {
+      const touches = e?.touches;
+      const x = touches ? touches[0]?.clientX : undefined;
+      const y = touches ? touches[0]?.clientY : undefined;
+      if (x && y) touch = { x, y };
+    }
+
+    rootGameStore.runInference(touch, setData);
   }, []);
 
   // Safely bind non-passive touch listeners for iOS Safari compatibility
@@ -212,9 +217,9 @@ export const GameComponent = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      // onTouchStart={handleTouchDown}
-      // onTouchMove={handleTouchMove}
-      // onTouchEnd={handleTouchUp}
+    // onTouchStart={handleTouchDown}
+    // onTouchMove={handleTouchMove}
+    // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {data}
