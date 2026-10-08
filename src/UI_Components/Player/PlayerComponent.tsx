@@ -20,6 +20,14 @@ const DuelistSideColumn = styled.div`
   width: 100%;
 `;
 
+const AvatarPlacementWrapper = styled.div`
+  position: absolute;
+  left: 1.5cqw;
+  right: 1.5cqw;
+  bottom: 10cqw; 
+  pointer-events: none;
+`;
+
 const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   transform: scale(${props => props.$direction}, 1);
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
@@ -152,7 +160,7 @@ const useHealthbar = ({
       }
 
       const diff = healthAmt - oldCachedAmt;
-      
+
       // If there's an actual state change, apply it immediately
       if (diff !== 0) {
         setHealthDiff(diff);
@@ -179,7 +187,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const ANIM_TIME = 6;
   const healthAmt = playerSnap?.getHealth() || 0;
   const pct = playerSnap?.getHealthPrct() || 0;
-  const focusAmt = playerSnap?.getFocus()  || 0;
+  const focusAmt = playerSnap?.getFocus() || 0;
   const maxFocus = playerSnap?.getMaxFocus() || 0;
   const maxExcessFocus = playerSnap?.getMaxExcessFocus() || 0;
   const src = playerSnap?.avatarUrl || '';
@@ -192,16 +200,20 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
 
   const isDead = playerSnap?.getIsDead() || false;
 
-  const avatar = (<AvatarFrame $src={src} $direction={direction}>
-    <Damageable $healthDiff={healthDiff} $isDead={isDead}>
-      <AvatarRobe $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
-        <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
-        <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
-        <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
-      </AvatarRobe>
-      <FloorShadow $isHide={isDead} />
-    </Damageable>
-  </AvatarFrame>);
+  const avatar = (
+    <AvatarPlacementWrapper>
+      <AvatarFrame $src={src} $direction={direction}>
+        <Damageable $healthDiff={healthDiff} $isDead={isDead}>
+          <AvatarRobe $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
+            <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
+            <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
+            <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
+          </AvatarRobe>
+          <FloorShadow $isHide={isDead} />
+        </Damageable>
+      </AvatarFrame>
+    </AvatarPlacementWrapper>
+  );
 
   const healthbar = (<BarBorder $direction={direction}>
     <BarFill $pct={pct} $direction={direction}>
