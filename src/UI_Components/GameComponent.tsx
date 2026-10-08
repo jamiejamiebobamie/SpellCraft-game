@@ -61,13 +61,13 @@ const MainColumn = styled.div`
 
 // TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
 
+// TO-DO: hide website until spell model loads....
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const gameWrapperRef = useRef<HTMLDivElement | null>(null);
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
-  const [data, setData] = useState<string>('');
   // const [wrapperHeight, setWrapperHeight] = useState<number>(100);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();
@@ -139,17 +139,14 @@ export const GameComponent = () => {
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
-    rootGameStore.runInference({ x: e.clientX, y: e.clientY }, setData);
+    rootGameStore.runInference({ x: e.clientX, y: e.clientY });
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    // setCount(c => ++c);
-    setData('running')
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
-    // if (!rootGameStore.getIsDrawing()) return;
+    if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
-    // if (e.touches.length === 0) return;
 
     let touch = undefined;
     if (e && e.touches) {
@@ -159,7 +156,7 @@ export const GameComponent = () => {
       if (x && y) touch = { x, y };
     }
 
-    rootGameStore.runInference(touch, setData);
+    rootGameStore.runInference(touch);
   }, []);
 
   // Safely bind non-passive touch listeners for iOS Safari compatibility
@@ -217,12 +214,8 @@ export const GameComponent = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-    // onTouchStart={handleTouchDown}
-    // onTouchMove={handleTouchMove}
-    // onTouchEnd={handleTouchUp}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
-      {/* {data} */}
       {sceneElements}
       {mainUI}
     </GameWrapper>
