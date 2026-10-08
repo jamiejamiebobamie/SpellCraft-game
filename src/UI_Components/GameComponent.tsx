@@ -137,13 +137,13 @@ export const GameComponent = () => {
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
-    if (!rootGameStore.getIsDrawing()) return;
+    // if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
     rootGameStore.runInference({ x: e.clientX, y: e.clientY });
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    setCount(c => c++);
+    setCount(c => ++c);
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     // if (!rootGameStore.getIsDrawing()) return;
