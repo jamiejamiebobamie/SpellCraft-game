@@ -44,7 +44,7 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
             y: sparkleY,
             size: isGlitterStar ? Math.random() * 2.5 + 1.2 : Math.random() * 1.6 + 0.4,
             alpha: 0,
-            rate: Math.random() * 0.04 + 0.015, // Slower decay makes individual sparkles linger longer
+            rate: Math.random() * 0.02 + 0.005, // Slower decay makes individual sparkles linger longer
             phase: 0,
             maxAlpha: isGlitterStar ? Math.random() * 0.3 + 0.7 : Math.random() * 0.8 + 0.2,
             color: magicThemeColors[Math.floor(Math.random() * magicThemeColors.length)],

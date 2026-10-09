@@ -233,8 +233,8 @@ export default function ClockFaceComponent() {
       />
     </ClockImgWrapper>
     <MenuAnchor
-      $lowBrightness={backgroundSceneBrightness * 1.5}
-      $highBrightness={backgroundSceneBrightness * 1.8}
+      $lowBrightness={backgroundSceneBrightness * 2}
+      $highBrightness={backgroundSceneBrightness * 2.5}
       $backgroundSceneBrightness={backgroundSceneBrightness}
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
       $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}

@@ -239,7 +239,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   );
 
   return (<DuelistSideColumn>
-    <Spotlight />
+    <Spotlight $isDead={isDead} />
     {avatar}
     {focusDots}
     {healthbar}

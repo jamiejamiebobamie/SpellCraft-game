@@ -10,7 +10,7 @@ const lightShimmer = keyframes`
   }
 `;
 
-export const Spotlight = styled.div`
+export const Spotlight = styled.div<{ $isDead: boolean }>`
   position: absolute;
   /* Hangs outside the top bounds so the origin source is invisible/out-of-shot */
   top: -15cqw; 
@@ -44,4 +44,7 @@ export const Spotlight = styled.div`
 
   /* Optional: gives it that 90s projection-booth breathing vibe */
   animation: ${lightShimmer} 6s ease-in-out infinite;
+
+  transition: opacity: 3s;
+  opacity: ${props => props.$isDead ? 0 : 1};
 `;
