@@ -1,4 +1,5 @@
 import styled, { keyframes } from 'styled-components';
+import { noAnim } from '../Player/CharacterParts';
 
 // Soft breathing/shimmering animation for a cinematic, dust-mote lens effect
 const lightShimmer = keyframes`
@@ -43,7 +44,7 @@ export const Spotlight = styled.div<{ $isDead: boolean }>`
   pointer-events: none;
 
   /* Optional: gives it that 90s projection-booth breathing vibe */
-  animation: ${lightShimmer} 6s ease-in-out infinite;
+  animation: ${props => !props.$isDead ? lightShimmer : noAnim} 6s ease-in-out infinite;
 
   transition: opacity: 3s;
   opacity: ${props => props.$isDead ? 0 : 1};
