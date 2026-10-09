@@ -4,6 +4,7 @@ import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
+import { UIFadeIn } from '../UIFadeIn';
 import styled, { keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -44,7 +45,7 @@ const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
   margin-bottom: 6.3cqw;
 `;
 
-const BarBorder = styled.div<{ $direction: number }>`
+const BarBorder = styled(UIFadeIn)<{ $direction: number }>`
   position: relative; width: 150%; align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'}; height: 2.5cqw; margin-bottom: .5cqw; border: 0.15cqw solid #666; background: #222; border-radius: 0.3cqw; overflow: hidden;
 `;
 
@@ -85,7 +86,7 @@ const BarText = styled.div`
     transition: width 0.2s ease;
 `;
 
-const FocusContainer = styled.div<{ $direction: number }>`
+const FocusContainer = styled(UIFadeIn)<{ $direction: number }>`
     display: flex;
     align-self: ${props => props.$direction == -1 ? 'flex-end' : 'flex-start'};
     padding: 1cqw 0cqw;// 3cqw .2cqw 2cqw;
@@ -183,7 +184,7 @@ type PlayerComponentProps = {
 
 const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
   const snap = useSnapshot(rootGameStore);
-  const playerSnap = playerIndex == 0 ? snap.getHumanPlayer() : rootGameStore.getNpcPlayer();
+  const playerSnap = playerIndex == 0 ? snap.getHumanPlayer() : snap.getNpcPlayer();
   const ANIM_TIME = 6;
   const healthAmt = playerSnap?.getHealth() || 0;
   const pct = playerSnap?.getHealthPrct() || 0;
@@ -192,19 +193,22 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const maxExcessFocus = playerSnap?.getMaxExcessFocus() || 0;
   const src = playerSnap?.avatarUrl || '';
   const direction = playerSnap?.getDirection() || 1;
-
   const healthRefTimeout = useRef<number | null | undefined>(0);
   const [_, setCachedHealth] = useState(healthAmt);
   const [healthDiff, setHealthDiff] = useState(0);
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
-
   const isDead = playerSnap?.getIsDead() || false;
+  const isDoneWithIntroWalk = playerSnap?.getIsDoneWithIntroWalk() || false;
 
   const avatar = (
     <AvatarPlacementWrapper>
       <AvatarFrame $src={src} $direction={direction}>
-        <Damageable $healthDiff={healthDiff} $isDead={isDead}>
-          <AvatarRobe $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
+        <Damageable
+          $isDoneWithIntroWalk={isDoneWithIntroWalk}
+          $direction={direction}
+          $healthDiff={healthDiff}
+          $isDead={isDead}>
+          <AvatarRobe $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
             <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
             <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
             <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
@@ -215,7 +219,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     </AvatarPlacementWrapper>
   );
 
-  const healthbar = (<BarBorder $direction={direction}>
+  const healthbar = (<BarBorder $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction}>
     <BarFill $pct={pct} $direction={direction}>
       <BarTextContainer $pct={pct} $direction={direction}>
         <BarText>
@@ -226,7 +230,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   </BarBorder >);
 
   const focusDots = (
-    <FocusContainer $direction={direction}>
+    <FocusContainer $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction}>
       {/* STORED FOCUS */}
       {direction == -1 ? Array.from({ length: maxExcessFocus }).map((_, i) => <ExcessFocusBadge key={i} $i={maxFocus - i - 1} $focusAmt={focusAmt - maxFocus} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: maxFocus }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={focusAmt} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       {/* EXCESS STORED FOCUS */}

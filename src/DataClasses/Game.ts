@@ -17,6 +17,7 @@ import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
+import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 
 /*
 
@@ -30,6 +31,10 @@ export class Game {
   // UI-SPECIFIC
   gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
   forceUpdate: () => void = () => { };
+  backgroundSceneBrightness: number = 0.1;
+  private readonly LOW_BRIGHTNESS: number = 0.1;
+  private readonly HIGH_BRIGHTNESS: number = 0.25; // 0.5
+
 
   // GAME OVER
   gameOver: GameOver | null = null;
@@ -244,6 +249,29 @@ export class Game {
 
 
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
+  beginIntro = (): void => {
+    // begin intro walk...
+    this.setIsDoneWithIntroWalk(false);
+    this.forceUpdate();
+
+    /*
+      after 4 seconds, begin brightening scene
+      full brightness after 8 seconds from start of begin brightening scene
+    */ 
+    setTimeout(() => {
+      this.backgroundSceneBrightness = this.HIGH_BRIGHTNESS;
+      this.forceUpdate();
+    }, INTRO_WALK_ANIM_TIME * 500);
+
+    /*
+      turn-off walk anim after 8 seconds after turning it on.
+    */
+    setTimeout(() => { 
+      this.setIsDoneWithIntroWalk(); 
+    }, INTRO_WALK_ANIM_TIME * 1000);
+
+  }
   setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => this.gameBoard.setGameBoardRef(gameBoardRef);
   setGameWrapperRef = (gameWrapperRef: RefObject<HTMLDivElement | null>): void => {
     this.gameWrapperRef = gameWrapperRef;
@@ -251,6 +279,7 @@ export class Game {
   setForceUpdate = (forceUpdate: () => void) => {
     this.forceUpdate = forceUpdate;
   }
+  resetBackgroundSceneBrightnessToDarkness = (): void => { this.backgroundSceneBrightness = this.LOW_BRIGHTNESS; }
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -338,6 +367,7 @@ export class Game {
 
 
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getIsDoneWithIntroWalk = (): boolean => { const isDone = this.players.getPlayers().every(p => p.getIsDoneWithIntroWalk()); return isDone; }
   getHasFocus = (): boolean => {
     const humanPlayer = this.players.getHumanPlayer();
     if (humanPlayer) {
@@ -385,6 +415,7 @@ export class Game {
   setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
     player.setIsDoneWithTurn(isDoneWithTurn);
   }
+  setIsDoneWithIntroWalk = (bool?: boolean): void => { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -427,7 +458,6 @@ export class Game {
 
   // Called "onMouseUp"
   runInference = async (mouseCoords?: Point): Promise<void> => {
-
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       // IF "CLICK" -> place num key spell or Fireball if no spell readied
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);

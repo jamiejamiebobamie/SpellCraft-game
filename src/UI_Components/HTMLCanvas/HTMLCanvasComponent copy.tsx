@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { rootGameStore } from '../../DataClasses/store';
-import KeyBindingComponent from './Buttons/SettingsComponent';
+import SettingsComponent from './Buttons/SettingsComponent';
 import SpellBookComponent from './Buttons/SpellBookComponent';
 import ClockFaceComponent from './Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';
@@ -236,11 +236,18 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.stroke(); ctx.restore();
         }
       }
+
       if (isShowClockSymbols) drawClockAdvanceSymbols(ctx, scrollUIRef.current, viewW, viewH, currentTime);
-      if (isShowingModal) drawModalDetails(ctx, scrollUIRef.current, deltaTime, viewW, viewH, animStatesRef.current, currentTime);
-      if (isGearHovered && !isShowingModal) drawKeyboardOverlay(ctx, viewW, viewH);
-      runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
-      drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime, setIsHovered, animStatesRef.current);
+
+      const isIntroDone = rootGameStore.getIsDoneWithIntroWalk();
+
+      if (isShowingModal && isIntroDone) drawModalDetails(ctx, scrollUIRef.current, deltaTime, viewW, viewH, animStatesRef.current, currentTime);
+      if (isGearHovered && !isShowingModal && isIntroDone) drawKeyboardOverlay(ctx, viewW, viewH);
+      if (isIntroDone) {
+        runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
+        drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime, setIsHovered, animStatesRef.current);
+      }
+      
       animationFrameId = requestAnimationFrame(render);
     };
     animationFrameId = requestAnimationFrame(render);
@@ -258,7 +265,7 @@ const HTMLCanvasComponent = (({ gridOverlayRef }: PlacedSpellsProps) => {
     <SpellBookComponent isGearHovered={isGearHovered} />
     <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
     <ClockFaceComponent />
-    <KeyBindingComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+    <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
   </>;
 
   return (

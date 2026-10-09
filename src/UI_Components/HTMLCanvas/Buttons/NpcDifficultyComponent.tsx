@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
+import { UIFadeIn } from '../../UIFadeIn';
+
 import styled, { keyframes } from 'styled-components';
 import { NpcDifficulty } from '../../../DataClasses/types';
 
 const darkRed = '#cf2b2b';
 
 // The Main Absolute Anchor
-const MenuAnchor = styled.div<{ $isShowingModal: boolean }>`
+const MenuAnchor = styled(UIFadeIn) <{ $isShowingModal: boolean }>`
   position: absolute;
   top: 1cqw;   
   right: 4cqw; 
@@ -98,6 +100,7 @@ export default function NpcDifficultyComponent({ isShowingModal }: NpcDifficulty
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
   const snap = useSnapshot(rootGameStore);
   const difficulty: NpcDifficulty = snap.getNpcDifficulty();
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
 
   useEffect(() => {
     const item = window.localStorage.getItem(localStorageKey);
@@ -127,6 +130,7 @@ export default function NpcDifficultyComponent({ isShowingModal }: NpcDifficulty
 
   return (
     <MenuAnchor
+      $isDoneWithIntro={isDoneWithIntro}
       onMouseEnter={() => { setIsHovered(true); clearTimeout(timeoutRef.current); }}
       onMouseLeave={() => setIsHovered(false)}
       onMouseDown={() => setIsClicked(true)}

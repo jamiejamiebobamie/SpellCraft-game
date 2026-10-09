@@ -3,37 +3,54 @@ import styled, { css, keyframes } from 'styled-components';
 import { Game } from '../../../DataClasses/Game';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
+import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
+
+// const flashClockFace = keyframes`
+//   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
+//   50% { filter: drop-shadow(0 0 .5cqw white) brightness(.95); }
+// `;
 
 const flashClockFace = keyframes`
-  0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
-  50% { filter: drop-shadow(0 0 .5cqw white) brightness(.95); }
+  0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--lowBrightness)); }
+  50% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--highBrightness)); }
 `;
 
-const MenuAnchor = styled.div<{ $isDisabled: boolean, $isFlashClock: boolean }>`
+const MenuAnchor = styled.div<{
+  $lowBrightness: number,
+  $highBrightness: number,
+  $isDoneWithIntro: boolean, $backgroundSceneBrightness: number, $isDisabled: boolean, $isFlashClock: boolean
+}>`
   position: absolute;
   top: 4.8cqw;   
   left: 45cqw; 
   z-index: 31;
-  pointer-events: ${props => props.$isDisabled ? 'none' : 'unset'};
+  pointer-events: ${props => props.$isDisabled || !props.$isDoneWithIntro ? 'none' : 'unset'};
   cursor: pointer;
   padding: 0.5cqw;
   border-radius: 50%;
   transition: filter 1s;
-  ${props => props.$isDisabled && /*? 'filter: drop-shadow(0 0 .5cqw white) brightness(1);' :*/ 'filter: drop-shadow(0 0 .5cqw white) brightness(.7);'}
-  ${props => !props.$isDisabled && props.$isFlashClock && css`animation: ${flashClockFace} 2.5s ease-in-out infinite;`}
+
+  --lowBrightness: ${props => props.$lowBrightness};
+  --highBrightness: ${props => props.$highBrightness};
+
+  ${props => !props.$isDoneWithIntro && `filter: drop-shadow(0 0 .5cqw white) brightness(${props.$backgroundSceneBrightness});`}
+
+  ${props => props.$isDisabled && `filter: drop-shadow(0 0 .5cqw white) brightness(${props.$highBrightness});`}
+  ${props => !props.$isDisabled && props.$isFlashClock && props.$isDoneWithIntro && css`animation: ${flashClockFace} 2.5s ease-in-out infinite;`}
   &:hover{
-    filter: drop-shadow(0 0 .5cqw white) brightness(1);
+    filter: drop-shadow(0 0 .5cqw white) brightness(${props => props.$highBrightness});
   }
 `;
 
-const ClockImgWrapper = styled.div<{ $isHovered: boolean, $isDisabled: boolean }>`
+const ClockImgWrapper = styled.div<{ $backgroundSceneBrightness: number, $isHovered: boolean, $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
   left: 45cqw; 
   z-index: 0;
   transition: filter .5s;
-  will-change: filter; 
-  filter: brightness(.5);
+  will-change: filter;
+  filter: brightness(${props => props.$backgroundSceneBrightness * 2});
+  transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
 `;
 
 const bellStrike = keyframes`
@@ -155,6 +172,8 @@ export default function ClockFaceComponent() {
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
+  const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Rotation angles (minute, hour)
@@ -168,6 +187,7 @@ export default function ClockFaceComponent() {
   return (<>
     {/* .png clock elements. */}
     <ClockImgWrapper
+      $backgroundSceneBrightness={backgroundSceneBrightness}
       $isDisabled={isGameBoardDisabled}
       $isHovered={isHovered && !isComputerPlayerDoingTurn}>
       <ClockImg
@@ -213,8 +233,12 @@ export default function ClockFaceComponent() {
       />
     </ClockImgWrapper>
     <MenuAnchor
+      $lowBrightness={backgroundSceneBrightness * 1.5}
+      $highBrightness={backgroundSceneBrightness * 1.8}
+      $backgroundSceneBrightness={backgroundSceneBrightness}
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
       $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}
+      $isDoneWithIntro={isDoneWithIntro}
       onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

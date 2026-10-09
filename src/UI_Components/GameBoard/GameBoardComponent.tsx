@@ -59,7 +59,8 @@ const StyledCell = styled.div<{
   
   /* Transitions */
   transition: opacity 1s ease, background 0.3s ease, border 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
-  opacity: .1;
+  opacity: .2;
+  filter: brightness(1.2);
 
 
   &:hover {
@@ -92,6 +93,7 @@ const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
     const snap = useSnapshot(rootGameStore);
     const npcMoveData = snap.getNPCMoveData();
     const isDisabled: boolean = snap.getIsGameBoardDisabled();
+    // const isDoneWithIntro: boolean = snap.getIsDoneWithIntroWalk();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { rootGameStore } from '../../../DataClasses/store';
+import { UIFadeIn } from '../../UIFadeIn';
 import { useSnapshot } from 'valtio';
 
-const MenuAnchor = styled.div<{ $isShowingModal: boolean }>`
+const MenuAnchor = styled(UIFadeIn)<{ $isShowingModal: boolean }>`
   display:${props => props.$isShowingModal ? 'none' : 'initial'};
   position: absolute;
   bottom: 1cqw;   
@@ -103,6 +104,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   const isMusicMuted = snap.getIsMusicMuted();
   const isFxMuted = snap.getIsFxMuted();
   const [isClicked, setIsClicked] = useState<boolean>(false);
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
 
   useEffect(() => {
     localStorageKeys.forEach((k, i) => {
@@ -122,7 +124,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   }, []);
 
   return (
-    <MenuAnchor onMouseLeave={() => setIsClicked(false)} $isShowingModal={isShowingModal} data-click-type="ui-buttons">
+    <MenuAnchor $isDoneWithIntro={isDoneWithIntro} onMouseLeave={() => setIsClicked(false)} $isShowingModal={isShowingModal} data-click-type="ui-buttons">
       <TriggerBox
         onMouseUp={() => setIsClicked(bool => !bool)}
         $isClicked={isClicked} title={'Settings'} />

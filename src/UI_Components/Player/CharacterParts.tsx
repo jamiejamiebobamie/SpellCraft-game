@@ -1,6 +1,8 @@
 import styled, { keyframes, css } from 'styled-components';
 import { InferenceString } from '../../DataClasses/types';
 
+export const INTRO_WALK_ANIM_TIME = 12; // in seconds
+
 export const bob = keyframes`
   0%, 100% { transform: translateY(0px) var(--extra-transform, ); }
   50% { transform: translateY(-4px) var(--extra-transform, ); }
@@ -21,6 +23,15 @@ export const shake = keyframes`
   20%, 80% { transform: translate3d(.5cqw, 0, 0) var(--extra-transform, ); }
   30%, 50%, 70% { transform: translate3d(-.75cqw, 0, 0) var(--extra-transform, ); }
   40%, 60% { transform: translate3d(.75cqw, 0, 0) var(--extra-transform, ); }
+`;
+
+export const ceremonialMarch = keyframes`
+  0%, 50%, 100% {
+    transform: translateY(0px);
+  }
+  25%, 75% {
+    transform: translateY(-5px); /* Distinct, proud step height lifting the torso */
+  }
 `;
 
 // Wand Arm Death Anim
@@ -57,21 +68,39 @@ export const fallAndSquash = keyframes`
   }
 `;
 
-export const Damageable = styled.div<{ $healthDiff: number; $isDead: boolean }>`
+// Intro anim
+export const walkIn = keyframes`
+  0% {
+    transform: translateX(calc(var(--walk-direction, 1) * -100vw));
+    filter: brightness(.1);
+  }
+  60% {
+    filter: brightness(.1);
+  }
+  100% {
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+`;
+
+export const Damageable = styled.div<{
+  $healthDiff: number;
+  $isDead: boolean;
+  $isDoneWithIntroWalk: boolean;
+  $direction: number;
+}>`
   width: 100%;
   height: 100%;
-  
-  /* Set the transform-origin near the feet/base so the body tilts forward naturally */
   transform-origin: bottom center;
-  
-  ${props => props.$isDead ? css`
-    /* Switched to cubic-bezier(0.32, 0, 0.67, 0) which mimics gravitational acceleration (Ease-In) */
+  ${props => !props.$isDoneWithIntroWalk ? css`
+    /* Slowed down to 5s for an epic, high-stakes cinematic arrival */
+    animation: ${walkIn} ${INTRO_WALK_ANIM_TIME}s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
+  ` : props.$isDead ? css`
     animation: ${fallAndSquash} 3s cubic-bezier(0.32, 0, 0.67, 0) forwards;
   ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
   `}
 `;
-
 
 interface PartProps {
   $src: string;
@@ -128,14 +157,16 @@ export const CharacterPart = styled.div.attrs<PartProps>(props => ({
   }
 `;
 
-// Clean extended components reading structural rules without inline interruptions
-export const AvatarRobe = styled(CharacterPart)`
+export const AvatarRobe = styled(CharacterPart) <{ $isDoneWithIntroWalk?: boolean }>`
   top: 7.75cqw;
   left: 2.4cqw;
   width: 13cqw;
   aspect-ratio: 544/657; 
   transform-origin: bottom center;
-  animation-name: ${bob};
+  
+  /* If walking, play the heavy march loop over 1.25s chunks. Otherwise, breathe normally. */
+  animation-name: ${props => !props.$isDoneWithIntroWalk ? ceremonialMarch : bob};
+  animation-duration: ${props => !props.$isDoneWithIntroWalk ? `${INTRO_WALK_ANIM_TIME / 4}s` : 'var(--part-speed)'};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 `;

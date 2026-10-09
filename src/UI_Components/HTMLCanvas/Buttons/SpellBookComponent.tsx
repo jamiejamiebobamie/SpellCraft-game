@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
+import { UIFadeIn } from '../../UIFadeIn';
 import styled, { css, keyframes } from 'styled-components';
 
 const repeatingGlow = keyframes`
@@ -10,7 +11,7 @@ const repeatingGlow = keyframes`
 `;
 
 // The Main Absolute Anchor
-const MenuAnchor = styled.div<{ $isGearHovered: boolean }>`
+const MenuAnchor = styled(UIFadeIn)<{ $isGearHovered: boolean }>`
   position: absolute;
   top: 2cqw;
   left: 3cqw; 
@@ -100,8 +101,11 @@ export default function SpellBookComponent({ isGearHovered }: SpellBookComponent
   const isOpen = snap.getIsSpellBookOpen();
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isClickedOnce, setIsClickedOnce] = useState<boolean>(false);
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
+
+
   return (
-    <MenuAnchor $isGearHovered={isGearHovered} data-click-type="ui-buttons">
+    <MenuAnchor $isDoneWithIntro={isDoneWithIntro} $isGearHovered={isGearHovered} data-click-type="ui-buttons">
       <TriggerBox
         onClick={() => {
           rootGameStore.setIsSpellBookOpen();

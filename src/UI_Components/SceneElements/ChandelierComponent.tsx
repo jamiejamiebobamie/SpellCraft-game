@@ -1,5 +1,6 @@
 import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
+import { INTRO_WALK_ANIM_TIME } from '../Player/CharacterParts';
 
 const chainSwing = keyframes`
   0% { transform: rotate(-2.5deg); }
@@ -26,6 +27,7 @@ type ChandelierProps = {
   $animDelay?: string;
   $brightness?: number;
   $style?: string;
+  $backgroundSceneBrightness: number;
 }
 
 const ChandelierImg = styled.div<ChandelierProps>`
@@ -49,8 +51,10 @@ const ChandelierImg = styled.div<ChandelierProps>`
       background-repeat: no-repeat;
       background-size: cover;
       background-position: center;
-      
-      filter: brightness(.6) hue-rotate(90deg);
+
+      transition: filter ${INTRO_WALK_ANIM_TIME}s;
+      // filter: brightness(.6) hue-rotate(90deg);
+      filter: brightness(${props => props.$backgroundSceneBrightness * 1.75}) hue-rotate(90deg);
       z-index: -1;
   }
 
@@ -69,45 +73,50 @@ const ChandelierImg = styled.div<ChandelierProps>`
 
 
 type ChandelierComponentProps = {
+  backgroundSceneBrightness: number;
   left?: string;
   right?: string;
   animDelay?: string;
 }
 
-export default function ChandelierComponent({ left, right, animDelay }: ChandelierComponentProps) {
+export default function ChandelierComponent({ backgroundSceneBrightness, left, right, animDelay }: ChandelierComponentProps) {
   return (
+    <ChandelierImg
+      $transformOrigin={'top center'}
+      $top={'0cqw'}
+      $left={left}
+      $right={right}
+      $width={'1.32cqw'}
+      $aspectRatio={'22/214'}
+      $zIndex={1}
+      $imgUrl={'background-scene/Chandelier/Chandelier-chain-iron.png'}
+      $animType={'chain'}
+      $animDelay={animDelay}
+      $backgroundSceneBrightness={backgroundSceneBrightness}
+    >
       <ChandelierImg
-        $transformOrigin={'top center'}
-        $top={'0cqw'}
-        $left={left}
-        $right={right}
-        $width={'1.32cqw'}
-        $aspectRatio={'22/214'}
-        $zIndex={1}
-        $imgUrl={'background-scene/Chandelier/Chandelier-chain-iron.png'}
-        $animType={'chain'}
+        $transformOrigin={'bottom center'}
+        $top={'9.3cqw'}
+        $left={'-5cqw'}
+        $width={'11.5cqw'}
+        $aspectRatio={'139/78'}
+        $zIndex={2}
+        $imgUrl={'background-scene/Chandelier/Chandelier-candles-holder-iron.png'}
+        $animType={'chandelier'}
         $animDelay={animDelay}
+        $backgroundSceneBrightness={backgroundSceneBrightness}
       >
         <ChandelierImg
-          $transformOrigin={'bottom center'}
-          $top={'9.3cqw'}
-          $left={'-5cqw'}
+          $top={'-1.5cqw'}
+          $left={'0cqw'}
           $width={'11.5cqw'}
-          $aspectRatio={'139/78'}
-          $zIndex={2}
-          $imgUrl={'background-scene/Chandelier/Chandelier-candles-holder-iron.png'}
-          $animType={'chandelier'}
-          $animDelay={animDelay}
-        >
-          <ChandelierImg
-            $top={'-1.5cqw'}
-            $left={'0cqw'}
-            $width={'11.5cqw'}
-            $aspectRatio={'140/38'}
-            $zIndex={3}
-            $style={'filter: brightness(1.5) drop-shadow(0px 0px 1px green);'}
-            $imgUrl={'background-scene/Chandelier/Chandelier-candle-flames.png'} />
-        </ChandelierImg>
+          $aspectRatio={'140/38'}
+          $zIndex={3}
+          $style={'filter: brightness(1.5) drop-shadow(0px 0px 1px green);'}
+          $imgUrl={'background-scene/Chandelier/Chandelier-candle-flames.png'}
+          $backgroundSceneBrightness={backgroundSceneBrightness}
+        />
       </ChandelierImg>
+    </ChandelierImg>
   );
 }

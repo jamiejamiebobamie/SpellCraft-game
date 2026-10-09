@@ -8,8 +8,10 @@ import ChandelierComponent from './SceneElements/ChandelierComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
+import { UIFadeIn } from './UIFadeIn';
+import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 
-const GameWrapper = styled.div`
+const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   margin: 0 auto; 
   display: flex;
   flex-direction: row;
@@ -44,12 +46,13 @@ const GameWrapper = styled.div`
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
-    filter: brightness(.5); 
+    transition: filter ${INTRO_WALK_ANIM_TIME}s;
+    filter: brightness(${props => props.$backgroundSceneBrightness}); 
     z-index: -1;
   }
 `;
 
-const MainColumn = styled.div`
+const MainColumn = styled(UIFadeIn)`
   flex: 3;
   background: transparent;
   display: flex;
@@ -62,17 +65,26 @@ const MainColumn = styled.div`
 // TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
 
 // TO-DO: hide website until spell model loads....
+
+// TO-DO: local storage is not working on iPhone/iPad(?)
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const gameWrapperRef = useRef<HTMLDivElement | null>(null);
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
-  // const [wrapperHeight, setWrapperHeight] = useState<number>(100);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isOutOfFocus = snap.getIsOutOfFocus();
+  const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
+
+  useEffect(() => {
+    rootGameStore.beginIntro();
+  }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     if (!gameWrapperRef.current) return;
 
     const rect = gameWrapperRef.current.getBoundingClientRect();
@@ -85,6 +97,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     if (!gameWrapperRef.current) return;
 
     // Calculate mouse position relative to this specific container
@@ -105,6 +119,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     const target = e.target as HTMLElement;
     const isUiButton = target.closest('[data-click-type="ui-buttons"]');
     if (isUiButton || rootGameStore.getIsDrawing()) return;
@@ -120,6 +136,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchDown = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     const target = e.target as HTMLElement;
     const isUiButton = target.closest('[data-click-type="ui-buttons"]');
     if (isUiButton || rootGameStore.getIsDrawing()) return;
@@ -135,6 +153,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
@@ -143,6 +163,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
@@ -194,19 +216,23 @@ export const GameComponent = () => {
   }, [gameWrapperRef]);
 
   const sceneElements = <>
-    <ChandelierComponent left={'22.5cqw'} animDelay={'-3.5s'} />
-    <ChandelierComponent right={'22.5cqw'} />
+    <ChandelierComponent
+      backgroundSceneBrightness={backgroundSceneBrightness}
+      left={'22.5cqw'} animDelay={'-3.5s'}
+    />
+    <ChandelierComponent
+      backgroundSceneBrightness={backgroundSceneBrightness}
+      right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
   </>
 
   const mainUI = <>
     <PlayerComponent playerIndex={0} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus || isOutOfFocus} />
-    <MainColumn>
+    <MainColumn $isDoneWithIntro={isDoneWithIntro}>
       <GameBoardComponent gridOverlayRef={gridOverlayRef} />
     </MainColumn>
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>
-
   return (
     <GameWrapper
       ref={gameWrapperRef}
@@ -214,6 +240,7 @@ export const GameComponent = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      $backgroundSceneBrightness={backgroundSceneBrightness}
     >
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}

@@ -1,5 +1,6 @@
 import { CanvasScrollUI } from '../../../../DataClasses/types';
 import { draw4PointStar } from '../Sparkles/SparkleFunctions';
+import { rootGameStore } from '../../../../DataClasses/store';
 
 const iceSilverColors = ['#e6f7ff', '#b3d9ff', '#ffffff', '#d9f2ff', '#ccf2ff'];
 const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
@@ -17,15 +18,20 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
     const spiritFade = 0.45 + Math.sin(currentTime * 0.001) * 0.4;
     ctx.globalAlpha = Math.max(0.05, Math.min(0.85, spiritFade));
 
+    // const clockCX = viewW * 0.5;
+    // const clockCY = viewH * 0.2;
+    // const clockFaceRadius = viewW * 0.12; 
+
+    
     const clockCX = viewW * 0.5;
     const clockCY = viewH * 0.2;
-    const clockFaceRadius = viewW * 0.12; 
+    const clockFaceRadius = viewW * 1; 
 
     const pool = ui.clockGeometricSparkles;
 
     // --- STEP 1: HIGH FREQUENCY PARTICLE SPARKING ---
     // Increased spawn rate (0.65) to produce a rich background field of magic bursts
-    if (Math.random() < 0.65 && pool.length < 180) {
+    if (Math.random() < 0.65 && pool.length < 50/*180*/) {
         const randomAngle = Math.random() * Math.PI * 2;
         const randomDist = Math.random() * clockFaceRadius;
         const sparkleX = clockCX + Math.cos(randomAngle) * randomDist;
@@ -50,7 +56,8 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
     shapes.forEach((shapeType, sIdx) => {
         // 1. HIGHER FREQUENCY & LONGER LIFE: Slower time modifier (0.0006) lets them persist on screen twice as long
         // Using decoupled offsets allows multiple shapes to cycle onto the screen concurrently
-        const uniqueTimeSeed = currentTime * 0.0006 + (sIdx * 3.1415 * 0.33);
+        // const uniqueTimeSeed = currentTime * 0.0006 + (sIdx * 3.1415 * 0.33);
+        const uniqueTimeSeed = currentTime * 0.0003 + (sIdx * 3.1415 * 0.33);
         
         // Progress of the active wave (0.0 to 1.0 across its visible lifetime)
         const lifeProgress = (uniqueTimeSeed % Math.PI) / Math.PI;
@@ -66,11 +73,12 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
 
         // Base spatial launch parameters originating closer to the center core for a true tunnel view
         const spawnAngle = seededRandom1 * Math.PI * 2;
-        const initialRadius = seededRandom2 * clockFaceRadius * 0.3; 
+        const initialRadius = seededRandom2 * clockFaceRadius * 0.1; 
 
         // 2. EXPONENTIAL OUTWARD TRANSLATION SPEED:
         // Squaring lifeProgress creates an accelerating "rush" profile outward over time
-        const warpSpeedFactor = Math.pow(lifeProgress, 1.8);
+        // const warpSpeedFactor = Math.pow(lifeProgress, 1.8);
+        const warpSpeedFactor = Math.pow(lifeProgress, 3);
         const currentDistance = initialRadius + (clockFaceRadius * 1.4) * warpSpeedFactor;
 
         const shapeCX = clockCX + Math.cos(spawnAngle) * currentDistance;
@@ -84,8 +92,8 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
 
         ctx.save();
         ctx.globalAlpha = ghostAlpha * spiritFade;
-        ctx.strokeStyle = 'rgba(255, 247, 194, 0.45)';
-        ctx.fillStyle = 'rgba(255, 247, 194, 0.08)'; 
+        ctx.strokeStyle = 'rgba(255, 247, 194, 0.15)';
+        ctx.fillStyle = 'rgba(255, 247, 194, 0.01)'; 
         ctx.lineWidth = 1.2 + perspectiveScale * 0.5; // Stroke thickens slightly as it gets closer
         ctx.shadowColor = '#fff3a8';
         ctx.shadowBlur = 6 + perspectiveScale * 4;
@@ -137,6 +145,8 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
         ctx.restore();
     });
 
+    const backgroundSceneBrightness = rootGameStore.getBackgroundSceneBrightness() * 1.1;
+
     // --- STEP 3: RENDER THE TOTAL PARTICLE POOL ---
     for (let i = pool.length - 1; i >= 0; i--) {
         const p = pool[i];
@@ -152,7 +162,7 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
         }
         
         ctx.save();
-        ctx.globalAlpha = p.isStar ? p.alpha : p.alpha * spiritFade;
+        ctx.globalAlpha = p.isStar ? p.alpha * backgroundSceneBrightness : p.alpha * spiritFade * backgroundSceneBrightness;
         ctx.fillStyle = p.color;
         ctx.shadowBlur = p.isStar ? p.size * 5 : p.size * 3;
         ctx.shadowColor = p.color;

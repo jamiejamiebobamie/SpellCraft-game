@@ -17,10 +17,7 @@ export class GameBoard {
   // Column depth allowing spell spawning
   readonly numPlacementCells: number = GameBoard.NUM_PLACEMENT_CELLS;
 
-  // Board Data Layers
   readonly cells: Array<Cell> = [];
-
-  // Interactive Overrides
   private isGameBoardDisabled: boolean = false;
   private transparencyAmt: number = GameBoard.SHOWN_TRANSPARENCY_AMT;
 

@@ -28,6 +28,8 @@ export class Player extends UniqueId {
   focusAmt: number = Player.MAX_FOCUS_AMT;
   gameSymbol: GameSymbol | null = null;
   isDoneWithTurn: boolean = true;
+  isBeginIntroWalk: boolean = true;
+  isDoneWithIntroWalk: boolean = false;
 
   constructor(direction: -1 | 1, avatarUrl: string) {
     super();
@@ -84,6 +86,14 @@ export class Player extends UniqueId {
 
   getIsDoneWithTurn = (): boolean => {
     return this.isDoneWithTurn;
+  }
+
+  getIsDoneWithIntroWalk = (): boolean => {
+    return this.isDoneWithIntroWalk;
+  }
+
+  setIsDoneWithIntroWalk = (isDone?: boolean): void => {
+    this.isDoneWithIntroWalk = typeof isDone == 'boolean' ? isDone : true;
   }
 
   setIsDoneWithTurn = (isDoneWithTurn: boolean): void => {
