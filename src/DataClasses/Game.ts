@@ -32,8 +32,8 @@ export class Game {
   gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
   forceUpdate: () => void = () => { };
   backgroundSceneBrightness: number = 0.1;
-  private readonly LOW_BRIGHTNESS: number = 0.1;
-  private readonly HIGH_BRIGHTNESS: number = 0.25; // 0.5
+  readonly LOW_BRIGHTNESS: number = 0.1;
+  readonly HIGH_BRIGHTNESS: number = 0.4; // 0.5
 
 
   // GAME OVER

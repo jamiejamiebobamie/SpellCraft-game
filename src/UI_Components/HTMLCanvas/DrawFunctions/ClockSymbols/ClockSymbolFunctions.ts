@@ -2,12 +2,12 @@ import { CanvasScrollUI } from '../../../../DataClasses/types';
 import { draw4PointStar } from '../Sparkles/SparkleFunctions';
 import { rootGameStore } from '../../../../DataClasses/store';
 
-const iceSilverColors = ['#e6f7ff', '#b3d9ff', '#ffffff', '#d9f2ff', '#ccf2ff'];
+// const iceSilverColors = ['#e6f7ff', '#b3d9ff', '#ffffff', '#d9f2ff', '#ccf2ff'];
 const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
-const goldColors = ['#ffd700', '#ffdf00', '#f3ce13', '#fff3a8'];
-const silverColors = ['#e6e6e6', '#cccccc', '#f2f2f2', '#ffffff'];
+// const goldColors = ['#ffd700', '#ffdf00', '#f3ce13', '#fff3a8'];
+// const silverColors = ['#e6e6e6', '#cccccc', '#f2f2f2', '#ffffff'];
 
-const magicThemeColors = [...iceSilverColors, ...pixieColors, ...goldColors, ...silverColors];
+const magicThemeColors = pixieColors;//[...iceSilverColors, ...pixieColors, ...goldColors, ...silverColors];
 
 const shapes = ['diamond', 'circleDot', 'hourglass', 'rhombus', 'lopsidedX', 'dot'];
 
@@ -44,7 +44,7 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
             y: sparkleY,
             size: isGlitterStar ? Math.random() * 2.5 + 1.2 : Math.random() * 1.6 + 0.4,
             alpha: 0,
-            rate: Math.random() * 0.02 + 0.005, // Slower decay makes individual sparkles linger longer
+            rate: Math.random() * 0.02 + 0.015, // Slower decay makes individual sparkles linger longer
             phase: 0,
             maxAlpha: isGlitterStar ? Math.random() * 0.3 + 0.7 : Math.random() * 0.8 + 0.2,
             color: magicThemeColors[Math.floor(Math.random() * magicThemeColors.length)],

@@ -1,9 +1,7 @@
 
 import React, { RefObject } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
-import NpcSpellCanvasComponent from '../SpellCanvas/NpcSpellCanvasComponent';
 import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
-import { LockSymbolComponent } from './LockSymbolComponent';
 import styled from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
@@ -91,15 +89,11 @@ interface GameBoardComponentProps {
 
 const GameBoardComponent = ({ gridOverlayRef }: GameBoardComponentProps) => {
     const snap = useSnapshot(rootGameStore);
-    const npcMoveData = snap.getNPCMoveData();
     const isDisabled: boolean = snap.getIsGameBoardDisabled();
-    // const isDoneWithIntro: boolean = snap.getIsDoneWithIntroWalk();
     let numPlacementCells = snap.gameBoard.numPlacementCells;
     return (
         <BoardWrapper ref={gridOverlayRef} $isDisabled={isDisabled} $transparency={snap.gameBoard.getBoardTransparencyAmt()}>
-            {/* <LockSymbolComponent isLocked={isDisabled} /> */}
             <HumanPlacementTilesComponent />
-            {npcMoveData.map((npcMd, i) => <NpcSpellCanvasComponent key={npcMd.id} i={i} />)}
             <GridContainer
                 $NUM_ROWS={GameBoard.NUM_ROWS}
                 $NUM_COLS={GameBoard.NUM_COLS}

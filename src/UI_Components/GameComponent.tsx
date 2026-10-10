@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
-import StarrySkyComponent from './SceneElements/StarrySkyComponent'
+import StarrySkyComponent from './SceneElements/StarrySkyComponent';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
@@ -67,6 +66,131 @@ const MainColumn = styled(UIFadeIn)`
 // TO-DO: hide website until spell model loads....
 
 // TO-DO: local storage is not working on iPhone/iPad(?)
+
+/* --- TOOLTIP OVERLAY STYLES --- */
+const TooltipOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4cqw;
+  box-sizing: border-box;
+  z-index: 9999; /* Top-level item */
+`;
+
+const ModalContent = styled.div`
+  background: #1a1a1a;
+  border: 0.2cqw solid #444;
+  border-radius: 0.8cqw;
+  padding: 3cqw;
+  width: 80%;
+  max-width: 800px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  gap: 3cqw;
+  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.8);
+  color: #fff;
+  box-sizing: border-box;
+`;
+
+const TextColumn = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+
+  h2 {
+    margin-top: 0;
+    margin-bottom: 1.5cqw;
+    font-size: 2.2cqw;
+    color: #e6c563;
+    font-family: sans-serif;
+  }
+
+  p {
+    margin: 0 0 1cqw 0;
+    font-size: 1.3cqw;
+    line-height: 1.5;
+    color: #e0e0e0;
+    font-family: sans-serif;
+  }
+`;
+
+const MediaColumn = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    max-width: 25cqw;
+    max-height: 25cqw;
+    border-radius: 0.4cqw;
+    border: 0.1cqw solid #333;
+    object-fit: contain;
+  }
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 1cqw;
+  right: 1cqw;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 2cqw;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.2cqw;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #fff;
+  }
+`;
+
+const FooterControls = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  margin-top: 2cqw;
+  width: 100%;
+  border-top: 0.1cqw solid #333;
+  padding-top: 1.5cqw;
+`;
+
+const PageIndicator = styled.span`
+  font-size: 1.2cqw;
+  color: #aaa;
+  font-family: sans-serif;
+  min-width: 4cqw;
+  text-align: center;
+`;
+
+const NavArrow = styled.button<{ $disabled: boolean }>`
+  background: transparent;
+  border: none;
+  color: ${props => props.$disabled ? '#444' : '#e6c563'};
+  font-size: 2cqw;
+  cursor: ${props => props.$disabled ? 'default' : 'pointer'};
+  opacity: ${props => props.$disabled ? 0.4 : 1};
+  transition: color 0.2s, transform 0.2s;
+  pointer-events: ${props => props.$disabled ? 'none' : 'auto'};
+  padding: 0 1cqw;
+
+  &:hover {
+    color: #fff;
+    transform: ${props => props.$disabled ? 'none' : 'scale(1.2)'};
+  }
+`;
+
+
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const gameWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -78,12 +202,16 @@ export const GameComponent = () => {
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
 
+  // Snapshot coordinates for global Tooltip Manager tracking state
+  const tooltip = snap.tooltipManager;
+
   useEffect(() => {
     rootGameStore.beginIntro();
-  }, [])
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return; // Ignore gesture handling while modal overlay is open
 
     if (!gameWrapperRef.current) return;
 
@@ -97,11 +225,11 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return;
 
     if (!gameWrapperRef.current) return;
 
-    // Calculate mouse position relative to this specific container
     const rect = gameWrapperRef.current.getBoundingClientRect();
 
     if (e.touches.length === 0) return;
@@ -119,7 +247,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return;
 
     const target = e.target as HTMLElement;
     const isUiButton = target.closest('[data-click-type="ui-buttons"]');
@@ -136,7 +265,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchDown = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return;
 
     const target = e.target as HTMLElement;
     const isUiButton = target.closest('[data-click-type="ui-buttons"]');
@@ -153,7 +283,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return;
 
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
@@ -163,7 +294,8 @@ export const GameComponent = () => {
   }, []);
 
   const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if(!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (!rootGameStore.getIsDoneWithIntroWalk()) return;
+    if (rootGameStore.tooltipManager.active) return;
 
     rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
@@ -181,7 +313,6 @@ export const GameComponent = () => {
     rootGameStore.runInference(touch);
   }, []);
 
-  // Safely bind non-passive touch listeners for iOS Safari compatibility
   useEffect(() => {
     const el = gameWrapperRef.current;
     if (!el) return;
@@ -215,6 +346,11 @@ export const GameComponent = () => {
     rootGameStore.setGameWrapperRef(gameWrapperRef);
   }, [gameWrapperRef]);
 
+  const handleCloseTooltip = () => {
+    rootGameStore.tooltipManager.closeTooltip();
+    forceUpdate();
+  };
+
   const sceneElements = <>
     <ChandelierComponent
       backgroundSceneBrightness={backgroundSceneBrightness}
@@ -224,7 +360,7 @@ export const GameComponent = () => {
       backgroundSceneBrightness={backgroundSceneBrightness}
       right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
-  </>
+  </>;
 
   const mainUI = <>
     <PlayerComponent playerIndex={0} mousePosRef={mousePos} isPlayerOutOfFocus={isPlayerOutOfFocus || isOutOfFocus} />
@@ -232,7 +368,14 @@ export const GameComponent = () => {
       <GameBoardComponent gridOverlayRef={gridOverlayRef} />
     </MainColumn>
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
-  </>
+  </>;
+
+  // Destructure out active sub-properties from the snapshot layout matrix
+  const hasPages = tooltip.pages && tooltip.pages.length > 0;
+  const currentPage = hasPages ? tooltip.pages[tooltip.currentPageIndex] : null;
+  const totalPages = hasPages ? tooltip.pages.length : 0;
+  const isMultiPage = totalPages > 1;
+  
   return (
     <GameWrapper
       ref={gameWrapperRef}
@@ -245,6 +388,66 @@ export const GameComponent = () => {
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}
       {mainUI}
+
+      {/* --- TOP-LEVEL TOOLTIP OVERLAY MODULE --- */}
+      {tooltip.active && currentPage && (
+        <TooltipOverlay onClick={handleCloseTooltip}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <CloseButton onClick={handleCloseTooltip}>&times;</CloseButton>
+
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%' }}>
+              {/* Text Column - Content is entirely optional per screen setup */}
+              {(currentPage.title || currentPage.paragraphs) && (
+                <TextColumn>
+                  {currentPage.title && <h2>{currentPage.title}</h2>}
+                  {currentPage.paragraphs && currentPage.paragraphs.map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </TextColumn>
+              )}
+
+              {/* Optional/Conditional Media Element column */}
+              {currentPage.mediaUrl && (
+                <MediaColumn>
+                  <img
+                    src={currentPage.mediaUrl}
+                    alt={currentPage.title ? `${currentPage.title} tutorial graphic` : 'Tutorial graphic'}
+                  />
+                </MediaColumn>
+              )}
+            </div>
+
+            {/* Pagination Controls Row Layer Footer */}
+            {isMultiPage && (
+              <FooterControls>
+                <NavArrow
+                  $disabled={tooltip.currentPageIndex === 0}
+                  onClick={() => {
+                    rootGameStore.tooltipManager.prevPage();
+                    forceUpdate();
+                  }}
+                >
+                  &#9664;
+                </NavArrow>
+
+                <PageIndicator>
+                  {tooltip.currentPageIndex + 1} / {totalPages}
+                </PageIndicator>
+
+                <NavArrow
+                  $disabled={tooltip.currentPageIndex === totalPages - 1}
+                  onClick={() => {
+                    rootGameStore.tooltipManager.nextPage();
+                    forceUpdate();
+                  }}
+                >
+                  &#9654;
+                </NavArrow>
+              </FooterControls>
+            )}
+          </ModalContent>
+        </TooltipOverlay>
+      )}
     </GameWrapper>
   );
-};
+}
