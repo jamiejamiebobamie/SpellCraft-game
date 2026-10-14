@@ -70,13 +70,23 @@ export const GameComponent = () => {
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
   const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
+  const isPlaying = snap.getIsPlaying();
   const isOutOfFocus = snap.getIsOutOfFocus();
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
+  const isTooltips = snap.getIsTooltips();
 
   useEffect(() => {
-    rootGameStore.beginIntro();
-  }, []);
+    if (isPlaying) {
+      if (isTooltips) {
+        // SEE TOOLTIPS
+        rootGameStore.showTooltip()
+      } else {
+        // PLAY
+        rootGameStore.beginIntro();
+      }
+    }
+  }, [isPlaying, isTooltips]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;

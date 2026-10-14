@@ -224,13 +224,14 @@ export class TooltipManager {
     }
 
     // Accepts a single page or an entire sequence array
-    showTooltip = (tooltipPages: TooltipPage | TooltipPage[]): void => {
+    showTooltip = (tooltipPages: TooltipPage | TooltipPage[] = proxy(GAME_TUTORIALS.WELCOME)): void => {
         if (!this.isToolTips) return;
         this.pages = Array.isArray(tooltipPages) ? tooltipPages : [tooltipPages];
         this.currentPageIndex = 0;
         this.active = true;
     }
 
+    getIsTooltips = (): boolean => this.isToolTips;
     getTotalPages = (): number => this.pages.length;
     getCurrPageNum = (): number => this.currentPageIndex + 1;
     getCurrPageContent = (): TooltipPage | null => this.pages[this.currentPageIndex] ? this.pages[this.currentPageIndex] : null;
@@ -255,6 +256,8 @@ export class TooltipManager {
         this.active = false;
         this.currentPageIndex = 0;
         this.pages = [];
+        this.isToolTips = false;
+        window.localStorage.setItem('quickCast-isToolTips', JSON.stringify(false));
     }
 
     // SPELLBOOK

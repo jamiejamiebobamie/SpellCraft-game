@@ -199,16 +199,18 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
   const isDead = playerSnap?.getIsDead() || false;
   const isDoneWithIntroWalk = playerSnap?.getIsDoneWithIntroWalk() || false;
+  const isBeginIntroWalk = playerSnap?.getIsBeginIntroWalk() || false;
 
   const avatar = (
     <AvatarPlacementWrapper>
       <AvatarFrame $src={src} $direction={direction}>
         <Damageable
+          $isBeginIntroWalk={isBeginIntroWalk}
           $isDoneWithIntroWalk={isDoneWithIntroWalk}
           $direction={direction}
           $healthDiff={healthDiff}
           $isDead={isDead}>
-          <AvatarRobe $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
+          <AvatarRobe $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
             <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
             <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
             <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
@@ -239,7 +241,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   );
 
   return (<DuelistSideColumn>
-    <Spotlight $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead} />
+    <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead} />
     {avatar}
     {focusDots}
     {healthbar}

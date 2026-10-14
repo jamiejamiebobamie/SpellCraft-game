@@ -80,6 +80,10 @@ export class Game {
     this.setupGameplayKeyBindings();
   };
 
+  startGame = (): void => {
+    this.isPlaying = true;
+    this.forceUpdate();
+  }
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
@@ -265,6 +269,7 @@ export class Game {
   getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
   beginIntro = (): void => {
     // begin intro walk...
+    this.beginIntroWalk();
     this.setIsDoneWithIntroWalk(false);
     this.forceUpdate();
 
@@ -313,12 +318,14 @@ export class Game {
 
 
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getIsTooltips = (): boolean => this.tooltipManager.getIsTooltips();
   getIsSpellBookOpen = (): boolean => this.tooltipManager.getIsSpellBookOpen();
   setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => { this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen); this.forceUpdate(); }
   incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
   getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
   getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();
-  toggleToolTips = (isOn?: boolean) => { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
+  toggleToolTips = (isOn?: boolean): void => { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
+  showTooltip = (): void => { this.tooltipManager.showTooltip(); this.forceUpdate(); }
   nextTooltipPage = (): void => { this.tooltipManager.nextPage(); this.forceUpdate(); }
   prevTooltipPage = (): void => { this.tooltipManager.prevPage(); this.forceUpdate(); }
   closeTooltip = (): void => { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
@@ -440,6 +447,7 @@ export class Game {
     player.setIsDoneWithTurn(isDoneWithTurn);
   }
   setIsDoneWithIntroWalk = (bool?: boolean): void => { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
+  beginIntroWalk = (): void =>  { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 

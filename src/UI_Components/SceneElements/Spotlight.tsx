@@ -17,7 +17,7 @@ const fadeIn = keyframes`
   100% { opacity: ${rootGameStore.HIGH_BRIGHTNESS}; }
 `;
 
-export const Spotlight = styled.div<{ $isDoneWithIntroWalk: boolean, $isDead: boolean }>`
+export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean, $isDead: boolean }>`
   position: absolute;
   /* Hangs outside the top bounds so the origin source is invisible/out-of-shot */
   top: -15cqw; 
@@ -51,6 +51,8 @@ export const Spotlight = styled.div<{ $isDoneWithIntroWalk: boolean, $isDead: bo
 
   /* Optional: gives it that 90s projection-booth breathing vibe */
   ${props => props.$isDoneWithIntroWalk ? css`animation: ${lightShimmer} 6s ease-in-out infinite;` : css`animation: ${fadeIn} ${INTRO_WALK_ANIM_TIME}s ease-in forwards;`}
+
+  animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
 
   transition: opacity: 3s;
   opacity: ${props => props.$isDead ? 0 : 1};  

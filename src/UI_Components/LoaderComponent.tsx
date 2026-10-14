@@ -39,7 +39,7 @@ const LoadingOverlay = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  // background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -250,18 +250,12 @@ const MagicalPlayButton = styled.button`
 const LoaderComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const isLoading = snap.getIsLoading();
-  const isPlaying = snap.getIsLoading(); 
+  const isPlaying = snap.getIsPlaying(); 
   const isDisplay = isLoading || !isPlaying;
 
   // Dynamic state loop key triggering fresh wisp cycles on every re-hover
   const [hoverKey, setHoverKey] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
-
-  const handlePlayClick = () => {
-    // if (typeof rootGameStore.startGame === 'function') {
-    //   rootGameStore.startGame();
-    // }
-  };
 
   const handleMouseEnter = () => {
     setHoverKey(prev => prev + 1);
@@ -292,12 +286,11 @@ const LoaderComponent = () => {
             </Loader>
           ) : (
             <MagicalPlayButton 
-              onClick={handlePlayClick}
+              onClick={rootGameStore.startGame}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
               <VineUnderlay />
-              {/* Unique layout tracking identity mounting fresh firefly vectors cleanly every single cycle */}
               {isHovered && (
                 <WispContainer key={hoverKey}>
                   <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />

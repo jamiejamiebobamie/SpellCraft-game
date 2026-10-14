@@ -88,18 +88,20 @@ export const Damageable = styled.div<{
   $isDead: boolean;
   $isDoneWithIntroWalk: boolean;
   $direction: number;
+  $isBeginIntroWalk: boolean;
 }>`
   width: 100%;
   height: 100%;
   transform-origin: bottom center;
   ${props => !props.$isDoneWithIntroWalk ? css`
-    /* Slowed down to 5s for an epic, high-stakes cinematic arrival */
     animation: ${walkIn} ${INTRO_WALK_ANIM_TIME}s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
   ` : props.$isDead ? css`
     animation: ${fallAndSquash} 3s cubic-bezier(0.32, 0, 0.67, 0) forwards;
   ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
   `}
+
+  animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
 `;
 
 interface PartProps {
@@ -157,7 +159,7 @@ export const CharacterPart = styled.div.attrs<PartProps>(props => ({
   }
 `;
 
-export const AvatarRobe = styled(CharacterPart) <{ $isDoneWithIntroWalk?: boolean }>`
+export const AvatarRobe = styled(CharacterPart) <{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean }>`
   top: 7.75cqw;
   left: 2.4cqw;
   width: 13cqw;
@@ -169,6 +171,8 @@ export const AvatarRobe = styled(CharacterPart) <{ $isDoneWithIntroWalk?: boolea
   animation-duration: ${props => !props.$isDoneWithIntroWalk ? `${INTRO_WALK_ANIM_TIME / 4}s` : 'var(--part-speed)'};
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
+
+  animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
 `;
 
 const shadowPulse = keyframes`

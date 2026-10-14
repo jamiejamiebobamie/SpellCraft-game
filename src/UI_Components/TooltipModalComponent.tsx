@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
@@ -9,7 +9,6 @@ const TooltipOverlay = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,8 +83,19 @@ const CloseButton = styled.button`
   padding: 0.2cqw;
   transition: color 0.2s;
 
+  font-family: 'EnchantedLand', sans-serif;
+
+  display: flex;
+
   &:hover {
     color: #fff;
+  }
+`;
+
+const CloseSymbol = styled.span`
+  &::before{
+    content: "\\00d7";
+    font-size: 5cqw;
   }
 `;
 
@@ -129,10 +139,26 @@ const TooltipModalComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const currTooltipPage = snap.getCurrPageContent();
 
+  useEffect(() => {
+    const item = window.localStorage.getItem('quickCast-isToolTips');
+    let isToolTips = undefined;
+    try {
+      if (item)
+        isToolTips = JSON.parse(item);
+    } catch (error) {
+      console.warn(`Error reading localStorage key :`, error);
+    }
+    if (isToolTips === true || isToolTips === undefined) {
+      rootGameStore.toggleToolTips(true);
+    } else {
+      rootGameStore.toggleToolTips(false);
+    }
+  }, []);
+
   return !!currTooltipPage && (
     <TooltipOverlay onClick={rootGameStore.closeTooltip}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
-        <CloseButton onClick={rootGameStore.closeTooltip}>&times;</CloseButton>
+        <CloseButton onClick={rootGameStore.closeTooltip}>Close{" "}<CloseSymbol /></CloseButton>
         <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%' }}>
           {(currTooltipPage.title || currTooltipPage.paragraphs) && (
             <TextColumn>
