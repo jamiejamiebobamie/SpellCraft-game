@@ -86,6 +86,8 @@ const CloseButton = styled.button`
   font-family: 'EnchantedLand', sans-serif;
 
   display: flex;
+  align-items: center;
+  gap: 0.8cqw;
 
   &:hover {
     color: #fff;
@@ -93,9 +95,14 @@ const CloseButton = styled.button`
 `;
 
 const CloseSymbol = styled.span`
-  &::before{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  &::before {
     content: "\\00d7";
-    font-size: 5cqw;
+    font-size: 4cqw;
+    line-height: 0;
   }
 `;
 
