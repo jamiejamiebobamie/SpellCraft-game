@@ -33,19 +33,20 @@ const scatterWispRight = keyframes`
 
 // --- Layout Structures ---
 
-const LoadingOverlay = styled.div`
+const LoadingOverlay = styled.div<{ $isSceneImgsLoaded: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  // background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 4cqw;
   box-sizing: border-box;
   z-index: 9999;
+  ${props => props.$isSceneImgsLoaded ? 'background: rgba(0, 0, 0, 0);' : 'background: rgba(0, 0, 0, 1);'}
+  transition: background 5s;  
 `;
 
 const LoadingContent = styled.div`
@@ -65,11 +66,10 @@ const Logo = styled.div`
   width: 80%;
   position: relative;
   height: 30cqw;
-  background-color: red;
+  // background-color: red;
   opacity: .5;
 `;
 
-// Fixed Height Anchor Slot preventing layout jitter
 const ActionSlot = styled.div`
   width: 80%;
   max-width: 800px;
@@ -158,7 +158,6 @@ const SingleBurstWisp = styled.div<{ $left: string; $anim: any }>`
   animation-iteration-count: 1;
 `;
 
-// Split bottom vine layer completing the weave logic
 const VineUnderlay = styled.div`
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -173,43 +172,42 @@ const MagicalPlayButton = styled.button`
   border: none;
   outline: none;
   background: transparent;
-  width: 44cqw; /* Formatted to drop perfectly into the exact dimension scale */
-  height: 100%;
+  width: 34cqw;
+  height: 80%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'EnchantedLand', sans-serif;
   font-size: 5cqw;
   line-height: 1;
-  color: #ffffff;
-  text-shadow: 0px 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
+
+  color: rgb(197 250 255);
+  text-shadow: rgba(255, 255, 255, 0.8) 0px 0cqw 1cqw;
   user-select: none;
   z-index: 10;
   transition: filter 0.2s ease;
 
-  /* Part A: Top Vine Reed weaving over at the edges */
   &::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(180deg, #745c22 0%, #bda251 70%, #513f13 100%);
+    background: linear-gradient(180deg, #745c22 0%, rgb(255 226 141) 70%, #513f13 100%);
     clip-path: polygon(0% 50%, 14% 0%, 86% 0%, 100% 50%, 85% 6cqw, 15% 6cqw);
     box-shadow: 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.5);
     z-index: -2;
   }
 
-  /* Core Interactive Plate: Deep World of Warcraft Vivid Mana Blue + Specular Glass Gloss Overlay */
   &::after {
     content: '';
     position: absolute;
     top: 0.3cqw; left: 0.7cqw; right: 0.7cqw; bottom: 0.3cqw;
     
-    /* Vivid Blue Base + Dark Inward Ornate Runes + High Gloss Specular Ceiling Cap */
-    background-color: #00a4e4; 
+    background-color: rgb(1 52 72);
     background-image: 
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 50%),
-      radial-gradient(circle at 15% 35%, transparent 36%, #051923 40%, transparent 46%),
-      radial-gradient(circle at 85% 65%, transparent 36%, #051923 40%, transparent 46%);
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 50%);
+      // ,
+      // radial-gradient(circle at 15% 35%, transparent 36%, #051923 40%, transparent 46%),
+      // radial-gradient(circle at 85% 65%, transparent 36%, #051923 40%, transparent 46%);
     background-size: 100% 100%;
     background-repeat: no-repeat;
     
@@ -252,6 +250,8 @@ const LoaderComponent = () => {
   const isLoading = snap.getIsLoading();
   const isPlaying = snap.getIsPlaying(); 
   const isDisplay = isLoading || !isPlaying;
+  const isSceneImgsLoaded = snap.getIsSceneImgsLoaded();
+  const isFontLoaded = snap.getIsFontLoaded();
 
   // Dynamic state loop key triggering fresh wisp cycles on every re-hover
   const [hoverKey, setHoverKey] = useState<number>(0);
@@ -267,10 +267,9 @@ const LoaderComponent = () => {
   };
 
   return (
-    isDisplay && <LoadingOverlay>
+    isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
       <LoadingContent>
         <Logo />
-        
         <ActionSlot>
           {isLoading ? (
             <Loader>
@@ -282,7 +281,7 @@ const LoaderComponent = () => {
                 <GlitterStar $top="-2cqw" $left="82%" $size="1.9cqw" $delay="-1.8s" />
                 <GlitterStar $top="3cqw" $left="90%" $size="1.3cqw" $delay="-0.9s" />
               </SparkleContainer>
-              Loading...
+              {isFontLoaded? 'Loading...' : ''}
             </Loader>
           ) : (
             <MagicalPlayButton 

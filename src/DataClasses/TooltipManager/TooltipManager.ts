@@ -193,10 +193,6 @@ export const GAME_TUTORIALS = {
 */
 export class TooltipManager {
 
-    /*
-      TO-DO: store "toggle-off tool tips" in local storage
-    */
-
     // SHOW TOOLTIPS
     isToolTips: boolean = true;
 

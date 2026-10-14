@@ -3,7 +3,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
 
-const TooltipOverlay = styled.div`
+const TooltipOverlay = styled.div<{ $isDoneWithIntro: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
@@ -15,6 +15,8 @@ const TooltipOverlay = styled.div`
   padding: 4cqw;
   box-sizing: border-box;
   z-index: 9999; /* Top-level item */
+  ${props => props.$isDoneWithIntro && 'background: rgba(0, 0, 0, 0.7);'}
+
 `;
 
 const ModalContent = styled.div`
@@ -157,6 +159,7 @@ const NavArrow = styled.button<{ $disabled: boolean }>`
 
 const TooltipModalComponent = () => {
   const snap = useSnapshot(rootGameStore);
+  const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const currTooltipPage = snap.getCurrPageContent();
 
   useEffect(() => {
@@ -176,7 +179,7 @@ const TooltipModalComponent = () => {
   }, []);
 
   return !!currTooltipPage && (
-    <TooltipOverlay onClick={rootGameStore.closeTooltip}>
+    <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={rootGameStore.closeTooltip}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <CloseButton onClick={rootGameStore.closeTooltip}>Close{" "}<CloseSymbol /></CloseButton>
         <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%', flex: 1, overflow: 'hidden' }}>
@@ -201,10 +204,7 @@ const TooltipModalComponent = () => {
           <FooterControls>
             <NavArrow
               $disabled={snap.getIsPrevDisabled()}
-              onClick={() => {
-                rootGameStore.prevTooltipPage();
-                console.log('hey!')
-              }}
+              onClick={rootGameStore.prevTooltipPage}
             >
               &#9664;
             </NavArrow>
@@ -213,10 +213,7 @@ const TooltipModalComponent = () => {
             </PageIndicator>
             <NavArrow
               $disabled={snap.getIsNextDisabled()}
-              onClick={() => {
-                rootGameStore.nextTooltipPage();
-                console.log('click!')
-              }}
+              onClick={rootGameStore.nextTooltipPage}
             >
               &#9654;
             </NavArrow>

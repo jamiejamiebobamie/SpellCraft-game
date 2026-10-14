@@ -81,7 +81,7 @@ export const GameComponent = () => {
       if (isTooltips) {
         // SEE TOOLTIPS
         rootGameStore.showTooltip()
-      } else {
+      } else if (!rootGameStore.getIsDoneWithIntroWalk()) {
         // PLAY
         rootGameStore.beginIntro();
       }
@@ -165,7 +165,6 @@ export const GameComponent = () => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
     if (rootGameStore.tooltipManager.active) return;
 
-    rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();
@@ -176,7 +175,6 @@ export const GameComponent = () => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
     if (rootGameStore.tooltipManager.active) return;
 
-    rootGameStore.startBackgroundMusic();
     setIsPlayerOutOfFocus(false);
     if (!rootGameStore.getIsDrawing()) return;
     rootGameStore.endDrawing();

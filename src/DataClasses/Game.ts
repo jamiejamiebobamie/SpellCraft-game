@@ -82,6 +82,7 @@ export class Game {
 
   startGame = (): void => {
     this.isPlaying = true;
+    this.startBackgroundMusic();
     this.forceUpdate();
   }
   resetGame = (): void => {
@@ -264,6 +265,8 @@ export class Game {
   getIsPlaying = (): boolean => this.isPlaying;
   setIsPlaying = (isPlaying: boolean): void => { this.isPlaying = isPlaying; };
 
+  getIsSceneImgsLoaded = (): boolean => this.assetLoader.getIsSceneImgsLoaded();
+  getIsFontLoaded = (): boolean => this.assetLoader.getIsFontLoaded();
   getIsLoading = (): boolean => this.assetLoader.getIsLoading();
 
   getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;

@@ -1,11 +1,36 @@
 
 // Define your raw manifest vectors
-const imageSources = [
-    // 'background-scene/QuickCast-Background-Test3.png',
-    // Add all other essential UI / sprite sheet PNG paths here
+const sceneImageSrcs = [
+    'background-scene/QuickCast-Background-Test3.png',
+    'background-scene/Chandelier/Chandelier-candle-flames.png',
+    'background-scene/Chandelier/Chandelier-candles-holder-iron.png',
+    'background-scene/Chandelier/Chandelier-chain-iron.png',
+    'background-scene/Clock/Clock-body.png',
+    'background-scene/Clock/Clock-inside-back.png',
+    'background-scene/Clock/Clock-left-chime.png',
+    'background-scene/Clock/Clock-right-chime.png',
 ];
 
-export type LoaderProperties = 'isOnnxModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded';
+const buttonImgSrcs = [
+    'mask-icons/1mask-icon-Normal.png',
+    'mask-icons/2mask-icon-Hard.png',
+    'mask-icons/3mask-icon-Brutal.png',
+    'spell-icons/spellbook-icon.png',
+];
+
+const avatarImgSrcs = [
+    'player_avatars/Bicep1.png',
+    'player_avatars/Bicep2.png',
+    'player_avatars/Forearm.png',
+    'player_avatars/Head1.png',
+    'player_avatars/Head2.png',
+    'player_avatars/RightArm.png',
+    'player_avatars/Robe1a.png',
+    'player_avatars/Robe2a.png',
+    'player_avatars/WandHand.png',
+];
+
+export type LoaderProperties = 'isOnnxModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded';
 
 const loaders: Array<LoaderProperties> = [
     'isOnnxModelLoaded',
@@ -20,6 +45,8 @@ export class AssetLoader {
     isSoundsEffectsLoaded: boolean = false;
     isImgsLoaded: boolean = false;
 
+    isSceneImgsLoaded: boolean = false;
+
     forceUpdate: Function | null = null;
 
     constructor() {
@@ -30,14 +57,14 @@ export class AssetLoader {
         this.forceUpdate = forceUpdate;
     }
 
+    getIsFontLoaded = (): boolean => this.isFontsLoaded;
+    getIsSceneImgsLoaded = (): boolean => this.isSceneImgsLoaded;
+
     getIsLoading = (): boolean => loaders.some(k => !this[k as LoaderProperties]);
     setIsLoading = (loaderObj: Map<LoaderProperties, boolean>): void => {
         loaderObj.forEach((v, k) => {
-            // console.log({ [k]: v })
             this[k as LoaderProperties] = v;
         })
-        // TESTING: check what is loaded / not-loaded.
-        loaders.forEach(k => console.log({ isLoading: this.getIsLoading(), [k]: this[k] }));
         this.forceUpdate && this.forceUpdate();
     };
 
@@ -46,7 +73,7 @@ export class AssetLoader {
         await document.fonts.ready;
     };
 
-    loadImages = (sources: string[]) => {
+    loadImages = (sources: string[], successCallback?: Function) => {
         return Promise.all(
             sources.map((src) => {
                 return new Promise((resolve, reject) => {
@@ -56,14 +83,20 @@ export class AssetLoader {
                     img.onerror = () => reject(`Failed to load image: ${src}`);
                 });
             })
-        );
+        ).then(_ => successCallback && successCallback());
     };
 
     loadFontsAndImgs = async () => {
         try {
             await Promise.all([
                 this.loadFonts(),
-                this.loadImages(imageSources),
+                this.loadImages(sceneImageSrcs, () => {
+                    const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
+                    loaderObj.set('isSceneImgsLoaded', true);
+                    this.setIsLoading(loaderObj);
+                }),
+                this.loadImages(buttonImgSrcs),
+                this.loadImages(avatarImgSrcs),
             ]);
         } catch (error) {
             console.error("Asset loading error context: ", error);

@@ -10,8 +10,8 @@ export class AudioHandler {
     private backgroundMusic: HTMLAudioElement | null = null;
     private backgroundMusicStarted: boolean = false;
 
-    private musicAudioLevel: number = 0.5;
-    private effectsAudioLevel: number = 0.5;
+    private musicAudioLevel: number = this.MAX_MUSIC_LVL;
+    private effectsAudioLevel: number = this.MAX_SOUND_EFFECT_LVL;
 
     // A memory registry holding our preloaded audio blueprints
     private sfxLibrary: Map<SoundEffectName, HTMLAudioElement> = new Map();
