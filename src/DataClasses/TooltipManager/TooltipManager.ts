@@ -180,7 +180,8 @@ export const GAME_TUTORIALS = {
                 "If two Spells do the same amount of Damage and collide, they destroy each other.",
                 "If one Spell does more damage than another Spell, it will consume the weaker the Spell on collision.",
                 "Consuming a weaker Spell can be a benefit or a detriment to the stronger Spell, depending on the context.",
-                "Consult your Spell Book for further information."
+                "Consult your Spell Book for further information.",
+                "Good luck, and may the best duelist win.",
             ]
         },
     ]
