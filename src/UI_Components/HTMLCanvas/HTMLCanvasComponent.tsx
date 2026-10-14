@@ -55,9 +55,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
 
   const [isHovered, setIsHovered] = useState(false);
   const [isGearHovered, setIsGearHovered] = useState(false);
-  const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
-  const isShowClockSymbols = !(isGameBoardDisabled || isComputerPlayerDoingTurn);
   const isSpellBookOpen = snap.getIsSpellBookOpen();
   const readiedSpell = snap.getReadiedSpell();
 
@@ -334,7 +332,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
     }
   }
 }
-if (isShowClockSymbols) drawClockAdvanceSymbols(ctx, scrollUIRef.current, viewW, viewH, currentTime);
+drawClockAdvanceSymbols(ctx, scrollUIRef.current, viewW, viewH, currentTime);
 const isIntroDone = rootGameStore.getIsDoneWithIntroWalk();
 if (isShowingModal && isIntroDone) drawModalDetails(ctx, scrollUIRef.current, deltaTime, viewW, viewH, animStatesRef.current, currentTime);
 if (isGearHovered && !isShowingModal && isIntroDone) drawKeyboardOverlay(ctx, viewW, viewH);
@@ -346,7 +344,7 @@ animationFrameId = requestAnimationFrame(render);
 };
 animationFrameId = requestAnimationFrame(render);
 return () => { cancelAnimationFrame(animationFrameId); if (scrollUIRef.current) scrollUIRef.current.cleanup(); };
-}, [rootGameStore, isGearHovered, readiedSpell, isShowClockSymbols, isComputerPlayerDoingTurn]);
+}, [rootGameStore, isGearHovered, readiedSpell, isComputerPlayerDoingTurn]);
 function calculateCanvasCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
   const cellIndex = spell.getCellIndex(); return {
     x: (canvasWidth / 2) + ((cellIndex.j - (GameBoard.NUM_COLS - 1) / 2) * cellWidthPx) - (cellWidthPx / 2),

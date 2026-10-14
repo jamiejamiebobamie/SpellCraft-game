@@ -18,6 +18,7 @@ import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDi
 import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
+import { TooltipPage } from './TooltipManager/TooltipManager';
 
 /*
 
@@ -258,7 +259,7 @@ export class Game {
     /*
       after 4 seconds, begin brightening scene
       full brightness after 8 seconds from start of begin brightening scene
-    */ 
+    */
     setTimeout(() => {
       this.backgroundSceneBrightness = this.HIGH_BRIGHTNESS;
       this.forceUpdate();
@@ -267,8 +268,8 @@ export class Game {
     /*
       turn-off walk anim after 8 seconds after turning it on.
     */
-    setTimeout(() => { 
-      this.setIsDoneWithIntroWalk(); 
+    setTimeout(() => {
+      this.setIsDoneWithIntroWalk();
     }, INTRO_WALK_ANIM_TIME * 1000);
 
   }
@@ -304,6 +305,17 @@ export class Game {
   incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
   getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
   getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();
+  toggleToolTips = (isOn?: boolean) => { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
+  nextTooltipPage = (): void => { this.tooltipManager.nextPage(); this.forceUpdate(); }
+  prevTooltipPage = (): void => { this.tooltipManager.prevPage(); this.forceUpdate(); }
+  closeTooltip = (): void => { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
+  getTotalPages = (): number => this.tooltipManager.getTotalPages();
+  getCurrPageNum = (): number => this.tooltipManager.getCurrPageNum();
+  getCurrPageContent = (): TooltipPage | null => this.tooltipManager.getCurrPageContent();
+  getIsMultiPage = (): boolean => this.tooltipManager.getIsMultiPage();
+  getMultiPageProgress = (): string => this.tooltipManager.getMultiPageProgress();
+  getIsNextDisabled = (): boolean => this.tooltipManager.getIsNextDisabled();
+  getIsPrevDisabled = (): boolean => this.tooltipManager.getIsPrevDisabled();
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 

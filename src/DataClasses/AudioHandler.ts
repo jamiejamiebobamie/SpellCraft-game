@@ -1,10 +1,10 @@
 import { AudioType, SoundEffectName, SFX_REGISTRY } from './types'
 
 export class AudioHandler {
-    private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/736598__gregorquendel__classical-music-collection-vol.mp3';
+    private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
 
     private readonly MAX_SOUND_EFFECT_LVL = 0.5;
-    private readonly MAX_MUSIC_LVL = 0.3;
+    private readonly MAX_MUSIC_LVL = 0.4;
 
     private backgroundMusic: HTMLAudioElement | null = null;
     private backgroundMusicStarted: boolean = false;
