@@ -26,17 +26,6 @@ export class Players {
     getPlayer = (idx: number): Player => this.players[idx];
     getDeadPlayers = (): Array<Player> => this.players.filter(p => p.getIsDead());
     getReadiedSpell = (): string | null => this.playerGameSymbolSpellName;
-    getGameSymbolIcon = (): string => {
-        const humanPlayer = this.players[0];
-        if (humanPlayer) {
-            const gameSymbol = humanPlayer.getGameSymbol();
-            if (gameSymbol) {
-                const SpellClass = GameSymbol.SPELL_LOOKUP.get(gameSymbol.symbolName);
-                return SpellClass ? `spell-icons/${SpellClass.spellName}Icon_mockup.png` : '';
-            }
-        }
-        return '';
-    }
     getGameSymbol = (): GameSymbol | null => {
         const humanPlayer = this.players[0];
         const gameSymbol = humanPlayer?.getGameSymbol();

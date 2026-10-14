@@ -1,4 +1,5 @@
-import { AudioType, SoundEffectName, SFX_REGISTRY } from './types'
+import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
+import { AudioType, SoundEffectName, SFX_REGISTRY } from '../types'
 
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
@@ -9,7 +10,7 @@ export class AudioHandler {
     private backgroundMusic: HTMLAudioElement | null = null;
     private backgroundMusicStarted: boolean = false;
 
-    private musicAudioLevel: number = 0.3;
+    private musicAudioLevel: number = 0.5;
     private effectsAudioLevel: number = 0.5;
 
     // A memory registry holding our preloaded audio blueprints
@@ -18,8 +19,8 @@ export class AudioHandler {
     // A tracker cataloging currently playing audio tracks so we can kill them instantly
     private activeSfxInstances: HTMLAudioElement[] = [];
 
-    constructor() {
-        this.preloadSoundEffects();
+    constructor(assetLoader: AssetLoader) {
+        this.preloadSoundEffects(assetLoader);
     }
 
     /**
@@ -27,12 +28,15 @@ export class AudioHandler {
      * Instantiates audio configurations immediately at game mount initialization.
      * Setting preload="auto" instructs browser network nodes to start fetching binaries.
      */
-    private preloadSoundEffects = () => {
+    private preloadSoundEffects = (assetLoader: AssetLoader) => {
         Object.entries(SFX_REGISTRY).forEach(([name, path]) => {
             const audioBlueprint = new Audio(path);
             audioBlueprint.preload = 'auto'; // Forces background download ahead of time
             this.sfxLibrary.set(name as SoundEffectName, audioBlueprint);
         });
+        const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
+        loaderObj.set('isSoundsEffectsLoaded', true);
+        assetLoader.setIsLoading(loaderObj);
     }
 
     startBackgroundMusic = () => {

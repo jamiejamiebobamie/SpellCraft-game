@@ -2,7 +2,7 @@
 import { SpellConstructor, InferenceString } from '../types';
 import { Player } from '../Player/Player';
 import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from './Spell';
-import { UniqueId } from '../UniqeId';
+import { UniqueId } from '../UniqueId/UniqeId';
 import { proxy } from 'valtio';
 
 /*

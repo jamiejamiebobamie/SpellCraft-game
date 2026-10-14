@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-web';
 import { InferenceString, Point } from '../types';
+import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 
 /*
   
@@ -39,16 +40,19 @@ export class Model {
     private static readonly SPELL_LABELS: Record<number, InferenceString> = { 0: 'circle', 1: 'square', 2: 'star', 3: 'triangle', 4: 'diamond', 5: 'line', 6: 'squiggle' }
 
 
-    public async init(): Promise<void> {
+    public async init(assetLoader: AssetLoader): Promise<void> {
         if (!this.session) {
-            let session = await this.loadModel();
+            let session = await this.loadModel(assetLoader);
             this.session = session;
         }
     }
 
-    private async loadModel(): Promise<ort.InferenceSession | null> {
+    private async loadModel(assetLoader: AssetLoader): Promise<ort.InferenceSession | null> {
         try {
             const net = await ort.InferenceSession.create('./models/sequential8.onnx');
+            const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
+            loaderObj.set('isOnnxModelLoaded', true);
+            assetLoader.setIsLoading(loaderObj);
             console.log("Spell model loaded successfully!");
             return net;
         } catch (e) {

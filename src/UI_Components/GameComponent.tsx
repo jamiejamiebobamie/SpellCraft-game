@@ -5,9 +5,10 @@ import GameBoardComponent from './GameBoard/GameBoardComponent';
 import StarrySkyComponent from './SceneElements/StarrySkyComponent';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import TooltipModalComponent from './TooltipModalComponent';
+import LoaderComponent from './LoaderComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 
@@ -62,64 +63,6 @@ const MainColumn = styled(UIFadeIn)`
   z-index: 11;
 `;
 
-
-
-const LoadingOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4cqw;
-  box-sizing: border-box;
-  z-index: 9999; /* Top-level item */
-`;
-
-const LoadingContent = styled.div`
-  padding: 3cqw;
-  width: 80%;
-  max-width: 800px;
-  position: relative;
-    align-items: center;
-  justify-content: center;
-  display: flex;
-  flex-direction: column;
-  gap: 3cqw;
-  // background-color: red;
-`;
-
-const Logo = styled.div`
-  // background-color: green;
-  padding: 3cqw;
-  width: 80%;
-  position: relative;
-  height: 30cqw;
-`;
-
-const Loader = styled.div`
-  width: 80%;
-  max-width: 800px;
-  position: relative;
-
-    justify-content: center;
-  display: flex;
-
-    font-family: 'EnchantedLand', sans-serif;
-  font-size: 5.5cqw;
-`;
-
-
-
-// TO-DO: add back in 'tsc -b &&' for the build script options... ORIGINAL:     "build": "tsc -b && vite build",
-
-// TO-DO: hide website until spell model loads....
-
-// TO-DO: local storage is not working on iPhone/iPad(?)
-
 export const GameComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const gameWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -137,7 +80,7 @@ export const GameComponent = () => {
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
-    if (rootGameStore.tooltipManager.active) return; // Ignore gesture handling while modal overlay is open
+    if (rootGameStore.tooltipManager.active) return;
 
     if (!gameWrapperRef.current) return;
 
@@ -300,23 +243,10 @@ export const GameComponent = () => {
       onMouseLeave={handleMouseUp}
       $backgroundSceneBrightness={backgroundSceneBrightness}
     >
-      <LoadingOverlay>
-
-        <LoadingContent>
-
-          <Logo />
-          <Loader>
-            Loading...
-          </Loader>
-
-        </LoadingContent>
-
-
-      </LoadingOverlay>
+      <LoaderComponent />
       <TooltipModalComponent />
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
       {sceneElements}
       {mainUI}
-    </GameWrapper>
-  );
-}
+    </GameWrapper>)
+};

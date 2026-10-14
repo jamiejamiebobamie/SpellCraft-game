@@ -1,6 +1,6 @@
 import { Phlegm, Quicken, Ether, GyreUp, GyreDown } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
-import { UniqueId } from './UniqeId';
+import { UniqueId } from './UniqueId/UniqeId';
 import { Spell } from './PlacedSpells/Spell';
 
 // types

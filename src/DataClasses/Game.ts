@@ -1,6 +1,7 @@
 // Game.ts
 import { RefObject } from 'react';
-import { AudioHandler } from './AudioHandler';
+import { AudioHandler } from './AudioHandler/AudioHandler';
+import { AssetLoader } from './AssetLoader/AssetLoader';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Players } from './Player/Players';
 import { TooltipManager } from './TooltipManager/TooltipManager'
@@ -10,7 +11,7 @@ import { Model } from './NN_Model/Model';
 import { SpellCanvas } from './SpellCanvas/SpellCanvas';
 import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
-import { GameClock } from './GameClock'
+import { GameClock } from './GameClock/GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
@@ -36,6 +37,8 @@ export class Game {
   readonly LOW_BRIGHTNESS: number = 0.1;
   readonly HIGH_BRIGHTNESS: number = 0.4; // 0.5
 
+  // PLAYING
+  isPlaying: boolean = false;
 
   // GAME OVER
   gameOver: GameOver | null = null;
@@ -52,6 +55,7 @@ export class Game {
   gameClock!: GameClock;
   players!: Players;
   tooltipManager!: TooltipManager;
+  assetLoader!: AssetLoader;
 
   constructor() {
     this.init();
@@ -65,14 +69,17 @@ export class Game {
     if (humanPlayer && npcPlayer)
       this.gameBoard = proxy(new GameBoard(humanPlayer, npcPlayer as Player));
     this.placedSpells = proxy(new PlacedSpells());
+    this.assetLoader = proxy(new AssetLoader());
+
     this.model = proxy(new Model());
-    this.model.init();
+    this.model.init(this.assetLoader);
     this.spellCanvas = proxy(new SpellCanvas());
     this.gameClock = proxy(new GameClock(this.endTurn));
-    this.audioHandler = proxy(new AudioHandler());
+    this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
     this.setupGameplayKeyBindings();
   };
+
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
@@ -250,6 +257,11 @@ export class Game {
 
 
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  getIsPlaying = (): boolean => this.isPlaying;
+  setIsPlaying = (isPlaying: boolean): void => { this.isPlaying = isPlaying; };
+
+  getIsLoading = (): boolean => this.assetLoader.getIsLoading();
+
   getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
   beginIntro = (): void => {
     // begin intro walk...
@@ -279,6 +291,7 @@ export class Game {
   }
   setForceUpdate = (forceUpdate: () => void) => {
     this.forceUpdate = forceUpdate;
+    this.assetLoader.setForceUpdate(forceUpdate);
   }
   resetBackgroundSceneBrightnessToDarkness = (): void => { this.backgroundSceneBrightness = this.LOW_BRIGHTNESS; }
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -386,7 +399,6 @@ export class Game {
       return humanPlayer.getFocus() > 0;
     } else return false;
   }
-  getGameSymbolIcon = (): string => this.players.getGameSymbolIcon();
   getHumanPlayer = (): Player | null => this.players.getHumanPlayer();
   getNpcPlayer = (): NPCPlayer | null => this.players.getNpcPlayer();
   regenFocusForPlayers = () => this.players.regenFocusForPlayers();

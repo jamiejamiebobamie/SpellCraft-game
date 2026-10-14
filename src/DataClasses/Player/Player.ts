@@ -1,6 +1,6 @@
 // Player.ts
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
-import { UniqueId } from '../UniqeId';
+import { UniqueId } from '../UniqueId/UniqeId';
 
 export class Player extends UniqueId {
   // Constants

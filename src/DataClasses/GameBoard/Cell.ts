@@ -2,7 +2,7 @@
 import { CellIndex } from '../types';
 import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
-import { UniqueId } from '../UniqeId';
+import { UniqueId } from '../UniqueId/UniqeId';
 
 export class Cell extends UniqueId {
   // Properties

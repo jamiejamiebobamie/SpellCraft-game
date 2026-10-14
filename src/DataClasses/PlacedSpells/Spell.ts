@@ -1,7 +1,7 @@
 // Spell.ts
 import { CellIndex, SpellPropertyName } from '../types';
 import { Player } from '../Player/Player';
-import { UniqueId } from '../UniqeId';
+import { UniqueId } from '../UniqueId/UniqeId';
 import { proxy } from 'valtio';
 
 export abstract class Spell extends UniqueId {
