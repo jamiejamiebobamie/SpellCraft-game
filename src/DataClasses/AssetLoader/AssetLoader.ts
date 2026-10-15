@@ -30,6 +30,21 @@ const avatarImgSrcs = [
     'player_avatars/WandHand.png',
 ];
 
+const tooltipImgs = [
+    'tooltip-imgs/out-of-bed.png',
+    'tooltip-imgs/how-to-play.gif',
+    'tooltip-imgs/casting-area.gif',
+    'tooltip-imgs/spell-book.gif',
+    'tooltip-imgs/ticking-clock.png',
+    'tooltip-imgs/sunrise.png',
+    'tooltip-imgs/many-ways-to-play.png',
+    'tooltip-imgs/out-of-focus.gif',
+    'tooltip-imgs/regaining-focus.gif',
+    'tooltip-imgs/blood-magic.gif',
+    'tooltip-imgs/speed-and-damage.gif',
+    'tooltip-imgs/winners-and-losers.gif'
+];
+
 export type LoaderProperties = 'isOnnxModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded';
 
 const loaders: Array<LoaderProperties> = [
@@ -97,6 +112,7 @@ export class AssetLoader {
                 }),
                 this.loadImages(buttonImgSrcs),
                 this.loadImages(avatarImgSrcs),
+                this.loadImages(tooltipImgs)
             ]);
         } catch (error) {
             console.error("Asset loading error context: ", error);
