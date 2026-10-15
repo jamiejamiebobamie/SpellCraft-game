@@ -93,6 +93,11 @@ export class Game {
     this.gameOver = null;
     this.resetClock();
     this.enableGameBoard();
+    this.tooltipManager.reset(this.forceUpdate);
+    this.spellCanvas.setIsDrawing(false);
+    this.spellCanvas.clearDrawing();
+    setTimeout(() => this.doNpcMove(), 3000);
+    this.forceUpdate();
   };
   getGameOver = (): GameOver | null => this.gameOver;
   setGameOver = (status: GameOver): void => {
@@ -134,6 +139,7 @@ export class Game {
 
     const isGameOver = this.gameOver !== null;
     if (this.gameOver) {
+      this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
       this.forceUpdate();
     }
@@ -162,7 +168,7 @@ export class Game {
       if (isGameOver) {
         return;
       }
-      
+
       const [humanPlayer, npcPlayer] = this.players.getPlayers();
       if (humanPlayer && npcPlayer) {
         this.setIsDoneWithTurn(false, npcPlayer);

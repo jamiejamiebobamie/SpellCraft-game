@@ -139,10 +139,11 @@ export class Player extends UniqueId {
     this.focusAmt = 0;
   }
 
-  reset = (): void => {
+  reset(): void {
     this.healthAmt = Player.MAX_HEALTH_AMT;
     this.focusAmt = Player.MAX_FOCUS_AMT;
     this.setGameSymbol(null);
+    this.isDoneWithTurn = false;
   }
 
   incurPlayerCostForSpell = (focusCost: number): void => {

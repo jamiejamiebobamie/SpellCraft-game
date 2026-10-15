@@ -108,7 +108,7 @@ const EtherealCaret = styled.div`
 
 const EtherealText = styled.div`
   font-family: EnchantedLand, sans-serif;
-  color: rgba(245, 250, 255, 0.95);
+  // color: rgba(245, 250, 255, 0.95);
   // color: #F1E9D2;
   text-align: center;
   padding-left: 0.7cqw;
@@ -118,10 +118,13 @@ const EtherealText = styled.div`
   line-height: 0.95;
 
   /* 🛠️ CENTRAL VARIABLES: Change these values to tweak your outline layout */
-  --stroke-color: #777777; 
+  // --stroke-color: #777777; 
   // --stroke-color: #F1E9D2;
   --stroke-width-large: 0.05cqw;
   --stroke-width-small: 0.05cqw;
+
+  color: rgba(253, 253, 212, 0.95);
+  --stroke-color: #a6a69d; 
 `;
 
 const LargeEtherealWord = styled.span`

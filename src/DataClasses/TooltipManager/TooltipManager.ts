@@ -218,6 +218,29 @@ export class TooltipManager {
     // SPELLBOOK 
     isSpellBookOpen: boolean = false;
 
+    reset = (forceUpdate: Function): void => {
+        // OUT OF FOCUS
+        clearTimeout(this.isOutOfFocusRef);
+        this.isOutOfFocus = false;
+
+        // SPELL BOOK
+        this.isSpellBookOpen = false;
+
+        // DRAWING OFF BOARD
+        clearTimeout(this.drawingOffBoardRef);
+        this.drawingOffBoardCount = 0;
+        this.isDrawingOffBoard = false;
+
+        // END TURN
+        clearTimeout(this.isClickClockRef);
+        this.isClickClock = false;
+        this.doClickClockFlash(forceUpdate);
+
+        // SHOW TOOLTIPS
+        // ACTIVE MULTI-PAGE TOOLTIP STATE
+        this.closeTooltip();
+    }
+
     toggleToolTips = (isOn?: boolean) => {
         this.isToolTips = typeof isOn === 'boolean' ? isOn : !this.isToolTips;
         if (!this.isToolTips) {
@@ -298,5 +321,9 @@ export class TooltipManager {
     doClickClockFlash = (forceUpdate: Function, waitTimeMilli?: number): void => {
         clearTimeout(this.isClickClockRef);
         this.isClickClockRef = setTimeout(() => { this.isClickClock = true; forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
+    }
+    clearClickClockRef = (): void => {
+        clearTimeout(this.isClickClockRef);
+        this.isClickClock = false;
     }
 }

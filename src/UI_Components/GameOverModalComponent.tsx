@@ -30,33 +30,33 @@ const scatterWispRight = keyframes`
 
 // --- Configuration Content Maps ---
 interface ModalTextConfig {
-    title: string;
-    text: string;
-    fontSize: number;
+  title: string;
+  text: string;
+  fontSize: number;
 }
 
 // Assuming your 4th state "Caught by Teacher" maps to a status key or string fallback
 const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
-    [GameOverStatus.BothDead]: {
-        title: 'A Draw',
-        text: "The match ends in a draw!",
-        fontSize: 4.5
-    },
-    [GameOverStatus.PlayerWon]: {
-        title: 'You Won',
-        text: 'You won, this night.',
-        fontSize: 4.5
-    },
-    [GameOverStatus.NpcWon]: {
-        title: 'You Lost',
-        text: 'You lost...',
-        fontSize: 4.5
-    },
-    [GameOverStatus.TimesUp]: {
-        title: 'Caught!',
-        text: 'You have been caught out of bed after curfew and will surely be expelled.',
-        fontSize: 3.7
-    },
+  [GameOverStatus.BothDead]: {
+    title: 'A Draw',
+    text: "The match ends in a draw!",
+    fontSize: 4.5
+  },
+  [GameOverStatus.PlayerWon]: {
+    title: 'You Won',
+    text: 'You won, this night.',
+    fontSize: 4.5
+  },
+  [GameOverStatus.NpcWon]: {
+    title: 'You Lost',
+    text: 'You lost...',
+    fontSize: 4.5
+  },
+  [GameOverStatus.TimesUp]: {
+    title: 'Caught!',
+    text: 'You have been caught out of bed after curfew and will surely be expelled.',
+    fontSize: 3.7
+  },
 };
 
 // --- Styled Component Architectures ---
@@ -259,72 +259,58 @@ const MagicalModalButton = styled.button`
 
 // --- Component Definition ---
 interface ActionButtonProps {
-    label: string;
-    onClick: () => void;
+  label: string;
+  onClick: () => void;
 }
 
 const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) => {
-    const [hoverKey, setHoverKey] = useState<number>(0);
-    const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [hoverKey, setHoverKey] = useState<number>(0);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
 
-    return (
-        <MagicalModalButton
-            onClick={onClick}
-            onMouseEnter={() => { setHoverKey(prev => prev + 1); setIsHovered(true); }}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            <VineUnderlay />
-            {isHovered && (
-                <WispContainer key={hoverKey}>
-                    <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
-                    <SingleBurstWisp $left="38%" $anim={scatterWispCenter} />
-                    <SingleBurstWisp $left="52%" $anim={scatterWispLeft} />
-                    <SingleBurstWisp $left="66%" $anim={scatterWispRight} />
-                    <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
-                </WispContainer>
-            )}
-            {label}
-        </MagicalModalButton>
-    );
+  return (
+    <MagicalModalButton
+      onClick={onClick}
+      onMouseEnter={() => { setHoverKey(prev => prev + 1); setIsHovered(true); }}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <VineUnderlay />
+      {isHovered && (
+        <WispContainer key={hoverKey}>
+          <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
+          <SingleBurstWisp $left="38%" $anim={scatterWispCenter} />
+          <SingleBurstWisp $left="52%" $anim={scatterWispLeft} />
+          <SingleBurstWisp $left="66%" $anim={scatterWispRight} />
+          <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
+        </WispContainer>
+      )}
+      {label}
+    </MagicalModalButton>
+  );
 };
 
 export const GameOverModalComponent: React.FC = () => {
-    const snap = useSnapshot(rootGameStore);
+  const snap = useSnapshot(rootGameStore);
 
-    // Resolve current active gameover condition state tracking
-    // Make sure your engine code updates rootGameStore.gameOver or a direct observable state field
-    const currentGameOverState = snap.getGameOver();
+  const currentGameOverState = snap.getGameOver();
+  if (currentGameOverState === null) return null;
 
-    if (currentGameOverState === null) return null;
+  const contentConfig = MODAL_CONTENT_MAP[currentGameOverState];
 
-    // Retrieve textual details matching state signature flags
-    const contentConfig = MODAL_CONTENT_MAP[currentGameOverState];
-
-    const handleConfirmReset = () => {
-        rootGameStore.resetGame();
-        rootGameStore.forceUpdate();
-    };
-
-    const handleRejectRedirect = () => {
-        // Replace with your explicit repository URL target endpoint string layout reference
-        window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer');
-    };
-
-    return (
-        <ModalDimOverlay $bgOpacity={0.65}>
-            <ModalCardContent>
-                <ModalTitle>{contentConfig.title}</ModalTitle>
-                <ModalSubTextContainer>
-                    <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
-                    <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
-                </ModalSubTextContainer>
-                <ButtonRow>
-                    <ModalButtonWithWisps label="Yes" onClick={handleConfirmReset} />
-                    <ModalButtonWithWisps label="No" onClick={handleRejectRedirect} />
-                </ButtonRow>
-            </ModalCardContent>
-        </ModalDimOverlay>
-    );
+  return (
+    <ModalDimOverlay $bgOpacity={0.65}>
+      <ModalCardContent>
+        <ModalTitle>{contentConfig.title}</ModalTitle>
+        <ModalSubTextContainer>
+          <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
+          <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
+        </ModalSubTextContainer>
+        <ButtonRow>
+          <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
+          <ModalButtonWithWisps label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
+        </ButtonRow>
+      </ModalCardContent>
+    </ModalDimOverlay>
+  );
 };
 
 export default GameOverModalComponent;

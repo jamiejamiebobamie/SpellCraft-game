@@ -149,6 +149,12 @@ export class NPCPlayer extends Player {
         this.npcMoveData = proxy([]);
     }
 
+    reset(): void {
+        super.reset();
+        this.resetNumRemainingMovesPerTurn();
+        this.resetNpcMove();
+    }
+
     doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void => {
         if (!this.getFocus() || this.getIsDead()) {
             this.clearNumRemaningMovesPerTurn();
