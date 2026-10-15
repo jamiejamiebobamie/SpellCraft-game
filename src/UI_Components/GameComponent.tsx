@@ -11,6 +11,8 @@ import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
 import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
+import GameOverModalComponent from './GameOverModalComponent';
+// import { GameOverStatus } from '../DataClasses/types';
 
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   margin: 0 auto; 
@@ -81,12 +83,21 @@ export const GameComponent = () => {
       if (isTooltips) {
         // SEE TOOLTIPS
         rootGameStore.showTooltip()
-      } else if (!rootGameStore.getIsDoneWithIntroWalk()) {
+      } else if (!isDoneWithIntro) {
         // PLAY
         rootGameStore.beginIntro();
+      } else {
+        // BEGIN MATCH!
+        rootGameStore.doClickClockFlash();
+        setTimeout(() => rootGameStore.doNpcMove(), 3000);
+
+        // // TESTING
+        // rootGameStore.setGameOver(GameOverStatus.TimesUp);
+        // forceUpdate();
+        // console.log({ gameOver: rootGameStore.getGameOver() })
       }
     }
-  }, [isPlaying, isTooltips]);
+  }, [isPlaying, isDoneWithIntro, isTooltips]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
@@ -251,6 +262,7 @@ export const GameComponent = () => {
       onMouseLeave={handleMouseUp}
       $backgroundSceneBrightness={backgroundSceneBrightness}
     >
+      <GameOverModalComponent />
       <LoaderComponent />
       <TooltipModalComponent />
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />

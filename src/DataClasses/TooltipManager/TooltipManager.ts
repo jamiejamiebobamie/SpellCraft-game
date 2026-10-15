@@ -204,11 +204,16 @@ export class TooltipManager {
     // DRAWING OFF BOARD
     drawingOffBoardCount: number = 0;
     isDrawingOffBoard: boolean = false;
-    drawingOffBoardRef: any = 0;
+    drawingOffBoardRef: number = 0;
 
     // OUT OF FOCUS
     isOutOfFocus: boolean = false;
-    isOutOfFocusRef: any = 0;
+    isOutOfFocusRef: number = 0;
+
+    // END TURN
+    isClickClock: boolean = false;
+    isClickClockRef: number = 0;
+    private readonly CLICK_CLOCK_WAIT_TIME_MILLI: number = 30000;
 
     // SPELLBOOK 
     isSpellBookOpen: boolean = false;
@@ -285,5 +290,13 @@ export class TooltipManager {
         clearTimeout(this.isOutOfFocusRef);
         this.isOutOfFocus = true;
         this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; forceUpdate(); }, 3000);
+    }
+
+    // END TURN
+    getIsClickClock = (): boolean => this.isClickClock;
+    turnOffIsClickClock = (): void => { this.isClickClock = false; }
+    doClickClockFlash = (forceUpdate: Function, waitTimeMilli?: number): void => {
+        clearTimeout(this.isClickClockRef);
+        this.isClickClockRef = setTimeout(() => { this.isClickClock = true; forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
     }
 }

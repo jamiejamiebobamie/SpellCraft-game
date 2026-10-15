@@ -48,6 +48,7 @@ export class GameClock {
     }
 
     resetClock = (): void => {
+        this.resetMinuteAngleAcc();
         this.secondsHandAngle = 0;
     }
 

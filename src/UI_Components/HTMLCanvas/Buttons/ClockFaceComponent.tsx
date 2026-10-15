@@ -5,16 +5,37 @@ import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
 
-// const flashClockFace = keyframes`
-//   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(.7); }
-//   50% { filter: drop-shadow(0 0 .5cqw white) brightness(.95); }
-// `;
-
 const flashClockFace = keyframes`
   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--lowBrightness)); }
   50% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--highBrightness)); }
 `;
 
+const etherealPulse = keyframes`
+  0%, 100% {
+    opacity: .45;
+    filter: drop-shadow(0 0 0.4cqw rgba(220, 240, 255, 0.6)) drop-shadow(0 0 1cqw rgba(255, 255, 255, 0.4));
+  }
+  50% {
+    opacity: .75;
+    filter: drop-shadow(0 0 0.8cqw rgba(220, 240, 255, 0.9)) drop-shadow(0 0 1.8cqw rgba(255, 255, 255, 0.7));
+  }
+`;
+
+const caretBouncePulse = keyframes`
+  0%, 100% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 0.4cqw rgba(220, 240, 255, 0.6)) drop-shadow(0 0 1cqw rgba(255, 255, 255, 0.4));
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0.8cqw rgba(220, 240, 255, 0.9)) drop-shadow(0 0 1.8cqw rgba(255, 255, 255, 0.7));
+    /* Pushes slightly to the left toward the clock face at the peak of the bounce cycle */
+    transform: translateX(-0.5cqw); 
+  }
+`;
+
+// --- Layout Structures ---
 const MenuAnchor = styled.div<{
   $lowBrightness: number,
   $highBrightness: number,
@@ -42,6 +63,101 @@ const MenuAnchor = styled.div<{
   }
 `;
 
+// Floating Message Components Setup
+const FloatingMessageContainer = styled.div<{ $isShow: boolean }>`
+  position: absolute;
+  top: 4.8cqw;
+  left: 55.5cqw; /* Positioned dynamically adjacent to the clock structure boundaries */
+  height: 9cqw;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.8cqw;
+  pointer-events: none;
+  z-index: 35;
+  user-select: none;
+
+  /* 🛠️ Smooth transitions for opacity and visibility states */
+  transition: opacity 1s ease-in;
+  
+  /* Manage active vs inactive layout appearance */
+  opacity: ${props => props.$isShow ? 1 : 0};
+`;
+
+// 🛠️ This component safely isolates your infinite looping pulse logic
+const EtherealGlowWrapper = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8cqw;
+  animation: ${etherealPulse} 3s ease-in-out infinite;
+`;
+
+const EtherealCaret = styled.div`
+  width: 0;
+  height: 0;
+  border-top: 0.7cqw solid transparent;
+  border-bottom: 0.7cqw solid transparent;
+  border-right: 1.1cqw solid rgba(240, 248, 255, 0.95);
+  
+  animation: ${caretBouncePulse} 2s ease-in-out infinite;
+`;
+
+
+const EtherealText = styled.div`
+  font-family: EnchantedLand, sans-serif;
+  color: rgba(245, 250, 255, 0.95);
+  // color: #F1E9D2;
+  text-align: center;
+  padding-left: 0.7cqw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 0.95;
+
+  /* 🛠️ CENTRAL VARIABLES: Change these values to tweak your outline layout */
+  --stroke-color: #777777; 
+  // --stroke-color: #F1E9D2;
+  --stroke-width-large: 0.05cqw;
+  --stroke-width-small: 0.05cqw;
+`;
+
+const LargeEtherealWord = styled.span`
+  font-size: 4.2cqw;
+  
+  /* Modern Engine Vector Outlines */
+  -webkit-text-stroke: var(--stroke-width-large) var(--stroke-color);
+  text-stroke: var(--stroke-width-large) var(--stroke-color);
+
+  /* Universal Cross-Browser Fallbacks */
+  text-shadow: 
+    calc(-1 * var(--stroke-width-large)) calc(-1 * var(--stroke-width-large)) 0px var(--stroke-color),  
+    var(--stroke-width-large) calc(-1 * var(--stroke-width-large)) 0px var(--stroke-color),
+    calc(-1 * var(--stroke-width-large)) var(--stroke-width-large) 0px var(--stroke-color),
+    var(--stroke-width-large) var(--stroke-width-large) 0px var(--stroke-color);
+`;
+
+const SmallEtherealWord = styled.span`
+  font-size: 2.6cqw;
+  padding-left: 0.2cqw;
+  
+  /* Modern Engine Vector Outlines */
+  -webkit-text-stroke: var(--stroke-width-small) var(--stroke-color);
+  text-stroke: var(--stroke-width-small) var(--stroke-color);
+
+  /* Universal Cross-Browser Fallbacks */
+  text-shadow: 
+    calc(-1 * var(--stroke-width-small)) calc(-1 * var(--stroke-width-small)) 0px var(--stroke-color),  
+    var(--stroke-width-small) calc(-1 * var(--stroke-width-small)) 0px var(--stroke-color),
+    calc(-1 * var(--stroke-width-small)) var(--stroke-width-small) 0px var(--stroke-color),
+    var(--stroke-width-small) var(--stroke-width-small) 0px var(--stroke-color);
+`;
+
+
+
+
 const ClockImgWrapper = styled.div<{ $backgroundSceneBrightness: number, $isHovered: boolean, $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
@@ -54,25 +170,11 @@ const ClockImgWrapper = styled.div<{ $backgroundSceneBrightness: number, $isHove
 `;
 
 const bellStrike = keyframes`
-  0%, 100% { 
-    transform: translateY(0); 
-  }
-  15% { 
-    /* Sudden mechanical pull downward */
-    transform: translateY(18px); 
-  }
-  25% { 
-    /* Brief hold at the strike point */
-    transform: translateY(18px); 
-  }
-  85% { 
-    /* Slow recoil back up */
-    transform: translateY(-2px); 
-  }
-  92% { 
-    /* Micro-settling bounce */
-    transform: translateY(1px); 
-  }
+  0%, 100% { transform: translateY(0); }
+  15% { transform: translateY(18px); }
+  25% { transform: translateY(18px); }
+  85% { transform: translateY(-2px); }
+  92% { transform: translateY(1px); }
 `;
 
 type ClockImgProps = {
@@ -110,7 +212,6 @@ const ClockImg = styled.div<ClockImgProps>`
   `}
 `;
 
-// Simple styled wrapper to orient the rotation center perfectly
 const ClockWrapper = styled.div`
   position: absolute;
   z-index: 31;
@@ -135,7 +236,6 @@ const useClockChimesAnim = ({ rootGameStore, setIsResetChime }: UseClockChimesAn
   const chimeNumRef = useRef<number | undefined>(0);
   const snap = useSnapshot(rootGameStore);
   useEffect(() => {
-    // trigger clock chimes animation
     if (rootGameStore.getIsGameBoardDisabled()) {
       clearTimeout(chimeNumRef.current);
       const chimesInSeconds = rootGameStore.getClockChimeSeconds();
@@ -154,7 +254,6 @@ const useMinuteAngleAcc = ({ rootGameStore, setAngles }: UseMinuteAngleAccProps)
   const snap = useSnapshot(rootGameStore);
   const minuteAngleAcc = snap.getMinuteAngleAcc();
   useEffect(() => {
-    // Calculate relative hour position matching exactly 1/12th ratio
     const hourAngle = minuteAngleAcc / 12;
     setAngles({
       minute: minuteAngleAcc,
@@ -183,6 +282,9 @@ export default function ClockFaceComponent() {
   // Plays the anim once and resets it for next play.    
   const [isResetChime, setIsResetChime] = useState<boolean>(true);
   useClockChimesAnim({ rootGameStore, setIsResetChime });
+
+  // Show Helper Message
+  const displayFloatingPrompt = snap.getIsClickClock();
 
   return (<>
     {/* .png clock elements. */}
@@ -239,7 +341,7 @@ export default function ClockFaceComponent() {
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
       $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}
       $isDoneWithIntro={isDoneWithIntro}
-      onClick={() => rootGameStore.endTurn()}
+      onClick={rootGameStore.endTurn}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-click-type="ui-buttons"
@@ -275,6 +377,16 @@ export default function ClockFaceComponent() {
         </svg>
       </ClockWrapper>
     </MenuAnchor >
+    <FloatingMessageContainer $isShow={displayFloatingPrompt}>
+      <EtherealGlowWrapper>
+        <EtherealCaret />
+        <EtherealText>
+          <LargeEtherealWord>Click</LargeEtherealWord>
+          <SmallEtherealWord>the</SmallEtherealWord>
+          <LargeEtherealWord>Clock</LargeEtherealWord>
+        </EtherealText>
+      </EtherealGlowWrapper>
+    </FloatingMessageContainer>
   </>
   );
 }

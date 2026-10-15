@@ -42,6 +42,7 @@ export class Game {
 
   // GAME OVER
   gameOver: GameOver | null = null;
+  private readonly CAUGHT_WEIGHT: number = 0.5;
 
   // KEY BINDINGS
   keyActions: Array<KeyAction> = [];
@@ -89,7 +90,6 @@ export class Game {
     this.placedSpells.reset();
     this.gameBoard.reset();
     this.players.reset();
-    this.resetMinuteAngleAcc();
     this.gameOver = null;
     this.resetClock();
     this.enableGameBoard();
@@ -98,7 +98,7 @@ export class Game {
   setGameOver = (status: GameOver): void => {
     this.gameOver = status;
   }
-  checkIfIsGameOverAndReset = (): boolean => {
+  checkIfIsGameOver = (): boolean => {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     const deadPlayers = this.players.getDeadPlayers();
     switch (deadPlayers.length) {
@@ -113,15 +113,21 @@ export class Game {
     // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
     if (!deadPlayers.length) {
 
-      const MINUTES_HAND = 12;
-      const HOURS_HAND = 6;
+      const MINUTES_HAND = 12; // Increments of 5, (5 * 12 = 60 minutes)
+      const HOURS_HAND = 6; // 6 hours
       const SUNRISE = MINUTES_HAND * HOURS_HAND;
 
       const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
 
-      const isPastSunrise = currTotalMinutes > SUNRISE;
+      // [.2,.5] + .5
+      const caughtChance = Math.max(.2, Math.random() / 2) + this.CAUGHT_WEIGHT;
+      const caughtLikelihood = currTotalMinutes / SUNRISE;
 
-      if (isPastSunrise) {
+      const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >4AM ...possibly GAME_OVER
+      const isPastSunrise = currTotalMinutes > SUNRISE; // Hard-stop: 6AM = GAME_OVER
+
+      // TO-DO: TEST THIS...
+      if (isCaught || isPastSunrise) {
         this.gameOver = GameOverStatus.TimesUp
       }
     }
@@ -129,7 +135,6 @@ export class Game {
     const isGameOver = this.gameOver !== null;
     if (this.gameOver) {
       this.disableGameBoard();
-      setTimeout(() => { this.resetGame(); this.forceUpdate(); }, 3000); // TESTING
       this.forceUpdate();
     }
     return isGameOver;
@@ -137,8 +142,10 @@ export class Game {
 
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled()) {
+
+      this.tooltipManager.turnOffIsClickClock();
       this.resetNpcMove();
-      let isGameOver = this.checkIfIsGameOverAndReset();
+      let isGameOver = this.checkIfIsGameOver();
       if (isGameOver) {
         return;
       }
@@ -151,12 +158,12 @@ export class Game {
       await this.updatePlacedSpells();
       this.regenFocusForPlayers();
       this.enableGameBoard();
-      isGameOver = this.checkIfIsGameOverAndReset();
+      isGameOver = this.checkIfIsGameOver();
       if (isGameOver) {
         return;
       }
+      
       const [humanPlayer, npcPlayer] = this.players.getPlayers();
-      // TESTING - - - - -
       if (humanPlayer && npcPlayer) {
         this.setIsDoneWithTurn(false, npcPlayer);
         this.setIsDoneWithTurn(false, humanPlayer);
@@ -165,7 +172,8 @@ export class Game {
         (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
         setTimeout(() => this.doNpcMove(), 1000);
       }
-      // TESTING - - - - -
+
+      this.tooltipManager.doClickClockFlash(this.forceUpdate);
       this.forceUpdate();
     }
   }
@@ -339,6 +347,8 @@ export class Game {
   getMultiPageProgress = (): string => this.tooltipManager.getMultiPageProgress();
   getIsNextDisabled = (): boolean => this.tooltipManager.getIsNextDisabled();
   getIsPrevDisabled = (): boolean => this.tooltipManager.getIsPrevDisabled();
+  getIsClickClock = (): boolean => this.tooltipManager.getIsClickClock();
+  doClickClockFlash = (waitTimeMilli?: number): void => { this.tooltipManager.doClickClockFlash(this.forceUpdate, waitTimeMilli); }
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -450,7 +460,7 @@ export class Game {
     player.setIsDoneWithTurn(isDoneWithTurn);
   }
   setIsDoneWithIntroWalk = (bool?: boolean): void => { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
-  beginIntroWalk = (): void =>  { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
+  beginIntroWalk = (): void => { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
