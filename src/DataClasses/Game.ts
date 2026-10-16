@@ -157,8 +157,6 @@ export class Game {
         return;
       }
       this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
-      // this.resetClock();
-      // this.pauseClock();
       this.incrementMinuteAngleAcc();
       this.forceUpdate();
       this.disableGameBoard();
@@ -172,12 +170,12 @@ export class Game {
 
       const [humanPlayer, npcPlayer] = this.players.getPlayers();
       if (humanPlayer && npcPlayer) {
-        this.setIsDoneWithTurn(true, npcPlayer);
+        this.setIsDoneWithTurn(false, npcPlayer);
         this.setIsDoneWithTurn(false, humanPlayer);
         npcPlayer.setGameSymbol(null);
         humanPlayer.setGameSymbol(null);
         (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-        // setTimeout(() => this.doNpcMove(), 1000);
+        setTimeout(() => this.doNpcMove(), 1000);
       }
 
       this.tooltipManager.doClickClockFlash(this.forceUpdate);

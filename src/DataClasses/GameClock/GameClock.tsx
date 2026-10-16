@@ -1,7 +1,7 @@
 
 
 export class GameClock {
-    minuteAngleAcc: number = 2000;
+    minuteAngleAcc: number = 0;
     secondsHandAngle: number = 0;
     angleIncrement: number = 0;
     isPaused: boolean = false;
