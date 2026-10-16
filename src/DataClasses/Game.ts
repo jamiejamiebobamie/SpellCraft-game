@@ -124,12 +124,14 @@ export class Game {
 
       const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
 
-      // [.2,.5] + .5
-      const caughtChance = Math.max(.2, Math.random() / 2) + this.CAUGHT_WEIGHT;
+      // [.45,.5] + .5
+      const MIN = 0.45;
+      const MAX = 0.5;
+      const caughtChance = Math.random() * (MAX - MIN) + MIN + this.CAUGHT_WEIGHT;
       const caughtLikelihood = currTotalMinutes / SUNRISE;
 
-      const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >4AM ...possibly GAME_OVER
-      const isPastSunrise = currTotalMinutes > SUNRISE; // Hard-stop: 6AM = GAME_OVER
+      const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >530AM ...possibly GAME_OVER
+      const isPastSunrise = currTotalMinutes >= SUNRISE; // Hard-stop: 6AM = GAME_OVER
 
       if (isCaught || isPastSunrise) {
         this.gameOver = GameOverStatus.TimesUp
@@ -155,8 +157,8 @@ export class Game {
         return;
       }
       this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
-      this.resetClock();
-      this.pauseClock();
+      // this.resetClock();
+      // this.pauseClock();
       this.incrementMinuteAngleAcc();
       this.forceUpdate();
       this.disableGameBoard();
@@ -170,12 +172,12 @@ export class Game {
 
       const [humanPlayer, npcPlayer] = this.players.getPlayers();
       if (humanPlayer && npcPlayer) {
-        this.setIsDoneWithTurn(false, npcPlayer);
+        this.setIsDoneWithTurn(true, npcPlayer);
         this.setIsDoneWithTurn(false, humanPlayer);
         npcPlayer.setGameSymbol(null);
         humanPlayer.setGameSymbol(null);
         (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-        setTimeout(() => this.doNpcMove(), 1000);
+        // setTimeout(() => this.doNpcMove(), 1000);
       }
 
       this.tooltipManager.doClickClockFlash(this.forceUpdate);
