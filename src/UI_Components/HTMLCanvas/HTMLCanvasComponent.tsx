@@ -11,6 +11,7 @@ import { spawnQuickenParticles, spawnQuickenHitParticles } from './DrawFunctions
 import { spawnEtherParticles, spawnEtherHitParticles } from './DrawFunctions/RenderSpells/drawEther';
 import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './DrawFunctions/RenderSpells/drawPhlegm';
 import { spawnGyreParticles, spawnGyreHitParticles } from './DrawFunctions/RenderSpells/drawGyre';
+import { spawnBloodMagicHitParticles } from './DrawFunctions/RenderSpells/drawBloodMagicHit';
 import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI, Point } from '../../DataClasses/types';
 import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
 import { drawClockAdvanceSymbols } from './DrawFunctions/ClockSymbols/ClockSymbolFunctions';
@@ -153,7 +154,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           anim.visualY += (targetCoords.y - anim.visualY) * 3.5 * deltaTime;
           const cellCols = spell.getPropertyValue?.('widthCells') || 1, cellRows = spell.getPropertyValue?.('heightCells') || 1;
           const w = cellWidthPx * cellCols, h = cellHeightPx * cellRows, isRemove = spell.getIsRemove?.() || false, totalCells = cellCols * cellRows;
-          const dir = Math.sign(spell.getPropertyValue('speedDirection')) || 1, isDisplay = !isRemove;
+          const dir = Math.sign(spell.getPropertyValue('speedDirection')) || 1, isDisplay = !isRemove, isBloodMagic = spell.isBloodMagic;
           if (anim.spawnProgress < 1) anim.spawnProgress = Math.min(1, anim.spawnProgress + deltaTime * 4.0);
           if (!isDisplay && !anim.hasSpawnedParticles) {
             anim.hasSpawnedParticles = true; const isPlayerHit = spell.isPlayerHitImpact, isOpponentHit = spell.isOpponentHitImpact;
@@ -291,7 +292,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       ctx.globalAlpha = tracker.fadeAlpha;
       ctx.lineWidth = cellWidthPx * Math.max(scale.x, scale.y || 1) * 0.015;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#e6c563'; ctx.shadowBlur = cellWidthPx * 0.02; ctx.shadowColor = '#fffadd';
+      ctx.strokeStyle = '#e6c5639d'; ctx.shadowBlur = cellWidthPx * 0.02; ctx.shadowColor = '#fffadd';
       ctx.beginPath();
       // Translate the first point safely into canvas space box coordinates
       ctx.moveTo(rawNpcPoints[0].x - rect.left, rawNpcPoints[0].y - rect.top);

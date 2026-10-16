@@ -240,7 +240,12 @@ export class Game {
               const isPlayerHasFocus = humanPlayer.getFocus() != 0;
               if (isPlayerHasFocus) {
                 const cost = s.getFocusCost();
-                humanPlayer.incurPlayerCostForSpell(cost);
+                const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
+                if (bloodMagicCost > 0) {
+                  s.hitDamageAmount = bloodMagicCost;
+                  s.isPlayerHitImpact = true;
+                  s.isBloodMagic = true;
+                }
                 const spellName = s.getSpellName();
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
                 this.placeSpellAt(inferenceString, cellIndex);
@@ -526,7 +531,12 @@ export class Game {
             const isPlayerHasFocus = humanPlayer.getFocus() != 0;
             if (isPlayerHasFocus) {
               const cost = s.getFocusCost();
-              humanPlayer.incurPlayerCostForSpell(cost);
+              const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
+              if (bloodMagicCost > 0) {
+                s.hitDamageAmount = bloodMagicCost;
+                s.isPlayerHitImpact = true;
+                s.isBloodMagic = true;
+              }
               const spellName = s.getSpellName();
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
               this.placeSpellAt(inferenceString, cellIndex);
@@ -855,6 +865,12 @@ export class Game {
       const spellName = s.getSpellName();
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
       activeCaster.incurPlayerCostForSpell(focusCost);
+      const bloodMagicCost = activeCaster.incurPlayerCostForSpell(focusCost);
+      if (bloodMagicCost > 0) {
+        s.hitDamageAmount = bloodMagicCost;
+        s[activeCaster.id === this.getHumanPlayer()?.id ? 'isPlayerHitImpact' : 'isOpponentHitImpact'] = true;
+        s.isBloodMagic = true;
+      }
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
       this.checkIfIsGameOverFromPlayerDeath();
     }

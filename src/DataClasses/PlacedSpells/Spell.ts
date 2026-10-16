@@ -22,6 +22,7 @@ export abstract class Spell extends UniqueId {
   // PlacedSpellComponent.tsx properties
   isPlayerHitImpact: boolean = false;
   isOpponentHitImpact: boolean = false;
+  isBloodMagic: boolean = false;
   hitDamageAmount: number = 0;
 
   // isBeingConsumed: boolean = false;

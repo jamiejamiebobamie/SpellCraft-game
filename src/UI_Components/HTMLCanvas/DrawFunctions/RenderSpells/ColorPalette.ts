@@ -26,4 +26,6 @@ export const FX_PALETTE = {
   waterFroth: '#f2f9ff',
   healCross: '#a8ff69',
   healCrossShadow: '#2ecc71',
+  bloodDroplets: '#570a0a',
+  bloodDropletsShadow: '#360707',
 };

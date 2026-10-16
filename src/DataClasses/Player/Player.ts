@@ -146,15 +146,23 @@ export class Player extends UniqueId {
     this.isDoneWithTurn = false;
   }
 
-  incurPlayerCostForSpell = (focusCost: number): void => {
+  /*
+  * Accepts the FocusCost of the Spell.
+  * Decrements that amount of Focus from the Player
+  * Returns the Health cost (if any) for the Spell.
+  */
+  incurPlayerCostForSpell = (focusCost: number): number => {
     // Cap focus cost to between 1 and 8 inclusive
     const cost = Math.max(1, Math.min(8, Math.ceil(focusCost)));
     if (this.getFocus() >= cost) {
       this.decrementFocus(cost);
+      return 0;
     } else {
       const difference = cost - this.getFocus();
       this.depleteFocusToZero();
-      this.decrementHealth(difference * this.getBloodMagicCost()); // Health covers the remaining resource debt
+       // Health covers the remaining resource debt
+      this.decrementHealth(difference * this.getBloodMagicCost());
+      return difference;
     }
   }
 };
