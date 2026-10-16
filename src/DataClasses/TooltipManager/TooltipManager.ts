@@ -15,7 +15,7 @@ export const GAME_TUTORIALS = {
                 "Welcome to the world of SpellCraft, the strategy-drawing game!",
                 "You are a member of the Hell Raisers, a wizard fight club."
             ],
-            mediaUrl: './logo.png' // TO-DO: Make the logo... (DOES NOT EXIST ATM)
+            mediaUrl: './logo.png'
         },
         {
             title: "Out of Bed, After Curfew",
@@ -118,7 +118,6 @@ export const GAME_TUTORIALS = {
                 "If two Spells do the same amount of Damage and collide, they destroy each other.",
                 "If one Spell does more damage, the stronger Spell will consume the weaker one.",
                 "Consult your Spell Book for further information.",
-                "Good luck, and may the best wizard win.", // TO-DO: <-- missing from slide due to lack of space. consider new slide?
             ],
             mediaUrl: './tooltip-imgs/winners-and-losers.gif'
         },

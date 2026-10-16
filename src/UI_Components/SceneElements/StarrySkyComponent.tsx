@@ -77,7 +77,6 @@ const StyledGlowStar = styled.div.attrs<StarProps>(props => ({
   pointer-events: none;
 `;
 
-// TO-DO: lighten the sky as 6AM approaches ('minuteAngleAcc' variable. 0 = MIN, 30 * 12 * 6 = MAX)
 const StarrySkyComponent = ({ index }: { index: number }) => {
     // Generate random coordinates and timings once to avoid re-renders popping stars around
     const starList = useMemo(() => {

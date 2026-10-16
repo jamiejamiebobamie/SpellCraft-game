@@ -146,7 +146,6 @@ export class Player extends UniqueId {
     this.isDoneWithTurn = false;
   }
 
-  // TO-DO: show damage numbers when doing "blood magic"
   incurPlayerCostForSpell = (focusCost: number): void => {
     // Cap focus cost to between 1 and 8 inclusive
     const cost = Math.max(1, Math.min(8, Math.ceil(focusCost)));

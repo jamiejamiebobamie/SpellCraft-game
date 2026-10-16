@@ -131,7 +131,6 @@ export class Game {
       const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >4AM ...possibly GAME_OVER
       const isPastSunrise = currTotalMinutes > SUNRISE; // Hard-stop: 6AM = GAME_OVER
 
-      // TO-DO: TEST THIS...
       if (isCaught || isPastSunrise) {
         this.gameOver = GameOverStatus.TimesUp
       }

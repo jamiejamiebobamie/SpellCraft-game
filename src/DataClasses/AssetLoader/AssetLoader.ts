@@ -116,7 +116,6 @@ export class AssetLoader {
             ]);
         } catch (error) {
             console.error("Asset loading error context: ", error);
-            // TO-DO:... retry???
         } finally {
             const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
             loaderObj.set('isFontsLoaded', true);
