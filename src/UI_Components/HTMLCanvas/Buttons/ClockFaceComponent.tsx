@@ -270,7 +270,9 @@ type minuteHourAngles = {
   hour: number;
 }
 
-export default function ClockFaceComponent() {
+type ClockFaceComponentProps = { isShowingModal: boolean; }
+
+export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponentProps) {
   const snap = useSnapshot(rootGameStore);
   const isGameBoardDisabled = snap.getIsGameBoardDisabled();
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
@@ -380,7 +382,7 @@ export default function ClockFaceComponent() {
         </svg>
       </ClockWrapper>
     </MenuAnchor >
-    <FloatingMessageContainer $isShow={displayFloatingPrompt}>
+    {!isShowingModal && <FloatingMessageContainer $isShow={displayFloatingPrompt}>
       <EtherealGlowWrapper>
         <EtherealCaret />
         <EtherealText>
@@ -389,7 +391,7 @@ export default function ClockFaceComponent() {
           <LargeEtherealWord>Clock</LargeEtherealWord>
         </EtherealText>
       </EtherealGlowWrapper>
-    </FloatingMessageContainer>
+    </FloatingMessageContainer>}
   </>
   );
 }

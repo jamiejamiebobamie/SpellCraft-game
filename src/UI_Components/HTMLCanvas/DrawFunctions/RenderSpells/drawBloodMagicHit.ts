@@ -1,12 +1,11 @@
 import { FX_PALETTE } from "./ColorPalette";
 import { GameParticle } from "../../../../DataClasses/types";
 
-export const spawnBloodMagicHitParticles = (particles: GameParticle[], targetX: number, targetY: number) => {
-    const crossCount = 12;
-    for (let i = 0; i < crossCount; i++) {
+export const spawnBloodMagicHitParticles = (particles: GameParticle[], targetX: number, targetY: number, dmgAmount: number) => {
+    for (let i = 0; i < dmgAmount; i++) {
         particles.push({
-            x: targetX + (Math.random() * 50 - 25),
-            y: targetY + (Math.random() * 60 - 30),
+            x: targetX + (Math.random() * 60 - 30),
+            y: targetY + (Math.random() * -90 + 60),
             vx: (Math.random() * 20 - 10),
             vy: -(Math.random() * 60 + 40), // Smooth, floaty drift upward
             alpha: 1.0,
@@ -16,7 +15,7 @@ export const spawnBloodMagicHitParticles = (particles: GameParticle[], targetX: 
             rotation: Math.random() * Math.PI,
             vRotation: Math.random() * 2 - 1, // Tumbles gently in the air
             life: 1.0,
-            decay: Math.random() * 0.8 + 0.8, // Drifts longer (~0.7s)
+            decay: Math.random() * 0.4 + 0.4,
             type: 'bloodDroplets'                // Custom type tag for drawing the upward-facing tear drop shape
         });
     }

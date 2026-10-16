@@ -64,7 +64,7 @@ export const fallAndSquash = keyframes`
   }
   100% {
     transform: rotate(90deg) scale(0.6, 1.2) skewX(-15deg) translate(2cqw, 3cqw);
-    // opacity: 0; /* Fades out smoothly at the very end */
+    opacity: 0; /* Fades out smoothly at the very end */
   }
 `;
 

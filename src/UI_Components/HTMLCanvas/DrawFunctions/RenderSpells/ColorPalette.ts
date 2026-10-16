@@ -27,5 +27,5 @@ export const FX_PALETTE = {
   healCross: '#a8ff69',
   healCrossShadow: '#2ecc71',
   bloodDroplets: '#570a0a',
-  bloodDropletsShadow: '#360707',
+  bloodDropletsShadow: '#200404',
 };

@@ -59,24 +59,32 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   },
 };
 
+const MIN_OPACITY = 0, MAX_OPACITY = .65, TRANSITION_TIME_SEC = 1.5;
+
 // --- Styled Component Architectures ---
 
 // Fiddle with the \$bgOpacity parameter inside your wrapper implementation to adjust view shading
-const ModalDimOverlay = styled.div<{ $bgOpacity: number }>`
+const ModalDimOverlay = styled.div<{ $isDisplay: boolean; $bgOpacity: number }>`
+  display: flex;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  display: flex;
   align-items: center;
   justify-content: center;
   padding: 4cqw;
   box-sizing: border-box;
   z-index: 10000; /* Layered slightly over your LoadingOverlay (9999) */
+
+  opacity: ${props => props.$isDisplay ? 1 : 0};
+  pointer-events: ${props => props.$isDisplay ? 'auto' : 'none'};
+  
   background: rgba(0, 0, 0, ${props => props.$bgOpacity});
   backdrop-filter: blur(2px);
-  transition: background 0.3s ease;
+  
+  transition: opacity 0.5s ease, background 0.5s ease;
+  transition-delay: ${props => props.$isDisplay ? `${TRANSITION_TIME_SEC}s` : '0s'};
 `;
 
 const ModalCardContent = styled.div`
@@ -289,24 +297,21 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
 
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
-
   const currentGameOverState = snap.getGameOver();
-  if (currentGameOverState === null) return null;
-
-  const contentConfig = MODAL_CONTENT_MAP[currentGameOverState];
+  const contentConfig = currentGameOverState ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
 
   return (
-    <ModalDimOverlay $bgOpacity={0.65}>
+    <ModalDimOverlay $isDisplay={!!currentGameOverState} $bgOpacity={!!currentGameOverState ? MAX_OPACITY : MIN_OPACITY}>
       <ModalCardContent>
         <ModalTitle>{contentConfig.title}</ModalTitle>
         <ModalSubTextContainer>
           <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
           <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
         </ModalSubTextContainer>
-        <ButtonRow>
+        {currentGameOverState && <ButtonRow>
           <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
           <ModalButtonWithWisps label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
-        </ButtonRow>
+        </ButtonRow>}
       </ModalCardContent>
     </ModalDimOverlay>
   );

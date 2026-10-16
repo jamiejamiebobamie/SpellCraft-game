@@ -180,7 +180,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
 
             // Execute corresponding blast triggers instantly 
             if (isBloodMagic) {
-              spawnBloodMagicHitParticles(anim.particles, tLocalX, tLocalY);
+              spawnBloodMagicHitParticles(anim.particles, tLocalX, tLocalY, spell.hitDamageAmount);
             } else if (spellClass === 'Quicken') {
               spawnQuickenHitParticles(anim.particles, tLocalX, tLocalY, boardHeight);
             } else if (spellClass === 'Ether') {
@@ -401,7 +401,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const buttons = <>
     <SpellBookComponent isGearHovered={isGearHovered} />
     <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
-    <ClockFaceComponent />
+    <ClockFaceComponent isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null}  />
     <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
   </>;
   return (

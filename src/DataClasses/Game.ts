@@ -159,7 +159,7 @@ export class Game {
       this.tooltipManager.turnOffIsClickClock(); // turn-off helper message
       this.resetNpcMove();
 
-      this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
+      this.audioHandler.startSoundEffect('clock-chime');
       this.incrementMinuteAngleAcc();
       this.forceUpdate();
       this.disableGameBoard();
@@ -245,6 +245,7 @@ export class Game {
                   s.hitDamageAmount = bloodMagicCost;
                   s.isPlayerHitImpact = true;
                   s.isBloodMagic = true;
+                  this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
                 }
                 const spellName = s.getSpellName();
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
@@ -436,6 +437,23 @@ export class Game {
       return humanPlayer.getFocus() > 0;
     } else return false;
   }
+  playPlayerDmgSound = (p: Player, dmg: number) => {
+    const remainingHealth = (p.getHealth() - dmg);
+    if (remainingHealth <= 0) {
+      // death-cry
+      this.audioHandler.startSoundEffect('wizard-Death-Cry');
+    } else if (dmg > 10) {
+      // scream
+      this.audioHandler.startSoundEffect('wizard-Grunt-5');
+    } else if (dmg > 0) {
+      // grunt
+      const randInt = Math.floor(Math.random() * 5);
+      this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName);
+    } else {
+      // heal
+      this.audioHandler.startSoundEffect('wizard-Heal');
+    }
+  }
   getHumanPlayer = (): Player | null => this.players.getHumanPlayer();
   getNpcPlayer = (): NPCPlayer | null => this.players.getNpcPlayer();
   regenFocusForPlayers = () => this.players.regenFocusForPlayers();
@@ -443,21 +461,7 @@ export class Game {
     if ([0, 1].includes(playerIndex) && dmg) {
       const p = this.players.getPlayer(playerIndex);
       p.decrementHealth(dmg);
-      const remainingHealth = (p.getHealth() - dmg);
-      if (remainingHealth <= 0) {
-        // death-cry
-        this.audioHandler.startSoundEffect('wizard-Death-Cry');
-      } else if (dmg > 10) {
-        // scream
-        this.audioHandler.startSoundEffect('wizard-Grunt-5');
-      } else if (dmg > 0) {
-        // grunt
-        const randInt = Math.floor(Math.random() * 5);
-        this.audioHandler.startSoundEffect(`wizard-Grunt-${randInt}` as SoundEffectName);
-      } else {
-        // heal
-        this.audioHandler.startSoundEffect('wizard-Heal');
-      }
+      this.playPlayerDmgSound(p, dmg);
     }
   }
   getReadiedSpell = (): string | null => this.players.getReadiedSpell();
@@ -524,8 +528,9 @@ export class Game {
       // IF "CLICK" -> place num key spell or Fireball if no spell readied
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
+        const cell = this.getCellAt(cellIndex);
         const humanPlayer = this.players.getHumanPlayer();
-        if (humanPlayer && !humanPlayer.getIsDead()) {
+        if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead()) {
           const inferenceString = humanPlayer?.getGameSymbol()?.symbolName || 'circle';
           const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
           if (spell) {
@@ -538,6 +543,7 @@ export class Game {
                 s.hitDamageAmount = bloodMagicCost;
                 s.isPlayerHitImpact = true;
                 s.isBloodMagic = true;
+                this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
               }
               const spellName = s.getSpellName();
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
@@ -862,7 +868,7 @@ export class Game {
         }
       }
     }
-    if (instance && activeCaster && !activeCaster.getIsDead()) {
+    if (!!count && instance && activeCaster && !activeCaster.getIsDead()) {
       const s = new spell(activeCaster);
       const spellName = s.getSpellName();
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
@@ -871,6 +877,7 @@ export class Game {
         instance.hitDamageAmount = bloodMagicCost;
         instance[activeCaster.id === this.getHumanPlayer()?.id ? 'isPlayerHitImpact' : 'isOpponentHitImpact'] = true;
         instance.isBloodMagic = true;
+        this.playPlayerDmgSound(activeCaster, bloodMagicCost);
       }
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
       this.checkIfIsGameOverFromPlayerDeath();
