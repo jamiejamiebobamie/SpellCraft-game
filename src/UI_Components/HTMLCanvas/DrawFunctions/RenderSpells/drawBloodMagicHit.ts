@@ -17,7 +17,7 @@ export const spawnBloodMagicHitParticles = (particles: GameParticle[], targetX: 
             vRotation: Math.random() * 2 - 1, // Tumbles gently in the air
             life: 1.0,
             decay: Math.random() * 0.8 + 0.8, // Drifts longer (~0.7s)
-            type: 'bloodDroplet'                // Custom type tag for drawing the upward-facing tear drop shape
+            type: 'bloodDroplets'                // Custom type tag for drawing the upward-facing tear drop shape
         });
     }
 }

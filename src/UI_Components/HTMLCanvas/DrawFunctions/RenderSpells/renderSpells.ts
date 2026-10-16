@@ -229,8 +229,33 @@ export function updateAndDrawParticles(
       ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    }
-    else {
+    } else if (p.type === 'bloodDroplets') {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation || 0);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+
+      if (p.shadowColor) {
+        ctx.shadowColor = p.shadowColor;
+        ctx.shadowBlur = 10;
+      }
+
+      const size = p.size;
+      ctx.beginPath();
+
+      // Point/Apex of the tear drop oriented downwards at (0, size)
+      ctx.moveTo(0, size);
+
+      // Left curve flowing out to the wide rounded upper cap boundary
+      ctx.bezierCurveTo(-size, size * 0.5, -size, -size * 0.5, 0, -size);
+
+      // Right curve flowing down from the cap back into the sharp apex anchor
+      ctx.bezierCurveTo(size, -size * 0.5, size, size * 0.5, 0, size);
+
+      ctx.fill();
+      ctx.restore();
+    } else {
       const currentSize = p.type === undefined ? p.size * p.life : p.size;
       ctx.save();
       ctx.fillStyle = p.color;

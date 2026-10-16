@@ -90,11 +90,6 @@ export const GameComponent = () => {
         // BEGIN MATCH!
         rootGameStore.doClickClockFlash();
         setTimeout(() => rootGameStore.doNpcMove(), 3000);
-
-        // // TESTING
-        // rootGameStore.setGameOver(GameOverStatus.TimesUp);
-        // forceUpdate();
-        // console.log({ gameOver: rootGameStore.getGameOver() })
       }
     }
   }, [isPlaying, isDoneWithIntro, isTooltips]);

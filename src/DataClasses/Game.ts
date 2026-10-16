@@ -248,7 +248,7 @@ export class Game {
                 }
                 const spellName = s.getSpellName();
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
-                this.placeSpellAt(inferenceString, cellIndex);
+                this.placeSpellAt(inferenceString, cellIndex, s);
                 this.placedSpells.combineSpellsMaximally(this.gameBoard);
                 this.checkIfIsGameOverFromPlayerDeath();
                 if (humanPlayer.getFocus() < 1) {
@@ -394,29 +394,31 @@ export class Game {
     const p = player ? player : this.players.getHumanPlayer();
     return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
   }
-  placeSpellOnBoard = async (cell: Cell, player?: Player): Promise<void> => {
-    const p = player ? player : this.players.getHumanPlayer();
+  placeSpellOnBoard = async (cell: Cell, _spell?: Spell): Promise<void> => {
+    const p = this.players.getHumanPlayer();
     if (p && this.isCanPlaceGameSymbolOn(cell, p)) {
       const gameSymbol = p.getGameSymbol();
       if (gameSymbol) {
         const spell = gameSymbol.instantiateSpell();
-        if (spell instanceof Spell) {
+        if (_spell instanceof Spell || spell instanceof Spell) {
+          const s = _spell || spell;
+          if (!s) return;
           p.setGameSymbol(null);
-          spell.setCellIndex(cell.getCellIndex());
-          this.placedSpells.addSpell(spell);
-          this.gameBoard.setSpellAt(spell, cell);
+          s.setCellIndex(cell.getCellIndex());
+          this.placedSpells.addSpell(s);
+          this.gameBoard.setSpellAt(s, cell);
         }
       }
     }
   }
-  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, player?: Player): void => {
-    const p = player ? player : this.players.getHumanPlayer();
+  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, spell?: Spell): void => {
+    const p = this.players.getHumanPlayer();
     if (p) {
       this.instantiateGameSymbolFromInferenceString(inferenceString, p);
       const cell = this.getCellAt(cellIndex);
       if (cell) {
         if (this.isCanPlaceGameSymbolOn(cell, p)) {
-          this.placeSpellOnBoard(cell, p);
+          this.placeSpellOnBoard(cell, spell);
         }
       }
     }
@@ -539,7 +541,7 @@ export class Game {
               }
               const spellName = s.getSpellName();
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
-              this.placeSpellAt(inferenceString, cellIndex);
+              this.placeSpellAt(inferenceString, cellIndex, s);
               this.placedSpells.combineSpellsMaximally(this.gameBoard);
               this.checkIfIsGameOverFromPlayerDeath();
               if (humanPlayer.getFocus() < 1) {
@@ -864,12 +866,11 @@ export class Game {
       const s = new spell(activeCaster);
       const spellName = s.getSpellName();
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
-      activeCaster.incurPlayerCostForSpell(focusCost);
       const bloodMagicCost = activeCaster.incurPlayerCostForSpell(focusCost);
       if (bloodMagicCost > 0) {
-        s.hitDamageAmount = bloodMagicCost;
-        s[activeCaster.id === this.getHumanPlayer()?.id ? 'isPlayerHitImpact' : 'isOpponentHitImpact'] = true;
-        s.isBloodMagic = true;
+        instance.hitDamageAmount = bloodMagicCost;
+        instance[activeCaster.id === this.getHumanPlayer()?.id ? 'isPlayerHitImpact' : 'isOpponentHitImpact'] = true;
+        instance.isBloodMagic = true;
       }
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
       this.checkIfIsGameOverFromPlayerDeath();

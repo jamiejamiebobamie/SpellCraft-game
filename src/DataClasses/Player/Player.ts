@@ -162,7 +162,7 @@ export class Player extends UniqueId {
       this.depleteFocusToZero();
        // Health covers the remaining resource debt
       this.decrementHealth(difference * this.getBloodMagicCost());
-      return difference;
+      return difference * this.getBloodMagicCost();
     }
   }
 };
