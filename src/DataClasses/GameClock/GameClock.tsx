@@ -16,6 +16,7 @@ export class GameClock {
     static readonly MINUTE_INCREMENT_ANGLE: number = 30;
     static readonly SECONDS_INCREMENT_ANGLE: number = 24;
     static readonly INTERVAL_DELAY: number = 1000;
+    static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 30 * 12 * 6; // 6 hours * 12 5-minute-interavals * 30 degrees 
 
     constructor(endTurn: () => {}) {
         this.endTurn = endTurn;

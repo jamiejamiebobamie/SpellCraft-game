@@ -82,7 +82,6 @@ const ModalDimOverlay = styled.div<{ $bgOpacity: number }>`
 const ModalCardContent = styled.div`
   padding: 4cqw;
   width: 85%;
-  max-width: 750px;
   position: relative;
   align-items: center;
   justify-content: center;
