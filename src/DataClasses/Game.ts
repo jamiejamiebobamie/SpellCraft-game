@@ -86,6 +86,7 @@ export class Game {
     this.startBackgroundMusic();
     this.forceUpdate();
   }
+
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
@@ -103,8 +104,8 @@ export class Game {
   setGameOver = (status: GameOver): void => {
     this.gameOver = status;
   }
-  checkIfIsGameOver = (): boolean => {
-    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+
+  checkIfIsGameOverFromPlayerDeath = (): void => {
     const deadPlayers = this.players.getDeadPlayers();
     switch (deadPlayers.length) {
       case 2:
@@ -114,29 +115,35 @@ export class Game {
         this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
         break;
     }
+  }
 
-    // - GAMEOVER CONDITION #2: Time limit of match is reached (6AM on clock) <PLAYER EXPULSION>
-    if (!deadPlayers.length) {
+  checkIfIsGameOverFromTime = (): void => {
 
-      const MINUTES_HAND = 12; // Increments of 5, (5 * 12 = 60 minutes)
-      const HOURS_HAND = 6; // 6 hours
-      const SUNRISE = MINUTES_HAND * HOURS_HAND;
+    const MINUTES_HAND = 12; // Increments of 5, (5 * 12 = 60 minutes)
+    const HOURS_HAND = 6; // 6 hours
+    const SUNRISE = MINUTES_HAND * HOURS_HAND;
 
-      const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
+    const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
 
-      // [.45,.5] + .5
-      const MIN = 0.45;
-      const MAX = 0.5;
-      const caughtChance = Math.random() * (MAX - MIN) + MIN + this.CAUGHT_WEIGHT;
-      const caughtLikelihood = currTotalMinutes / SUNRISE;
+    // [.45,.5] + .5
+    const MIN = 0.45;
+    const MAX = 0.5;
+    const caughtChance = Math.random() * (MAX - MIN) + MIN + this.CAUGHT_WEIGHT;
+    const caughtLikelihood = currTotalMinutes / SUNRISE;
 
-      const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >530AM ...possibly GAME_OVER
-      const isPastSunrise = currTotalMinutes >= SUNRISE; // Hard-stop: 6AM = GAME_OVER
+    const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >530AM ...possibly GAME_OVER
+    const isPastSunrise = currTotalMinutes >= SUNRISE; // Hard-stop: 6AM = GAME_OVER
 
-      if (isCaught || isPastSunrise) {
-        this.gameOver = GameOverStatus.TimesUp
-      }
+    if (isCaught || isPastSunrise) {
+      this.gameOver = GameOverStatus.TimesUp
     }
+  }
+
+  checkIfIsGameOver = (): boolean => {
+    // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
+    this.checkIfIsGameOverFromPlayerDeath();
+    // - GAMEOVER CONDITION #2: Player is caught by teacher. <TIME'S UP>
+    if (!this.gameOver) this.checkIfIsGameOverFromTime();
 
     const isGameOver = this.gameOver !== null;
     if (this.gameOver) {
@@ -148,14 +155,10 @@ export class Game {
   }
 
   endTurn = async (): Promise<void> => {
-    if (!this.getIsGameBoardDisabled()) {
-
-      this.tooltipManager.turnOffIsClickClock();
+    if (!this.getIsGameBoardDisabled() && !this.gameOver) {
+      this.tooltipManager.turnOffIsClickClock(); // turn-off helper message
       this.resetNpcMove();
-      let isGameOver = this.checkIfIsGameOver();
-      if (isGameOver) {
-        return;
-      }
+
       this.audioHandler.startSoundEffect('clock-chime', this.audioHandler.getEffectsAudioLevel() / 10);
       this.incrementMinuteAngleAcc();
       this.forceUpdate();
@@ -163,7 +166,8 @@ export class Game {
       await this.updatePlacedSpells();
       this.regenFocusForPlayers();
       this.enableGameBoard();
-      isGameOver = this.checkIfIsGameOver();
+
+      let isGameOver = this.checkIfIsGameOver();
       if (isGameOver) {
         return;
       }
@@ -226,7 +230,7 @@ export class Game {
         action: () => {
           const cell = this.gameBoard.getCellAt(cellIndex);
           const humanPlayer = this.players.getHumanPlayer();
-          if (cell && humanPlayer) {
+          if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead()) {
             const gameSymbol = humanPlayer.getGameSymbol();
             if (!gameSymbol) return;
             const inferenceString = gameSymbol.symbolName as InferenceString;
@@ -241,6 +245,7 @@ export class Game {
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
                 this.placeSpellAt(inferenceString, cellIndex);
                 this.placedSpells.combineSpellsMaximally(this.gameBoard);
+                this.checkIfIsGameOverFromPlayerDeath();
                 if (humanPlayer.getFocus() < 1) {
                   this.setIsDoneWithTurn(true, humanPlayer);
                 }
@@ -513,7 +518,7 @@ export class Game {
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
       if (cellIndex) {
         const humanPlayer = this.players.getHumanPlayer();
-        if (humanPlayer) {
+        if (humanPlayer && !humanPlayer.getIsDead()) {
           const inferenceString = humanPlayer?.getGameSymbol()?.symbolName || 'circle';
           const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
           if (spell) {
@@ -526,6 +531,7 @@ export class Game {
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
               this.placeSpellAt(inferenceString, cellIndex);
               this.placedSpells.combineSpellsMaximally(this.gameBoard);
+              this.checkIfIsGameOverFromPlayerDeath();
               if (humanPlayer.getFocus() < 1) {
                 this.setIsDoneWithTurn(true, humanPlayer);
               }
@@ -844,12 +850,13 @@ export class Game {
         }
       }
     }
-    if (instance && activeCaster) {
+    if (instance && activeCaster && !activeCaster.getIsDead()) {
       const s = new spell(activeCaster);
       const spellName = s.getSpellName();
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
       activeCaster.incurPlayerCostForSpell(focusCost);
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
+      this.checkIfIsGameOverFromPlayerDeath();
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
   };
