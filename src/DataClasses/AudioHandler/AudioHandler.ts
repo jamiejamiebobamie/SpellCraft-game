@@ -32,6 +32,7 @@ export class AudioHandler {
      * once all of them are decoded (a failed file is logged and skipped).
      */
     private preloadSoundEffects = async (assetLoader: AssetLoader) => {
+        await assetLoader.whenPriorityAssetsLoaded();
         await Promise.all(Object.entries(SFX_REGISTRY).map(async ([name, path]) => {
             try {
                 const response = await fetch(path);

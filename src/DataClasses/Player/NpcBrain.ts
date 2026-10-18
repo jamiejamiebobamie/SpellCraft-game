@@ -43,7 +43,8 @@ export class NpcBrain {
       setIsLoaded();
       return;
     }
-    ort.InferenceSession.create(MODEL_PATH)
+    assetLoader.whenPriorityAssetsLoaded()
+      .then(() => ort.InferenceSession.create(MODEL_PATH))
       // ref(): keep valtio from proxying the native inference session
       .then(session => { this.session = ref(session); })
       .catch(err => console.error('Failed to load the NPC model; the NPC will play randomly', err))

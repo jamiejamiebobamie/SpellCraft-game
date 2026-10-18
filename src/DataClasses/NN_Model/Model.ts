@@ -49,6 +49,7 @@ export class Model {
 
     private async loadModel(assetLoader: AssetLoader): Promise<ort.InferenceSession | null> {
         try {
+            await assetLoader.whenPriorityAssetsLoaded();
             const net = await ort.InferenceSession.create('./models/sequential8.onnx');
             const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
             loaderObj.set('isOnnxModelLoaded', true);
