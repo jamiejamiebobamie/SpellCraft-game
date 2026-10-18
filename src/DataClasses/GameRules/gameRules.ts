@@ -4,6 +4,7 @@ import { CellIndex, GameOver, GameOverStatus } from '../types';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { Spell, Phlegm, Ether, GyreUp, GyreDown, Quicken } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
+import { CASTING_RULES } from '../PlacedSpells/spellRules';
 
 export type SpellClass = typeof Phlegm | typeof Ether | typeof GyreUp | typeof GyreDown | typeof Quicken;
 
@@ -22,6 +23,27 @@ export const getPlacementZone = (direction: number) => {
   };
 };
 
+/** The column right next to a caster's wizard (the back edge of its zone). */
+export const getWizardColumn = (direction: number): number => direction === 1 ? 0 : GameBoard.NUM_COLS - 1;
+
+/** Whether `cell` is covered by live spells, all of them cast by the other side. */
+export const getIsOccupiedOnlyByEnemy = (spells: Array<Spell>, cell: CellIndex, direction: number): boolean => {
+  const covering = spells.filter(s => {
+    const root = s.getCellIndex();
+    return !s.getIsRemove() && !!root &&
+      cell.i >= root.i && cell.i < root.i + s.heightCells && cell.j >= root.j && cell.j < root.j + s.widthCells;
+  });
+  return covering.length > 0 && covering.every(s => s.caster.getDirection() !== direction);
+};
+
+/**
+ * Whether a caster can't cast onto `cell`: it's occupied, unless it only holds enemy spells
+ * beside the caster's wizard (CASTING_RULES.canCastOntoEnemiesBesideWizard).
+ */
+export const getIsBlockedForCasting = (cell: CellIndex, direction: number, isOccupied: (cell: CellIndex) => boolean, spells: Array<Spell>): boolean =>
+  isOccupied(cell) && !(CASTING_RULES.canCastOntoEnemiesBesideWizard &&
+    cell.j === getWizardColumn(direction) && getIsOccupiedOnlyByEnemy(spells, cell, direction));
+
 /**
  * Where a drawn spell lands. The cells the drawing touched are clipped to the caster's zone, and
  * their bounding box is filled (skipping occupied cells) with:
@@ -29,21 +51,43 @@ export const getPlacementZone = (direction: number) => {
  * - GyreUp, GyreDown: vertical runs, one per column
  * - Quicken: horizontal runs, one per row (1x1 pieces if the drawing spans more than one row)
  * Shapes are filled from the caster's back edge (the left for the player; mirrored for the NPC, so
- * both sides cast the same way). Returns the shapes in placement order.
+ * both sides cast the same way). Quickens are limited to CASTING_RULES.maxQuickenCellsPerCast cells.
+ * `spells` (the live spells) allows casting onto enemy spells beside the wizard (getIsBlockedForCasting).
+ * Returns the shapes in placement order.
  */
 export const planSpellPlacement = (
   SpellType: SpellClass,
   touchedCells: Array<CellIndex>,
   direction: number,
   isOccupied: (cell: CellIndex) => boolean,
+  spells: Array<Spell> = [],
 ): Array<CellRect> => {
-  if (direction === 1) return planSpellPlacementFromLeft(SpellType, touchedCells, isOccupied);
+  const isBlocked = (cell: CellIndex) => getIsBlockedForCasting(cell, direction, isOccupied, spells);
+  if (direction === 1) return planSpellPlacementFromLeft(SpellType, touchedCells, isBlocked);
   const mirrorJ = (j: number, width: number) => GameBoard.NUM_COLS - j - width;
   return planSpellPlacementFromLeft(
     SpellType,
     touchedCells.map(c => ({ i: c.i, j: mirrorJ(c.j, 1) })),
-    c => isOccupied({ i: c.i, j: mirrorJ(c.j, 1) }),
+    c => isBlocked({ i: c.i, j: mirrorJ(c.j, 1) }),
   ).map(rect => ({ ...rect, j: mirrorJ(rect.j, rect.w) }));
+};
+
+/** Quicken shapes within CASTING_RULES.maxQuickenCellsPerCast, those over touched cells first. */
+const limitQuickenCells = (rects: Array<CellRect>, touchedCells: Array<CellIndex>): Array<CellRect> => {
+  const maxCells = CASTING_RULES.maxQuickenCellsPerCast;
+  if (maxCells === null) return rects;
+  const isTouched = (rect: CellRect) => touchedCells.some(c => c.i === rect.i && c.j >= rect.j && c.j < rect.j + rect.w);
+  const ordered = [...rects.filter(isTouched), ...rects.filter(rect => !isTouched(rect))];
+  const kept: Array<CellRect> = [];
+  let cellsLeft = maxCells;
+  ordered.forEach(rect => {
+    if (cellsLeft <= 0) return;
+    const w = Math.min(rect.w, cellsLeft); // runs are filled from the back edge
+    kept.push({ ...rect, w });
+    cellsLeft -= w;
+  });
+  // Back in placement order
+  return rects.flatMap(rect => kept.filter(k => k.i === rect.i && k.j === rect.j));
 };
 
 /** planSpellPlacement for a caster on the left side (zone at the left, moving right). */
@@ -109,6 +153,7 @@ const planSpellPlacementFromLeft = (
         c += finalWidth;
       }
     }
+    return limitQuickenCells(rects, zoneCells);
   }
   return rects;
 };

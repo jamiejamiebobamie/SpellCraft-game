@@ -11,7 +11,7 @@ import { Spell, Phlegm, Ether, Quicken, GyreUp, GyreDown } from '../PlacedSpells
 import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
-import { planSpellPlacement } from './gameRules';
+import { getIsBlockedForCasting, planSpellPlacement } from './gameRules';
 import { playScriptedTurn } from './scriptedOpponent';
 
 const ROWS = GameBoard.NUM_ROWS;
@@ -59,8 +59,8 @@ export const decodeAction = (action: number, side: number): DecodedAction => {
 
 /**
  * Which actions `side` may take now. Ending the turn is always allowed; casting needs the game to
- * be on, the caster alive with some focus left, and at least one free cell under the drawing
- * (every spell type can fill a single free cell). Equivalent to getActionMaskByPlanning, but fast.
+ * be on, the caster alive with some focus left, and at least one cell it can cast onto under the
+ * drawing (every spell type can fill a single cell). Equivalent to getActionMaskByPlanning, but fast.
  */
 export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
   const caster = sim.players[side];
@@ -69,7 +69,9 @@ export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
   mask[END_TURN_ACTION] = true;
   if (!canCast) return mask;
 
-  const isFree = Array.from({ length: ROWS }, (_, i) => Array.from({ length: ZONE }, (_, j) => !sim.getIsOccupied({ i, j: toSideColumn(j, side) })));
+  const direction = caster.getDirection();
+  const isFree = Array.from({ length: ROWS }, (_, i) => Array.from({ length: ZONE }, (_, j) =>
+    !getIsBlockedForCasting({ i, j: toSideColumn(j, side) }, direction, sim.getIsOccupied, sim.spells)));
   ZONE_RECTS.forEach((rect, r) => {
     let hasFreeCell = false;
     for (let dr = 0; dr < rect.h && !hasFreeCell; dr++) for (let dc = 0; dc < rect.w; dc++) if (isFree[rect.i + dr][rect.j + dc]) hasFreeCell = true;
@@ -86,7 +88,7 @@ export const getActionMaskByPlanning = (sim: GameSimulation, side: number): Arra
     if (action === END_TURN_ACTION) return true;
     if (!canCast) return false;
     const decoded = decodeAction(action, side) as Extract<DecodedAction, { kind: 'cast' }>;
-    return planSpellPlacement(SPELL_CLASSES[decoded.spellName], decoded.cells, caster.getDirection(), sim.getIsOccupied).length > 0;
+    return planSpellPlacement(SPELL_CLASSES[decoded.spellName], decoded.cells, caster.getDirection(), sim.getIsOccupied, sim.spells).length > 0;
   });
 };
 

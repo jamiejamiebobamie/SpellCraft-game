@@ -336,6 +336,24 @@ export class SpellMovementEngine {
     return { frames: this.frames };
   };
 
+  /**
+   * Collides spells that overlap without moving: a spell just cast onto an enemy spell beside the
+   * caster's wizard (CASTING_RULES.canCastOntoEnemiesBesideWizard). Returns no frames if none overlap.
+   */
+  resolveCastCollisions = (): SpellTurnLog => {
+    this.frames = [];
+    const noMoves = new Map<string, CellIndex>(); // nothing moved, so there are no swaps to find
+    if (!this.detectCollisionPairs(noMoves, false, new Set()).length) return { frames: [] };
+
+    this.resolveCollisions(noMoves);
+    this.captureFrame('step');
+    this.removeConsumed();
+    this.removeInvalidSpells();
+    combineSpellsMaximally(this.spells);
+    this.captureFrame('final');
+    return { frames: this.frames };
+  };
+
   private captureFrame = (kind: SpellTurnFrameKind): void => {
     this.frames.push({ kind, spells: copySpellGraph(this.spells), healthEvents: this.pendingHealthEvents, interactionEvents: this.pendingInteractionEvents });
     this.pendingHealthEvents = [];

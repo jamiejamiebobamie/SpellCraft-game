@@ -48,6 +48,19 @@ export class PlacedSpells {
     }
   };
 
+  /** Collides a spell just cast onto an enemy spell (SpellMovementEngine.resolveCastCollisions). */
+  resolveCastCollisions = async (gameBoard: GameBoard, forceUpdate: Function): Promise<void> => {
+    const { frames } = new SpellMovementEngine(this.spells).resolveCastCollisions();
+    const liveSpells = new Map<string, Spell>();
+    indexSpellGraph(this.spells, liveSpells);
+    for (const frame of frames) {
+      this.applyFrame(frame, liveSpells, gameBoard);
+      forceUpdate();
+      // Long enough to see the collision's effects before its results are removed
+      if (frame.kind === 'step') await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI / 2));
+    }
+  };
+
   private applyFrame = (frame: SpellTurnFrame, liveSpells: Map<string, Spell>, gameBoard: GameBoard): void => {
     const nextSpells = copySpellGraph(frame.spells, liveSpells);
 

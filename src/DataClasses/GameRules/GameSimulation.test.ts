@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { GameOverStatus, CellIndex } from '../types';
 import { SUNRISE_TURNS } from './gameRules';
+import { Ether } from '../PlacedSpells/Spell';
+import { GameBoard } from '../GameBoard/GameBoard';
 
 /** All cells of a rectangle, as if a drawing touched them. */
 const cellsOf = (i: number, j: number, w: number, h: number): Array<CellIndex> =>
@@ -140,5 +142,58 @@ describe('random games', () => {
     for (let seed = 1; seed <= 200; seed++) {
       expect(playGame(seed, true), `seed ${seed}`).toEqual(playGame(seed, false));
     }
+  });
+});
+
+describe('casting rules (CASTING_RULES)', () => {
+  /** An enemy (NPC) spell placed by hand, e.g. one that has reached the player's side. */
+  const placeNpcSpell = (sim: GameSimulation, SpellType: typeof Ether, cell: CellIndex) => {
+    const spell = new SpellType(sim.players[NPC_INDEX]);
+    spell.setCellIndex(cell);
+    sim.spells.push(spell);
+    return spell;
+  };
+
+  it('a Quicken cast fills at most 3 cells, the touched ones first', () => {
+    const sim = new GameSimulation();
+    sim.cast(PLAYER_INDEX, 'Quicken', [{ i: 0, j: 0 }, { i: 1, j: 1 }, { i: 2, j: 2 }]); // a diagonal: a 3x3 box
+    const cells = sim.spells.flatMap(s => cellsOf(s.cellIndex.i, s.cellIndex.j, s.widthCells, s.heightCells));
+    expect(cells).toHaveLength(3);
+    expect(cells).toEqual(expect.arrayContaining([{ i: 0, j: 0 }, { i: 1, j: 1 }, { i: 2, j: 2 }]));
+  });
+
+  it('a spell cast onto an enemy spell beside the wizard collides at once', () => {
+    const sim = new GameSimulation();
+    placeNpcSpell(sim, Ether, { i: 1, j: 0 });
+    const { placed } = sim.cast(PLAYER_INDEX, 'Ether', [{ i: 1, j: 0 }]);
+    expect(placed).toHaveLength(1);
+    expect(sim.spells).toHaveLength(0); // equal Ethers destroy each other
+    sim.endTurn();
+    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100);
+  });
+
+  it('a Phlegm cast onto an enemy spell beside the wizard stops it hitting', () => {
+    const sim = new GameSimulation();
+    placeNpcSpell(sim, Ether, { i: 1, j: 0 });
+    sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 1, j: 0 }]);
+    sim.endTurn();
+    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100);
+  });
+
+  it('only beside the wizard, and never onto own spells', () => {
+    const sim = new GameSimulation();
+    placeNpcSpell(sim, Ether, { i: 1, j: 1 });
+    expect(sim.cast(PLAYER_INDEX, 'Ether', [{ i: 1, j: 1 }]).placed).toHaveLength(0);
+    sim.cast(PLAYER_INDEX, 'Ether', [{ i: 0, j: 0 }]);
+    expect(sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]).placed).toHaveLength(0);
+  });
+
+  it('works the same for the NPC (beside its wizard, on the right)', () => {
+    const sim = new GameSimulation();
+    const enemy = new Ether(sim.players[PLAYER_INDEX]);
+    enemy.setCellIndex({ i: 2, j: GameBoard.NUM_COLS - 1 });
+    sim.spells.push(enemy);
+    expect(sim.cast(NPC_INDEX, 'Ether', [{ i: 2, j: GameBoard.NUM_COLS - 1 }]).placed).toHaveLength(1);
+    expect(sim.spells).toHaveLength(0);
   });
 });

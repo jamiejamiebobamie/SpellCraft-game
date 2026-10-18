@@ -60,7 +60,7 @@ export class GameSimulation {
     if (this.gameOver !== null || caster.getIsDead()) return none;
 
     const SpellType = SPELL_CLASSES[spellName];
-    const rects = planSpellPlacement(SpellType, touchedCells, caster.getDirection(), this.getIsOccupied);
+    const rects = planSpellPlacement(SpellType, touchedCells, caster.getDirection(), this.getIsOccupied, this.spells);
     if (!rects.length) return none;
 
     const placed = createPlacedSpells(SpellType, rects, caster);
@@ -70,6 +70,9 @@ export class GameSimulation {
 
     combineSpellsMaximally(this.spells);
     this.spells = this.spells.filter(s => !s.getIsRemove());
+    // A spell cast onto an enemy spell collides at once
+    const { frames } = new SpellMovementEngine(this.spells).resolveCastCollisions();
+    if (frames.length) this.spells = frames[frames.length - 1].spells;
     this.gameOver = getDeathGameOver(this.players[PLAYER_INDEX], this.players[NPC_INDEX]);
     return { placed, focusCost, bloodMagicCost };
   };

@@ -33,3 +33,12 @@ export const QUICKEN_RULES = {
 export const PLAYER_RULES = {
   bloodMagicHealthPerFocus: 7, // health paid per focus point a cast costs beyond what the caster has (was 5)
 };
+
+export const CASTING_RULES = {
+  // Most cells one Quicken cast can fill (null: no limit). Stops a single wide drawing filling the
+  // whole zone with Quickens. The cells the drawing touched are filled first.
+  maxQuickenCellsPerCast: 3 as number | null,
+  // Spells can be cast onto enemy spells in the column right next to the caster's wizard, where
+  // they collide at once (otherwise a spell there can't be answered before it hits)
+  canCastOntoEnemiesBesideWizard: true,
+};

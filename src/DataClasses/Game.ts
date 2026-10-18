@@ -19,7 +19,7 @@ import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDi
 import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TooltipPage } from './TooltipManager/TooltipManager';
-import { SpellClass, createPlacedSpells, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
+import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
 import { NPC_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
@@ -379,7 +379,8 @@ export class Game {
   disableGameBoard = (): void => this.gameBoard.disableBoard();
   isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
     const p = player ? player : this.players.getHumanPlayer();
-    return !!p && !this.getIsGameBoardDisabled() && cell.getIsFree() && cell.getIsPlaceCell(p);
+    if (!p || this.getIsGameBoardDisabled() || !cell.getIsPlaceCell(p)) return false;
+    return !getIsBlockedForCasting(cell.getCellIndex(), p.getDirection(), () => !cell.getIsFree(), this.placedSpells.spells);
   }
   placeSpellOnBoard = async (cell: Cell, _spell?: Spell): Promise<void> => {
     const p = this.players.getHumanPlayer();
@@ -663,7 +664,7 @@ export class Game {
     const spell = GameSymbol.SPELL_LOOKUP.get(symbol.toLowerCase() as InferenceString);
     if (!spell) return;
 
-    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied);
+    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied, this.placedSpells.spells);
     const placed = createPlacedSpells(spell as SpellClass, rects, activeCaster);
     placed.forEach(s => this.placedSpells.addSpell(s));
 
@@ -679,6 +680,7 @@ export class Game {
       this.checkIfIsGameOverFromPlayerDeath();
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
+    this.placedSpells.resolveCastCollisions(this.gameBoard, this.forceUpdate);
   };
 
 
