@@ -14,14 +14,12 @@ import { GameView, decodeAction, encodeObservation, getActionMask } from '../Gam
  */
 export const NPC_POLICY: 'trained' | 'random' = 'trained';
 
-/**
- * Variety in the trained NPC's play:
- * - temperature: picks moves at random in proportion to how good the model rates them (1 = as in
- *   training; lower = closer to always its top move, 0 = always its top move)
- * - repeatWindow / repeatPenalty: moves it made in its last `repeatWindow` casts (the same spell
- *   over the same area) become less likely, by `repeatPenalty` per repeat (in the model's scores)
- */
-export const NPC_VARIETY = { temperature: 1, repeatWindow: 4, repeatPenalty: 1.5 };
+/** Variety in the trained NPC's play: it picks moves at random, weighted by how good the model rates them. */
+export const NPC_VARIETY = {
+  temperature: 1, // how adventurous: 0 = always its top move, 1 = as in training, higher = tries weaker moves more often
+  repeatWindow: 4, // how many of its recent casts it remembers (a cast = the same spell over the same area)
+  repeatPenalty: 1.5, // how strongly it avoids repeating a remembered cast, per repeat (in the model's scores)
+};
 
 const MODEL_PATH = './models/npc-policy.onnx';
 
