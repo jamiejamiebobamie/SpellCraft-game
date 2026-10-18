@@ -6,11 +6,11 @@ import { SpellMovementEngine, SpellTurnFrame, SpellTurnFrameKind, combineSpellsM
 
 export class PlacedSpells {
   spells: Array<Spell> = proxy([]);
-  // static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 100; // for micro steps
-  // static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 1000; // for entire spell movement turn (time it takes for all spells to finish all moves)
+  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 100; // for micro steps
+  static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 1000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
-  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 1000; // for micro steps
-  static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 3000; // for entire spell movement turn (time it takes for all spells to finish all moves)
+  // static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 1000; // for micro steps
+  // static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 3000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
   private static readonly FRAME_DELAY_MILLI: Record<SpellTurnFrameKind, number> = {
     step: PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI,
