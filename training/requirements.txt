@@ -1,0 +1,10 @@
+# Python packages for training the QuickCast NPC.
+# Install into training/.venv (CPU-only PyTorch; the model is small and doesn't need a GPU):
+#   py -3.12 -m venv training/.venv
+#   training/.venv/Scripts/python -m pip install -r training/requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+gymnasium
+stable-baselines3
+sb3-contrib
+numpy
