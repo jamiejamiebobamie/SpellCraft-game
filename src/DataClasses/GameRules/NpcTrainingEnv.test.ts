@@ -1,7 +1,7 @@
 // NpcTrainingEnv.test.ts
 // The NPC's view of the game for training: observations, actions, legal-move masks, rewards.
 import { describe, expect, it } from 'vitest';
-import { END_TURN_ACTION, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
+import { END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { CellIndex } from '../types';
 
@@ -94,6 +94,75 @@ describe('observations', () => {
         expect(getActionMask(mirrored, NPC_INDEX), `seed ${seed}`).toEqual(getActionMask(board, PLAYER_INDEX));
       }
     }
+  });
+});
+
+describe('interactions (combos)', () => {
+  const { AGENT, OPPONENT } = NpcTrainingEnv;
+
+  /** Sets up a board with `setup`, then plays `turns` turns with no other casts. */
+  const playOut = (setup: (sim: GameSimulation) => void, turns: number = 6) => {
+    const env = new NpcTrainingEnv();
+    let result = env.reset({ seed: 1, opponent: 'none' });
+    env.sim.players.forEach(p => p.decrementFocus(-4)); // plenty of focus for the setup
+    setup(env.sim);
+    let totalReward = 0;
+    for (let t = 0; t < turns && !result.terminated; t++) {
+      result = env.step(END_TURN_ACTION);
+      totalReward += result.reward;
+    }
+    return { ...result.info.interactions, totalReward, info: result.info };
+  };
+
+  it("counts the agent's Phlegm reflecting an enemy spell (for both sides)", () => {
+    const { agent, opponent } = playOut(sim => {
+      sim.cast(AGENT, 'Phlegm', [{ i: 0, j: 1 }, { i: 1, j: 2 }]); // 2x2
+      sim.cast(OPPONENT, 'Ether', [{ i: 0, j: 4 }]);
+    });
+    expect(agent.reflectedEnemySpells).toBe(1);
+    expect(opponent.reflectedByEnemy).toBe(1);
+  });
+
+  it("counts the agent's spell finishing a lift on the board (a Quicken sent through a Gyre)", () => {
+    const { agent, opponent } = playOut(sim => {
+      sim.cast(AGENT, 'Quicken', [{ i: 1, j: 2 }]); // power 5
+      sim.cast(OPPONENT, 'GyreDown', [{ i: 1, j: 4 }]); // power 4: lifts it down to row 2
+    });
+    expect(agent.ownSpellsLiftedByEnemyGyres).toBe(1);
+    expect(agent.ownSpellsLiftedSafely).toBe(1);
+    expect(opponent.liftsByOwnGyres).toBe(1);
+  });
+
+  it("counts the agent's Gyre pushing an enemy spell off the board", () => {
+    const { agent } = playOut(sim => {
+      sim.cast(AGENT, 'GyreUp', [{ i: 0, j: 2 }]); // on the top row: lifts to row -1
+      sim.cast(OPPONENT, 'Ether', [{ i: 0, j: 4 }]);
+    });
+    expect(agent.liftsByOwnGyres).toBe(1);
+    expect(agent.enemySpellsLiftedOffBoard).toBe(1);
+    expect(agent.ownSpellsLiftedSafely).toBe(0);
+  });
+
+  it('counts buffs from enemy spells', () => {
+    const { agent, opponent } = playOut(sim => {
+      sim.cast(AGENT, 'Ether', [{ i: 2, j: 2 }]); // power 10
+      sim.cast(OPPONENT, 'Quicken', [{ i: 2, j: 4 }]); // power 5: absorbed, electrifying the Ether
+    });
+    expect(agent.buffsFromEnemySpells).toBe(1);
+    expect(opponent.buffsFromEnemySpells).toBe(0);
+  });
+
+  it('rewards combos only when turned on, capped per game below a win', () => {
+    const setup = (sim: GameSimulation) => {
+      sim.cast(AGENT, 'Ether', [{ i: 2, j: 2 }]);
+      sim.cast(OPPONENT, 'Quicken', [{ i: 2, j: 4 }]);
+    };
+    const off = playOut(setup, 1).totalReward;
+    INTERACTION_REWARDS.buffsFromEnemySpells = 0.1;
+    expect(playOut(setup, 1).totalReward).toBeCloseTo(off + 0.1, 9);
+    INTERACTION_REWARDS.buffsFromEnemySpells = 10;
+    expect(playOut(setup, 1).totalReward).toBeCloseTo(off + INTERACTION_REWARDS.maxPerGame, 9);
+    INTERACTION_REWARDS.buffsFromEnemySpells = 0;
   });
 });
 

@@ -19,10 +19,23 @@ export type SpellTurnFrameKind = 'step' | 'turnEnd' | 'final';
 
 export type HealthEvent = { playerIndex: number; dmg: number };
 
+/**
+ * A spell interaction, for statistics and training rewards (the combos the game is about).
+ * Sides: 0 = the left player, 1 = the NPC (whoever cast the spell).
+ */
+export type InteractionEvent =
+  | { kind: 'reflect'; spellSide: number; phlegmSide: number; isPhlegmSpell: boolean } // a Phlegm sent a spell back
+  | { kind: 'lift'; spellSide: number; gyreSide: number } // a Gyre started moving a spell to another row
+  | { kind: 'liftEnd'; spellSide: number; gyreSide: number; isSurvived: boolean } // ...and finished: on the board, or pushed off it
+  | { kind: 'buff'; buff: 'fire' | 'electric'; consumerSide: number; consumedSide: number }; // a spell absorbed an Ether/Quicken
+
+export const getSpellSide = (spell: Spell): number => spell.caster.getDirection() === 1 ? 0 : 1;
+
 export type SpellTurnFrame = {
   kind: SpellTurnFrameKind;
   spells: Array<Spell>; // deep copies, safe to keep
   healthEvents: Array<HealthEvent>; // applied when this frame is shown
+  interactionEvents: Array<InteractionEvent>; // what happened since the previous frame
 };
 
 export type SpellTurnLog = {
@@ -259,6 +272,7 @@ export class SpellMovementEngine {
 
   private frames: Array<SpellTurnFrame> = [];
   private pendingHealthEvents: Array<HealthEvent> = [];
+  private pendingInteractionEvents: Array<InteractionEvent> = [];
 
   constructor(spells: Array<Spell>) {
     this.spells = copySpellGraph(spells);
@@ -323,8 +337,25 @@ export class SpellMovementEngine {
   };
 
   private captureFrame = (kind: SpellTurnFrameKind): void => {
-    this.frames.push({ kind, spells: copySpellGraph(this.spells), healthEvents: this.pendingHealthEvents });
+    this.frames.push({ kind, spells: copySpellGraph(this.spells), healthEvents: this.pendingHealthEvents, interactionEvents: this.pendingInteractionEvents });
     this.pendingHealthEvents = [];
+    this.pendingInteractionEvents = [];
+  };
+
+  /** Runs one step of `spell`, recording a reflection if it left a Phlegm reversed. */
+  private stepSpell = (spell: Spell, step: () => void): void => {
+    const phlegm = spell.consumedSpellRef instanceof Phlegm ? spell.consumedSpellRef : null;
+    const direction = Math.sign(spell.speedDirection);
+    step();
+    if (phlegm && Math.sign(spell.speedDirection) !== direction) {
+      this.pendingInteractionEvents.push({ kind: 'reflect', spellSide: getSpellSide(spell), phlegmSide: getSpellSide(phlegm), isPhlegmSpell: spell instanceof Phlegm });
+    }
+  };
+
+  private recordLift = (spell: Spell, gyre: Gyre): void => {
+    if (spell.consumedSpellRef === gyre && spell.consumedGyres !== 0) {
+      this.pendingInteractionEvents.push({ kind: 'lift', spellSide: getSpellSide(spell), gyreSide: getSpellSide(gyre) });
+    }
   };
 
   /**
@@ -416,57 +447,67 @@ export class SpellMovementEngine {
 
     for (const spell of this.spells) {
       if (!this.getIsMovingThisStep(spell)) continue;
-
       anySpellMoved = true;
-      spell.recordedMovesCount++;
 
-      const isGyreMove = !!spell.consumedGyres && spell.consumedGyres !== 0;
-
-      // A blocked piece stays put: it either waits (keeping its move) or gives the move up
-      if (blockedPieces.has(spell)) {
-        if (!blockedPieces.get(spell)) spell.forfeitStep(); // stuck behind a sibling: give the step up
-        continue;
-      }
-
-      if (!isGyreMove) {
-        spell.remainingMoves--;
-      }
-
-      spell.executeSingleMicroStep();
-
-      const nextCellIndex = spell.getCellIndex();
-      if (!nextCellIndex) continue;
-
-      const minI = nextCellIndex.i;
-      const maxI = nextCellIndex.i + (spell.heightCells - 1);
-      const minJ = nextCellIndex.j;
-      const maxJ = nextCellIndex.j + (spell.widthCells - 1);
-
-      if (minJ < 0 || maxJ >= GameBoard.NUM_COLS) {
-        const isLeftExit = minJ < 0;
-        const dmg = spell.getPropertyValue('dmgHealth');
-        const playerIndex = isLeftExit ? 0 : 1;
-
-        spell.flagHitImpact(isLeftExit, dmg);
-
-        this.pendingHealthEvents.push({ playerIndex, dmg });
-        spell.markSpellForRemoval();
-        continue;
-      }
-
-      // Pushed above or below the board by a Gyre (4b)
-      if (minI < 0 || maxI >= GameBoard.NUM_ROWS) {
-        if (GYRE_RULES.offBoardMode === 'clamp') {
-          spell.setCellIndex({ i: Math.min(GameBoard.NUM_ROWS - spell.heightCells, Math.max(0, minI)), j: nextCellIndex.j });
-          spell.consumedGyres = 0;
-          spell.movesOutOfConsumed = Math.max(1, spell.movesOutOfConsumed);
-          spell.clearConsumedRef();
-        } else {
-          spell.markSpellForRemoval();
-        }
+      // A lift ends when the spell is one cell past the Gyre, or pushed off the board (4a, 4b)
+      const liftingGyre = spell.consumedGyres !== 0 && spell.consumedSpellRef instanceof Gyre ? spell.consumedSpellRef : null;
+      this.moveSpell(spell, blockedPieces);
+      if (liftingGyre && (spell.consumedGyres === 0 || spell.getIsRemove())) {
+        this.pendingInteractionEvents.push({ kind: 'liftEnd', spellSide: getSpellSide(spell), gyreSide: getSpellSide(liftingGyre), isSurvived: !spell.getIsRemove() });
       }
     }
     return anySpellMoved;
+  };
+
+  /** Moves one spell one step: horizontally, along a Gyre lift or Phlegm orbit, or not at all if blocked. */
+  private moveSpell = (spell: Spell, blockedPieces: Map<Spell, boolean>): void => {
+    spell.recordedMovesCount++;
+
+    const isGyreMove = !!spell.consumedGyres && spell.consumedGyres !== 0;
+
+    // A blocked piece stays put: it either waits (keeping its move) or gives the move up
+    if (blockedPieces.has(spell)) {
+      if (!blockedPieces.get(spell)) this.stepSpell(spell, spell.forfeitStep); // stuck behind a sibling: give the step up
+      return;
+    }
+
+    if (!isGyreMove) {
+      spell.remainingMoves--;
+    }
+
+    this.stepSpell(spell, spell.executeSingleMicroStep);
+
+    const nextCellIndex = spell.getCellIndex();
+    if (!nextCellIndex) return;
+
+    const minI = nextCellIndex.i;
+    const maxI = nextCellIndex.i + (spell.heightCells - 1);
+    const minJ = nextCellIndex.j;
+    const maxJ = nextCellIndex.j + (spell.widthCells - 1);
+
+    if (minJ < 0 || maxJ >= GameBoard.NUM_COLS) {
+      const isLeftExit = minJ < 0;
+      const dmg = spell.getPropertyValue('dmgHealth');
+      const playerIndex = isLeftExit ? 0 : 1;
+
+      spell.flagHitImpact(isLeftExit, dmg);
+
+      this.pendingHealthEvents.push({ playerIndex, dmg });
+      spell.markSpellForRemoval();
+      return;
+    }
+
+    // Pushed above or below the board by a Gyre (4b)
+    if (minI < 0 || maxI >= GameBoard.NUM_ROWS) {
+      if (GYRE_RULES.offBoardMode === 'clamp') {
+        spell.setCellIndex({ i: Math.min(GameBoard.NUM_ROWS - spell.heightCells, Math.max(0, minI)), j: nextCellIndex.j });
+        spell.consumedGyres = 0;
+        spell.movesOutOfConsumed = Math.max(1, spell.movesOutOfConsumed);
+        spell.clearConsumedRef();
+      } else {
+        spell.markSpellForRemoval();
+      }
+    }
   };
 
   // --- Reassembly ----------------------------------------------------------------------------
@@ -702,6 +743,10 @@ export class SpellMovementEngine {
     winner.resolveSpellCollision(loser);
 
     if (loser instanceof Phlegm) winner.phlegmBonusMoves = getReflectBonusMoves(winnerPower, loser);
+    if (loser instanceof Gyre) this.recordLift(winner, loser);
+    if (loser instanceof Ether || loser instanceof Quicken) {
+      this.pendingInteractionEvents.push({ kind: 'buff', buff: loser instanceof Ether ? 'fire' : 'electric', consumerSide: getSpellSide(winner), consumedSide: getSpellSide(loser) });
+    }
   };
 
   /**
@@ -765,6 +810,7 @@ export class SpellMovementEngine {
     lifted.forEach(cell => {
       const piece = this.createPiece(parent, gyre, { ...cell, w: 1, h: 1 }, parentRemainingMoves, groupId);
       piece.resolveSpellCollision(gyre); // lift
+      this.recordLift(piece, gyre);
     });
     const isLifted = (c: CellIndex) => lifted.some(l => l.i === c.i && l.j === c.j);
     splitIntoAllowedShapes(parent, cells.filter(c => !isLifted(c)))

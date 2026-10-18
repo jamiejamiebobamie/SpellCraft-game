@@ -8,6 +8,7 @@
 // mirroring the board.
 import { CellIndex, GameOverStatus } from '../types';
 import { Spell, Phlegm, Ether, Quicken, GyreUp, GyreDown } from '../PlacedSpells/Spell';
+import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
 import { planSpellPlacement } from './gameRules';
@@ -147,6 +148,66 @@ const playOpponent = (sim: GameSimulation, side: number, opponent: OpponentName,
   if (decoded.kind === 'cast') sim.cast(side, decoded.spellName, decoded.cells);
 };
 
+// --- Interactions (combos) ----------------------------------------------------------------------
+
+/** Spell interactions in a game, from one side's point of view. */
+export type InteractionCounts = {
+  reflectedEnemySpells: number; // its Phlegm sent an enemy spell back
+  selfHeals: number; // its Phlegm sent its own Phlegm back (the self-heal combo)
+  reflectedOwnSpells: number; // its Phlegm sent another of its own spells back
+  reflectedByEnemy: number; // an enemy Phlegm sent its spell back
+  liftsByOwnGyres: number; // its Gyre moved a spell (either side's) to another row
+  ownSpellsLiftedByEnemyGyres: number; // an enemy Gyre moved its spell to another row
+  ownSpellsLiftedSafely: number; // its spell finished a lift (by either side's Gyre) still on the board
+  enemySpellsLiftedOffBoard: number; // its Gyre pushed an enemy spell off the board
+  buffsFromEnemySpells: number; // its spell absorbed an enemy Ether/Quicken
+  buffsFromOwnSpells: number; // its spell absorbed its own Ether/Quicken
+};
+
+const emptyCounts = (): InteractionCounts => ({
+  reflectedEnemySpells: 0, selfHeals: 0, reflectedOwnSpells: 0, reflectedByEnemy: 0,
+  liftsByOwnGyres: 0, ownSpellsLiftedByEnemyGyres: 0, ownSpellsLiftedSafely: 0, enemySpellsLiftedOffBoard: 0,
+  buffsFromEnemySpells: 0, buffsFromOwnSpells: 0,
+});
+
+export const countInteractions = (events: Array<InteractionEvent>, side: number, counts: InteractionCounts = emptyCounts()): InteractionCounts => {
+  events.forEach(e => {
+    if (e.kind === 'reflect') {
+      if (e.phlegmSide === side && e.spellSide !== side) counts.reflectedEnemySpells++;
+      else if (e.phlegmSide === side && e.isPhlegmSpell) counts.selfHeals++;
+      else if (e.phlegmSide === side) counts.reflectedOwnSpells++;
+      else if (e.spellSide === side) counts.reflectedByEnemy++;
+    } else if (e.kind === 'lift') {
+      if (e.gyreSide === side) counts.liftsByOwnGyres++;
+      else if (e.spellSide === side) counts.ownSpellsLiftedByEnemyGyres++;
+    } else if (e.kind === 'liftEnd') {
+      if (e.spellSide === side && e.isSurvived) counts.ownSpellsLiftedSafely++;
+      else if (e.gyreSide === side && e.spellSide !== side && !e.isSurvived) counts.enemySpellsLiftedOffBoard++;
+    } else if (e.consumerSide === side) {
+      if (e.consumedSide === side) counts.buffsFromOwnSpells++;
+      else counts.buffsFromEnemySpells++;
+    }
+  });
+  return counts;
+};
+
+/**
+ * Optional rewards for combos (all 0: off). Turn on only if training shows the agent isn't finding
+ * combos by itself. Each is per interaction; the total per game is capped well below a win (+1),
+ * so winning always matters most. Interactions not listed here are tracked but never rewarded.
+ */
+export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number>> & { maxPerGame: number } = {
+  reflectedEnemySpells: 0,
+  selfHeals: 0,
+  liftsByOwnGyres: 0,
+  ownSpellsLiftedByEnemyGyres: 0,
+  ownSpellsLiftedSafely: 0, // e.g. sending a Quicken through a Gyre to change rows
+  enemySpellsLiftedOffBoard: 0,
+  buffsFromEnemySpells: 0,
+  buffsFromOwnSpells: 0,
+  maxPerGame: 0.5,
+};
+
 // --- Environment -------------------------------------------------------------------------------
 
 export type EnvStepResult = {
@@ -154,10 +215,21 @@ export type EnvStepResult = {
   actionMask: Array<boolean>;
   reward: number;
   terminated: boolean;
-  info: { ownHealth: number; opponentHealth: number; turnsElapsed: number; outcome: 'win' | 'loss' | 'draw' | null };
+  info: {
+    ownHealth: number;
+    opponentHealth: number;
+    turnsElapsed: number;
+    outcome: 'win' | 'loss' | 'draw' | null;
+    interactions: { agent: InteractionCounts; opponent: InteractionCounts }; // this game so far
+  };
 };
 
-export type EnvOptions = { seed?: number; opponent?: OpponentName };
+export type EnvOptions = {
+  seed?: number;
+  opponent?: OpponentName;
+  /** Scales the interaction rewards (e.g. faded from 1 to 0 over training). */
+  interactionRewardScale?: number;
+};
 
 const mulberry32 = (seed: number) => () => {
   seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -171,7 +243,7 @@ const mulberry32 = (seed: number) => () => {
  * ending the turn lets the opponent cast, then moves the spells.
  *
  * Reward: (damage dealt - damage taken) / 100 each turn (healing counts the other way), plus +1 for
- * a win and -1 for a loss.
+ * a win and -1 for a loss, plus any interaction rewards (INTERACTION_REWARDS, off by default).
  */
 export class NpcTrainingEnv {
   static readonly AGENT = PLAYER_INDEX;
@@ -180,10 +252,16 @@ export class NpcTrainingEnv {
   sim: GameSimulation = new GameSimulation();
   private opponent: OpponentName = 'random';
   private random: () => number = Math.random;
+  private interactionRewardScale: number = 1;
+  private interactionRewardGiven: number = 0;
+  private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
 
-  reset = ({ seed, opponent }: EnvOptions = {}): EnvStepResult => {
+  reset = ({ seed, opponent, interactionRewardScale }: EnvOptions = {}): EnvStepResult => {
     this.random = seed === undefined ? Math.random : mulberry32(seed);
     this.opponent = opponent ?? this.opponent;
+    this.interactionRewardScale = interactionRewardScale ?? this.interactionRewardScale;
+    this.interactionRewardGiven = 0;
+    this.interactions = { agent: emptyCounts(), opponent: emptyCounts() };
     this.sim = new GameSimulation({ random: this.random });
     return this.result(0, false);
   };
@@ -202,8 +280,21 @@ export class NpcTrainingEnv {
 
     const before = this.healths();
     playOpponent(this.sim, OPPONENT, this.opponent, this.random);
-    this.sim.endTurn();
-    return this.result(this.healthReward(before), true);
+    const log = this.sim.endTurn();
+    const events = log ? log.frames.flatMap(f => f.interactionEvents) : [];
+    const agentCounts = countInteractions(events, AGENT);
+    countInteractions(events, AGENT, this.interactions.agent);
+    countInteractions(events, OPPONENT, this.interactions.opponent);
+    return this.result(this.healthReward(before) + this.interactionReward(agentCounts), true);
+  };
+
+  /** Interaction reward for this turn's combos, within the per-game cap. */
+  private interactionReward = (counts: InteractionCounts): number => {
+    const earned = (Object.keys(counts) as Array<keyof InteractionCounts>)
+      .reduce((acc, key) => acc + (INTERACTION_REWARDS[key] ?? 0) * counts[key], 0) * this.interactionRewardScale;
+    const reward = Math.min(earned, Math.max(0, INTERACTION_REWARDS.maxPerGame - this.interactionRewardGiven));
+    this.interactionRewardGiven += reward;
+    return reward;
   };
 
   private healths = (): [number, number] => [this.sim.players[NpcTrainingEnv.AGENT].getHealth(), this.sim.players[NpcTrainingEnv.OPPONENT].getHealth()];
@@ -234,7 +325,10 @@ export class NpcTrainingEnv {
       actionMask: getActionMask(this.sim, NpcTrainingEnv.AGENT),
       reward: healthReward + terminalReward,
       terminated: outcome !== null,
-      info: { ownHealth, opponentHealth, turnsElapsed: this.sim.turnsElapsed, outcome },
+      info: {
+        ownHealth, opponentHealth, turnsElapsed: this.sim.turnsElapsed, outcome,
+        interactions: { agent: { ...this.interactions.agent }, opponent: { ...this.interactions.opponent } },
+      },
     };
   };
 }
