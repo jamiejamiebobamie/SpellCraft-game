@@ -137,17 +137,64 @@ describe('2. Phlegm power and collision modes', () => {
     expect(phlegm.getPropertyValue('dmgHealth')).toBe(-20);
   });
 
-  it("'alwaysLoses': the smaller Phlegm consumes the larger and stays empowered across turns", () => {
+  it("'alwaysLoses': the smaller Phlegm consumes the larger and heals its caster, empowered (self-heal)", () => {
     const small = place(Phlegm, player, 0, 2); // speed 1
     const large = place(Phlegm, player, 0, 0, 2); // speed 2, catches up on step 2
     const turns = runTurns([small, large], 2);
 
-    const afterCollision = turns[0][turns[0].length - 1].spells.find(s => s.id === small.id);
-    expect(afterCollision?.consumedPhlegms).toBeGreaterThan(0);
-    expect(afterCollision?.getPower()).toBe(5 + PHLEGM_RULES.empoweredBonus);
+    // Once empowered, it stays empowered
+    const smallStates = statesOf(turns, small);
+    const empoweredAt = smallStates.findIndex(s => s.consumedPhlegms > 0);
+    expect(empoweredAt).toBeGreaterThanOrEqual(0);
+    expect(smallStates.slice(empoweredAt).every(s => s.consumedPhlegms > 0)).toBe(true);
+    expect(smallStates[empoweredAt].getPower()).toBe(5 + PHLEGM_RULES.empoweredBonus);
 
-    const nextTurnStates = turns[1].map(f => byId(f, small)).filter(Boolean) as Array<Spell>;
-    expect(nextTurnStates.every(s => s.consumedPhlegms > 0)).toBe(true);
+    // It exits on its left side, reversed (7a), and heals its own caster
+    expect(turns.flat().flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 0, dmg: -(5 + PHLEGM_RULES.empoweredBonus) }]);
+  });
+
+  it("7a: a spell exits a Phlegm on the side it faces after reversing", () => {
+    const phlegm = place(Phlegm, player, 0, 0, 2);
+    const ether = place(Ether, npc, 0, 4); // enters on the Phlegm's right side, reverses to face right
+    const states = statesOf(runTurns([phlegm, ether], 1), ether);
+    const exitIndex = states.findIndex(s => s.isInPhlegmField) + states.filter(s => s.isInPhlegmField).length;
+    expect(states[exitIndex].speedDirection).toBeGreaterThan(0);
+    expect(states[exitIndex].cellIndex.j).toBeGreaterThanOrEqual(states.find(s => s.isInPhlegmField)!.cellIndex.j);
+  });
+
+  it('10b: a Phlegm is removed the moment its last spell exits, and is not re-entered', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 2);
+    const ether = place(Ether, npc, 0, 4);
+    const [frames] = runTurns([phlegm, ether]);
+    const exitFrame = frames.findIndex(f => {
+      const e = byId(f, ether);
+      return !!e && !e.isInPhlegmField && e.speedDirection > 0;
+    });
+    expect(exitFrame).toBeGreaterThanOrEqual(0);
+    expect(byId(frames[exitFrame], phlegm)?.isRemove).toBe(true);
+    // Orbited exactly once
+    const orbitStarts = frames.filter((f, k) => byId(f, ether)?.isInPhlegmField && !(k > 0 && byId(frames[k - 1], ether)?.isInPhlegmField));
+    expect(orbitStarts).toHaveLength(1);
+  });
+
+  it('blood magic only affects casting: it is cleared when spell movement starts', () => {
+    const ether = place(Ether, npc, 0, 4);
+    ether.flagHitImpact(false, 5, true);
+    const [frames] = runTurns([ether]);
+    expect(frames.every(f => f.spells.every(s => !s.isBloodMagic))).toBe(true);
+  });
+
+  it("7b: a reflected spell gets bonus moves (powerDiff, at least 1)", () => {
+    const run = () => {
+      const phlegm = place(Phlegm, player, 0, 0, 2); // power 20
+      const ether = place(Ether, npc, 0, 4); // power 10: bonus |10 - 20| / 5 = 2
+      return statesOf(runTurns([phlegm, ether], 1), ether);
+    };
+    const withBonus = run();
+    PHLEGM_RULES.reflectBonusMode = 'none';
+    const withoutBonus = run();
+    const lastColumn = (states: Array<Spell>) => states[states.length - 1].cellIndex.j;
+    expect(lastColumn(withBonus) - lastColumn(withoutBonus)).toBe(2);
   });
 });
 
@@ -210,14 +257,12 @@ describe('13. sized spells hitting a Phlegm', () => {
     const phlegm = place(Phlegm, player, 0, 0, 2); // rows 0-1
     const ether = place(Ether, npc, 0, 4, 3); // rows 0-2
     const [frames] = runTurns([phlegm, ether]);
-    const ethers = finalBoard([frames]).filter(s => s instanceof Ether && !s.isRemove);
+    const ethers = frames.flatMap(f => f.spells.filter(s => s instanceof Ether && !s.isRemove));
 
-    const touchingRows = ethers.filter(s => s.cellIndex.i < 2);
-    const otherRow = ethers.filter(s => s.cellIndex.i === 2);
-    expect(touchingRows.length).toBeGreaterThan(0);
-    expect(touchingRows.every(s => s.speedDirection > 0)).toBe(true);
-    expect(otherRow.length).toBeGreaterThan(0);
-    expect(otherRow.every(s => s.speedDirection < 0)).toBe(true);
+    // Some pieces in the touching rows get reflected; nothing in row 2 ever is
+    expect(ethers.some(s => s.cellIndex.i < 2 && s.speedDirection > 0)).toBe(true);
+    expect(ethers.filter(s => s.cellIndex.i === 2).length).toBeGreaterThan(0);
+    expect(ethers.filter(s => s.cellIndex.i === 2).every(s => s.speedDirection < 0)).toBe(true);
   });
 
   it('a Quicken chain enters cell by cell, orbits in single file, and recombines', () => {
@@ -229,9 +274,10 @@ describe('13. sized spells hitting a Phlegm', () => {
     const firstSplit = turns[0].find(f => f.spells.filter(s => s instanceof Quicken && !s.isRemove).length > 1)!;
     expect(firstSplit.spells.filter(s => s instanceof Quicken && !s.isRemove).map(s => s.widthCells).sort()).toEqual([1, 2]);
 
-    const [recombined] = finalBoard([turns[0]]).filter(s => s instanceof Quicken);
-    expect([recombined.widthCells, Math.sign(recombined.speedDirection)]).toEqual([3, 1]);
-    expect(turns[1].flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 1, dmg: 15 }]);
+    // Recombines into one reflected chain, which hits the NPC once (its bonus moves carry it there)
+    const isRecombined = (s: Spell) => s instanceof Quicken && !s.isRemove && s.widthCells === 3 && s.speedDirection > 0;
+    expect(turns.flat().some(f => f.spells.some(isRecombined))).toBe(true);
+    expect(turns.flat().flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 1, dmg: 15 }]);
   });
 });
 

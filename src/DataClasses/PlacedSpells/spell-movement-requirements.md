@@ -235,7 +235,7 @@ Balance note: a full-height (3) Gyre's tip is always at the board edge, so in `'
 ### 13d. Reassembly after exiting
 Applies to every sized spell type (Ether, Phlegm, Quicken, Gyre). Once **every** piece of a broken-up spell has left the Phlegm/Gyre that broke it (none overlapping it, orbiting, or being lifted), and the pieces are moving the same direction and exactly fill an allowed shape, they **immediately reassemble** into one spell.
 
-The reassembled spell then takes its reflection bonus moves (7b). *Until 7b is implemented (rebuild step 4), it stops for the rest of the turn as a placeholder.*
+The reassembled spell then takes its reflection bonus moves (7b).
 
 Example: a 3x3 Ether reflected by a 3x3 Phlegm reassembles where it started, now facing the other way. With 7b it gets `max(1, floor(|50 − 45| / 5))` = 1 bonus move, exits the board, and hits the opponent once for 50 that turn (not as separate pieces).
 
@@ -304,6 +304,5 @@ Proposed: a setting `NPC_PLACEMENT_VISIBILITY: 'full' | 'shape' | 'hidden'`:
 
 ## Known bugs (current implementation)
 To fix during the rebuild:
-- Phlegm bonus moves are applied twice with opposite signs (`Phlegm.conferModifierTo` and `applyCollision`).
 - The square merge (Phlegm/Ether combining) does not check that every merged piece fits inside the square.
 - Each consumed Quicken adds +2 moves rather than a flat +1 speed.

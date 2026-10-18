@@ -144,7 +144,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         const placedSpells = rootGameStore.placedSpells.spells || [];
         placedSpells.forEach((spell: any) => {
           const id = spell.id; const spellClass = spell.constructor.spellName;
-          const targetCoords = calculateCanvasCoordinates(spell, viewW, viewH, cellWidthPx, cellHeightPx);
+          const targetCoords = calculateSpellTargetCoordinates(spell, viewW, viewH, cellWidthPx, cellHeightPx);
           if (!animStatesRef.current.has(id)) {
             animStatesRef.current.set(id, { spawnProgress: 0, deathProgress: 0, hasSpawnedParticles: false, particles: [], visualX: targetCoords.x, visualY: targetCoords.y, initialized: false } as any);
           }
@@ -155,6 +155,15 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           const cellCols = spell.getPropertyValue?.('widthCells') || 1, cellRows = spell.getPropertyValue?.('heightCells') || 1;
           const w = cellWidthPx * cellCols, h = cellHeightPx * cellRows, isRemove = spell.getIsRemove?.() || false, totalCells = cellCols * cellRows;
           const dir = Math.sign(spell.getPropertyValue('speedDirection')) || 1;
+
+          // A 1x1 spell orbiting a Phlegm faces the way it is travelling around it
+          const isOrbiting1x1 = spell.isInPhlegmField && totalCells === 1;
+          if (isOrbiting1x1) {
+            const travelX = targetCoords.x - (anim as any).visualX, travelY = targetCoords.y - (anim as any).visualY;
+            if (Math.hypot(travelX, travelY) > 0.5) (anim as any).facingAngle = Math.atan2(travelY, travelX);
+          } else {
+            (anim as any).facingAngle = undefined;
+          }
 
           if (anim.spawnProgress < 1) anim.spawnProgress = Math.min(1, anim.spawnProgress + deltaTime * 4.0);
 
@@ -253,7 +262,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
               const ang = Math.random() * Math.PI * 2; const offset = (0.2 + Math.random() * 0.6) * (w * 0.44);
               anim.particles.push({ x: w / 2 + Math.cos(ang) * offset, y: h / 2 + Math.sin(ang) * (offset * ((h * 0.34) / (w * 0.44))), vx: (Math.random() * 40 - 20), vy: -(90 + Math.random() * 70), alpha: 1.0, size: Math.min(w, h) * (0.05 + Math.random() * 0.03) * (GameBoard.NUM_ROWS + 1 - cellRows), color: '#ffffff', shadowColor: '#a8ff69', rotation: Math.random() * Math.PI / 4, vRotation: Math.random() * 1.0 - 0.5, life: 1.0, decay: 0.4 + Math.random() * 0.4, type: 'healCross' });
             }
-            ctx.save(); ctx.translate(anim.visualX + w / 2, anim.visualY + h / 2); ctx.scale(dir, 1); ctx.translate(-w / 2, -h / 2);
+            ctx.save(); ctx.translate(anim.visualX + w / 2, anim.visualY + h / 2); applySpellFacing(ctx, (anim as any).facingAngle, dir); ctx.translate(-w / 2, -h / 2);
             drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress); ctx.restore();
           }
           if (anim.particles.length > 0) { ctx.save(); ctx.translate(anim.visualX, anim.visualY); updateAndDrawParticles(ctx, anim.particles, deltaTime); ctx.restore(); }
@@ -399,6 +408,31 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       x: (canvasWidth / 2) + ((cellIndex.j - (GameBoard.NUM_COLS - 1) / 2) * cellWidthPx) - (cellWidthPx / 2),
       y: (canvasHeight / 2) + ((cellIndex.i - (GameBoard.NUM_ROWS - 1) / 2) * cellHeightPx) - (cellHeightPx / 2)
     };
+  }
+
+  /** Where a spell is drawn. A block swirling inside a Phlegm it fits in is drawn at the Phlegm's exact center. */
+  function calculateSpellTargetCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
+    const phlegm = spell.consumedSpellRef;
+    const isSwirlingInPhlegm = spell.phlegmDwellStepsRemaining > 0 && !spell.phlegmEntryStepsRemaining && phlegm?.constructor?.spellName === 'Phlegm';
+    const isFitting = isSwirlingInPhlegm && spell.widthCells <= phlegm.widthCells && spell.heightCells <= phlegm.heightCells;
+    if (!isFitting) return calculateCanvasCoordinates(spell, canvasWidth, canvasHeight, cellWidthPx, cellHeightPx);
+    const phlegmCoords = calculateCanvasCoordinates(phlegm, canvasWidth, canvasHeight, cellWidthPx, cellHeightPx);
+    return {
+      x: phlegmCoords.x + (phlegm.widthCells - spell.widthCells) * cellWidthPx / 2,
+      y: phlegmCoords.y + (phlegm.heightCells - spell.heightCells) * cellHeightPx / 2,
+    };
+  }
+
+  /** Faces a spell's sprite along `facingAngle` (radians) if set, otherwise left or right by `dir`. */
+  function applySpellFacing(ctx: CanvasRenderingContext2D, facingAngle: number | undefined, dir: number) {
+    if (facingAngle === undefined) {
+      ctx.scale(dir, 1);
+      return;
+    }
+    // Sprites face right; for leftward travel, mirror instead of turning upside down
+    const isFacingLeft = Math.abs(facingAngle) > Math.PI / 2;
+    ctx.rotate(isFacingLeft ? facingAngle - Math.PI : facingAngle);
+    ctx.scale(isFacingLeft ? -1 : 1, 1);
   }
   const buttons = <>
     <SpellBookComponent isGearHovered={isGearHovered} />

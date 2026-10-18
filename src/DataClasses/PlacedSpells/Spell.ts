@@ -4,6 +4,44 @@ import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqueId/UniqeId';
 import { GYRE_RULES, PHLEGM_RULES } from './spellRules';
 
+type CellBounds = { minI: number; maxI: number; minJ: number; maxJ: number };
+
+const clampIntoBounds = (cell: CellIndex, b: CellBounds): CellIndex => ({
+  i: Math.min(b.maxI, Math.max(b.minI, cell.i)),
+  j: Math.min(b.maxJ, Math.max(b.minJ, cell.j)),
+});
+
+/** The next cell around a square's edge, clockwise or counterclockwise. */
+const getNextPerimeterCell = ({ i, j }: CellIndex, b: CellBounds, isClockwise: boolean): CellIndex => {
+  if (isClockwise) {
+    if (i === b.minI && j < b.maxJ) return { i, j: j + 1 }; // top edge moves right
+    if (j === b.maxJ && i < b.maxI) return { i: i + 1, j }; // right edge moves down
+    if (i === b.maxI && j > b.minJ) return { i, j: j - 1 }; // bottom edge moves left
+    if (j === b.minJ && i > b.minI) return { i: i - 1, j }; // left edge moves up
+  } else {
+    if (i === b.minI && j > b.minJ) return { i, j: j - 1 }; // top edge moves left
+    if (j === b.minJ && i < b.maxI) return { i: i + 1, j }; // left edge moves down
+    if (i === b.maxI && j < b.maxJ) return { i, j: j + 1 }; // bottom edge moves right
+    if (j === b.maxJ && i > b.minI) return { i: i - 1, j }; // right edge moves up
+  }
+  return { i, j };
+};
+
+/**
+ * Orbit length for a spell entering a Phlegm at `entry` (7a): one full lap, then onward around the
+ * edge until it reaches `exitColumn`, the side it will face after reversing.
+ */
+const getOrbitSteps = (entry: CellIndex, b: CellBounds, isClockwise: boolean, exitColumn: number): number => {
+  const lapSteps = 4 * (b.maxJ - b.minJ);
+  let cell = entry;
+  let extraSteps = 0;
+  while (cell.j !== exitColumn && extraSteps < lapSteps) {
+    cell = getNextPerimeterCell(cell, b, isClockwise);
+    extraSteps++;
+  }
+  return lapSteps + extraSteps;
+};
+
 export abstract class Spell extends UniqueId {
   static readonly spellName: string;
   readonly caster: Player;
@@ -61,6 +99,12 @@ export abstract class Spell extends UniqueId {
   // place for the dwell steps, then reverse
   phlegmEntryStepsRemaining: number = 0;
   phlegmDwellStepsRemaining: number = 0;
+
+  // Reflection bonus moves (7b), granted when the spell leaves the Phlegm it entered
+  phlegmBonusMoves: number = 0;
+
+  // The Phlegm this spell just left: ignored while the spell is still on its edge, so it isn't recaptured
+  exitedPhlegmId: string = '';
 
   // Capacity a Phlegm has used (spells consumed in 'count' mode, power absorbed in 'power' mode)
   capacityUsed: number = 0;
@@ -197,7 +241,7 @@ export abstract class Spell extends UniqueId {
     }
     if (this.phlegmDwellStepsRemaining > 0) {
       this.phlegmDwellStepsRemaining--;
-      if (this.phlegmDwellStepsRemaining === 0) this.reverseDirection();
+      if (this.phlegmDwellStepsRemaining === 0) this.exitPhlegm();
       return;
     }
 
@@ -220,7 +264,7 @@ export abstract class Spell extends UniqueId {
     if (this.phlegmOrbitStepsRemaining <= 0) {
       this.isInPhlegmField = false;
       this.phlegmCenterIndex = null;
-      this.reverseDirection();
+      this.exitPhlegm();
       return;
     }
 
@@ -237,7 +281,7 @@ export abstract class Spell extends UniqueId {
     if (this.phlegmOrbitStepsRemaining === 0) {
       this.isInPhlegmField = false;
       this.phlegmCenterIndex = null;
-      this.reverseDirection();
+      this.exitPhlegm();
     }
   };
 
@@ -263,44 +307,9 @@ export abstract class Spell extends UniqueId {
 
     const { minI, maxI, minJ, maxJ } = this.getPhlegmBounds();
 
-    let nextI = this.cellIndex.i;
-    let nextJ = this.cellIndex.j;
+    if (this.getIsOutsidePhlegm()) return clampIntoBounds(this.cellIndex, { minI, maxI, minJ, maxJ });
 
-    if (this.getIsOutsidePhlegm()) {
-      return {
-        i: Math.min(maxI, Math.max(minI, nextI)),
-        j: Math.min(maxJ, Math.max(minJ, nextJ)),
-      };
-    }
-
-    const isClockwise = this.phlegmDirectionSign === 1;
-
-    // Determine direction vectors based on edge coordinates
-    if (isClockwise) {
-      // Clockwise edge movement matrix
-      if (this.cellIndex.i === minI && this.cellIndex.j < maxJ) {
-        nextJ++; // Top edge moves Right
-      } else if (this.cellIndex.j === maxJ && this.cellIndex.i < maxI) {
-        nextI++; // Right edge moves Down
-      } else if (this.cellIndex.i === maxI && this.cellIndex.j > minJ) {
-        nextJ--; // Bottom edge moves Left
-      } else if (this.cellIndex.j === minJ && this.cellIndex.i > minI) {
-        nextI--; // Left edge moves Up
-      }
-    } else {
-      // Counter-Clockwise edge movement matrix
-      if (this.cellIndex.i === minI && this.cellIndex.j > minJ) {
-        nextJ--; // Top edge moves Left
-      } else if (this.cellIndex.j === minJ && this.cellIndex.i < maxI) {
-        nextI++; // Left edge moves Down
-      } else if (this.cellIndex.i === maxI && this.cellIndex.j < maxJ) {
-        nextJ++; // Bottom edge moves Right
-      } else if (this.cellIndex.j === maxJ && this.cellIndex.i > minI) {
-        nextI--; // Right edge moves Up
-      }
-    }
-
-    return { i: nextI, j: nextJ };
+    return getNextPerimeterCell(this.cellIndex, { minI, maxI, minJ, maxJ }, this.phlegmDirectionSign === 1);
   };
 
   /**
@@ -321,13 +330,13 @@ export abstract class Spell extends UniqueId {
       this.phlegmEntryStepsRemaining--;
     } else if (this.phlegmDwellStepsRemaining > 0) {
       this.phlegmDwellStepsRemaining--;
-      if (this.phlegmDwellStepsRemaining === 0) this.reverseDirection();
+      if (this.phlegmDwellStepsRemaining === 0) this.exitPhlegm();
     } else if (this.isInPhlegmField) {
       this.phlegmOrbitStepsRemaining--;
       if (this.phlegmOrbitStepsRemaining <= 0) {
         this.isInPhlegmField = false;
         this.phlegmCenterIndex = null;
-        this.reverseDirection();
+        this.exitPhlegm();
       }
     }
   };
@@ -407,6 +416,21 @@ export abstract class Spell extends UniqueId {
     this.speedDirection *= -1;
   };
 
+  /**
+   * Leaving a Phlegm: reverse, then the Phlegm shoots the spell outward with its bonus moves (7b).
+   * The spell lets go of the Phlegm right away, so the Phlegm pops as soon as its last spell exits (10b).
+   */
+  exitPhlegm = (): void => {
+    this.reverseDirection();
+    this.remainingMoves += this.phlegmBonusMoves;
+    this.phlegmBonusMoves = 0;
+    if (this.consumedSpellRef instanceof Phlegm) {
+      this.exitedPhlegmId = this.consumedSpellRef.id;
+      this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
+      this.clearConsumedRef();
+    }
+  };
+
   abstract conferModifierTo(consumer: Spell): void;
   abstract getFocusCost(): number;
 }
@@ -427,33 +451,33 @@ export class Phlegm extends Spell {
     }
 
     const phlegmSize = this.widthCells; // 1, 2, or 3
-
-    // A full perimeter loop calculation: 4 * (size - 1), minimum 1 step for 1x1 pieces
-    const fullCircleSteps = phlegmSize > 1 ? 4 * (phlegmSize - 1) : 0;
+    const bounds = {
+      minI: this.cellIndex.i, maxI: this.cellIndex.i + phlegmSize - 1,
+      minJ: this.cellIndex.j, maxJ: this.cellIndex.j + phlegmSize - 1,
+    };
+    const isClockwise = Math.sign(this.getPropertyValue('speedDirection') || 1) === 1;
+    const entry = clampIntoBounds(consumer.cellIndex, bounds);
+    const isEnteringFromOutside = entry.i !== consumer.cellIndex.i || entry.j !== consumer.cellIndex.j;
+    // It exits on the side it faces after reversing (7a)
+    const exitColumn = -Math.sign(consumer.speedDirection || 1) > 0 ? bounds.maxJ : bounds.minJ;
+    const orbitSteps = getOrbitSteps(entry, bounds, isClockwise, exitColumn);
 
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
     consumer.isInPhlegmField = true;
     consumer.phlegmCenterIndex = { ...this.cellIndex };
     consumer.phlegmSize = phlegmSize;
-    consumer.phlegmDirectionSign = Math.sign(this.getPropertyValue('speedDirection') || 1);
-    consumer.phlegmOrbitStepsRemaining = fullCircleSteps;
+    consumer.phlegmDirectionSign = isClockwise ? 1 : -1;
+    consumer.phlegmOrbitStepsRemaining = orbitSteps;
 
     if (consumer instanceof Phlegm) {
       this.consumedPhlegms++;
-      consumer.consumedPhlegms += this.consumedPhlegms;//.accumulateProperty(this, 'consumedPhlegms');
-      // Phlegm-on-Phlegm collision exits opposite side to fly back safely to player
-      consumer.phlegmOrbitStepsRemaining = consumer.phlegmOrbitStepsRemaining + fullCircleSteps / 4;
+      consumer.consumedPhlegms += this.consumedPhlegms;
     }
 
-    // Add extra steps if consumer requires structural breakdown overhead adjustments
-    const baseDamageDelta = Math.abs(consumer.getPropertyValue('dmgHealth')) - Math.abs(this.getPropertyValue('dmgHealth'));
-    if (baseDamageDelta > 0) {
-      consumer.remainingMoves += Math.floor(baseDamageDelta / 5);
-    }
-
-    // Extend active step limits so the engine doesn't cut the animation path early
-    consumer.remainingMoves += Math.max(1, consumer.phlegmOrbitStepsRemaining);
+    // Stepping in, the orbit, and the reversal (a 1x1 Phlegm's whole orbit) don't use up the
+    // spell's own moves. Reflection bonus moves are set by the engine (7b).
+    consumer.remainingMoves += Math.max(1, orbitSteps) + (isEnteringFromOutside ? 1 : 0);
   };
 
   getFocusCost = (): number => Phlegm.FOCUS_COST;

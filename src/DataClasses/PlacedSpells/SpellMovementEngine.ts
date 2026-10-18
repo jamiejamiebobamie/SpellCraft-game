@@ -129,6 +129,16 @@ const isAllowedShape = (spell: Spell, width: number, height: number): boolean =>
 
 type CellRect = { i: number; j: number; w: number; h: number };
 
+/**
+ * Bonus moves a spell gets when a Phlegm reflects it, as if shot outward (7b). `attackerPower` is
+ * the spell's power before it broke apart, if it did.
+ */
+const getReflectBonusMoves = (attackerPower: number, phlegm: Phlegm): number => {
+  if (PHLEGM_RULES.reflectBonusMode === 'none') return 0;
+  if (PHLEGM_RULES.reflectBonusMode === 'size') return phlegm.widthCells;
+  return Math.max(1, Math.floor(Math.abs(attackerPower - phlegm.getPower()) / 5));
+};
+
 const getIsBouncing = (spell: Spell): boolean => spell.phlegmEntryStepsRemaining > 0 || spell.phlegmDwellStepsRemaining > 0;
 
 const getIsTerrain = (spell: Spell): boolean => spell instanceof Phlegm || spell instanceof Gyre;
@@ -237,6 +247,7 @@ export class SpellMovementEngine {
     this.frames = [];
 
     this.spells.forEach(s => {
+      s.isBloodMagic = false; // a casting effect, already shown; otherwise it hides the spell's destruction effect
       if (s instanceof Phlegm && PHLEGM_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
       if (s instanceof Gyre && GYRE_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
     });
@@ -282,6 +293,7 @@ export class SpellMovementEngine {
     this.spells.forEach(s => {
       s.fragmentGroupId = '';
       s.fragmentBreakerId = '';
+      s.exitedPhlegmId = '';
     });
     combineSpellsMaximally(this.spells);
     this.captureFrame('final');
@@ -440,9 +452,9 @@ export class SpellMovementEngine {
 
   /**
    * Once every piece of a broken-up spell is out of the Phlegm/Gyre that broke it (none inside
-   * it, orbiting, or being lifted), the pieces immediately reassemble into one spell that stops
-   * for the rest of the turn. Pieces only reassemble into a complete, allowed shape; otherwise
-   * they wait for the end-of-turn merge.
+   * it, orbiting, or being lifted), the pieces immediately reassemble into one spell, which keeps
+   * its remaining (reflection bonus) moves (13d, 7b). Pieces only reassemble into a complete,
+   * allowed shape; otherwise they wait for the end-of-turn merge.
    */
   private reassembleExitedPieces = (): void => {
     const groups = new Map<string, Array<Spell>>();
@@ -493,7 +505,7 @@ export class SpellMovementEngine {
       });
       root.widthCells = width;
       root.heightCells = height;
-      root.remainingMoves = 0;
+      root.remainingMoves = Math.max(...pieces.map(p => p.remainingMoves)); // keeps reflection bonus moves (7b)
       root.fragmentGroupId = '';
       root.fragmentBreakerId = '';
     });
@@ -560,6 +572,7 @@ export class SpellMovementEngine {
     if (a.getIsRemove() || b.getIsRemove()) return false;
     if (a.getIsBeingConsumed(b) || b.getIsBeingConsumed(a)) return false; // already inside the other
     if (isSameSpellPieces(a, b)) return false;
+    if (a.exitedPhlegmId === b.id || b.exitedPhlegmId === a.id) return false; // just left it
     if (a.isInPhlegmField && b instanceof Phlegm) return false; // orbiting spells pass over Phlegms
     if (b.isInPhlegmField && a instanceof Phlegm) return false;
     if (getIsBouncing(a) && b instanceof Phlegm) return false; // bouncing blocks too
@@ -662,15 +675,12 @@ export class SpellMovementEngine {
       return;
     }
 
+    const winnerPower = winner.getPower();
+
     // Phlegm: orbit. Gyre: lift (Gyre.conferModifierTo). Ether/Quicken: their bonus.
     winner.resolveSpellCollision(loser);
 
-    if (loser instanceof Phlegm) {
-      const phlegmDmg = loser.getPropertyValue('dmgHealth');
-      const winnerDmg = winner.getPropertyValue('dmgHealth');
-      const absoluteDiff = Math.abs(phlegmDmg) - Math.abs(winnerDmg);
-      winner.remainingMoves += Math.max(Math.floor(absoluteDiff / 5), 1);
-    }
+    if (loser instanceof Phlegm) winner.phlegmBonusMoves = getReflectBonusMoves(winnerPower, loser);
   };
 
   /**
@@ -759,6 +769,8 @@ export class SpellMovementEngine {
    *   place, then reverse); the other rows keep going. If every row touches, the whole spell bounces.
    */
   private breakUpAtPhlegm = (parent: Spell, phlegm: Phlegm, parentRemainingMoves: number): void => {
+    // Pieces get the reflection bonus of the whole spell (13b)
+    const reflectBonusMoves = getReflectBonusMoves(parent.getPower(), phlegm);
     const isInsidePhlegm = (cell: CellIndex) => overlapsBoundingBox(cell, 1, 1, phlegm.cellIndex, phlegm.widthCells, phlegm.heightCells);
     const isTouchingRow = (i: number) => i >= phlegm.cellIndex.i && i < phlegm.cellIndex.i + phlegm.heightCells;
     const cells = getFootprintCells(parent);
@@ -780,6 +792,7 @@ export class SpellMovementEngine {
         const piece = this.createPiece(parent, phlegm, { ...cell, w: 1, h: 1 }, parentRemainingMoves, groupId);
         phlegm.consumingSpellIds.add(piece.id);
         piece.resolveSpellCollision(phlegm); // orbit
+        piece.phlegmBonusMoves = reflectBonusMoves;
       });
       // The rest stays chained and follows in single file, unless the Phlegm is now used up:
       // then it passes through as a separate spell
@@ -806,13 +819,13 @@ export class SpellMovementEngine {
     const bounceWidth = Math.max(...bounceCells.map(c => c.j)) - bounceMinJ + 1;
     const entrySteps = getBounceEntrySteps(bounceMinJ, bounceWidth, dir, phlegm);
     if (!passCells.length) {
-      this.startPhlegmBounce(parent, phlegm, entrySteps);
+      this.startPhlegmBounce(parent, phlegm, entrySteps, reflectBonusMoves);
       return;
     }
 
     // The two parts reassemble separately (they now travel in opposite directions)
     splitIntoAllowedShapes(parent, bounceCells)
-      .forEach(rect => this.startPhlegmBounce(this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:bounce`), phlegm, entrySteps));
+      .forEach(rect => this.startPhlegmBounce(this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:bounce`), phlegm, entrySteps, reflectBonusMoves));
     splitIntoAllowedShapes(parent, passCells)
       .forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:pass`));
     this.removeShatteredParent(parent, phlegm);
@@ -822,7 +835,8 @@ export class SpellMovementEngine {
    * The spell slides into the Phlegm, swirls in place for its orbit's duration, then reverses (13).
    * Neither the slide nor the swirl uses up the spell's own moves.
    */
-  private startPhlegmBounce = (spell: Spell, phlegm: Phlegm, entrySteps: number): void => {
+  private startPhlegmBounce = (spell: Spell, phlegm: Phlegm, entrySteps: number, reflectBonusMoves: number): void => {
+    spell.phlegmBonusMoves = reflectBonusMoves;
     const dwellSteps = Math.max(1, 4 * (phlegm.widthCells - 1));
     spell.consumedSpellRef = phlegm;
     phlegm.consumingSpellIds.add(spell.id);
