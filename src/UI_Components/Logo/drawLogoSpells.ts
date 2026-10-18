@@ -87,7 +87,7 @@ export class LogoSpellsRenderer {
     const size = Math.min(spell.w, spell.h);
 
     ctx.save();
-    ctx.lineWidth = size * 0.05;
+    ctx.lineWidth = size * LOGO_CONFIG.spells.symbolLineWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#f7cb44';
@@ -149,6 +149,8 @@ export class LogoSpellsRenderer {
         property === 'widthCells' ? spell.cells.w : property === 'heightCells' ? spell.cells.h : property === 'speedDirection' ? spell.direction : 0,
     };
     ctx.save();
+    if (spell.spellOffset) ctx.translate(spell.spellOffset.x, spell.spellOffset.y);
+    if (spell.flipX) ctx.scale(-1, 1);
     ctx.scale(1 / pxPerUnit, 1 / pxPerUnit);
     ctx.translate(-wPx / 2, -hPx / 2);
     drawProceduralSpell(ctx, standIn, cellPx, cellPx, time, 1.0);
@@ -158,11 +160,11 @@ export class LogoSpellsRenderer {
   };
 
   /**
-   * Fades the symbol out (or the spell in) across its box, from the outside to the inside, between
-   * LOGO_CONFIG.spells.fade.start and .end.
+   * Fades the symbol out (or the spell in) across its box, from the outside to the inside, over
+   * LOGO_CONFIG.spells.fade.symbolOut (or .spellIn).
    */
   private applyFade = (ctx: CanvasRenderingContext2D, spell: LogoSpell, layer: 'symbol' | 'spell', corners: Array<Vec>, frame: LogoFrame): void => {
-    const { start, end } = LOGO_CONFIG.spells.fade;
+    const { start, end } = layer === 'symbol' ? LOGO_CONFIG.spells.fade.symbolOut : LOGO_CONFIG.spells.fade.spellIn;
     const center = { x: corners.reduce((s, c) => s + c.x, 0) / 4, y: corners.reduce((s, c) => s + c.y, 0) / 4 };
     let gradient: CanvasGradient;
 

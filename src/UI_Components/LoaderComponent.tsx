@@ -64,7 +64,7 @@ const LoadingContent = styled.div`
 
 /** The logo's slot: it appears once its images (the priority assets) have loaded. */
 const Logo = styled.div`
-  width: 44cqw;
+  width: 58cqw;
   position: relative;
   aspect-ratio: 100 / 66;
 `;
