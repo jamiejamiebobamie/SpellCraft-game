@@ -22,6 +22,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList, Check
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
+from model_io import load_model
 from quickcast_env import QuickCastEnv
 
 MODELS_DIR = pathlib.Path(__file__).parent / "models"
@@ -52,6 +53,9 @@ class GameStatsCallback(BaseCallback):
         if not games:
             return
         self.logger.record("game/win_rate", float(np.mean([g["outcome"] == "win" for g in games])))
+        for opponent in sorted({g["opponent"] for g in games}):
+            vs = [g for g in games if g["opponent"] == opponent]
+            self.logger.record(f"game/win_rate_vs_{opponent}", float(np.mean([g["outcome"] == "win" for g in vs])))
         self.logger.record("game/turns", float(np.mean([g["turnsElapsed"] for g in games])))
         for side in ("agent", "opponent"):
             for key, value in mean_combos(games, side).items():
@@ -94,7 +98,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--steps", type=int, default=200_000, help="training steps (agent actions)")
     parser.add_argument("--envs", type=int, default=8, help="games played in parallel")
-    parser.add_argument("--opponent", default="random", help="opponent to train against")
+    parser.add_argument("--opponent", default="mixed",
+                        help="opponent to train against: random, scripted, scriptedNormal, or mixed (a mix of all three)")
     parser.add_argument("--resume", type=pathlib.Path, help="continue training this saved model")
     parser.add_argument("--eval-games", type=int, default=200, help="games for the before/after evaluation")
     parser.add_argument("--seed", type=int, default=0)
@@ -106,7 +111,7 @@ def main():
     envs = make_vec_env(QuickCastEnv, n_envs=args.envs, seed=args.seed, env_kwargs={"opponent": args.opponent},
                         vec_env_cls=SubprocVecEnv if args.envs > 1 else None)
     if args.resume:
-        model = MaskablePPO.load(args.resume, env=envs, tensorboard_log=str(RUNS_DIR))
+        model = load_model(args.resume, env=envs, tensorboard_log=str(RUNS_DIR))
         print(f"Resuming from {args.resume}")
     else:
         model = MaskablePPO("MlpPolicy", envs, seed=args.seed, verbose=1, tensorboard_log=str(RUNS_DIR))

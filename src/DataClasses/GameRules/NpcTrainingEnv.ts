@@ -12,6 +12,7 @@ import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
 import { planSpellPlacement } from './gameRules';
+import { playScriptedTurn } from './scriptedOpponent';
 
 const ROWS = GameBoard.NUM_ROWS;
 const COLS = GameBoard.NUM_COLS;
@@ -134,18 +135,44 @@ export const encodeObservation = (sim: GameSimulation, side: number): Array<numb
 
 // --- Opponents ---------------------------------------------------------------------------------
 
-export type OpponentName = 'none' | 'random';
+/**
+ * - 'none': never casts
+ * - 'random': one random legal cast most turns, like the current in-game NPC
+ * - 'scripted': defends its most threatened row, otherwise attacks (scriptedOpponent.ts); 10% of its casts are random
+ * - 'scriptedNormal': 'scripted', but half its casts are random (the original NPC's 'Normal')
+ * - 'mixed': each game, one of the above (except 'none'), per MIXED_OPPONENT_WEIGHTS
+ */
+export type OpponentName = 'none' | 'random' | 'scripted' | 'scriptedNormal' | 'mixed';
+export const OPPONENTS: Array<OpponentName> = ['none', 'random', 'scripted', 'scriptedNormal', 'mixed'];
 
-/** Plays the opponent's casts for one turn. */
-const playOpponent = (sim: GameSimulation, side: number, opponent: OpponentName, random: () => number): void => {
-  if (opponent === 'none') return;
-  // 'random': one random legal cast most turns, like the original NPC
-  if (random() >= 0.7) return;
+/** How often each opponent is picked for a game when training against 'mixed'. */
+export const MIXED_OPPONENT_WEIGHTS: Array<[OpponentName, number]> = [['random', 0.2], ['scriptedNormal', 0.3], ['scripted', 0.5]];
+
+const pickMixedOpponent = (random: () => number): OpponentName => {
+  let roll = random();
+  for (const [name, weight] of MIXED_OPPONENT_WEIGHTS) {
+    if (roll < weight) return name;
+    roll -= weight;
+  }
+  return MIXED_OPPONENT_WEIGHTS[MIXED_OPPONENT_WEIGHTS.length - 1][0];
+};
+
+/** Casts a random legal spell for `side`, if it can. */
+const castRandomly = (sim: GameSimulation, side: number, random: () => number): void => {
   const mask = getActionMask(sim, side);
   const legalCasts = mask.map((ok, action) => ok && action !== END_TURN_ACTION ? action : -1).filter(a => a >= 0);
   if (!legalCasts.length) return;
   const decoded = decodeAction(legalCasts[Math.floor(random() * legalCasts.length)], side);
   if (decoded.kind === 'cast') sim.cast(side, decoded.spellName, decoded.cells);
+};
+
+/** Plays the opponent's casts for one turn. */
+const playOpponent = (sim: GameSimulation, side: number, opponent: OpponentName, random: () => number): void => {
+  if (opponent === 'random') {
+    if (random() < 0.7) castRandomly(sim, side, random);
+  } else if (opponent === 'scripted' || opponent === 'scriptedNormal') {
+    playScriptedTurn(sim, side, random, opponent === 'scripted' ? 0.1 : 0.5, () => castRandomly(sim, side, random));
+  }
 };
 
 // --- Interactions (combos) ----------------------------------------------------------------------
@@ -220,6 +247,7 @@ export type EnvStepResult = {
     opponentHealth: number;
     turnsElapsed: number;
     outcome: 'win' | 'loss' | 'draw' | null;
+    opponent: OpponentName; // this game's opponent (for 'mixed', the one picked)
     interactions: { agent: InteractionCounts; opponent: InteractionCounts }; // this game so far
   };
 };
@@ -251,6 +279,7 @@ export class NpcTrainingEnv {
 
   sim: GameSimulation = new GameSimulation();
   private opponent: OpponentName = 'random';
+  private gameOpponent: OpponentName = 'random'; // this game's ('mixed' picks one per game)
   private random: () => number = Math.random;
   private interactionRewardScale: number = 1;
   private interactionRewardGiven: number = 0;
@@ -259,6 +288,7 @@ export class NpcTrainingEnv {
   reset = ({ seed, opponent, interactionRewardScale }: EnvOptions = {}): EnvStepResult => {
     this.random = seed === undefined ? Math.random : mulberry32(seed);
     this.opponent = opponent ?? this.opponent;
+    this.gameOpponent = this.opponent === 'mixed' ? pickMixedOpponent(this.random) : this.opponent;
     this.interactionRewardScale = interactionRewardScale ?? this.interactionRewardScale;
     this.interactionRewardGiven = 0;
     this.interactions = { agent: emptyCounts(), opponent: emptyCounts() };
@@ -279,7 +309,7 @@ export class NpcTrainingEnv {
     }
 
     const before = this.healths();
-    playOpponent(this.sim, OPPONENT, this.opponent, this.random);
+    playOpponent(this.sim, OPPONENT, this.gameOpponent, this.random);
     const log = this.sim.endTurn();
     const events = log ? log.frames.flatMap(f => f.interactionEvents) : [];
     const agentCounts = countInteractions(events, AGENT);
@@ -326,7 +356,7 @@ export class NpcTrainingEnv {
       reward: healthReward + terminalReward,
       terminated: outcome !== null,
       info: {
-        ownHealth, opponentHealth, turnsElapsed: this.sim.turnsElapsed, outcome,
+        ownHealth, opponentHealth, turnsElapsed: this.sim.turnsElapsed, outcome, opponent: this.gameOpponent,
         interactions: { agent: { ...this.interactions.agent }, opponent: { ...this.interactions.opponent } },
       },
     };
