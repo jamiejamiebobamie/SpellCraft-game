@@ -31,7 +31,7 @@ export class NPCPlayer extends Player {
     getNPCMoveData = (): Array<NPCMoveData> => this.npcMoveData;
     getNPCMoveDatum = (i: number): NPCMoveData | null => this.npcMoveData[i] || null;
     getRandomInferenceString = (): InferenceString => {
-        let GAME_SYMBOLS: Array<InferenceString> = ['star', 'line', 'circle', 'star', 'triangle', 'diamond'];
+        let GAME_SYMBOLS: Array<InferenceString> = [/*'star', 'line', 'circle',*/ 'triangle', 'diamond'];
         const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
         const inferenceString = GAME_SYMBOLS[rand];
         return inferenceString;
@@ -93,7 +93,7 @@ export class NPCPlayer extends Player {
         */
         const inferenceString = this.getRandomInferenceString();
         // in cell widths
-        const x = this.getRandomNumberInRange(4, .9);
+        const x = 4;//this.getRandomNumberInRange(4, .9);
         const scale = { x, y: Math.max(.9, this.getRandomNumberInRange(x + .2, x - .2)) };
         // const randRot = this.getRandomNumberInRange(60, -60);
         const randRot = this.getRandomNumberInRange(90, -90);
@@ -117,7 +117,8 @@ export class NPCPlayer extends Player {
 
         */
 
-        const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
+        // const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
+        const translationNorm = { x: this.getRandomFloatInRange(0, 0), y: this.getRandomFloatInRange(0, 0) };
         const npcMoveData = proxy(new NPCMoveData(inferenceString, translationNorm, scale, randRot));
         return npcMoveData;
     }

@@ -113,9 +113,15 @@ export abstract class Spell extends UniqueId {
     }
   };
 
-  executeSingleMicroStep = (): void => {
-    // 1. Gyre vertical movement overrides horizontal tracks
-    if (this.consumedGyres !== 0 && this.consumedSpellRef && this.consumedSpellRef.cellIndex.j == this.cellIndex.j) {
+  /*
+  
+    executeSingleMicroStep = (): void => {
+    // FIX: If a spell has active consumedGyres capacity, it should always execute its vertical movement step.
+    // We remove the strict requirement for 'consumedSpellRef' to be alive in memory for vertical steps,
+    // allowing shattered fragments to safely dive or climb even after the target Gyre obstacle has been destroyed.
+    const hasActiveVerticalOverride = this.consumedGyres !== 0;
+
+    if (hasActiveVerticalOverride) {
       this.moveVertically();
       return;
     }
@@ -129,6 +135,41 @@ export abstract class Spell extends UniqueId {
     // 3. Fallback to basic horizontal movement paths
     this.moveHorizontally();
   };
+
+  
+  */
+
+  executeSingleMicroStep = (): void => {
+    // FIX: If a spell is carrying vertical movement capacity from an interactive Gyre,
+    // bypass the strict column-matching rule (.j == .j) so it can execute its rowShift 
+    // cleanly without being blocked by look-ahead targets in adjacent columns.
+    // const isTrackingGyreObstacle = this.consumedSpellRef instanceof Gyre;
+    // const isColumnAligned = this.consumedSpellRef && this.consumedSpellRef.cellIndex.j === this.cellIndex.j;
+
+    // const hasActiveVerticalOverride = this.consumedGyres !== 0 &&
+    //   (this instanceof Gyre || isTrackingGyreObstacle || isColumnAligned);
+
+    // if (hasActiveVerticalOverride) {
+    //   this.moveVertically();
+    //   return;
+    // }
+
+    if (this.consumedGyres !== 0) {
+      this.moveVertically();
+      return;
+    }
+
+    // 2. Vector field implementation for orbital paths inside Phlegm layouts
+    if (this.isInPhlegmField && this.phlegmCenterIndex) {
+      this.executePhlegmOrbitStep();
+      return;
+    }
+
+    // 3. Fallback to basic horizontal movement paths
+    this.moveHorizontally();
+  };
+
+
 
   /**
    * Calculates perimeter movement along a square matrix grid
@@ -257,6 +298,10 @@ export class Phlegm extends Spell {
   }
 
   conferModifierTo = (consumer: Spell): void => {
+    if (consumer.isInPhlegmField && consumer.consumedSpellRef === this) {
+      return;
+    }
+
     const phlegmSize = this.widthCells; // 1, 2, or 3
 
     // A full perimeter loop calculation: 4 * (size - 1), minimum 1 step for 1x1 pieces
@@ -318,13 +363,13 @@ export abstract class Gyre extends Spell {
   }
 
   conferModifierTo = (consumer: Spell): void => {
-      // Push regular items vertically relative to entry index
-      consumer.consumedGyres = this.rowShift * (this.heightCells + 1);
-      // Give dynamic max extension loops tracking visibility
-      consumer.remainingMoves += Math.abs(consumer.consumedGyres);
-      consumer.consumedSpellRef = this;
-      this.consumingSpellIds.add(consumer.id);
-    }
+    // Push regular items vertically relative to entry index
+    consumer.consumedGyres = this.rowShift * (this.heightCells + 1);
+    // Give dynamic max extension loops tracking visibility
+    consumer.remainingMoves += Math.abs(consumer.consumedGyres);
+    consumer.consumedSpellRef = this;
+    this.consumingSpellIds.add(consumer.id);
+  }
 
   getFocusCost = (): number => Gyre.FOCUS_COST;
 }

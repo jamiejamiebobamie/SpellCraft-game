@@ -1,3 +1,4 @@
+// GameBoard/PlacedSpells.ts
 import { Spell, Phlegm, Ether, Gyre, GyreUp, GyreDown, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex, CollisionResult } from '../types';
@@ -5,11 +6,11 @@ import { proxy } from 'valtio';
 
 export class PlacedSpells {
   spells: Array<Spell> = proxy([]);
-  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 100; // for micro steps
-  static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 1000; // for entire spell movement turn (time it takes for all spells to finish all moves)
+  // static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 100; // for micro steps
+  // static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 1000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
-  // static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 2000; // for micro steps
-  // static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 3000; // for entire spell movement turn (time it takes for all spells to finish all moves)
+  static readonly SPELL_MOVEMENT_DELAY_MILLI: number = 1000; // for micro steps
+  static readonly SPELL_MOVEMENT_TURN_DELAY_MILLI: number = 3000; // for entire spell movement turn (time it takes for all spells to finish all moves)
 
   addSpell = (spell: Spell): void => {
     if (!this.spells.includes(spell)) {
@@ -26,22 +27,15 @@ export class PlacedSpells {
   }
 
   removeInvalidSpells = (gameBoard: GameBoard): void => {
-    // Unset Cells of Invalid Spells
     const validSpellIds = this.spells.filter(spell => !spell.getIsRemove() && !!spell.cellIndex).map(s => s.id);
     gameBoard.cells.forEach(c => {
       if (c.spell && !validSpellIds.includes(c.spell.id)) {
         c.setSpell(null);
       }
-    })
-
-    // Remove Invalid Spells
-    const markedForRemoval = this.spells.filter(spell => spell.getIsRemove());
-    markedForRemoval.forEach(s => {
-      const idx = this.spells.indexOf(s);
-      if (idx !== -1) {
-        this.spells.splice(idx, 1);
-      }
     });
+
+    // FIX 1: Safe Valtio filter assignment instead of destructive inline splicing
+    this.spells = proxy(this.spells.filter(spell => !spell.getIsRemove()));
   };
 
   private checkBoundingBoxOverlap = (
@@ -96,6 +90,11 @@ export class PlacedSpells {
 
       await this.resolveGridCollisions(gameBoard, forceUpdate);
       currentMicroStep++;
+
+      // Guard check to prevent extreme edge case canvas freeze locks
+      if (currentMicroStep > 50) {
+        break;
+      }
     }
 
     this.spells.forEach(s => {
@@ -103,11 +102,16 @@ export class PlacedSpells {
       s.consumedPhlegms = 0;
     });
 
-    this.combineSpellsMaximally(gameBoard);
     this.removeConsumed();
     forceUpdate();
     await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI));
     this.removeInvalidSpells(gameBoard);
+    gameBoard.cells.forEach(c => {
+      if (c.spell && c.spell.getIsRemove()) {
+        c.setSpell(null);
+      }
+    });
+    this.combineSpellsMaximally(gameBoard);
     forceUpdate();
   };
 
@@ -131,13 +135,13 @@ export class PlacedSpells {
         const spellA = this.spells[i];
         const spellB = this.spells[j];
 
-        // if (spellA.isRemove || spellB.isRemove || spellA.isBeingConsumed || spellB.isBeingConsumed) continue;
         if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA)) continue;
 
         const posA = spellA.getCellIndex();
         const posB = spellB.getCellIndex();
         if (!posA || !posB) continue;
 
+        // FIX 4: Sized Bounding Box Calculation for lookahead step vectors
         const nextJA = posA.j + Math.sign(spellA.getPropertyValue('speedDirection')) * (spellA.remainingMoves > 0 ? 1 : 0);
         const nextJB = posB.j + Math.sign(spellB.getPropertyValue('speedDirection')) * (spellB.remainingMoves > 0 ? 1 : 0);
 
@@ -166,7 +170,6 @@ export class PlacedSpells {
 
   private clearGridFootprints = (gameBoard: GameBoard): void => {
     this.spells.forEach(s => {
-      // if (s.isRemove) return;
       if (s.getIsRemove()) return;
       const currentCellIndex = s.getCellIndex();
       if (currentCellIndex) {
@@ -190,16 +193,13 @@ export class PlacedSpells {
     let anySpellMoved = false;
 
     for (const spell of this.spells) {
-
       if (spell.getIsRemove() || spell.getIsBeingConsumed()) continue;
 
-      // Terminate stepping if BOTH horizontal movement and vertical climbing states are spent
       if (spell.remainingMoves <= 0 && (!spell.consumedGyres || spell.consumedGyres === 0)) continue;
 
       anySpellMoved = true;
       spell.recordedMovesCount++;
 
-      // Only deduct a horizontal turn if the spell isn't actively climbing/descending a vertical line
       if (!spell.consumedGyres || spell.consumedGyres === 0) {
         spell.remainingMoves--;
       }
@@ -208,28 +208,46 @@ export class PlacedSpells {
       forceUpdate();
 
       const nextCellIndex = spell.getCellIndex();
-      const headColumn = nextCellIndex.j + (spell.widthCells - 1) * Math.sign(spell.getPropertyValue('speedDirection'));
-      if (!nextCellIndex || gameBoard.getIsOffBoardAt({ i: nextCellIndex.i, j: headColumn })) {
-        const isLeftExit = headColumn < 0;
-        const isRightExit = headColumn >= GameBoard.NUM_COLS;
-        if (isLeftExit || isRightExit) {
-          const dmg = spell.getPropertyValue('dmgHealth');
-          const playerIndex = isLeftExit ? 0 : 1;
+      if (!nextCellIndex) continue;
 
-          spell.hitDamageAmount = dmg;
-          if (isLeftExit) {
-            spell.isPlayerHitImpact = true;
-          } else {
-            spell.isOpponentHitImpact = true;
-          }
+      const minI = nextCellIndex.i;
+      const maxI = nextCellIndex.i + (spell.heightCells - 1);
+      const minJ = nextCellIndex.j;
+      const maxJ = nextCellIndex.j + (spell.widthCells - 1);
 
-          decrementPlayerHealth(playerIndex, dmg);
-        }
+      if (minJ < 0 || maxJ >= GameBoard.NUM_COLS) {
+        const isLeftExit = minJ < 0;
+        const dmg = spell.getPropertyValue('dmgHealth');
+        const playerIndex = isLeftExit ? 0 : 1;
+
+        spell.hitDamageAmount = dmg;
+        if (isLeftExit) spell.isPlayerHitImpact = true;
+        else spell.isOpponentHitImpact = true;
+
+        decrementPlayerHealth(playerIndex, dmg);
         spell.markSpellForRemoval();
+        continue;
+      }
+
+      if (minI < 0 || maxI >= GameBoard.NUM_ROWS) {
+
+        const validMinI = Math.max(0, minI);
+        const validMaxI = Math.min(GameBoard.NUM_ROWS - 1, maxI);
+        const newHeight = (validMaxI - validMinI) + 1;
+
+        if (newHeight <= 0) {
+          spell.markSpellForRemoval();
+        } else {
+          spell.heightCells = newHeight;
+          spell.setCellIndex({ i: validMinI, j: nextCellIndex.j });
+
+          spell.consumedGyres = 0;
+        }
       }
     }
     return anySpellMoved;
   };
+
 
   private handleMidStepCollisions = (positionCache: Map<string, CellIndex>): void => {
     const resolvedCollisions = new Set<string>();
@@ -287,14 +305,17 @@ export class PlacedSpells {
   };
 
   private doCollision = async (spellA: Spell, spellB: Spell): Promise<CollisionResult> => {
+    if (spellA.getIsRemove() || spellB.getIsRemove()) return { winner: null, loser: null };
+    if (spellA.isInPhlegmField && spellB instanceof Phlegm) return { winner: null, loser: null };
+    if (spellB.isInPhlegmField && spellA instanceof Phlegm) return { winner: null, loser: null };
+
     const dmgA = spellA.getPropertyValue('dmgHealth');
     const dmgB = spellB.getPropertyValue('dmgHealth');
 
     let winner = spellA;
     let loser = spellB;
 
-    if (
-      dmgA === dmgB) {
+    if (dmgA === dmgB) {
       spellA.markSpellForRemoval();
       spellB.markSpellForRemoval();
       return { winner: null, loser: null };
@@ -316,13 +337,20 @@ export class PlacedSpells {
     }
 
     if (isWinnerSized && isCollisionWithTerrain) {
-      const [fragments, remainingMoves] = await this.shatterSpellIntoFragments(winner, loser);
-      // await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI));
-      // fragments.forEach(s => s.remainingMoves = remainingMoves + extraMoves);
-      // this.combineSpellsMaximally(gameBoard);
+      // FIX: Only apply direct shortcuts if the WINNER is also a native Gyre. 
+      // If a sized Quicken or Ether hits a Gyre, it MUST shatter first so its fragments are individual objects!
+      if (loser instanceof Gyre && winner instanceof Gyre) {
+        const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
+        winner.consumedGyres = rowShifts;
+      } else {
+        await this.shatterSpellIntoFragments(winner, loser);
+      }
     } else if (loser instanceof Gyre) {
       const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
       winner.consumedGyres = rowShifts;
+      // Ensure the link is established so horizontal spells can execute moveVertically()
+      winner.consumedSpellRef = loser;
+      loser.consumingSpellIds.add(winner.id);
     } else if (loser instanceof Phlegm && extraMoves > 0) {
       winner.remainingMoves += extraMoves;
     }
@@ -331,30 +359,24 @@ export class PlacedSpells {
   }
 
   private resolveGridCollisions = async (gameBoard: GameBoard, forceUpdate: Function): Promise<void> => {
-    const resolvedPairs = new Set<string>();
-
+    const resolvedPairs = new Set();
     while (true) {
       let structuralCollisionFoundThisPass = false;
       const activeSpells = this.spells.filter(s => !s.getIsRemove());
-
       for (let i = 0; i < activeSpells.length; i++) {
         for (let j = i + 1; j < activeSpells.length; j++) {
           const spellA = activeSpells[i];
           const spellB = activeSpells[j];
-
           if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA)) continue;
-
           const idxA = spellA.getCellIndex();
           const idxB = spellB.getCellIndex();
           if (!idxA || !idxB) continue;
-
           const overlaps = (
             idxA.j < idxB.j + spellB.widthCells &&
             idxA.j + spellA.widthCells > idxB.j &&
             idxA.i < idxB.i + spellB.heightCells &&
             idxA.i + spellA.heightCells > idxB.i
           );
-
           if (overlaps) {
             const pairKey = [spellA.id, spellB.id].sort().join('_');
             if (resolvedPairs.has(pairKey)) continue;
@@ -367,15 +389,12 @@ export class PlacedSpells {
         }
         if (structuralCollisionFoundThisPass) break;
       }
-
       if (!structuralCollisionFoundThisPass) break;
     }
-
     this.spells.forEach(spell => {
       if (spell.getIsRemove()) return;
       const idx = spell.getCellIndex();
       if (!idx) return;
-
       for (let r = 0; r < spell.heightCells; r++) {
         for (let c = 0; c < spell.widthCells; c++) {
           const cell = gameBoard.getCellAt({ i: idx.i + r, j: idx.j + c });
@@ -392,134 +411,140 @@ export class PlacedSpells {
     const hitDir = Math.sign(hit.getPropertyValue('speedDirection'));
     const hitColumn = hit.getCellIndex().j + (hit.widthCells - 1) * hitDir;
 
-    const hitMinRow = hit.getCellIndex().i
-    const hitMaxRow = hit.getCellIndex().i + (hit.heightCells - 1)
+    const hitMinRow = hit.getCellIndex().i;
+    const hitMaxRow = hit.getCellIndex().i + (hit.heightCells - 1);
 
-    const remainingMoves = Math.max(0, parent.widthCells - Math.abs(hitColumn - parent.cellIndex.j) + (parent.consumedQuickens > 0 ? 1 : 0));//Math.max(0, parent.remainingMoves - parent.widthCells);
+    const remainingMoves = Math.max(0, parent.widthCells - Math.abs(hitColumn - parent.cellIndex.j) + (parent.consumedQuickens > 0 ? 1 : 0));
 
-    // if (!(parent instanceof Gyre && hit instanceof Gyre)) {
     if (parent instanceof Gyre) {
-      // hit is Phlegm, get lowest point on Phlegm
-      if (parent instanceof GyreUp) {
-        // lowest point is root on GyreUp
+      // FIX: Only trigger the row shortcut if hitting another Gyre. If hitting a Phlegm or Ether, bypass this and fall directly to shattering!
+      const isHittingAnotherGyre = hit instanceof Gyre;
+
+      if (parent instanceof GyreUp && isHittingAnotherGyre) {
         const gyreRoot = parent.cellIndex.i + parent.heightCells - 1;
-        const lowestPoint = hit.cellIndex.i + hit.heightCells - 1
+        const lowestPoint = hit.cellIndex.i + hit.heightCells - 1;
 
-        if (gyreRoot == lowestPoint) {
-          // do not split, just flip direction of Gyre 
-          // parent.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+        if (gyreRoot === lowestPoint) {
           hit.conferModifierTo(parent);
-          return [[], remainingMoves]
+          return [[], remainingMoves];
         } else {
-          // split Gyre in two, lowestPoint up is one Gyre w/ flipped direction
-
-          // FLIPPED DIRECTION
           let frag = new (parent.constructor as any)(parent.caster);
           frag.widthCells = 1;
           frag.heightCells = parent.heightCells - (gyreRoot - lowestPoint);
-          let i = lowestPoint;
-          let j = hitColumn
-          frag.setCellIndex({ i, j });
+          frag.setCellIndex({ i: lowestPoint, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
           frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.remainingMoves = remainingMoves;
           frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+          frag.consumingSpellIds = new Set();
+          frag.consumedSpellRef = null;
+
           let newFragment = proxy(frag);
           this.spells.push(newFragment);
           fragments.push(newFragment);
 
-          // NON-FLIPPED DIRECTION
           frag = new (parent.constructor as any)(parent.caster);
           frag.widthCells = 1;
           frag.heightCells = gyreRoot - lowestPoint;
-          i = gyreRoot;
-          j = hitColumn
-          frag.setCellIndex({ i, j });
+          frag.setCellIndex({ i: gyreRoot, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
           frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.remainingMoves = remainingMoves;
+          frag.consumingSpellIds = new Set();
+          frag.consumedSpellRef = null;
+
           newFragment = proxy(frag);
           this.spells.push(newFragment);
           fragments.push(newFragment);
+
+          parent.markSpellForRemoval();
+          return [fragments, remainingMoves];
         }
       }
-      else if (parent instanceof GyreDown) {
-        // highest point is root on GyreDown
+      else if (parent instanceof GyreDown && isHittingAnotherGyre) {
         const gyreRoot = parent.cellIndex.i;
         const lowestPoint = hit.cellIndex.i;
-        if (gyreRoot == lowestPoint) {
-          // do not split, just flip direction of Gyre 
+        if (gyreRoot === lowestPoint) {
           hit.conferModifierTo(parent);
-          return [[], remainingMoves]
+          return [[], remainingMoves];
         } else {
-          // split Gyre in two, lowestPoint down is one Gyre w/ flipped direction
-
-          // FLIPPED DIRECTION
           let frag = new (parent.constructor as any)(parent.caster);
           frag.widthCells = 1;
           frag.heightCells = parent.heightCells - (lowestPoint - gyreRoot);
-          let i = lowestPoint;
-          let j = hitColumn
-          frag.setCellIndex({ i, j });
+          frag.setCellIndex({ i: lowestPoint, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
           frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.remainingMoves = remainingMoves;
           frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
+          frag.consumingSpellIds = new Set();
+          frag.consumedSpellRef = null;
+
           let newFragment = proxy(frag);
           this.spells.push(newFragment);
           fragments.push(newFragment);
 
-          // NON-FLIPPED DIRECTION
           frag = new (parent.constructor as any)(parent.caster);
           frag.widthCells = 1;
           frag.heightCells = lowestPoint - gyreRoot;
-          i = gyreRoot;
-          j = hitColumn
-          frag.setCellIndex({ i, j });
+          frag.setCellIndex({ i: gyreRoot, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
           frag.recordedMovesCount = parent.recordedMovesCount;
+          frag.consumingSpellIds = new Set();
+          frag.consumedSpellRef = null;
+
           newFragment = proxy(frag);
           this.spells.push(newFragment);
           fragments.push(newFragment);
+
+          parent.markSpellForRemoval();
+          return [fragments, remainingMoves];
         }
       }
-    } else {
-      for (let r = 0; r < parent.heightCells; r++) {
-        for (let c = 0; c < parent.widthCells; c++) {
-          const i = parent.cellIndex.i + r;
-          const j = parent.cellIndex.j + c * dir;
 
-          const frag = new (parent.constructor as any)(parent.caster);
-          frag.widthCells = 1;
-          frag.heightCells = 1;
-          frag.setCellIndex({ i, j });
+      // FALLBACK BREAKDOWN FOR PHLEGM/TERRAIN: If it hits a Phlegm, let it fall through to the matrix loop below!
+    }
 
-          frag.consumedEthers = parent.consumedEthers;
-          frag.consumedQuickens = parent.consumedQuickens;
-          frag.recordedMovesCount = parent.recordedMovesCount;
+    // This is your original structural fallback block for standard matrix fracturing
+    for (let r = 0; r < parent.heightCells; r++) {
+      for (let c = 0; c < parent.widthCells; c++) {
+        const i = parent.cellIndex.i + r;
+        const j = parent.cellIndex.j + c * dir;
 
-          const isOverlappingColumn = j === hitColumn;
-          const isOverlappingRow = i >= hitMinRow && i <= hitMaxRow
+        let frag = new (parent.constructor as any)(parent.caster);
+        frag.widthCells = 1;
+        frag.heightCells = 1;
+        frag.setCellIndex({ i, j });
 
-          if (isOverlappingColumn && isOverlappingRow) {
-            hit.consumingSpellIds.add(frag);
-            frag.resolveSpellCollision(hit);
-          }
+        frag.consumedEthers = parent.consumedEthers;
+        frag.consumedQuickens = parent.consumedQuickens;
+        frag.recordedMovesCount = parent.recordedMovesCount;
+        frag.remainingMoves = remainingMoves;
 
+        frag.consumingSpellIds = new Set();
+        frag.consumedSpellRef = null;
+
+        const isOverlappingColumn = j === hitColumn;
+        const isOverlappingRow = i >= hitMinRow && i <= hitMaxRow;
+
+        if (isOverlappingColumn && isOverlappingRow) {
+          const wrappedFrag = proxy(frag);
+          hit.consumingSpellIds.add(wrappedFrag.id);
+          wrappedFrag.resolveSpellCollision(hit);
+          this.spells.push(wrappedFrag);
+          fragments.push(wrappedFrag);
+        } else {
           const newFragment = proxy(frag);
           this.spells.push(newFragment);
           fragments.push(newFragment);
         }
       }
-      // }
-
     }
 
     parent.markSpellForRemoval();
-
-
-
     return [fragments, remainingMoves];
   };
 
@@ -527,12 +552,9 @@ export class PlacedSpells {
     const MAX_COLS = GameBoard.NUM_COLS;
     const MAX_ROWS = GameBoard.NUM_ROWS;
 
-    // 1. Initialize a full board lookup matrix
     const matrix: Array<Array<Spell | null>> = Array(MAX_ROWS).fill(null).map(() => Array(MAX_COLS).fill(null));
-
     const consumerIds = this.spells.reduce((acc, item) => [...acc, ...item.consumingSpellIds], new Array<string>())
 
-    // POPULATION FIX: Map EVERY cell covered by a sized spell's footprint into the matrix
     this.spells.forEach(s => {
       if (s.getIsRemove() || consumerIds.includes(s.id)) return;
       const idx = s.getCellIndex();
@@ -554,10 +576,17 @@ export class PlacedSpells {
     const componentsMatch = (a: Spell | null, b: Spell | null): boolean => {
       if (!a || !b || a.getIsRemove() || b.getIsRemove()) return false;
       if (processed.has(a.id) || processed.has(b.id)) return false;
+
+      // FIX: If EITHER spell fragment is currently resolving a vertical rowShift track, block them from recombining!
+      // This gives fragments time to safely drift away from each other before they are allowed to merge back into larger shapes.
+      if (a.consumedGyres !== 0 || b.consumedGyres !== 0) return false;
+      if (a.isInPhlegmField || b.isInPhlegmField) return false;
+
       const sameType = a.getSpellName() === b.getSpellName();
       const sameDir = Math.sign(a.getPropertyValue('speedDirection')) === Math.sign(b.getPropertyValue('speedDirection'));
       return sameType && sameDir;
     };
+
 
     // --- PASS 1: Reassemble Horizontal Chains for Quickens ---
     for (let i = 0; i < MAX_ROWS; i++) {
@@ -589,13 +618,19 @@ export class PlacedSpells {
             root.heightCells = 1;
           }
 
-          // Skip the entire width of this piece to prevent bugged evaluations on sub-cells
+          for (let c = 0; c < chainWidth; c++) {
+            if (j + c < MAX_COLS) {
+              matrix[i][j + c] = root;
+            }
+          }
+
           j += chainWidth;
         } else {
           j++;
         }
       }
     }
+
     // --- PASS 2: Reassemble Vertical Stacks for Gyres ---
     for (let j = 0; j < MAX_COLS; j++) {
       for (let i = 0; i < MAX_ROWS;) {
@@ -624,7 +659,14 @@ export class PlacedSpells {
             root.heightCells = stackHeight;
           }
 
-          // Skip the entire height of this stack to prevent bugged vertical evaluations
+          // FIX 1: Added explicit boundaries checking to prevent index modifications overflows
+          for (let r = 0; r < stackHeight; r++) {
+            const targetI = i + r;
+            if (targetI < MAX_ROWS && matrix[targetI]) {
+              matrix[targetI][j] = root;
+            }
+          }
+
           i += stackHeight;
         } else {
           i++;
@@ -648,7 +690,7 @@ export class PlacedSpells {
           if (checkI >= MAX_ROWS || checkJ >= MAX_COLS) return false;
 
           const candidate = matrix[checkI][checkJ];
-          if (candidate === root) continue; // It's our own multi-cell body chunk
+          if (candidate === root) continue;
 
           if (componentsMatch(root, candidate)) {
             targetCluster.add(candidate!);
@@ -678,19 +720,23 @@ export class PlacedSpells {
       }
     }
 
-    // FOOTPRINT SYNCHRONIZATION FIX: Map EVERY cell covered by the newly sized spells back to the gameBoard
     this.spells.forEach(s => {
       if (!s.getIsRemove()) {
         const idx = s.getCellIndex();
         if (idx) {
           for (let r = 0; r < s.heightCells; r++) {
             for (let c = 0; c < s.widthCells; c++) {
-              const cell = gameBoard.getCellAt({ i: idx.i + r, j: idx.j + c });
-              if (cell) cell.setSpell(s);
+              const targetI = idx.i + r;
+              const targetJ = idx.j + c;
+              if (targetI >= 0 && targetI < MAX_ROWS && targetJ >= 0 && targetJ < MAX_COLS) {
+                const cell = gameBoard.getCellAt({ i: targetI, j: targetJ });
+                if (cell) cell.setSpell(s);
+              }
             }
           }
         }
       }
     });
   };
+
 }

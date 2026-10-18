@@ -143,7 +143,9 @@ export function drawGyre(
 
     const puffX = dustBaseX + offsetX;
     const puffY = contactY + offsetY;
-    const puffRadius = (w * 0.12) * pulseFactor * cellRows;
+
+    const safeCellRows = Math.max(1, Math.abs(cellRows));
+    const puffRadius = (w * 0.12) * pulseFactor * safeCellRows;
 
     ctx.beginPath();
     ctx.arc(puffX, puffY, puffRadius, 0, Math.PI * 2);
