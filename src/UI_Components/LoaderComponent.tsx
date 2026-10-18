@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
+import LogoComponent from './Logo/LogoComponent';
 
 const specularReflection = keyframes`
   0% { background-position: -200% center; }
@@ -61,13 +62,11 @@ const LoadingContent = styled.div`
   gap: 3cqw;
 `;
 
+/** The logo's slot: it appears once its images (the priority assets) have loaded. */
 const Logo = styled.div`
-  padding: 3cqw;
-  width: 80%;
+  width: 44cqw;
   position: relative;
-  height: 30cqw;
-  // background-color: red;
-  opacity: .5;
+  aspect-ratio: 100 / 66;
 `;
 
 const ActionSlot = styled.div`
@@ -253,6 +252,7 @@ const LoaderComponent = () => {
   const isDisplay = isLoading || !isPlaying;
   const isSceneImgsLoaded = snap.getIsSceneImgsLoaded();
   const isFontLoaded = snap.getIsFontLoaded();
+  const isPriorityAssetsLoaded = snap.getIsPriorityAssetsLoaded();
 
   // Dynamic state loop key triggering fresh wisp cycles on every re-hover
   const [hoverKey, setHoverKey] = useState<number>(0);
@@ -270,7 +270,7 @@ const LoaderComponent = () => {
   return (
     isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
       <LoadingContent>
-        <Logo />
+        <Logo>{isPriorityAssetsLoaded && <LogoComponent />}</Logo>
         <ActionSlot>
           {isLoading ? (
             <Loader>

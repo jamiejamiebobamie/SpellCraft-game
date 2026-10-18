@@ -3,9 +3,8 @@ import { CanvasScrollUI } from '../../../../DataClasses/types';
 import { draw4PointStar } from '../Sparkles/SparkleFunctions';
 import { HARDCODED_SYMBOLS_FOR_DISPLAY } from '../../../../DataClasses/PlacedSpells/HardCodedSymbolsForDisplay';
 import { GameSymbol } from '../../../../DataClasses/PlacedSpells/GameSymbol';
-import { drawProceduralSpell, updateAndDrawParticles } from '../RenderSpells/renderSpells';
+import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles } from '../RenderSpells/renderSpells';
 import { SpellAnimTracker } from '../../../../DataClasses/types';
-import { PALETTE } from '../../DrawFunctions/RenderSpells/ColorPalette';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
 
@@ -646,22 +645,7 @@ export const drawModalDetails = (
             animStates.set(fakeSpellInstance.id, { spawnProgress: 1.0, deathProgress: 0, hasSpawnedParticles: false, particles: [] } as any);
         }
         const pAnim = animStates.get(fakeSpellInstance.id)!;
-        if (currentTargetKey === 'Ether') {
-            const cx = wPx / 2 + (wPx / 10); const cy = hPx / 2; const radius = Math.min(wPx, hPx) * 0.3;
-            if (Math.random() < 0.25) {
-                const spreadX = (Math.random() - 0.85) * (radius * 1.75); const spawnX = cx + spreadX; const spawnY = cy + Math.sin(currentTime * 0.005) * (hPx * 0.04) + ((Math.random() - 0.5) * (radius * 1.75)); const ratio = Math.sqrt(Math.pow((cx - spawnX), 2) + Math.pow((cy - spawnY), 2)) / radius;
-                pAnim.particles.push({ x: spawnX, y: spawnY, vx: -(50 + Math.random() * 50), vy: -50 - Math.random() * 50, alpha: 1.0, size: Math.max((1 - ratio) * (radius * 0.1), radius * 0.05), color: ratio < .3 ? PALETTE.fireCore : ratio < .8 ? PALETTE.fireMid : PALETTE.fireOuter, life: 1.0, decay: 1.5 + Math.random() * 1, type: 'etherFlame' });
-            }
-        } else if (currentTargetKey === 'Phlegm') {
-            const rx = wPx * 0.44; const ry = hPx * 0.34;
-            if (Math.random() < 0.2) {
-                const angle = Math.random() * Math.PI * 2;
-                pAnim.particles.push({ x: wPx / 2 + Math.cos(angle) * rx, y: hPx / 2 + Math.sin(angle) * ry, vx: Math.cos(angle) * 20, vy: Math.sin(angle) * 20 - 20, alpha: 1.0, size: Math.min(wPx, hPx) * 0.015, color: Math.random() > 0.7 ? PALETTE.waterFroth : Math.random() > 0.4 ? PALETTE.waterMid : PALETTE.waterDeep, life: 1.0, decay: 1.2 + Math.random() * 1.0, type: 'droplet' });
-            }
-        } else if (currentTargetKey === 'Quicken' && Math.random() < 0.15) {
-            const sx = Math.random() * wPx; const sy = Math.random() * hPx; const len = Math.min(wPx, hPx) * 0.3; const ang = Math.random() * Math.PI * 2;
-            pAnim.particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.0 + Math.random() * 1.5, color: '#16e0d6', shadowColor: '#00ffff', life: 1.0, decay: 12.0, type: 'lightningArc' });
-        }
+        spawnPreviewSpellParticles(currentTargetKey, pAnim.particles, wPx, hPx, currentTime);
         targetWidgetCenterX = rightGridX + (ox * cellSz) + (wPx / 2);
         targetWidgetCenterY = rightGridY + (oy * cellSz) + (hPx / 2);
         currentActiveGridCol = ox + Math.floor((tw - 1) / 2);

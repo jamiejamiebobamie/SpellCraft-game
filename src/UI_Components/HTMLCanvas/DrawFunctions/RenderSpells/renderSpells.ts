@@ -2,6 +2,7 @@ import { drawEtherSpawn } from "./drawEther";
 import { drawGyreSpawn } from "./drawGyre";
 import { drawPhlegmSpawn } from "./drawPhlegm";
 import { drawQuickenSpawn, getAsymmetricTaper } from "./drawQuicken";
+import { PALETTE } from "./ColorPalette";
 
 export function drawProceduralSpell(
   ctx: CanvasRenderingContext2D,
@@ -61,6 +62,30 @@ export function drawProceduralSpell(
   }
 
   ctx.restore();
+}
+
+/**
+ * Spawns the ambient particles (flames, droplets, sparks) around a spell drawn outside the board
+ * (the spellbook, the loading screen's logo): call once a frame, then updateAndDrawParticles.
+ * `wPx`, `hPx`: the spell's size; particles are relative to its top left.
+ */
+export function spawnPreviewSpellParticles(spellName: string, particles: any[], wPx: number, hPx: number, time: number) {
+  if (spellName === 'Ether') {
+    const cx = wPx / 2 + (wPx / 10); const cy = hPx / 2; const radius = Math.min(wPx, hPx) * 0.3;
+    if (Math.random() < 0.25) {
+      const spreadX = (Math.random() - 0.85) * (radius * 1.75); const spawnX = cx + spreadX; const spawnY = cy + Math.sin(time * 0.005) * (hPx * 0.04) + ((Math.random() - 0.5) * (radius * 1.75)); const ratio = Math.sqrt(Math.pow((cx - spawnX), 2) + Math.pow((cy - spawnY), 2)) / radius;
+      particles.push({ x: spawnX, y: spawnY, vx: -(50 + Math.random() * 50), vy: -50 - Math.random() * 50, alpha: 1.0, size: Math.max((1 - ratio) * (radius * 0.1), radius * 0.05), color: ratio < .3 ? PALETTE.fireCore : ratio < .8 ? PALETTE.fireMid : PALETTE.fireOuter, life: 1.0, decay: 1.5 + Math.random() * 1, type: 'etherFlame' });
+    }
+  } else if (spellName === 'Phlegm') {
+    const rx = wPx * 0.44; const ry = hPx * 0.34;
+    if (Math.random() < 0.2) {
+      const angle = Math.random() * Math.PI * 2;
+      particles.push({ x: wPx / 2 + Math.cos(angle) * rx, y: hPx / 2 + Math.sin(angle) * ry, vx: Math.cos(angle) * 20, vy: Math.sin(angle) * 20 - 20, alpha: 1.0, size: Math.min(wPx, hPx) * 0.015, color: Math.random() > 0.7 ? PALETTE.waterFroth : Math.random() > 0.4 ? PALETTE.waterMid : PALETTE.waterDeep, life: 1.0, decay: 1.2 + Math.random() * 1.0, type: 'droplet' });
+    }
+  } else if (spellName === 'Quicken' && Math.random() < 0.15) {
+    const sx = Math.random() * wPx; const sy = Math.random() * hPx; const len = Math.min(wPx, hPx) * 0.3; const ang = Math.random() * Math.PI * 2;
+    particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.0 + Math.random() * 1.5, color: '#16e0d6', shadowColor: '#00ffff', life: 1.0, decay: 12.0, type: 'lightningArc' });
+  }
 }
 
 export function updateAndDrawParticles(

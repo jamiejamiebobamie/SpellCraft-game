@@ -277,6 +277,7 @@ export class Game {
 
   getIsSceneImgsLoaded = (): boolean => this.assetLoader.getIsSceneImgsLoaded();
   getIsFontLoaded = (): boolean => this.assetLoader.getIsFontLoaded();
+  getIsPriorityAssetsLoaded = (): boolean => this.assetLoader.getIsPriorityAssetsLoaded();
   getIsLoading = (): boolean => this.assetLoader.getIsLoading();
 
   getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
