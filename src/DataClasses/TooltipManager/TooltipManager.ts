@@ -1,4 +1,5 @@
 import { proxy } from "valtio";
+import { PLAYER_RULES } from "../PlacedSpells/spellRules";
 
 export interface TooltipPage {
     title?: string;
@@ -98,7 +99,7 @@ export const GAME_TUTORIALS = {
             title: "Blood Magic",
             paragraphs: [
                 "If you cast a Spell that requires more Focus points than you have, the missing Focus points will come from your Health bar.",
-                "For every missing point of Focus, the Spell will cost you 5 Health points.",
+                `For every missing point of Focus, the Spell will cost you ${PLAYER_RULES.bloodMagicHealthPerFocus} Health points.`,
             ],
             mediaUrl: './tooltip-imgs/blood-magic.gif'
         },

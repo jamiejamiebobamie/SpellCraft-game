@@ -31,7 +31,9 @@ export const QUICKEN_RULES = {
 };
 
 export const PLAYER_RULES = {
-  bloodMagicHealthPerFocus: 5, // health paid per focus point a cast costs beyond what the caster has (7 was tried)
+  // Health paid per focus point a cast costs beyond what the caster has (was 5; 7 was tried). At 3,
+  // a 3x3 Ether (18 focus) saved up for costs 30 health; cast every turn (2 focus), 48
+  bloodMagicHealthPerFocus: 3,
 };
 
 export const CASTING_RULES = {
