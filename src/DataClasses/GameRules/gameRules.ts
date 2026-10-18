@@ -159,14 +159,17 @@ const planSpellPlacementFromLeft = (
 };
 
 /**
- * Focus cost of casting `rects`: the spell type's cost × the last shape's size × the number of shapes.
- * (Kept as in the original game; sized focus costs are a separate, open design item.)
+ * Focus cost of casting `cellCount` cells of a spell: its cost per cell, rounded up, at least 1,
+ * and at most CASTING_RULES.maxFocusCostPerCast (except for CASTING_RULES.uncappedSpells).
  */
-export const getPlacementFocusCost = (SpellType: SpellClass, rects: Array<CellRect>): number => {
-  if (!rects.length) return 0;
-  const last = rects[rects.length - 1];
-  return SpellType.FOCUS_COST * last.w * last.h * rects.length;
+export const getFocusCost = (SpellType: SpellClass, cellCount: number): number => {
+  const cost = Math.max(1, Math.ceil(SpellType.FOCUS_COST * cellCount));
+  return CASTING_RULES.uncappedSpells.includes(SpellType.spellName) ? cost : Math.min(CASTING_RULES.maxFocusCostPerCast, cost);
 };
+
+/** Focus cost of casting `rects` (getFocusCost of all their cells). */
+export const getPlacementFocusCost = (SpellType: SpellClass, rects: Array<CellRect>): number =>
+  rects.length ? getFocusCost(SpellType, rects.reduce((cells, rect) => cells + rect.w * rect.h, 0)) : 0;
 
 /** Creates the spells for a planned placement (not yet added to the board). */
 export const createPlacedSpells = (SpellType: SpellClass, rects: Array<CellRect>, caster: Player): Array<Spell> =>

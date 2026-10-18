@@ -6,6 +6,8 @@ import { GameSymbol } from '../../../../DataClasses/PlacedSpells/GameSymbol';
 import { drawProceduralSpell, updateAndDrawParticles } from '../RenderSpells/renderSpells';
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { PALETTE } from '../../DrawFunctions/RenderSpells/ColorPalette';
+import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
+import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
 
 const displayNameLookup = new Map<string, string>([
     ['GyreDown', 'Downdraft'],
@@ -347,27 +349,26 @@ export const drawWidgetLineOverlay = (
     ctx.globalAlpha = fadeAlpha;// * 0.35;
 
     const cellMultiplier = sizeIdx + 1;
-    let cost = 1 * cellMultiplier;
+    // Square spells (Ether, Phlegm) cover size x size cells; lines (Quicken, Gyres) cover size cells
+    const spellClass = SPELL_CLASSES[spellKey as SpellName];
+    const isSquare = spellKey === 'Ether' || spellKey === 'Phlegm';
+    let cost = spellClass ? getFocusCost(spellClass, isSquare ? cellMultiplier * cellMultiplier : cellMultiplier) : cellMultiplier;
     let damageOrHeal = 5 * cellMultiplier;
     let speed = 1;
     let isHealing = false;
     let labelText = "Damage";
 
     if (spellKey === 'Ether') {
-        cost = Math.min(8, Math.ceil(1.25 * cellMultiplier * cellMultiplier));
         damageOrHeal = 5 * cellMultiplier * cellMultiplier + 5;
         speed = cellMultiplier;
     } else if (spellKey === 'Quicken') {
-        cost = 1 * cellMultiplier;
         damageOrHeal = 5 * cellMultiplier;
         speed = 1 + cellMultiplier;
     } else if (spellKey === 'Phlegm') {
-        cost = Math.min(8, Math.ceil(1 * cellMultiplier * cellMultiplier));
         damageOrHeal = 5 * cellMultiplier;
         isHealing = true;
         labelText = "Heal";
     } else if (spellKey === 'GyreUp' || spellKey === 'GyreDown') {
-        cost = 1 * cellMultiplier;
         damageOrHeal = 4 * cellMultiplier;
     }
 
@@ -462,23 +463,23 @@ export const drawModalDetails = (
     const spellDescriptions: Record<string, { desc: string; stats: string }> = {
         'Ether': {
             desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   that destroys it.",
-            stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
+            stats: "Cost: 2 Focus / Cell (Max 8)             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
         },
         'Quicken': {
             desc: "A fast-traveling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nConfers +1 Speed to any spell\n   that destroys it.",
-            stats: "Cost: 1 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
+            stats: "Cost: 2 Focus / Cell (No Max)             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
         },
         'Phlegm': {
             desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward.",
-            stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
+            stats: "Cost: 1 Focus / Cell (Max 8)             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
         },
         'GyreUp': {
             desc: "An upward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells upward.\n   Note: Spells pushed off the board are destroyed.",
-            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+            stats: "Cost: 1 Focus / Cell (Max 8)             Damages: 4 Health / Cell             Speed: 1"
         },
         'GyreDown': {
             desc: "A downward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells downward.\n   Note: Spells pushed off the board are destroyed.",
-            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+            stats: "Cost: 1 Focus / Cell (Max 8)             Damages: 4 Health / Cell             Speed: 1"
         }
     };
     const targetData = spellDescriptions[currentTargetKey] || { desc: '', stats: '' };

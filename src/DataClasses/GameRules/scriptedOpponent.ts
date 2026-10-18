@@ -50,7 +50,7 @@ const tryCast = (sim: GameSimulation, side: number, spellName: SpellName, i: num
     const SpellType = SPELL_CLASSES[spellName];
     const rects = planSpellPlacement(SpellType, cells, caster.getDirection(), sim.getIsOccupied, sim.spells);
     const isWholeArea = rects.length === 1 && rects[0].w === size && rects[0].h === size;
-    const cost = Math.max(1, Math.ceil(getPlacementFocusCost(SpellType, rects)));
+    const cost = getPlacementFocusCost(SpellType, rects);
     if (isWholeArea && cost <= caster.getFocus()) {
       sim.cast(side, spellName, cells);
       return true;

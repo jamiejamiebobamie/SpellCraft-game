@@ -484,7 +484,7 @@ export class Phlegm extends Spell {
 }
 
 export class Ether extends Spell {
-  static readonly FOCUS_COST: number = 1.25;
+  static readonly FOCUS_COST: number = 2; // per cell (was 1.25)
   static readonly spellName = "Ether";
 
   constructor(caster: Player) {
@@ -562,7 +562,7 @@ export class GyreDown extends Gyre {
 }
 
 export class Quicken extends Spell {
-  static readonly FOCUS_COST: number = 1;
+  static readonly FOCUS_COST: number = 2; // per cell (was 1)
   static readonly spellName = "Quicken";
   constructor(caster: Player) {
     super(caster);

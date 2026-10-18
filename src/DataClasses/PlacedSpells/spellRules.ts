@@ -35,9 +35,14 @@ export const PLAYER_RULES = {
 };
 
 export const CASTING_RULES = {
-  // Most cells one Quicken cast can fill (null: no limit). Stops a single wide drawing filling the
-  // whole zone with Quickens. The cells the drawing touched are filled first.
-  maxQuickenCellsPerCast: 3 as number | null,
+  // A cast costs each spell's FOCUS_COST (Spell.ts) per cell, up to maxFocusCostPerCast (the most
+  // focus a player can hold, so any drawing can be cast without blood magic), except for the
+  // uncapped spells: e.g. three rows of Quickens cost 18, so 10 of it is paid in health
+  maxFocusCostPerCast: 8,
+  uncappedSpells: ['Quicken'] as Array<string>,
+  // Most cells one Quicken cast can fill (null: no limit). The cells the drawing touched are filled
+  // first. Tried at 3; replaced by uncapped Quicken costs
+  maxQuickenCellsPerCast: null as number | null,
   // Spells can be cast onto enemy spells in the column right next to the caster's wizard, where
   // they collide at once (otherwise a spell there can't be answered before it hits). Off for now:
   // to revisit how it works with sized enemy spells (only part of them is in that column), and a

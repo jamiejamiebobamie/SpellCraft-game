@@ -153,8 +153,8 @@ export class Player extends UniqueId {
   * Returns the Health cost (if any) for the Spell.
   */
   incurPlayerCostForSpell = (focusCost: number): number => {
-    // Cap focus cost to between 1 and 8 inclusive
-    const cost = Math.max(1, Math.min(8, Math.ceil(focusCost)));
+    // (the cast's cap, if any, is in gameRules.getFocusCost)
+    const cost = Math.max(1, Math.ceil(focusCost));
     if (this.getFocus() >= cost) {
       this.decrementFocus(cost);
       return 0;

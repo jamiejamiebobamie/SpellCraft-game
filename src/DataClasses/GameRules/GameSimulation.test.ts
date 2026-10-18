@@ -24,10 +24,25 @@ describe('casting', () => {
     const sim = new GameSimulation();
     const { placed, focusCost, bloodMagicCost } = sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2));
     expect(placed.map(s => [s.widthCells, s.heightCells])).toEqual([[2, 2]]);
-    expect(focusCost).toBe(1.25 * 4);
-    expect(bloodMagicCost).toBe(PLAYER_RULES.bloodMagicHealthPerFocus); // costs ceil(5) = 5 focus; has 4, so 1 is paid in health
+    expect(focusCost).toBe(2 * 4);
+    expect(bloodMagicCost).toBe(4 * PLAYER_RULES.bloodMagicHealthPerFocus); // costs 8 focus; has 4, so 4 are paid in health
     expect(sim.players[PLAYER_INDEX].getFocus()).toBe(0);
-    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100 - PLAYER_RULES.bloodMagicHealthPerFocus);
+    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100 - 4 * PLAYER_RULES.bloodMagicHealthPerFocus);
+  });
+
+  it('costs focus per cell, capped at 8 except for Quickens', () => {
+    const costOf = (spellName: SpellName, cells: Array<CellIndex>) => new GameSimulation().cast(PLAYER_INDEX, spellName, cells).focusCost;
+    expect(costOf('Ether', cellsOf(0, 0, 1, 1))).toBe(2);
+    expect(costOf('Ether', cellsOf(0, 0, 3, 3))).toBe(8); // 18, capped
+    expect(costOf('Phlegm', cellsOf(0, 0, 2, 2))).toBe(4);
+    expect(costOf('Phlegm', cellsOf(0, 0, 3, 3))).toBe(8); // 9, capped
+    expect(costOf('GyreUp', cellsOf(0, 0, 3, 3))).toBe(8); // three 3-tall Gyres: 9, capped
+    expect(costOf('Quicken', cellsOf(0, 0, 3, 1))).toBe(6);
+    expect(costOf('Quicken', cellsOf(0, 0, 3, 3))).toBe(18); // not capped
+    // The same whether drawn as one shape or as pieces (e.g. a 2x2 next to a 1x1)
+    const sim = new GameSimulation();
+    sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]);
+    expect(sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2)).focusCost).toBe(2 * 3); // three 1x1s
   });
 
   it("only cells in the caster's own 3x3 zone are used", () => {
@@ -155,7 +170,7 @@ describe('casting rules (CASTING_RULES)', () => {
     return spell;
   };
 
-  it('a Quicken cast fills at most 3 cells, the touched ones first', () => {
+  it.runIf(CASTING_RULES.maxQuickenCellsPerCast === 3)('a Quicken cast fills at most 3 cells, the touched ones first', () => {
     const sim = new GameSimulation();
     sim.cast(PLAYER_INDEX, 'Quicken', [{ i: 0, j: 0 }, { i: 1, j: 1 }, { i: 2, j: 2 }]); // a diagonal: a 3x3 box
     const cells = sim.spells.flatMap(s => cellsOf(s.cellIndex.i, s.cellIndex.j, s.widthCells, s.heightCells));
