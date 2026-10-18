@@ -68,6 +68,18 @@
   box-sizing: border-box;
 }
 
+/* Spacers above and below the game share any spare height 1:2, so the game sits a little above
+   center. They start at zero height, so with no spare height the game stays flush at the top. */
+#root::before,
+#root::after {
+  content: "";
+  flex: 1 1 0;
+}
+
+#root::after {
+  flex-grow: 2;
+}
+
 body {
   margin: 0;
 }

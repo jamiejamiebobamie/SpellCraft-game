@@ -12,10 +12,14 @@ import styled from 'styled-components';
 import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
+import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 // import { GameOverStatus } from '../DataClasses/types';
 
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
-  margin: 0 auto; 
+  /* Vertical placement comes from the spacers around #root (index.css) */
+  margin: 0 auto;
+
+  ${CURSOR_MODE === 'arrow' ? '' : WAND_CURSOR_CSS}
   display: flex;
   flex-direction: row;
   user-select: none;
@@ -36,7 +40,12 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   
   container-type: inline-size;
   container-name: game-canvas;
-  border: 0.15cqw solid #2d2d2d;
+
+  /* Layered shadows (tight contact, mid, large soft and lower) make the game look lifted off the page */
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.3),
+    0 24px 48px rgba(0, 0, 0, 0.4);
 
   &::before {
     content: "";

@@ -96,9 +96,10 @@ const GlitterStar = styled.div<{ $top: string; $left: string; $size: string; $de
   left: ${props => props.$left};
   width: ${props => props.$size};
   height: ${props => props.$size};
-  background: #fff;
+  /* Same golds as the "Loading..." text */
+  background: radial-gradient(circle, #fffbe0 0%, #ffe875 35%, #ffd700 70%, #ffa500 100%);
   clip-path: polygon(50% 0%, 61% 35%, 100% 50%, 61% 65%, 50% 100%, 39% 65%, 0% 50%, 39% 35%);
-  box-shadow: 0 0 10px #fffdf0, 0 0 20px #ffd700;
+  box-shadow: 0 0 10px #ffe875, 0 0 20px #ffa500;
   animation: ${twinkleSparkle} 2.5s ease-in-out infinite;
   animation-delay: ${props => props.$delay};
 `;

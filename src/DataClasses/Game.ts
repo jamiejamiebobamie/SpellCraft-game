@@ -110,9 +110,11 @@ export class Game {
     switch (deadPlayers.length) {
       case 2:
         this.gameOver = GameOverStatus.BothDead;
+        this.forceUpdate();
         break;
       case 1:
-        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon
+        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon;
+        this.forceUpdate();
         break;
     }
   }
@@ -136,6 +138,7 @@ export class Game {
 
     if (isCaught || isPastSunrise) {
       this.gameOver = GameOverStatus.TimesUp
+      this.forceUpdate();
     }
   }
 
@@ -156,7 +159,7 @@ export class Game {
 
   endTurn = async (): Promise<void> => {
     if (!this.getIsGameBoardDisabled() && !this.gameOver) {
-      this.tooltipManager.turnOffIsClickClock(); // turn-off helper message
+      this.tooltipManager.clearClickClockRef(); // turn-off helper message
       this.resetNpcMove();
 
       this.audioHandler.startSoundEffect('clock-chime');

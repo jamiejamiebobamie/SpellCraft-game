@@ -19,6 +19,7 @@ import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
 import { useSnapshot } from 'valtio';
 import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
+import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, CURSOR_MODE, WAND_CURSOR_CSS, WAND_HOTSPOT, getDefaultCursor } from '../cursors';
 
 const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
@@ -31,7 +32,8 @@ const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   pointer-events: auto;
   touch-action: none;
   filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.4));
-  cursor: ${props => props.$cursor};
+  /* 'canvasWand': hidden, because the wand is drawn on the canvas instead */
+  ${props => props.$cursor === 'canvasWand' ? 'cursor: none;' : props.$cursor === 'wand' ? WAND_CURSOR_CSS : `cursor: ${props.$cursor};`}
 `;
 
 interface NpcDrawTracker {
@@ -56,6 +58,33 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
 
   const [isHovered, setIsHovered] = useState(false);
   const [isGearHovered, setIsGearHovered] = useState(false);
+
+  // Canvas-drawn wand cursor: the image, and where the mouse is (in page coordinates)
+  const wandImgRef = useRef<HTMLImageElement | null>(null);
+  const [isCanvasWandReady, setIsCanvasWandReady] = useState(false);
+  const wandPointerRef = useRef({ x: 0, y: 0, isOverCanvas: false });
+
+  useEffect(() => {
+    if (CURSOR_MODE !== 'canvasWand') return;
+    const img = new Image();
+    img.onload = () => setIsCanvasWandReady(true);
+    img.src = CANVAS_WAND_SRC;
+    wandImgRef.current = img;
+
+    // Tracked on the document so the wand hides as soon as the mouse is over a button or overlay
+    const handlePointerMove = (e: MouseEvent) => {
+      wandPointerRef.current = { x: e.clientX, y: e.clientY, isOverCanvas: e.target === canvasRef.current };
+    };
+    const handlePointerLeaveWindow = (e: MouseEvent) => {
+      if (!e.relatedTarget) wandPointerRef.current.isOverCanvas = false;
+    };
+    document.addEventListener('mousemove', handlePointerMove);
+    document.addEventListener('mouseout', handlePointerLeaveWindow);
+    return () => {
+      document.removeEventListener('mousemove', handlePointerMove);
+      document.removeEventListener('mouseout', handlePointerLeaveWindow);
+    };
+  }, []);
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
   const isSpellBookOpen = snap.getIsSpellBookOpen();
   const readiedSpell = snap.getReadiedSpell();
@@ -398,6 +427,18 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
         drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime, setIsHovered, animStatesRef.current);
       }
+
+      // Wand cursor, on top of everything. Only where the system cursor is hidden (not over
+      // buttons, or while placing a readied spell)
+      const wandImg = wandImgRef.current;
+      const pointer = wandPointerRef.current;
+      if (pointer.isOverCanvas && wandImg?.complete && wandImg.naturalWidth && getComputedStyle(canvas).cursor === 'none') {
+        const wandW = viewW * CANVAS_WAND_WIDTH_FRACTION;
+        const wandH = wandW * wandImg.naturalHeight / wandImg.naturalWidth;
+        const tipX = (pointer.x - rect.left) * (viewW / rect.width);
+        const tipY = (pointer.y - rect.top) * (viewH / rect.height);
+        ctx.drawImage(wandImg, tipX - WAND_HOTSPOT.x * wandW, tipY - WAND_HOTSPOT.y * wandH, wandW, wandH);
+      }
       animationFrameId = requestAnimationFrame(render);
     };
     animationFrameId = requestAnimationFrame(render);
@@ -452,7 +493,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
         $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? 32 : 29}
-        $cursor={readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : 'default')} />
+        $cursor={readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : getDefaultCursor(isCanvasWandReady))} />
     </>
   );
 };
