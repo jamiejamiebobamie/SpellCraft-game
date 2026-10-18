@@ -303,6 +303,35 @@ export abstract class Spell extends UniqueId {
     return { i: nextI, j: nextJ };
   };
 
+  /**
+   * Spends this step without moving (blocked by a stuck sibling). Any lift, slide, swirl or orbit
+   * still counts down, so the spell always finishes its transit instead of freezing mid-way.
+   */
+  forfeitStep = (): void => {
+    if (this.consumedGyres !== 0) {
+      this.consumedGyres -= Math.sign(this.consumedGyres);
+      if (this.consumedGyres === 0) {
+        this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
+        this.clearConsumedRef();
+      }
+      return; // vertical moves don't use up horizontal moves
+    }
+    this.remainingMoves--;
+    if (this.phlegmEntryStepsRemaining > 0) {
+      this.phlegmEntryStepsRemaining--;
+    } else if (this.phlegmDwellStepsRemaining > 0) {
+      this.phlegmDwellStepsRemaining--;
+      if (this.phlegmDwellStepsRemaining === 0) this.reverseDirection();
+    } else if (this.isInPhlegmField) {
+      this.phlegmOrbitStepsRemaining--;
+      if (this.phlegmOrbitStepsRemaining <= 0) {
+        this.isInPhlegmField = false;
+        this.phlegmCenterIndex = null;
+        this.reverseDirection();
+      }
+    }
+  };
+
   /** Where executeSingleMicroStep would move this spell, without moving it. */
   peekNextCellIndex = (): CellIndex => {
     if (this.consumedGyres !== 0) {
@@ -337,16 +366,24 @@ export abstract class Spell extends UniqueId {
     };
     this.consumedGyres -= stepDir;
 
+    // One cell past the Gyre's tip: the spell has left the Gyre
     if (this.consumedGyres == 0) {
+      this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
       this.clearConsumedRef();
     }
   };
+
+  /**
+   * Whether this spell is used up once nothing is inside it. Gyres are only used up when their
+   * capacity is spent (10b); other spells are removed as soon as their last consumer leaves.
+   */
+  getIsUsedUp = (): boolean => true;
 
   clearConsumedRef = (): void => {
     if (this.consumedSpellRef) {
       if (this.movesOutOfConsumed >= 1) {
         this.consumedSpellRef.consumingSpellIds.delete(this.id);
-        if (!this.consumedSpellRef.getIsBeingConsumed()) this.consumedSpellRef.markSpellForRemoval();
+        if (!this.consumedSpellRef.getIsBeingConsumed() && this.consumedSpellRef.getIsUsedUp()) this.consumedSpellRef.markSpellForRemoval();
         this.consumedSpellRef = null;
         this.movesOutOfConsumed = 0;
       } else {
@@ -448,14 +485,38 @@ export abstract class Gyre extends Spell {
     super(caster);
   }
 
+  /**
+   * Lifts a (1x1) spell that entered this Gyre until it is one cell past the Gyre's tip (4a):
+   * GyreUp: entry row − top row + 1 moves up. GyreDown: bottom row − entry row + 1 moves down.
+   * Vertical moves don't use up the spell's horizontal moves.
+   */
   conferModifierTo = (consumer: Spell): void => {
-    // Push regular items vertically relative to entry index
-    consumer.consumedGyres = this.rowShift * (this.heightCells + 1);
-    // Give dynamic max extension loops tracking visibility
-    consumer.remainingMoves += Math.abs(consumer.consumedGyres);
+    const top = this.cellIndex.i;
+    const bottom = top + this.heightCells - 1;
+    const entryRow = Math.min(bottom, Math.max(top, consumer.cellIndex.i));
+    const isUp = this.rowShift < 0;
+    consumer.consumedGyres = isUp ? -(entryRow - top + 1) : bottom - entryRow + 1;
+    if (GYRE_RULES.exitBonusMode === 'legacy') consumer.remainingMoves += this.heightCells + 1;
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
   }
+
+  /** How many spells ('count') or how much power ('power') this Gyre can lift (4c). A 1x1 Gyre lifts one. */
+  getCapacity = (): number => {
+    if (this.heightCells === 1) return 1;
+    if (GYRE_RULES.capacityMode === 'unlimited') return Infinity;
+    return this.heightCells * (GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell);
+  };
+
+  /** Capacity used when a 1x1 spell (or piece) enters: one, or its power in 'power' mode. */
+  getCapacityUse = (entering: Spell): number =>
+    GYRE_RULES.capacityMode === 'power' && this.heightCells > 1 ? entering.getPower() : 1;
+
+  /** At capacity: other spells pass through it. */
+  getIsFull = (): boolean => this.capacityUsed >= this.getCapacity();
+
+  /** Removed once empty: after any use, or (persistsAfterUse) only when full (10b). */
+  getIsUsedUp = (): boolean => GYRE_RULES.persistsAfterUse ? this.getIsFull() : true;
 
   getFocusCost = (): number => Gyre.FOCUS_COST;
 }

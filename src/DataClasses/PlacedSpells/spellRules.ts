@@ -20,6 +20,7 @@ export const GYRE_RULES = {
   capacityPerCell: 1,
   powerCapacityPerCell: 4,
   capacityResetsEachTurn: true,
+  persistsAfterUse: false, // false: a Gyre disappears once its last carried spell exits. true: it stays until its capacity is used up
   maxHeight: 3,
   exitBonusMode: 'none' as 'none' | 'legacy',
   collisionMode: 'power' as 'power' | 'alwaysLoses',

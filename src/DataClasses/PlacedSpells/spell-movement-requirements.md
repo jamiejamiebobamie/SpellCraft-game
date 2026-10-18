@@ -113,7 +113,8 @@ Remaining capacity must be visually indicated (see Design principles).
 ## 5. Gyre consuming a Gyre
 
 ### 5a. Merge and cancel
-- **Same direction** (e.g. GyreUp + GyreUp): the Gyres **always merge**, even when their power is equal (an exception to the tie rule). The winner grows by the loser's height; the loser is destroyed immediately and does not persist.
+- **Equal power** (any direction): both Gyres are destroyed.
+- **Same direction** (e.g. GyreUp + GyreUp): the stronger Gyre grows by the other's height; the other is destroyed immediately and does not persist.
 - **Opposite directions** (GyreUp + GyreDown): the winner shrinks by the loser's height; the loser is destroyed immediately. A Gyre reduced to height 0 is destroyed. Equal heights cancel, destroying both.
 
 ### 5b. Base stays fixed
@@ -170,10 +171,8 @@ Spells collide regardless of caster: a player's own spells can collide with each
 (Points 8 and 9 of the original review are covered by 7b and 7c.)
 
 - **10a. Pausing:** a Phlegm or Gyre stops moving while it is carrying spells. Once all carried spells have exited, it resumes its remaining moves for the turn if it still has capacity.
-- **10b. Removal:** a Phlegm or Gyre is removed only when its capacity is fully used, immediately after its last carried spell exits.
-- **10c. Between turns:** Phlegms and Gyres with capacity remaining survive into the next turn. Whether spent capacity resets or carries over is set by `capacityResetsEachTurn` (default `true`, reset), in both `PHLEGM_RULES` and `GYRE_RULES`.
-
-This replaces the old rule that cleared every Phlegm or Gyre that consumed anything at end of spell movement.
+- **10b. Removal (decided after playtesting):** a Phlegm or Gyre is **used once**. While it is carrying spells, more spells can enter it (up to its capacity). As soon as its last carried spell exits, it is removed, even with capacity left.
+- **10c. Optional persistence:** `GYRE_RULES.persistsAfterUse` (default `false`). When `true`, a Gyre instead survives until its capacity is fully used, and spent capacity resets or carries over between turns per `capacityResetsEachTurn`.
 
 ## 11. Bonus moves (Quicken, Ether, Gyre exit)
 
@@ -219,8 +218,12 @@ Example: a 3x3 Ether hitting a 2x2 Phlegm that covers rows 0-1 splits into a bou
 - Pieces keep the parent's `consumedEthers`, `consumedQuickens`, and `consumedPhlegms`.
 - Pieces keep the **parent's remaining moves** for the rest of the turn.
 - Pieces of the same spell **moving the same direction** never collide with each other and **never share a cell**: a piece whose next cell holds a sibling waits (keeping its move) if that sibling will move away this step; if the sibling is stuck, the piece gives up the move instead.
+- Pieces in transit (orbiting or bouncing in a Phlegm, or being lifted by a Gyre) always queue with their siblings, whichever way they face. A piece stuck behind a sibling still counts down its lift, slide, swirl or orbit, so it never freezes mid-transit.
 - Pieces of the same spell **moving toward each other** (e.g. one reflected by a Phlegm) collide like any other spells. Example: a 1x1 Phlegm reflects one cell of a 2x2 Ether; that cell then meets its sibling head-on and both are destroyed (equal power).
 - Reflection bonus moves (7b) use the parent's power.
+
+### 13e. One transit at a time
+A spell in transit (orbiting or bouncing in a Phlegm, or being lifted by a Gyre) cannot enter another Phlegm or Gyre until it is out. A Phlegm or Gyre that is itself in transit (e.g. a Gyre orbiting a Phlegm) takes no other spells in.
 
 ### 13c. When a Gyre wins
 `GYRE_RULES.collisionMode`:
@@ -288,6 +291,9 @@ QUICKEN_RULES = {
 ## Out of scope
 Drawing logic and sized focus costs (old 1Bi) live in other files and are handled separately.
 
+## Open design question: pieces waiting for a Gyre lift (revisit after playtesting)
+Today, when a sized spell hits a Gyre, the pieces outside the Gyre keep moving and can walk into it while it is still lifting (so more cells may be lifted, up to its capacity). Alternative: those pieces hold still until the lifted pieces have left; the Gyre then disappears (10b) and they pass through, so only the cells that first hit the Gyre are lifted. Cheap to add as a setting (e.g. `GYRE_RULES.piecesWaitForLift`). Trade-off: clearer to read, but Gyres become weaker against Quicken chains.
+
 ## Open design question: placement visibility (turn flow, not spell movement)
 Today the NPC places first and the player watches, so the player always moves second with full information and can counter anything (e.g. a 3x3 Phlegm against a visible 3x3 Ether). This removes the Phlegm's risk of healing the opponent (2a) and will make a trained AI exploitable.
 
@@ -298,8 +304,6 @@ Proposed: a setting `NPC_PLACEMENT_VISIBILITY: 'full' | 'shape' | 'hidden'`:
 
 ## Known bugs (current implementation)
 To fix during the rebuild:
-- Gyres, or parts of Gyres, can persist off the board.
-- Phlegm bonus moves are applied twice with opposite signs (`Phlegm.conferModifierTo` and `doCollision`).
-- `consumedGyres` is set by two conflicting formulas. The GyreDown formula returns an absolute row rather than a distance, and the extra `remainingMoves` it adds gives spells unwanted horizontal moves after leaving a Gyre.
+- Phlegm bonus moves are applied twice with opposite signs (`Phlegm.conferModifierTo` and `applyCollision`).
 - The square merge (Phlegm/Ether combining) does not check that every merged piece fits inside the square.
 - Each consumed Quicken adds +2 moves rather than a flat +1 speed.

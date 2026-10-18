@@ -5,7 +5,7 @@
 //
 // The rules are being rebuilt step by step against spell-movement-requirements.md. Collisions
 // follow requirements 1-2; the rest still follow the original rules (see "Known bugs" there).
-import { Spell, Phlegm, Ether, Gyre, GyreUp, GyreDown, Quicken } from './Spell';
+import { Spell, Phlegm, Ether, Gyre, GyreUp, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex } from '../types';
 import { PHLEGM_RULES, GYRE_RULES } from './spellRules';
@@ -131,6 +131,19 @@ type CellRect = { i: number; j: number; w: number; h: number };
 
 const getIsBouncing = (spell: Spell): boolean => spell.phlegmEntryStepsRemaining > 0 || spell.phlegmDwellStepsRemaining > 0;
 
+const getIsTerrain = (spell: Spell): boolean => spell instanceof Phlegm || spell instanceof Gyre;
+
+/** Orbiting or bouncing in a Phlegm, or being lifted by a Gyre. */
+const getIsInTransit = (spell: Spell): boolean => spell.isInPhlegmField || getIsBouncing(spell) || spell.consumedGyres !== 0;
+
+/**
+ * Siblings that must not move into each other's cells: same direction, or either in transit (an
+ * orbiting piece only reverses at the end of the step it exits, so its direction can't be trusted).
+ */
+const getIsQueueingSiblings = (a: Spell, b: Spell): boolean =>
+  !!a.fragmentGroupId && getFragmentFamily(a) === getFragmentFamily(b) &&
+  (Math.sign(a.speedDirection) === Math.sign(b.speedDirection) || getIsInTransit(a) || getIsInTransit(b));
+
 /**
  * A Phlegm's capacity (7c): how many spells ('count') or how much power ('power') it can take
  * before it is used up. A 1x1 Phlegm always takes exactly one spell.
@@ -223,9 +236,10 @@ export class SpellMovementEngine {
   simulateTurn = (): SpellTurnLog => {
     this.frames = [];
 
-    if (PHLEGM_RULES.capacityResetsEachTurn) {
-      this.spells.forEach(s => { if (s instanceof Phlegm) s.capacityUsed = 0; });
-    }
+    this.spells.forEach(s => {
+      if (s instanceof Phlegm && PHLEGM_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
+      if (s instanceof Gyre && GYRE_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
+    });
 
     this.spells.forEach(s => {
       if (!s.getIsRemove()) {
@@ -280,8 +294,24 @@ export class SpellMovementEngine {
     this.pendingHealthEvents = [];
   };
 
+  /**
+   * End of turn: Phlegms and Gyres that took any spell are cleared (10b). With
+   * GYRE_RULES.persistsAfterUse, a Gyre instead lets go of what it carries and survives until full.
+   */
   private removeConsumed = (): void => {
-    this.spells.filter(spell => !!spell.consumingSpellIds.size).forEach(s => s.markSpellForRemoval());
+    this.spells.filter(spell => !!spell.consumingSpellIds.size).forEach(s => {
+      if (!(s instanceof Gyre)) {
+        s.markSpellForRemoval();
+        return;
+      }
+      this.spells.forEach(carried => { if (carried.consumedSpellRef === s) carried.consumedSpellRef = null; });
+      s.consumingSpellIds.clear();
+      if (s.getIsUsedUp()) s.markSpellForRemoval();
+    });
+    // A used Gyre that is no longer carrying anything is cleared too
+    this.spells.forEach(s => {
+      if (s instanceof Gyre && s.capacityUsed > 0 && s.getIsUsedUp() && !s.getIsRemove()) s.markSpellForRemoval();
+    });
   };
 
   private removeInvalidSpells = (): void => {
@@ -317,7 +347,7 @@ export class SpellMovementEngine {
     const findBlockers = (piece: Spell, pieceOrder: number): Array<Spell> => {
       const target = targets.get(piece)!;
       return this.spells.filter(sibling => {
-        if (sibling === piece || sibling.getIsRemove() || !isSameSpellPieces(piece, sibling)) return false;
+        if (sibling === piece || sibling.getIsRemove() || !getIsQueueingSiblings(piece, sibling)) return false;
         const isSiblingMoving = targets.has(sibling) && !blocked.has(sibling);
         const siblingCell = isSiblingMoving ? targets.get(sibling)! : sibling.cellIndex;
         if (!overlapsBoundingBox(target, piece.widthCells, piece.heightCells, siblingCell, sibling.widthCells, sibling.heightCells)) return false;
@@ -361,8 +391,7 @@ export class SpellMovementEngine {
 
       // A blocked piece stays put: it either waits (keeping its move) or gives the move up
       if (blockedPieces.has(spell)) {
-        const isWaiting = blockedPieces.get(spell);
-        if (!isWaiting && !isGyreMove) spell.remainingMoves--;
+        if (!blockedPieces.get(spell)) spell.forfeitStep(); // stuck behind a sibling: give the step up
         continue;
       }
 
@@ -392,19 +421,15 @@ export class SpellMovementEngine {
         continue;
       }
 
+      // Pushed above or below the board by a Gyre (4b)
       if (minI < 0 || maxI >= GameBoard.NUM_ROWS) {
-
-        const validMinI = Math.max(0, minI);
-        const validMaxI = Math.min(GameBoard.NUM_ROWS - 1, maxI);
-        const newHeight = (validMaxI - validMinI) + 1;
-
-        if (newHeight <= 0) {
-          spell.markSpellForRemoval();
-        } else {
-          spell.heightCells = newHeight;
-          spell.setCellIndex({ i: validMinI, j: nextCellIndex.j });
-
+        if (GYRE_RULES.offBoardMode === 'clamp') {
+          spell.setCellIndex({ i: Math.min(GameBoard.NUM_ROWS - spell.heightCells, Math.max(0, minI)), j: nextCellIndex.j });
           spell.consumedGyres = 0;
+          spell.movesOutOfConsumed = Math.max(1, spell.movesOutOfConsumed);
+          spell.clearConsumedRef();
+        } else {
+          spell.markSpellForRemoval();
         }
       }
     }
@@ -539,13 +564,26 @@ export class SpellMovementEngine {
     if (b.isInPhlegmField && a instanceof Phlegm) return false;
     if (getIsBouncing(a) && b instanceof Phlegm) return false; // bouncing blocks too
     if (getIsBouncing(b) && a instanceof Phlegm) return false;
+    // A spell in transit (inside a Phlegm or being lifted by a Gyre) can't enter another Phlegm or
+    // Gyre until it is out, and a Phlegm/Gyre that is itself in transit can't take in other spells
+    if (getIsInTransit(a) && getIsTerrain(b)) return false;
+    if (getIsInTransit(b) && getIsTerrain(a)) return false;
+    if ((getIsTerrain(a) && getIsInTransit(a)) || (getIsTerrain(b) && getIsInTransit(b))) return false;
     if (getIsPhlegmFull(a) || getIsPhlegmFull(b)) return false; // used-up Phlegms are passed through (7c)
+    // Used-up Gyres are passed through by other spells (4c), but still merge with Gyres (5d)
+    const isGyreMeeting = a instanceof Gyre && b instanceof Gyre;
+    if (!isGyreMeeting && ((a instanceof Gyre && a.getIsFull()) || (b instanceof Gyre && b.getIsFull()))) return false;
     return true;
   };
 
   private resolvePair = ({ a, b, isSwap }: CollisionPair, positionCache: Map<string, CellIndex>): void => {
     // An earlier collision this step may have changed either spell (1b)
     if (!this.getCanCollide(a, b)) return;
+
+    if (a instanceof Gyre && b instanceof Gyre) {
+      this.resolveGyreMeeting(a, b);
+      return;
+    }
 
     const decision = this.decideCollision(a, b);
 
@@ -560,9 +598,10 @@ export class SpellMovementEngine {
     }
 
     const { winner, loser } = decision;
-    // (sized spells use capacity per cell, in breakUpAtPhlegm)
+    // (sized spells use capacity per cell, in breakUpAtPhlegm / breakUpAtGyre)
     const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
     if (loser instanceof Phlegm && !isWinnerSized) loser.capacityUsed += getPhlegmCapacityUse(loser, winner);
+    if (loser instanceof Gyre && !isWinnerSized) loser.capacityUsed += loser.getCapacityUse(winner);
     // Spells that swapped places meet in the loser's cell, so the winner ends up inside it
     if (isSwap && !loser.getIsBeingConsumed()) this.revertMove(loser, positionCache);
     this.applyCollision(winner, loser);
@@ -618,35 +657,88 @@ export class SpellMovementEngine {
       this.breakUpAtPhlegm(winner, loser, winnerRemainingMoves);
       return;
     }
+    if (isWinnerSized && loser instanceof Gyre) {
+      this.breakUpAtGyre(winner, loser, winnerRemainingMoves);
+      return;
+    }
 
+    // Phlegm: orbit. Gyre: lift (Gyre.conferModifierTo). Ether/Quicken: their bonus.
     winner.resolveSpellCollision(loser);
 
-    let extraMoves = 0;
     if (loser instanceof Phlegm) {
       const phlegmDmg = loser.getPropertyValue('dmgHealth');
       const winnerDmg = winner.getPropertyValue('dmgHealth');
       const absoluteDiff = Math.abs(phlegmDmg) - Math.abs(winnerDmg);
-      extraMoves = Math.max(Math.floor(absoluteDiff / 5), 1);
+      winner.remainingMoves += Math.max(Math.floor(absoluteDiff / 5), 1);
+    }
+  };
+
+  /**
+   * Two Gyres meet (5). Equal power: both are destroyed. Otherwise, same direction: the stronger
+   * grows by the other's height; opposite directions: the stronger shrinks by the other's height.
+   * The absorbed Gyre is destroyed immediately.
+   */
+  private resolveGyreMeeting = (a: Gyre, b: Gyre): void => {
+    const isSameDirection = (a instanceof GyreUp) === (b instanceof GyreUp);
+    const [winner, loser] = a.getPower() >= b.getPower() ? [a, b] : [b, a];
+
+    if (a.getPower() === b.getPower()) {
+      a.markSpellForRemoval();
+      b.markSpellForRemoval();
+      return;
     }
 
-    if (isWinnerSized && isCollisionWithTerrain) {
-      // Only apply direct shortcuts if the WINNER is also a native Gyre.
-      // If a sized Quicken or Ether hits a Gyre, it MUST shatter first so its fragments are individual objects!
-      if (loser instanceof Gyre && winner instanceof Gyre) {
-        const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
-        winner.consumedGyres = rowShifts;
-      } else {
-        this.shatterSpellIntoFragments(winner, loser, winnerRemainingMoves);
-      }
-    } else if (loser instanceof Gyre) {
-      const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
-      winner.consumedGyres = rowShifts;
-      // Ensure the link is established so horizontal spells can execute moveVertically()
-      winner.consumedSpellRef = loser;
-      loser.consumingSpellIds.add(winner.id);
-    } else if (loser instanceof Phlegm && extraMoves > 0) {
-      winner.remainingMoves += extraMoves;
+    this.resizeGyre(winner, isSameDirection ? winner.heightCells + loser.heightCells : winner.heightCells - loser.heightCells);
+    winner.capacityUsed += loser.capacityUsed; // spent capacity carries over (5d)
+    winner.consumedEthers += loser.consumedEthers;
+    winner.consumedQuickens += loser.consumedQuickens;
+    loser.markSpellForRemoval();
+  };
+
+  /**
+   * Sets a Gyre's height with its base fixed (5b): a GyreUp's bottom cell, a GyreDown's top cell.
+   * Height is capped by GYRE_RULES.maxHeight and the board edge in its growth direction (5c).
+   */
+  private resizeGyre = (gyre: Gyre, height: number): void => {
+    if (height <= 0) {
+      gyre.markSpellForRemoval();
+      return;
     }
+    const top = gyre.cellIndex.i;
+    if (gyre instanceof GyreUp) {
+      const bottom = top + gyre.heightCells - 1;
+      gyre.heightCells = Math.min(height, GYRE_RULES.maxHeight, bottom + 1);
+      gyre.setCellIndex({ i: bottom - gyre.heightCells + 1, j: gyre.cellIndex.j });
+    } else {
+      gyre.heightCells = Math.min(height, GYRE_RULES.maxHeight, GameBoard.NUM_ROWS - top);
+    }
+  };
+
+  /**
+   * A sized spell hitting a Gyre (13a): its cells inside the Gyre break off as 1x1 pieces and are
+   * lifted, as many as the Gyre's capacity allows (leading cells first). The rest keep going.
+   */
+  private breakUpAtGyre = (parent: Spell, gyre: Gyre, parentRemainingMoves: number): void => {
+    const isInsideGyre = (cell: CellIndex) => overlapsBoundingBox(cell, 1, 1, gyre.cellIndex, gyre.widthCells, gyre.heightCells);
+    const cells = getFootprintCells(parent);
+    const groupId = parent.fragmentGroupId || parent.id;
+
+    const cellCost = gyre.getCapacityUse(parent) === 1 ? 1 : parent.baseCellDmg;
+    const capacityLeft = Math.floor((gyre.getCapacity() - gyre.capacityUsed) / cellCost);
+    const dir = Math.sign(parent.speedDirection) || 1;
+    const byLeadingColumn = (a: CellIndex, b: CellIndex) => (b.j - a.j) * dir || a.i - b.i;
+    const lifted = cells.filter(isInsideGyre).sort(byLeadingColumn).slice(0, Math.max(0, capacityLeft));
+    if (!lifted.length) return; // nothing inside, or no capacity left: the spell passes through
+
+    gyre.capacityUsed += lifted.length * cellCost;
+    lifted.forEach(cell => {
+      const piece = this.createPiece(parent, gyre, { ...cell, w: 1, h: 1 }, parentRemainingMoves, groupId);
+      piece.resolveSpellCollision(gyre); // lift
+    });
+    const isLifted = (c: CellIndex) => lifted.some(l => l.i === c.i && l.j === c.j);
+    splitIntoAllowedShapes(parent, cells.filter(c => !isLifted(c)))
+      .forEach(rect => this.createPiece(parent, gyre, rect, parentRemainingMoves, groupId));
+    this.removeShatteredParent(parent, gyre);
   };
 
   /**
@@ -761,160 +853,6 @@ export class SpellMovementEngine {
     this.spells.push(piece);
     return piece;
   };
-
-  private shatterSpellIntoFragments = (parent: Spell, hit: Spell, parentRemainingMoves: number): [Array<Spell>, number] => {
-    const fragments: Array<Spell> = [];
-
-    const hitDir = Math.sign(hit.getPropertyValue('speedDirection'));
-    // The hit spell's leading column (cellIndex is always its left-most column)
-    const hitColumn = hitDir > 0 ? hit.getCellIndex().j + hit.widthCells - 1 : hit.getCellIndex().j;
-    const hitMinColumn = hit.getCellIndex().j;
-    const hitMaxColumn = hit.getCellIndex().j + (hit.widthCells - 1);
-
-    const hitMinRow = hit.getCellIndex().i;
-    const hitMaxRow = hit.getCellIndex().i + (hit.heightCells - 1);
-
-    // Pieces move at the parent's speed for the rest of the turn (13b)
-    const remainingMoves = parentRemainingMoves;
-
-    if (parent instanceof Gyre) {
-      // Only trigger the row shortcut if hitting another Gyre. If hitting a Phlegm or Ether, bypass this and fall directly to shattering!
-      const isHittingAnotherGyre = hit instanceof Gyre;
-
-      if (parent instanceof GyreUp && isHittingAnotherGyre) {
-        const gyreRoot = parent.cellIndex.i + parent.heightCells - 1;
-        const lowestPoint = hit.cellIndex.i + hit.heightCells - 1;
-
-        if (gyreRoot === lowestPoint) {
-          hit.conferModifierTo(parent);
-          return [[], remainingMoves];
-        } else {
-          let frag = new (parent.constructor as any)(parent.caster);
-          frag.widthCells = 1;
-          frag.heightCells = parent.heightCells - (gyreRoot - lowestPoint);
-          frag.setCellIndex({ i: lowestPoint, j: hitColumn });
-          frag.consumedEthers = parent.consumedEthers;
-          frag.consumedQuickens = parent.consumedQuickens;
-          frag.consumedPhlegms = parent.consumedPhlegms;
-          frag.recordedMovesCount = parent.recordedMovesCount;
-          frag.remainingMoves = remainingMoves;
-          frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
-          frag.consumingSpellIds = new Set();
-          frag.consumedSpellRef = null;
-          frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
-          frag.fragmentBreakerId = hit.id;
-
-          this.spells.push(frag);
-          fragments.push(frag);
-
-          frag = new (parent.constructor as any)(parent.caster);
-          frag.widthCells = 1;
-          frag.heightCells = gyreRoot - lowestPoint;
-          frag.setCellIndex({ i: gyreRoot, j: hitColumn });
-          frag.consumedEthers = parent.consumedEthers;
-          frag.consumedQuickens = parent.consumedQuickens;
-          frag.consumedPhlegms = parent.consumedPhlegms;
-          frag.recordedMovesCount = parent.recordedMovesCount;
-          frag.remainingMoves = remainingMoves;
-          frag.consumingSpellIds = new Set();
-          frag.consumedSpellRef = null;
-          frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
-          frag.fragmentBreakerId = hit.id;
-
-          this.spells.push(frag);
-          fragments.push(frag);
-
-          this.removeShatteredParent(parent, hit);
-          return [fragments, remainingMoves];
-        }
-      }
-      else if (parent instanceof GyreDown && isHittingAnotherGyre) {
-        const gyreRoot = parent.cellIndex.i;
-        const lowestPoint = hit.cellIndex.i;
-        if (gyreRoot === lowestPoint) {
-          hit.conferModifierTo(parent);
-          return [[], remainingMoves];
-        } else {
-          let frag = new (parent.constructor as any)(parent.caster);
-          frag.widthCells = 1;
-          frag.heightCells = parent.heightCells - (lowestPoint - gyreRoot);
-          frag.setCellIndex({ i: lowestPoint, j: hitColumn });
-          frag.consumedEthers = parent.consumedEthers;
-          frag.consumedQuickens = parent.consumedQuickens;
-          frag.consumedPhlegms = parent.consumedPhlegms;
-          frag.recordedMovesCount = parent.recordedMovesCount;
-          frag.remainingMoves = remainingMoves;
-          frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
-          frag.consumingSpellIds = new Set();
-          frag.consumedSpellRef = null;
-          frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
-          frag.fragmentBreakerId = hit.id;
-
-          this.spells.push(frag);
-          fragments.push(frag);
-
-          frag = new (parent.constructor as any)(parent.caster);
-          frag.widthCells = 1;
-          frag.heightCells = lowestPoint - gyreRoot;
-          frag.setCellIndex({ i: gyreRoot, j: hitColumn });
-          frag.consumedEthers = parent.consumedEthers;
-          frag.consumedQuickens = parent.consumedQuickens;
-          frag.consumedPhlegms = parent.consumedPhlegms;
-          frag.recordedMovesCount = parent.recordedMovesCount;
-          frag.consumingSpellIds = new Set();
-          frag.consumedSpellRef = null;
-          frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
-          frag.fragmentBreakerId = hit.id;
-
-          this.spells.push(frag);
-          fragments.push(frag);
-
-          this.removeShatteredParent(parent, hit);
-          return [fragments, remainingMoves];
-        }
-      }
-
-      // FALLBACK BREAKDOWN FOR PHLEGM/TERRAIN: If it hits a Phlegm, let it fall through to the matrix loop below!
-    }
-
-    // Standard matrix fracturing: every piece stays on its own cell of the parent's footprint
-    for (let r = 0; r < parent.heightCells; r++) {
-      for (let c = 0; c < parent.widthCells; c++) {
-        const i = parent.cellIndex.i + r;
-        const j = parent.cellIndex.j + c;
-
-        let frag = new (parent.constructor as any)(parent.caster);
-        frag.widthCells = 1;
-        frag.heightCells = 1;
-        frag.setCellIndex({ i, j });
-
-        frag.consumedEthers = parent.consumedEthers;
-        frag.consumedQuickens = parent.consumedQuickens;
-        frag.consumedPhlegms = parent.consumedPhlegms;
-        frag.recordedMovesCount = parent.recordedMovesCount;
-        frag.remainingMoves = remainingMoves;
-
-        frag.consumingSpellIds = new Set();
-        frag.consumedSpellRef = null;
-        frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
-        frag.fragmentBreakerId = hit.id;
-
-        // Pieces already inside the hit spell are consumed by it; the rest keep moving and collide later
-        const isOverlappingColumn = j >= hitMinColumn && j <= hitMaxColumn;
-        const isOverlappingRow = i >= hitMinRow && i <= hitMaxRow;
-
-        if (isOverlappingColumn && isOverlappingRow) {
-          hit.consumingSpellIds.add(frag.id);
-          frag.resolveSpellCollision(hit);
-        }
-        this.spells.push(frag);
-        fragments.push(frag);
-      }
-    }
-
-    this.removeShatteredParent(parent, hit);
-    return [fragments, remainingMoves];
-  };
 }
 
 // --- Combining -------------------------------------------------------------------------------
@@ -1010,11 +948,13 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
         let stackHeight = root.heightCells;
         const matchesToMerge: Spell[] = [];
 
-        while (i + stackHeight < MAX_ROWS && stackHeight < GameBoard.NUM_ROWS) {
+        while (i + stackHeight < MAX_ROWS) {
           const neighbor = matrix[i + stackHeight][j];
-          if (componentsMatch(root, neighbor) && neighbor instanceof Gyre) {
-            matchesToMerge.push(neighbor);
-            stackHeight += neighbor.heightCells;
+          const isStackable = componentsMatch(root, neighbor) && neighbor instanceof Gyre &&
+            stackHeight + neighbor.heightCells <= GYRE_RULES.maxHeight;
+          if (isStackable) {
+            matchesToMerge.push(neighbor!);
+            stackHeight += neighbor!.heightCells;
           } else {
             break;
           }
@@ -1024,6 +964,9 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
           processed.add(root.id);
           matchesToMerge.forEach(m => {
             processed.add(m.id);
+            root.consumedQuickens += m.consumedQuickens;
+            root.consumedEthers += m.consumedEthers;
+            root.capacityUsed += m.capacityUsed;
             m.markSpellForRemoval();
           });
           root.widthCells = 1;

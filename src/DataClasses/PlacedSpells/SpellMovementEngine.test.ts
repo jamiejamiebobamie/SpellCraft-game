@@ -1,19 +1,21 @@
 // SpellMovementEngine.test.ts
 // Saved scenarios for the spell-movement rules (see spell-movement-requirements.md). Run: npm test
 import { afterEach, describe, expect, it } from 'vitest';
-import { Ether, Phlegm, Quicken, Spell } from './Spell';
+import { Ether, Gyre, GyreDown, GyreUp, Phlegm, Quicken, Spell } from './Spell';
 import { Player } from '../Player/Player';
 import { SpellMovementEngine, SpellTurnFrame } from './SpellMovementEngine';
-import { PHLEGM_RULES } from './spellRules';
+import { GYRE_RULES, PHLEGM_RULES } from './spellRules';
 
 const player = new Player(1, ''); // moves right
 const npc = new Player(-1, ''); // moves left
 
-type SpellClass = typeof Ether | typeof Phlegm | typeof Quicken;
+type SpellClass = typeof Ether | typeof Phlegm | typeof Quicken | typeof GyreUp | typeof GyreDown;
 
+/** `size` is the width of a Quicken chain, the height of a Gyre, or the side of a square spell. */
 const place = (SpellType: SpellClass, caster: Player, i: number, j: number, size: number = 1): Spell => {
   const spell = new SpellType(caster);
-  spell.widthCells = size;
+  const isGyre = SpellType === GyreUp || SpellType === GyreDown;
+  spell.widthCells = isGyre ? 1 : size;
   spell.heightCells = SpellType === Quicken ? 1 : size;
   spell.setCellIndex({ i, j });
   return spell;
@@ -38,8 +40,16 @@ const finalBoard = (turns: Array<Array<SpellTurnFrame>>): Array<Spell> => {
 
 const byId = (frame: SpellTurnFrame, spell: Spell): Spell | undefined => frame.spells.find(s => s.id === spell.id);
 
+/** Every state a spell was in across the given turns, in order. */
+const statesOf = (turns: Array<Array<SpellTurnFrame>>, spell: Spell): Array<Spell> =>
+  turns.flat().map(f => byId(f, spell)).filter(Boolean) as Array<Spell>;
+
 const DEFAULT_PHLEGM_RULES = { ...PHLEGM_RULES };
-afterEach(() => { Object.assign(PHLEGM_RULES, DEFAULT_PHLEGM_RULES); });
+const DEFAULT_GYRE_RULES = { ...GYRE_RULES };
+afterEach(() => {
+  Object.assign(PHLEGM_RULES, DEFAULT_PHLEGM_RULES);
+  Object.assign(GYRE_RULES, DEFAULT_GYRE_RULES);
+});
 
 describe('1a. collision detection', () => {
   it('catches spells that swap places head-on instead of letting them pass through', () => {
@@ -225,6 +235,102 @@ describe('13. sized spells hitting a Phlegm', () => {
   });
 });
 
+describe('4-5. Gyres', () => {
+  it('GyreUp lifts a spell to one cell past its tip, with no extra horizontal moves', () => {
+    const gyre = place(GyreUp, player, 1, 1, 2); // rows 1-2
+    const ether = place(Ether, npc, 2, 4); // enters at row 2
+    const turns = runTurns([gyre, ether], 3);
+    const etherStates = statesOf(turns, ether).filter(s => !s.isRemove);
+    expect(Math.min(...etherStates.map(s => s.cellIndex.i))).toBe(0); // 2 - 1 + 1 = 2 moves up
+    // After the lift it carries on along row 0 at its normal speed (1 per turn)
+    const liftedAt = etherStates.findIndex(s => s.cellIndex.i === 0);
+    const columnsAfterLift = etherStates.slice(liftedAt).filter((s, k, all) => k === 0 || s.cellIndex.j !== all[k - 1].cellIndex.j);
+    expect(columnsAfterLift.every((s, k) => k === 0 || s.cellIndex.j === columnsAfterLift[k - 1].cellIndex.j - 1)).toBe(true);
+  });
+
+  it('GyreDown pushes a spell entering at its base to one cell past its tip', () => {
+    const gyre = place(GyreDown, player, 0, 1, 2); // rows 0-1, base at row 0
+    const ether = place(Ether, npc, 0, 4);
+    const turns = runTurns([gyre, ether], 3);
+    expect(Math.max(...statesOf(turns, ether).map(s => s.cellIndex.i))).toBe(2); // 1 - 0 + 1 = 2 moves down
+  });
+
+  it("'destroy': a spell pushed off the board is destroyed; 'clamp': it stops at the edge", () => {
+    // A 1x1 GyreUp on the top row lifts anything that enters it to row -1
+    const destroyed = place(Ether, npc, 0, 4);
+    const destroyRun = runTurns([place(GyreUp, player, 0, 1), destroyed], 3);
+    expect(statesOf(destroyRun, destroyed).some(s => s.isRemove && s.cellIndex.i < 0)).toBe(true);
+
+    GYRE_RULES.offBoardMode = 'clamp';
+    const clamped = place(Ether, npc, 0, 4);
+    const clampRun = runTurns([place(GyreUp, player, 0, 1), clamped], 3);
+    const clampedStates = statesOf(clampRun, clamped);
+    expect(clampedStates.every(s => s.cellIndex.i >= 0)).toBe(true);
+    expect(clampedStates.some(s => !s.isRemove && s.cellIndex.j <= 1)).toBe(true); // got past the Gyre
+  });
+
+  it('a 1x1 Gyre lifts one spell, then is used up and removed', () => {
+    const gyre = place(GyreDown, player, 1, 1);
+    const first = place(Ether, npc, 1, 4);
+    const second = place(Ether, npc, 1, 5);
+    const turns = runTurns([gyre, first, second], 3);
+    expect(statesOf(turns, first).some(s => s.cellIndex.i === 2)).toBe(true);
+    expect(statesOf(turns, second).every(s => s.cellIndex.i === 1)).toBe(true);
+    expect(finalBoard(turns).some(s => s.id === gyre.id)).toBe(false);
+  });
+
+  it('a Gyre disappears once the spells it lifted have left it (10b)', () => {
+    const gyre = place(GyreDown, player, 0, 1, 2); // power 8, capacity 2; lifts one spell
+    const ether = place(Ether, npc, 1, 4); // power 10, so it enters the Gyre
+    const turns = runTurns([gyre, ether], 3);
+    expect(statesOf(turns, ether).some(s => s.cellIndex.i === 2)).toBe(true); // pushed down past the tip
+    expect(finalBoard(turns).some(s => s.id === gyre.id)).toBe(false);
+  });
+
+  it("persistsAfterUse: a sized Gyre with capacity left survives into the next turn", () => {
+    GYRE_RULES.persistsAfterUse = true;
+    const gyre = place(GyreDown, player, 0, 1, 2);
+    const ether = place(Ether, npc, 1, 4);
+    const turns = runTurns([gyre, ether], 3);
+    const survivor = finalBoard([turns[1]]).find(s => s.id === gyre.id);
+    expect(survivor?.isRemove).toBe(false);
+  });
+
+  it('equally matched Gyres destroy each other, whatever their direction', () => {
+    const a = place(GyreUp, player, 2, 2);
+    const b = place(GyreUp, npc, 2, 4);
+    expect(finalBoard(runTurns([a, b], 2)).filter(s => s instanceof Gyre && !s.isRemove)).toHaveLength(0);
+  });
+
+  it('same-direction Gyres merge, growing from the base; opposite Gyres cancel', () => {
+    const tall = place(GyreUp, player, 1, 2, 2); // rows 1-2, base row 2
+    const short = place(GyreUp, npc, 2, 4); // row 2
+    const merged = finalBoard(runTurns([tall, short], 2)).filter(s => s instanceof Gyre && !s.isRemove);
+    expect(merged).toHaveLength(1);
+    expect([merged[0].heightCells, merged[0].cellIndex.i]).toEqual([3, 0]);
+
+    const up = place(GyreUp, player, 1, 2, 2);
+    const down = place(GyreDown, npc, 2, 4); // shrinks the GyreUp by 1, from its tip
+    const shrunk = finalBoard(runTurns([up, down], 2)).filter(s => s instanceof Gyre && !s.isRemove);
+    expect(shrunk).toHaveLength(1);
+    expect([shrunk[0].heightCells, shrunk[0].cellIndex.i]).toEqual([1, 2]);
+
+    const a = place(GyreUp, player, 2, 2);
+    const b = place(GyreDown, npc, 2, 4);
+    expect(finalBoard(runTurns([a, b], 2)).filter(s => s instanceof Gyre && !s.isRemove)).toHaveLength(0);
+  });
+
+  it('a sized spell hitting a Gyre only has its overlapping cells lifted', () => {
+    const gyre = place(GyreDown, player, 1, 1, 2); // rows 1-2
+    const quicken = place(Quicken, npc, 1, 4, 3); // a 3-cell chain in row 1
+    const frames = runTurns([gyre, quicken], 2).flat();
+    const firstContact = frames.find(f => f.spells.some(s => s instanceof Quicken && !s.isRemove && s.consumedGyres !== 0))!;
+    const quickens = firstContact.spells.filter(s => s instanceof Quicken && !s.isRemove);
+    expect(quickens.filter(s => s.consumedGyres !== 0).map(s => s.widthCells)).toEqual([1]); // one cell lifted
+    expect(quickens.some(s => s.consumedGyres === 0 && s.widthCells === 2 && s.cellIndex.i === 1)).toBe(true); // rest still chained
+  });
+});
+
 describe('invariants on random boards', () => {
   const mulberry32 = (seed: number) => () => {
     seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -239,10 +345,11 @@ describe('invariants on random boards', () => {
     const occupied = new Set<string>();
     const spells: Array<Spell> = [];
     for (let k = 0; k < 2 + pick(6); k++) {
-      const SpellType = [Phlegm, Ether, Quicken][pick(3)];
+      const SpellType = [Phlegm, Ether, Quicken, GyreUp, GyreDown][pick(5)];
       const caster = rand() < 0.5 ? player : npc;
-      const size = 1 + pick(SpellType === Quicken ? 3 : 3);
-      const w = size, h = SpellType === Quicken ? 1 : size;
+      const size = 1 + pick(3);
+      const isGyre = SpellType === GyreUp || SpellType === GyreDown;
+      const w = isGyre ? 1 : size, h = SpellType === Quicken ? 1 : size;
       const i = pick(3 - h + 1);
       const j = caster === player ? pick(3 - w + 1) : 4 + pick(3 - w + 1);
       const cells: Array<string> = [];
@@ -261,6 +368,17 @@ describe('invariants on random boards', () => {
         turnEnd.spells.filter(s => !s.isRemove).forEach(s => {
           expect([s.phlegmEntryStepsRemaining, s.phlegmDwellStepsRemaining], `seed ${seed}`).toEqual([0, 0]);
           expect(s.isInPhlegmField && s.phlegmOrbitStepsRemaining > 0, `seed ${seed}`).toBe(false);
+        });
+      });
+    }
+  });
+
+  it('Gyres always stay on the board, within their max height', () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      runTurns(randomBoard(seed), 3).flat().forEach(f => {
+        f.spells.filter(s => s instanceof Gyre && !s.isRemove).forEach(g => {
+          expect(g.cellIndex.i >= 0 && g.cellIndex.i + g.heightCells <= 3, `seed ${seed}`).toBe(true);
+          expect(g.heightCells <= GYRE_RULES.maxHeight, `seed ${seed}`).toBe(true);
         });
       });
     }
