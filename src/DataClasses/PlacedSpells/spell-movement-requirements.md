@@ -161,6 +161,8 @@ Orbit moves are added to the spell's moves for the turn and do not use up its ho
 ### 7c. Phlegm capacity
 Phlegms use the same tunable capacity model as Gyres (4c): `count` / `power` / `unlimited`, with optional reset each turn. A 1x1 Phlegm consumes one spell, then is destroyed.
 
+Capacity is used **per cell**: a sized spell hitting a Phlegm only has as many of its cells taken (reflected or orbited) as the Phlegm has capacity left, leading cells first; the rest keep going (13a). With the default `count` capacity, a 1x1 Phlegm takes 1 cell, a 2x2 up to 4, a 3x3 up to 9. A used-up Phlegm takes no part in collisions: later spells pass through it.
+
 ### 7d. Friendly collisions
 Spells collide regardless of caster: a player's own spells can collide with each other (e.g. a faster spell overtaking a slower one).
 
@@ -199,19 +201,25 @@ No special rule. The old "Quickens race through Ethers" requirement is dropped: 
 ## 13. Breaking apart sized spells
 
 ### 13a. When and how
-When a sized spell (larger than 1x1) wins a collision against a Phlegm or Gyre:
-1. Only the cells overlapping the Phlegm/Gyre become **1x1 pieces**, which enter it (each uses 1 capacity).
-2. The remaining cells are split into the **largest valid shapes** for the spell's type (squares for Ether/Phlegm, vertical stacks for Gyre, horizontal chains for Quicken; see 14). Ties are broken by scanning from the top-left, so the result is deterministic.
-3. A larger piece only breaks again when it reaches the Phlegm/Gyre itself, using the same rule.
+When a sized spell (larger than 1x1) wins a collision:
+- **Against a Phlegm**, by shape:
+  - **Single-row spells (Quicken chains)** enter cell by cell: cells inside the Phlegm break off as 1x1 pieces that orbit it in single file (7a); the rest stays chained and breaks off as it reaches the Phlegm. Example: a 1x3 chain becomes 1x1 + 1x2, then 1x1 + 1x1 + 1x1, orbits, exits, and recombines (13d).
+  - **Taller spells (Ethers, sized Phlegms, Gyres)** split by rows: the rows touching the Phlegm **bounce off it as a block**: the block first slides into the Phlegm (until centered on it if it fits, otherwise until its front edge reaches the Phlegm's far side), then swirls in place (shown rotating) for the orbit's duration (`4 × (Phlegm size − 1)` steps, at least 1), then reversing. The other rows keep going. If every row touches, the whole spell bounces without breaking up.
+  - **1x1 spells** orbit as in 7a.
+- **Against a Gyre** (not yet rebuilt, step 3): only the cells overlapping the Gyre become 1x1 pieces, which enter it (each uses 1 capacity).
 
-Example: a 3x3 Ether whose leading column overlaps a 3x1 Gyre becomes three 1x1 pieces (entering the Gyre) plus a 3x2 remainder, which splits into one 2x2 and two 1x1s: five 1x1s and one 2x2 in total.
+Whenever cells are split off, they form the **largest valid shapes** for the spell's type (squares for Ether/Phlegm, vertical stacks for Gyre, horizontal chains for Quicken; see 14). Ties are broken by scanning from the top-left, so the result is deterministic.
+
+Example: a 3x3 Ether hitting a 2x2 Phlegm that covers rows 0-1 splits into a bouncing 3x2 part (one 2x2 and two 1x1s) and a 3x1 part in row 2 that keeps going.
 
 ### 13b. Piece behavior
 - Pieces keep moving. Most will move into the Phlegm/Gyre on later steps.
 - In collisions with **the Phlegm/Gyre that broke them apart**, pieces use the **parent's power** (before breaking). In all other collisions, they use their own power.
 - In `'power'` capacity mode, a piece drains capacity by **its own** power, not the parent's.
 - Pieces keep the parent's `consumedEthers`, `consumedQuickens`, and `consumedPhlegms`.
-- Pieces move at the **parent's speed** for the rest of the turn, and pieces from the same parent never collide with each other.
+- Pieces keep the **parent's remaining moves** for the rest of the turn.
+- Pieces of the same spell **moving the same direction** never collide with each other and **never share a cell**: a piece whose next cell holds a sibling waits (keeping its move) if that sibling will move away this step; if the sibling is stuck, the piece gives up the move instead.
+- Pieces of the same spell **moving toward each other** (e.g. one reflected by a Phlegm) collide like any other spells. Example: a 1x1 Phlegm reflects one cell of a 2x2 Ether; that cell then meets its sibling head-on and both are destroyed (equal power).
 - Reflection bonus moves (7b) use the parent's power.
 
 ### 13c. When a Gyre wins
@@ -221,8 +229,17 @@ Example: a 3x3 Ether whose leading column overlaps a 3x1 Gyre becomes three 1x1 
 
 Balance note: a full-height (3) Gyre's tip is always at the board edge, so in `'destroy'` mode every spell it lifts is destroyed. Capacity and `offBoardMode` are the levers if this proves too strong.
 
+### 13d. Reassembly after exiting
+Applies to every sized spell type (Ether, Phlegm, Quicken, Gyre). Once **every** piece of a broken-up spell has left the Phlegm/Gyre that broke it (none overlapping it, orbiting, or being lifted), and the pieces are moving the same direction and exactly fill an allowed shape, they **immediately reassemble** into one spell.
+
+The reassembled spell then takes its reflection bonus moves (7b). *Until 7b is implemented (rebuild step 4), it stops for the rest of the turn as a placeholder.*
+
+Example: a 3x3 Ether reflected by a 3x3 Phlegm reassembles where it started, now facing the other way. With 7b it gets `max(1, floor(|50 − 45| / 5))` = 1 bonus move, exits the board, and hits the opponent once for 50 that turn (not as separate pieces).
+
+If pieces were destroyed or separated, they do not reassemble mid-turn; they wait for the end-of-turn merge (14).
+
 ## 14. Recombining
-- **When:** only at the end of the spell-movement turn.
+- **When:** at the end of the spell-movement turn (plus the mid-turn reassembly in 13d).
 - **What:** spells of the same type moving in the same direction (caster does not matter) combine into the largest allowed shapes:
   - **Phlegm, Ether:** squares (1x1, 2x2, 3x3), trying the largest first. Only pieces lying **entirely** inside the square may merge.
   - **Gyre:** vertical stacks of the same Gyre direction, up to `GYRE_RULES.maxHeight` (3).
@@ -271,12 +288,17 @@ QUICKEN_RULES = {
 ## Out of scope
 Drawing logic and sized focus costs (old 1Bi) live in other files and are handled separately.
 
+## Open design question: placement visibility (turn flow, not spell movement)
+Today the NPC places first and the player watches, so the player always moves second with full information and can counter anything (e.g. a 3x3 Phlegm against a visible 3x3 Ether). This removes the Phlegm's risk of healing the opponent (2a) and will make a trained AI exploitable.
+
+Proposed: a setting `NPC_PLACEMENT_VISIBILITY: 'full' | 'shape' | 'hidden'`:
+- **`'full'`**: current behavior.
+- **`'shape'`**: the player sees where and how big the NPC's spells are, but not their type, until spell movement starts. Recommended to playtest first.
+- **`'hidden'`**: the NPC visibly draws, but its spells are veiled until the clock is clicked (truly simultaneous moves; recommended for RL training).
+
 ## Known bugs (current implementation)
 To fix during the rebuild:
 - Gyres, or parts of Gyres, can persist off the board.
-- `consumedPhlegms` is reset at end of turn, so the empowered Phlegm bonus disappears. It is also not copied when spells break apart or combine.
-- Collision handlers are `async` but are not awaited, so results (e.g. `loser.remainingMoves = 0`) apply after the step has already moved the spell.
-- Breaking apart a left-moving sized spell places its fragments mirrored outside its actual footprint (`j + c * dir`).
 - Phlegm bonus moves are applied twice with opposite signs (`Phlegm.conferModifierTo` and `doCollision`).
 - `consumedGyres` is set by two conflicting formulas. The GyreDown formula returns an absolute row rather than a distance, and the extra `remainingMoves` it adds gives spells unwanted horizontal moves after leaving a Gyre.
 - The square merge (Phlegm/Ether combining) does not check that every merged piece fits inside the square.

@@ -1,0 +1,295 @@
+// SpellMovementEngine.test.ts
+// Saved scenarios for the spell-movement rules (see spell-movement-requirements.md). Run: npm test
+import { afterEach, describe, expect, it } from 'vitest';
+import { Ether, Phlegm, Quicken, Spell } from './Spell';
+import { Player } from '../Player/Player';
+import { SpellMovementEngine, SpellTurnFrame } from './SpellMovementEngine';
+import { PHLEGM_RULES } from './spellRules';
+
+const player = new Player(1, ''); // moves right
+const npc = new Player(-1, ''); // moves left
+
+type SpellClass = typeof Ether | typeof Phlegm | typeof Quicken;
+
+const place = (SpellType: SpellClass, caster: Player, i: number, j: number, size: number = 1): Spell => {
+  const spell = new SpellType(caster);
+  spell.widthCells = size;
+  spell.heightCells = SpellType === Quicken ? 1 : size;
+  spell.setCellIndex({ i, j });
+  return spell;
+};
+
+/** Runs `numTurns` turns, feeding each turn's final board into the next. */
+const runTurns = (spells: Array<Spell>, numTurns: number = 1): Array<Array<SpellTurnFrame>> => {
+  const turns: Array<Array<SpellTurnFrame>> = [];
+  let board = spells;
+  for (let t = 0; t < numTurns; t++) {
+    const { frames } = new SpellMovementEngine(board).simulateTurn();
+    turns.push(frames);
+    board = frames[frames.length - 1].spells;
+  }
+  return turns;
+};
+
+const finalBoard = (turns: Array<Array<SpellTurnFrame>>): Array<Spell> => {
+  const lastTurn = turns[turns.length - 1];
+  return lastTurn[lastTurn.length - 1].spells;
+};
+
+const byId = (frame: SpellTurnFrame, spell: Spell): Spell | undefined => frame.spells.find(s => s.id === spell.id);
+
+const DEFAULT_PHLEGM_RULES = { ...PHLEGM_RULES };
+afterEach(() => { Object.assign(PHLEGM_RULES, DEFAULT_PHLEGM_RULES); });
+
+describe('1a. collision detection', () => {
+  it('catches spells that swap places head-on instead of letting them pass through', () => {
+    const ether = place(Ether, player, 0, 3);
+    const quicken = place(Quicken, npc, 0, 4);
+    const [frames] = runTurns([ether, quicken]);
+
+    const firstStep = frames[0];
+    expect(byId(firstStep, quicken)?.isRemove).toBe(true);
+    expect(byId(firstStep, ether)?.isRemove).toBe(false);
+    expect(byId(firstStep, ether)?.consumedQuickens).toBeGreaterThan(0);
+  });
+
+  it('does not collide spells moving the same direction side by side', () => {
+    const a = place(Quicken, player, 0, 1);
+    const b = place(Quicken, player, 0, 2);
+    const [frames] = runTurns([a, b]);
+    // (they merge into a chain at end of turn, so only movement frames are checked)
+    const stepFrames = frames.filter(f => f.kind === 'step');
+    expect(stepFrames.every(f => f.spells.every(s => !s.isRemove || s.isOpponentHitImpact))).toBe(true);
+  });
+
+  it('destroys both spells on equal power', () => {
+    const a = place(Quicken, player, 1, 2);
+    const b = place(Quicken, npc, 1, 4);
+    const [frames] = runTurns([a, b]);
+    const removedAt = frames.findIndex(f => f.spells.every(s => s.isRemove));
+    expect(removedAt).toBeGreaterThanOrEqual(0);
+    expect(frames[removedAt].healthEvents).toEqual([]);
+  });
+});
+
+describe('1b. resolution order', () => {
+  it('resolves the weakest pair first, so the strongest spell inherits earlier spoils', () => {
+    // Step 1: B swaps with A (A-B, weakest 5) while C moves onto B (B-C, weakest 10)
+    const b = place(Ether, player, 0, 3);
+    const a = place(Quicken, npc, 0, 4);
+    const c = place(Ether, npc, 0, 5, 2);
+    const [frames] = runTurns([a, b, c]);
+
+    const firstStep = frames[0];
+    expect(byId(firstStep, a)?.isRemove).toBe(true);
+    expect(byId(firstStep, b)?.isRemove).toBe(true);
+    const survivor = byId(firstStep, c)!;
+    expect(survivor.isRemove).toBe(false);
+    expect(survivor.consumedQuickens).toBeGreaterThan(0); // A's speed bonus, passed on through B
+    expect(survivor.consumedEthers).toBeGreaterThan(0);
+  });
+});
+
+describe('2. Phlegm power and collision modes', () => {
+  it("'alwaysLoses': a large Phlegm still loses to (and reflects) a small attacker", () => {
+    const phlegm = place(Phlegm, player, 0, 1, 2);
+    const ether = place(Ether, npc, 0, 4);
+    const turns = runTurns([phlegm, ether], 2);
+    const etherStates = turns.flat().map(f => byId(f, ether)).filter(Boolean) as Array<Spell>;
+    expect(etherStates.some(s => s.isInPhlegmField)).toBe(true);
+  });
+
+  it("'power': a stronger Phlegm absorbs a weaker attacker and gains its bonus", () => {
+    PHLEGM_RULES.collisionMode = 'power';
+    const phlegm = place(Phlegm, player, 0, 1, 2); // power 20
+    const ether = place(Ether, npc, 0, 4); // power 10
+    const turns = runTurns([phlegm, ether], 2);
+
+    const board = finalBoard(turns);
+    const survivingPhlegm = board.find(s => s.id === phlegm.id)!;
+    expect(board.some(s => s.id === ether.id)).toBe(false);
+    expect(survivingPhlegm.consumedEthers).toBeGreaterThan(0);
+    expect(survivingPhlegm.getPower()).toBe(25); // 2x2 × 5 + fire bonus
+  });
+
+  it("'power' + absorbCostsPower: absorbing drains the Phlegm's power before bonuses", () => {
+    PHLEGM_RULES.collisionMode = 'power';
+    PHLEGM_RULES.absorbCostsPower = true;
+    const phlegm = place(Phlegm, player, 0, 1, 2);
+    const ether = place(Ether, npc, 0, 4);
+    const survivingPhlegm = finalBoard(runTurns([phlegm, ether], 2)).find(s => s.id === phlegm.id)!;
+    expect(survivingPhlegm.getPower()).toBe(15); // 20 − 10 absorbed + 5 fire bonus
+  });
+
+  it('Phlegms heal: their damage is negative while their power is positive', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 2);
+    expect(phlegm.getPower()).toBe(20);
+    expect(phlegm.getPropertyValue('dmgHealth')).toBe(-20);
+  });
+
+  it("'alwaysLoses': the smaller Phlegm consumes the larger and stays empowered across turns", () => {
+    const small = place(Phlegm, player, 0, 2); // speed 1
+    const large = place(Phlegm, player, 0, 0, 2); // speed 2, catches up on step 2
+    const turns = runTurns([small, large], 2);
+
+    const afterCollision = turns[0][turns[0].length - 1].spells.find(s => s.id === small.id);
+    expect(afterCollision?.consumedPhlegms).toBeGreaterThan(0);
+    expect(afterCollision?.getPower()).toBe(5 + PHLEGM_RULES.empoweredBonus);
+
+    const nextTurnStates = turns[1].map(f => byId(f, small)).filter(Boolean) as Array<Spell>;
+    expect(nextTurnStates.every(s => s.consumedPhlegms > 0)).toBe(true);
+  });
+});
+
+describe('13. sized spells hitting a Phlegm', () => {
+  it('a spell whose every row touches the Phlegm bounces off it as one block', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 3);
+    const ether = place(Ether, npc, 0, 4, 3);
+    const turns = runTurns([phlegm, ether], 2);
+    const frames = turns.flat();
+
+    // Never breaks into pieces, and the Phlegm survives the hit
+    expect(frames.every(f => f.spells.filter(s => s instanceof Ether).length <= 1)).toBe(true);
+    const bounceStart = frames.findIndex(f => (byId(f, ether)?.phlegmDwellStepsRemaining || 0) > 0);
+    expect(bounceStart).toBeGreaterThanOrEqual(0);
+    expect(byId(frames[bounceStart], phlegm)?.isRemove).toBe(false);
+
+    // Reflected back at the NPC as a whole 3x3 Ether (next turn, until 7b bonus moves exist)
+    expect(frames.flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 1, dmg: 50 }]);
+  });
+
+  it('a bouncing block slides to the Phlegm\'s center before swirling', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 3);
+    const ether = place(Ether, npc, 0, 4, 2);
+    const [frames] = runTurns([phlegm, ether]);
+    const swirlStart = frames.find(f => {
+      const e = byId(f, ether);
+      return !!e && e.phlegmDwellStepsRemaining > 0 && e.phlegmEntryStepsRemaining === 0;
+    })!;
+    const phlegmAtSwirl = byId(swirlStart, phlegm)!;
+    expect(byId(swirlStart, ether)!.cellIndex.j).toBe(phlegmAtSwirl.cellIndex.j + 0); // centered: floor((3 - 2) / 2) = 0
+  });
+
+  it('a 1x1 Phlegm reflects only one spell, then is passed through (capacity)', () => {
+    const phlegm = place(Phlegm, player, 1, 1);
+    const first = place(Ether, npc, 1, 4);
+    const second = place(Ether, npc, 1, 5);
+    const turns = runTurns([phlegm, first, second], 2);
+    const states = (spell: Spell) => turns.flat().map(f => byId(f, spell)).filter(Boolean) as Array<Spell>;
+    expect(states(first).some(s => s.speedDirection > 0)).toBe(true); // reflected
+    expect(states(second).every(s => s.speedDirection < 0)).toBe(true); // never reflected
+  });
+
+  it('a 1x1 Phlegm reflects one cell of a 2x2 Ether, which then destroys its sibling head-on', () => {
+    const phlegm = place(Phlegm, player, 1, 1);
+    const ether = place(Ether, npc, 0, 4, 2);
+    const turns = runTurns([phlegm, ether], 2);
+    const frames = turns.flat();
+
+    // Exactly one piece is ever reflected
+    const reflectedIds = new Set(frames.flatMap(f => f.spells.filter(s => s instanceof Ether && s.speedDirection > 0).map(s => s.id)));
+    expect(reflectedIds.size).toBe(1);
+
+    // The bottom row cancels out; the top row keeps going toward the player
+    const survivors = finalBoard(turns).filter(s => s instanceof Ether && !s.isRemove);
+    expect(survivors.length).toBeGreaterThan(0);
+    expect(survivors.every(s => s.cellIndex.i === 0 && s.speedDirection < 0)).toBe(true);
+  });
+
+  it('partial overlap: rows touching the Phlegm bounce back, the other rows keep going', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 2); // rows 0-1
+    const ether = place(Ether, npc, 0, 4, 3); // rows 0-2
+    const [frames] = runTurns([phlegm, ether]);
+    const ethers = finalBoard([frames]).filter(s => s instanceof Ether && !s.isRemove);
+
+    const touchingRows = ethers.filter(s => s.cellIndex.i < 2);
+    const otherRow = ethers.filter(s => s.cellIndex.i === 2);
+    expect(touchingRows.length).toBeGreaterThan(0);
+    expect(touchingRows.every(s => s.speedDirection > 0)).toBe(true);
+    expect(otherRow.length).toBeGreaterThan(0);
+    expect(otherRow.every(s => s.speedDirection < 0)).toBe(true);
+  });
+
+  it('a Quicken chain enters cell by cell, orbits in single file, and recombines', () => {
+    const phlegm = place(Phlegm, player, 0, 0, 3);
+    const quicken = place(Quicken, npc, 1, 4, 3);
+    const turns = runTurns([phlegm, quicken], 2);
+
+    // First contact: one cell breaks off, the rest stays chained
+    const firstSplit = turns[0].find(f => f.spells.filter(s => s instanceof Quicken && !s.isRemove).length > 1)!;
+    expect(firstSplit.spells.filter(s => s instanceof Quicken && !s.isRemove).map(s => s.widthCells).sort()).toEqual([1, 2]);
+
+    const [recombined] = finalBoard([turns[0]]).filter(s => s instanceof Quicken);
+    expect([recombined.widthCells, Math.sign(recombined.speedDirection)]).toEqual([3, 1]);
+    expect(turns[1].flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 1, dmg: 15 }]);
+  });
+});
+
+describe('invariants on random boards', () => {
+  const mulberry32 = (seed: number) => () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+
+  const randomBoard = (seed: number): Array<Spell> => {
+    const rand = mulberry32(seed);
+    const pick = (n: number) => Math.floor(rand() * n);
+    const occupied = new Set<string>();
+    const spells: Array<Spell> = [];
+    for (let k = 0; k < 2 + pick(6); k++) {
+      const SpellType = [Phlegm, Ether, Quicken][pick(3)];
+      const caster = rand() < 0.5 ? player : npc;
+      const size = 1 + pick(SpellType === Quicken ? 3 : 3);
+      const w = size, h = SpellType === Quicken ? 1 : size;
+      const i = pick(3 - h + 1);
+      const j = caster === player ? pick(3 - w + 1) : 4 + pick(3 - w + 1);
+      const cells: Array<string> = [];
+      for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) cells.push(`${i + r},${j + c}`);
+      if (cells.some(c => occupied.has(c))) continue;
+      cells.forEach(c => occupied.add(c));
+      spells.push(place(SpellType, caster, i, j, size));
+    }
+    return spells;
+  };
+
+  it('no turn ends with a spell still sliding into, swirling in, or orbiting a Phlegm', () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      runTurns(randomBoard(seed), 3).forEach(frames => {
+        const turnEnd = frames.find(f => f.kind === 'turnEnd')!;
+        turnEnd.spells.filter(s => !s.isRemove).forEach(s => {
+          expect([s.phlegmEntryStepsRemaining, s.phlegmDwellStepsRemaining], `seed ${seed}`).toEqual([0, 0]);
+          expect(s.isInPhlegmField && s.phlegmOrbitStepsRemaining > 0, `seed ${seed}`).toBe(false);
+        });
+      });
+    }
+  });
+
+  it('pieces of the same spell never share a cell, and turns never hit the step limit', () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      runTurns(randomBoard(seed), 3).forEach(frames => {
+        expect(frames.filter(f => f.kind === 'step').length).toBeLessThan(50);
+        frames.forEach(f => {
+          const live = f.spells.filter(s => !s.isRemove && s.fragmentGroupId);
+          live.forEach((a, k) => live.slice(k + 1).forEach(b => {
+            if (a.fragmentGroupId !== b.fragmentGroupId) return;
+            const isSharing = a.cellIndex.i < b.cellIndex.i + b.heightCells && a.cellIndex.i + a.heightCells > b.cellIndex.i &&
+              a.cellIndex.j < b.cellIndex.j + b.widthCells && a.cellIndex.j + a.widthCells > b.cellIndex.j;
+            expect(isSharing, `seed ${seed}`).toBe(false);
+          }));
+        });
+      });
+    }
+  });
+});
+
+describe('regressions', () => {
+
+  it('is deterministic', () => {
+    const setup = () => [place(Phlegm, player, 0, 0, 2), place(Ether, npc, 0, 4, 2), place(Quicken, npc, 2, 6)];
+    const describeRun = (spells: Array<Spell>) => runTurns(spells, 3).flat()
+      .map(f => f.spells.map(s => `${s.getSpellName()}${s.widthCells}x${s.heightCells}@${s.cellIndex.i},${s.cellIndex.j}${s.isRemove ? 'x' : ''}`).join(' '));
+    expect(describeRun(setup())).toEqual(describeRun(setup()));
+  });
+});

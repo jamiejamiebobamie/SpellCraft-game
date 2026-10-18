@@ -3,20 +3,19 @@
 // Runs a full spell-movement turn on a cloned copy of the placed spells and returns a log of
 // frames for the UI to replay (see PlacedSpells.updateSpells).
 //
-// STEP 1 OF THE REBUILD: the rules below are moved verbatim from PlacedSpells.ts so the game
-// plays the same. Known bugs are intentionally preserved (see spell-movement-requirements.md,
-// "Known bugs") and will be replaced as the rebuild progresses.
+// The rules are being rebuilt step by step against spell-movement-requirements.md. Collisions
+// follow requirements 1-2; the rest still follow the original rules (see "Known bugs" there).
 import { Spell, Phlegm, Ether, Gyre, GyreUp, GyreDown, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
-import { CellIndex, CollisionResult } from '../types';
+import { CellIndex } from '../types';
+import { PHLEGM_RULES, GYRE_RULES } from './spellRules';
 
 /**
  * 'step':    shown after each micro-step
- * 'breakup': shown when a sized spell breaks into pieces, before the pieces move
  * 'turnEnd': shown after all moves, before removed spells are cleared
  * 'final':   the board state at the end of the turn
  */
-export type SpellTurnFrameKind = 'step' | 'breakup' | 'turnEnd' | 'final';
+export type SpellTurnFrameKind = 'step' | 'turnEnd' | 'final';
 
 export type HealthEvent = { playerIndex: number; dmg: number };
 
@@ -87,8 +86,15 @@ export const indexSpellGraph = (spells: Array<Spell>, index: Map<string, Spell>)
   spells.forEach(visit);
 };
 
-/** Pieces broken off the same spell never collide with each other. */
-const isSameSpellPieces = (a: Spell, b: Spell): boolean => !!a.fragmentGroupId && a.fragmentGroupId === b.fragmentGroupId;
+/**
+ * Pieces broken off the same original spell, moving the same direction, never collide with each
+ * other or share a cell (they queue instead), even when split into separate parts (e.g.
+ * '<id>:bounce' / '<id>:pass', which reassemble separately). Pieces moving toward each other
+ * (e.g. one reflected by a Phlegm) collide like any other spells.
+ */
+const getFragmentFamily = (spell: Spell): string => spell.fragmentGroupId.split(':')[0];
+const isSameSpellPieces = (a: Spell, b: Spell): boolean =>
+  !!a.fragmentGroupId && getFragmentFamily(a) === getFragmentFamily(b) && Math.sign(a.speedDirection) === Math.sign(b.speedDirection);
 
 const overlapsBoundingBox = (
   posA: CellIndex, wA: number, hA: number,
@@ -104,9 +110,104 @@ const overlapsBoundingBox = (
 
 // --- Engine ----------------------------------------------------------------------------------
 
-type CollisionOutcome = CollisionResult & {
-  // The old async doCollision awaited one extra microtask when it shattered a spell
-  isShattered: boolean;
+type CollisionPair = { a: Spell; b: Spell; isSwap: boolean };
+
+type CollisionDecision =
+  | { kind: 'tie' }
+  | { kind: 'win'; winner: Spell; loser: Spell };
+
+// Max collision passes per micro-step (pieces created by a break-up can overlap other spells)
+const MAX_COLLISION_PASSES = 10;
+
+/** Allowed sized-spell shapes (requirement 14). */
+const isAllowedShape = (spell: Spell, width: number, height: number): boolean => {
+  if (spell instanceof Phlegm || spell instanceof Ether) return width === height && width <= 3;
+  if (spell instanceof Quicken) return height === 1 && width <= GameBoard.NUM_COLS;
+  if (spell instanceof Gyre) return width === 1 && height <= GYRE_RULES.maxHeight;
+  return false;
+};
+
+type CellRect = { i: number; j: number; w: number; h: number };
+
+const getIsBouncing = (spell: Spell): boolean => spell.phlegmEntryStepsRemaining > 0 || spell.phlegmDwellStepsRemaining > 0;
+
+/**
+ * A Phlegm's capacity (7c): how many spells ('count') or how much power ('power') it can take
+ * before it is used up. A 1x1 Phlegm always takes exactly one spell.
+ */
+const getPhlegmCapacity = (phlegm: Phlegm): number => {
+  const cells = phlegm.widthCells * phlegm.heightCells;
+  if (cells === 1) return 1;
+  if (PHLEGM_RULES.capacityMode === 'unlimited') return Infinity;
+  return cells * (PHLEGM_RULES.capacityMode === 'power' ? PHLEGM_RULES.powerCapacityPerCell : PHLEGM_RULES.capacityPerCell);
+};
+
+/** Capacity used when a spell enters `phlegm`: one spell, or its power in 'power' mode. */
+const getPhlegmCapacityUse = (phlegm: Phlegm, entering: Spell): number => {
+  const isPowerMode = PHLEGM_RULES.capacityMode === 'power' && phlegm.widthCells * phlegm.heightCells > 1;
+  return isPowerMode ? entering.getPower() : 1;
+};
+
+const getIsPhlegmFull = (spell: Spell): boolean => spell instanceof Phlegm && spell.capacityUsed >= getPhlegmCapacity(spell);
+
+/**
+ * Steps a block bouncing off a Phlegm slides in first: until centered on the Phlegm if it fits,
+ * otherwise until its front edge reaches the Phlegm's far side.
+ */
+const getBounceEntrySteps = (blockJ: number, blockWidth: number, dir: number, phlegm: Phlegm): number => {
+  const phlegmWidth = phlegm.widthCells;
+  const targetJ = blockWidth <= phlegmWidth
+    ? phlegm.cellIndex.j + Math.floor((phlegmWidth - blockWidth) / 2)
+    : (dir < 0 ? phlegm.cellIndex.j : phlegm.cellIndex.j + phlegmWidth - blockWidth);
+  return Math.max(0, (targetJ - blockJ) * dir);
+};
+
+const getFootprintCells = (spell: Spell): Array<CellIndex> => {
+  const cells: Array<CellIndex> = [];
+  for (let r = 0; r < spell.heightCells; r++) {
+    for (let c = 0; c < spell.widthCells; c++) cells.push({ i: spell.cellIndex.i + r, j: spell.cellIndex.j + c });
+  }
+  return cells;
+};
+
+/**
+ * Splits `cells` into the largest allowed shapes for `spell`'s type (requirement 13a), scanning
+ * from the top-left so the result is deterministic.
+ */
+const splitIntoAllowedShapes = (spell: Spell, cells: Array<CellIndex>): Array<CellRect> => {
+  const remaining = new Set(cells.map(c => `${c.i},${c.j}`));
+  const has = (i: number, j: number) => remaining.has(`${i},${j}`);
+  const fits = (i: number, j: number, w: number, h: number) => {
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (!has(i + r, j + c)) return false;
+    return true;
+  };
+  const sorted = [...cells].sort((a, b) => a.i - b.i || a.j - b.j);
+  const rects: Array<CellRect> = [];
+
+  sorted.forEach(({ i, j }) => {
+    if (!has(i, j)) return;
+    let w = 1, h = 1;
+    if (spell instanceof Quicken) {
+      while (w < GameBoard.NUM_COLS && has(i, j + w)) w++;
+    } else if (spell instanceof Gyre) {
+      while (h < GYRE_RULES.maxHeight && has(i + h, j)) h++;
+    } else {
+      const size = [3, 2, 1].find(s => fits(i, j, s, s))!;
+      w = h = size;
+    }
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) remaining.delete(`${i + r},${j + c}`);
+    rects.push({ i, j, w, h });
+  });
+  return rects;
+};
+
+const toPairKey = (a: Spell, b: Spell): string => [a.id, b.id].sort().join('_');
+
+/** Phlegms/Gyres configured to always lose against other spell types. */
+const isAlwaysLoserAgainst = (spell: Spell, other: Spell): boolean => {
+  if (spell instanceof Phlegm && !(other instanceof Phlegm)) return PHLEGM_RULES.collisionMode === 'alwaysLoses';
+  if (spell instanceof Gyre && !(other instanceof Gyre)) return GYRE_RULES.collisionMode === 'alwaysLoses';
+  return false;
 };
 
 export class SpellMovementEngine {
@@ -115,21 +216,16 @@ export class SpellMovementEngine {
   private frames: Array<SpellTurnFrame> = [];
   private pendingHealthEvents: Array<HealthEvent> = [];
 
-  /**
-   * Collision results the old async implementation applied late (after the micro-step's moves).
-   * Preserved to keep behavior identical; ticks = microtask depth, flushed in that order.
-   */
-  private deferred: Array<{ ticks: 1 | 2; apply: () => void }> = [];
-
-  // Set when a sized spell breaks apart, so the break-up gets its own frame
-  private isShatteredSinceLastFrame: boolean = false;
-
   constructor(spells: Array<Spell>) {
     this.spells = copySpellGraph(spells);
   }
 
   simulateTurn = (): SpellTurnLog => {
     this.frames = [];
+
+    if (PHLEGM_RULES.capacityResetsEachTurn) {
+      this.spells.forEach(s => { if (s instanceof Phlegm) s.capacityUsed = 0; });
+    }
 
     this.spells.forEach(s => {
       if (!s.getIsRemove()) {
@@ -141,33 +237,17 @@ export class SpellMovementEngine {
 
     let currentMicroStep = 1;
 
-    while (true) {
-      let maxMovesNeeded = 0;
-      this.spells.forEach(s => {
-        if (!s.getIsRemove()) {
-          const totalSpellSteps = s.recordedMovesCount + s.remainingMoves + Math.abs(s.consumedGyres || 0);
-          if (totalSpellSteps > maxMovesNeeded) {
-            maxMovesNeeded = totalSpellSteps;
-          }
-        }
-      });
-
-      if (currentMicroStep > maxMovesNeeded || maxMovesNeeded === 0) {
-        break;
-      }
-
+    // Step until no spell has moves left. (Spells can gain moves mid-turn, e.g. when a Phlegm
+    // hits a spell that had already stopped, so this can't be worked out up front.)
+    while (this.spells.some(s => this.getIsMovingThisStep(s))) {
       const positionCache = this.cachePositions();
-      this.handleLookAheadCollisions(positionCache);
-      this.captureBreakupFrame();
 
       const anySpellMoved = this.executeSynchronousMicroSteps();
       if (!anySpellMoved) break;
 
-      this.handleMidStepCollisions(positionCache);
+      this.resolveCollisions(positionCache);
+      this.reassembleExitedPieces();
       this.captureFrame('step');
-
-      this.resolveGridCollisions();
-      this.captureBreakupFrame();
       currentMicroStep++;
 
       if (currentMicroStep > MAX_MICRO_STEPS) {
@@ -175,16 +255,20 @@ export class SpellMovementEngine {
       }
     }
 
+    // consumedPhlegms persists (empowered Phlegms); only per-turn Gyre movement resets
     this.spells.forEach(s => {
       s.consumedGyres = 0;
-      s.consumedPhlegms = 0;
     });
 
     this.removeConsumed();
     this.captureFrame('turnEnd');
 
     this.removeInvalidSpells();
-    this.spells.forEach(s => { s.fragmentGroupId = ''; }); // pieces only stay grouped for the turn they broke apart
+    // Pieces only stay grouped for the turn they broke apart
+    this.spells.forEach(s => {
+      s.fragmentGroupId = '';
+      s.fragmentBreakerId = '';
+    });
     combineSpellsMaximally(this.spells);
     this.captureFrame('final');
 
@@ -192,28 +276,8 @@ export class SpellMovementEngine {
   };
 
   private captureFrame = (kind: SpellTurnFrameKind): void => {
-    this.flushDeferred();
     this.frames.push({ kind, spells: copySpellGraph(this.spells), healthEvents: this.pendingHealthEvents });
     this.pendingHealthEvents = [];
-    this.isShatteredSinceLastFrame = false;
-  };
-
-  /**
-   * Shows spells that just broke apart, in place, before their pieces move.
-   * Display only: unlike captureFrame, it does not apply deferred collision results.
-   */
-  private captureBreakupFrame = (): void => {
-    if (!this.isShatteredSinceLastFrame) return;
-    this.frames.push({ kind: 'breakup', spells: copySpellGraph(this.spells), healthEvents: this.pendingHealthEvents });
-    this.pendingHealthEvents = [];
-    this.isShatteredSinceLastFrame = false;
-  };
-
-  private flushDeferred = (): void => {
-    const pending = this.deferred;
-    this.deferred = [];
-    pending.filter(d => d.ticks === 1).forEach(d => d.apply());
-    pending.filter(d => d.ticks === 2).forEach(d => d.apply());
   };
 
   private removeConsumed = (): void => {
@@ -236,58 +300,73 @@ export class SpellMovementEngine {
     return positionCache;
   };
 
-  private handleLookAheadCollisions = (positionCache: Map<string, CellIndex>): void => {
-    const resolvedLookAheads = new Set<string>();
+  private getIsMovingThisStep = (spell: Spell): boolean =>
+    !spell.getIsRemove() && !spell.getIsBeingConsumed() && (spell.remainingMoves > 0 || (!!spell.consumedGyres && spell.consumedGyres !== 0));
 
-    for (let i = 0; i < this.spells.length; i++) {
-      for (let j = i + 1; j < this.spells.length; j++) {
-        const spellA = this.spells[i];
-        const spellB = this.spells[j];
+  /**
+   * Pieces of the same spell never share a cell: a piece is blocked if its next cell holds a
+   * sibling that is not moving away this step, or a sibling earlier in the list is moving into it.
+   * Returns each blocked piece mapped to whether it waits (blocked by a sibling still moving this
+   * turn, so it keeps its move) or stops (blocked by a sibling that has stopped, so it gives the move up).
+   */
+  private findBlockedPieces = (): Map<Spell, boolean> => {
+    const blocked = new Map<Spell, boolean>();
+    const movers = this.spells.filter(s => this.getIsMovingThisStep(s));
+    const targets = new Map(movers.map(s => [s, s.peekNextCellIndex()]));
 
-        if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA) || isSameSpellPieces(spellA, spellB)) continue;
+    const findBlockers = (piece: Spell, pieceOrder: number): Array<Spell> => {
+      const target = targets.get(piece)!;
+      return this.spells.filter(sibling => {
+        if (sibling === piece || sibling.getIsRemove() || !isSameSpellPieces(piece, sibling)) return false;
+        const isSiblingMoving = targets.has(sibling) && !blocked.has(sibling);
+        const siblingCell = isSiblingMoving ? targets.get(sibling)! : sibling.cellIndex;
+        if (!overlapsBoundingBox(target, piece.widthCells, piece.heightCells, siblingCell, sibling.widthCells, sibling.heightCells)) return false;
+        // Two siblings moving into the same cell: the one earlier in the list goes first
+        return !isSiblingMoving || movers.indexOf(sibling) < pieceOrder;
+      });
+    };
 
-        const posA = spellA.getCellIndex();
-        const posB = spellB.getCellIndex();
-        if (!posA || !posB) continue;
-
-        const nextJA = posA.j + Math.sign(spellA.getPropertyValue('speedDirection')) * (spellA.remainingMoves > 0 ? 1 : 0);
-        const nextJB = posB.j + Math.sign(spellB.getPropertyValue('speedDirection')) * (spellB.remainingMoves > 0 ? 1 : 0);
-
-        const futurePosA = { i: posA.i, j: nextJA };
-        const futurePosB = { i: posB.i, j: nextJB };
-
-        const wA = spellA.widthCells;
-        const hA = spellA.heightCells;
-        const wB = spellB.widthCells;
-        const hB = spellB.heightCells;
-
-        const willCollide =
-          overlapsBoundingBox(futurePosA, wA, hA, posB, wB, hB) &&
-          overlapsBoundingBox(futurePosB, wB, hB, posA, wA, hA);
-
-        if (willCollide) {
-          const pairKey = [spellA.id, spellB.id].sort().join('_');
-          if (resolvedLookAheads.has(pairKey)) continue;
-          resolvedLookAheads.add(pairKey);
-
-          this.processCollisionPair(spellA, spellB, positionCache, true);
+    let isChanged = true;
+    while (isChanged) {
+      isChanged = false;
+      movers.forEach((piece, pieceOrder) => {
+        if (!piece.fragmentGroupId || blocked.has(piece)) return;
+        if (findBlockers(piece, pieceOrder).length) {
+          blocked.set(piece, false);
+          isChanged = true;
         }
-      }
+      });
     }
+
+    // A piece only waits if a blocker will actually move this step. Blocked by stuck siblings
+    // only (including each other, e.g. head-on), it gives the move up, so waits can't loop forever.
+    blocked.forEach((_, piece) => {
+      const blockers = findBlockers(piece, movers.indexOf(piece));
+      blocked.set(piece, blockers.some(sibling => targets.has(sibling) && !blocked.has(sibling)));
+    });
+    return blocked;
   };
 
   private executeSynchronousMicroSteps = (): boolean => {
     let anySpellMoved = false;
+    const blockedPieces = this.findBlockedPieces();
 
     for (const spell of this.spells) {
-      if (spell.getIsRemove() || spell.getIsBeingConsumed()) continue;
-
-      if (spell.remainingMoves <= 0 && (!spell.consumedGyres || spell.consumedGyres === 0)) continue;
+      if (!this.getIsMovingThisStep(spell)) continue;
 
       anySpellMoved = true;
       spell.recordedMovesCount++;
 
-      if (!spell.consumedGyres || spell.consumedGyres === 0) {
+      const isGyreMove = !!spell.consumedGyres && spell.consumedGyres !== 0;
+
+      // A blocked piece stays put: it either waits (keeping its move) or gives the move up
+      if (blockedPieces.has(spell)) {
+        const isWaiting = blockedPieces.get(spell);
+        if (!isWaiting && !isGyreMove) spell.remainingMoves--;
+        continue;
+      }
+
+      if (!isGyreMove) {
         spell.remainingMoves--;
       }
 
@@ -332,88 +411,213 @@ export class SpellMovementEngine {
     return anySpellMoved;
   };
 
-  private handleMidStepCollisions = (positionCache: Map<string, CellIndex>): void => {
-    const resolvedCollisions = new Set<string>();
+  // --- Reassembly ----------------------------------------------------------------------------
 
-    for (let i = 0; i < this.spells.length; i++) {
-      for (let j = i + 1; j < this.spells.length; j++) {
-        const spellA = this.spells[i];
-        const spellB = this.spells[j];
+  /**
+   * Once every piece of a broken-up spell is out of the Phlegm/Gyre that broke it (none inside
+   * it, orbiting, or being lifted), the pieces immediately reassemble into one spell that stops
+   * for the rest of the turn. Pieces only reassemble into a complete, allowed shape; otherwise
+   * they wait for the end-of-turn merge.
+   */
+  private reassembleExitedPieces = (): void => {
+    const groups = new Map<string, Array<Spell>>();
+    this.spells.forEach(s => {
+      if (s.getIsRemove() || !s.fragmentGroupId) return;
+      groups.set(s.fragmentGroupId, [...(groups.get(s.fragmentGroupId) || []), s]);
+    });
 
-        if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA) || isSameSpellPieces(spellA, spellB)) continue;
+    groups.forEach(pieces => {
+      if (pieces.length < 2) return;
+      const [first] = pieces;
+      const dir = Math.sign(first.speedDirection);
+      const isStillAffected = pieces.some(p =>
+        p.isInPhlegmField || getIsBouncing(p) || p.consumedGyres !== 0 || p.getIsBeingConsumed() ||
+        Math.sign(p.speedDirection) !== dir || p.getSpellName() !== first.getSpellName()
+      );
+      if (isStillAffected) return;
 
-        const startA = positionCache.get(spellA.id);
-        const startB = positionCache.get(spellB.id);
-        const endA = spellA.getCellIndex();
-        const endB = spellB.getCellIndex();
+      const breaker = this.spells.find(s => s.id === first.fragmentBreakerId && !s.getIsRemove());
+      const isOverlappingBreaker = !!breaker && pieces.some(p =>
+        overlapsBoundingBox(p.cellIndex, p.widthCells, p.heightCells, breaker.cellIndex, breaker.widthCells, breaker.heightCells)
+      );
+      if (isOverlappingBreaker) return;
 
-        if (!startA || !startB || !endA || !endB) continue;
+      // The pieces must exactly fill their bounding rectangle
+      const minI = Math.min(...pieces.map(p => p.cellIndex.i));
+      const minJ = Math.min(...pieces.map(p => p.cellIndex.j));
+      const maxI = Math.max(...pieces.map(p => p.cellIndex.i + p.heightCells - 1));
+      const maxJ = Math.max(...pieces.map(p => p.cellIndex.j + p.widthCells - 1));
+      const width = maxJ - minJ + 1;
+      const height = maxI - minI + 1;
+      const cells = new Set<string>();
+      pieces.forEach(p => {
+        for (let r = 0; r < p.heightCells; r++) for (let c = 0; c < p.widthCells; c++) cells.add(`${p.cellIndex.i + r},${p.cellIndex.j + c}`);
+      });
+      const area = pieces.reduce((acc, p) => acc + p.widthCells * p.heightCells, 0);
+      if (cells.size !== area || area !== width * height || !isAllowedShape(first, width, height)) return;
 
-        const wA = spellA.widthCells;
-        const hA = spellA.heightCells;
-        const wB = spellB.widthCells;
-        const hB = spellB.heightCells;
+      const root = pieces.find(p => p.cellIndex.i === minI && p.cellIndex.j === minJ);
+      if (!root) return;
 
-        const deltaJA = endA.j - startA.j;
-        const deltaJB = endB.j - startB.j;
-
-        const headingOpposed = Math.sign(deltaJA) !== Math.sign(deltaJB) && deltaJA !== 0;
-        if (headingOpposed) {
-          const boxesOverlapped =
-            overlapsBoundingBox(endA, wA, hA, startB, wB, hB) &&
-            overlapsBoundingBox(endB, wB, hB, startA, wA, hA);
-
-          if (boxesOverlapped) {
-            const pairKey = [spellA.id, spellB.id].sort().join('_');
-            if (resolvedCollisions.has(pairKey)) continue;
-            resolvedCollisions.add(pairKey);
-
-            this.processCollisionPair(spellA, spellB, positionCache, false);
-          }
-        }
-      }
-    }
-  };
-
-  private processCollisionPair = (spellA: Spell, spellB: Spell, positionCache: Map<string, CellIndex>, isLookAhead: boolean): void => {
-    const { winner, loser, isShattered } = this.doCollision(spellA, spellB);
-    this.deferred.push({
-      ticks: isShattered ? 2 : 1,
-      apply: () => {
-        if (winner && loser) {
-          if (isLookAhead) {
-            loser.remainingMoves = 0;
-          } else {
-            const startOrigin = winner === spellA ? positionCache.get(spellA.id) : positionCache.get(spellB.id);
-            if (startOrigin) loser.setCellIndex({ i: startOrigin.i, j: startOrigin.j });
-          }
-        }
-      }
+      pieces.forEach(p => {
+        if (p === root) return;
+        root.consumedEthers += p.consumedEthers;
+        root.consumedQuickens += p.consumedQuickens;
+        root.consumedPhlegms += p.consumedPhlegms;
+        p.markSpellForRemoval();
+      });
+      root.widthCells = width;
+      root.heightCells = height;
+      root.remainingMoves = 0;
+      root.fragmentGroupId = '';
+      root.fragmentBreakerId = '';
     });
   };
 
-  private doCollision = (spellA: Spell, spellB: Spell): CollisionOutcome => {
-    const noResult = { winner: null, loser: null, isShattered: false };
-    if (spellA.getIsRemove() || spellB.getIsRemove()) return noResult;
-    if (spellA.isInPhlegmField && spellB instanceof Phlegm) return noResult;
-    if (spellB.isInPhlegmField && spellA instanceof Phlegm) return noResult;
+  // --- Collisions (requirements 1a-1c) -------------------------------------------------------
 
-    const dmgA = spellA.getPropertyValue('dmgHealth');
-    const dmgB = spellB.getPropertyValue('dmgHealth');
+  /**
+   * Finds and resolves this micro-step's collisions, weakest participant first. Repeats while
+   * resolving creates new overlaps (e.g. pieces of a broken-up spell landing on another spell).
+   */
+  private resolveCollisions = (positionCache: Map<string, CellIndex>): void => {
+    const resolvedPairKeys = new Set<string>();
 
-    let winner = spellA;
-    let loser = spellB;
+    for (let pass = 0; pass < MAX_COLLISION_PASSES; pass++) {
+      const pairs = this.detectCollisionPairs(positionCache, pass === 0, resolvedPairKeys);
+      if (!pairs.length) break;
 
-    if (dmgA === dmgB) {
-      spellA.markSpellForRemoval();
-      spellB.markSpellForRemoval();
-      return noResult;
+      const weakest = (p: CollisionPair) => Math.min(p.a.getPower(), p.b.getPower());
+      const strongest = (p: CollisionPair) => Math.max(p.a.getPower(), p.b.getPower());
+      pairs.sort((p, q) => weakest(p) - weakest(q) || strongest(p) - strongest(q));
+
+      pairs.forEach(pair => {
+        resolvedPairKeys.add(toPairKey(pair.a, pair.b));
+        this.resolvePair(pair, positionCache);
+      });
     }
-    else if (dmgB > dmgA) { winner = spellB; loser = spellA; }
-    else if (dmgA > dmgB) { winner = spellA; loser = spellB; }
+  };
+
+  /**
+   * A pair collides if their footprints overlap after moving, or (first pass only) if they
+   * swapped places: A's new footprint overlaps B's old one and B's new overlaps A's old one.
+   */
+  private detectCollisionPairs = (positionCache: Map<string, CellIndex>, isCheckingSwaps: boolean, resolvedPairKeys: Set<string>): Array<CollisionPair> => {
+    const pairs: Array<CollisionPair> = [];
+    const active = this.spells.filter(s => !s.getIsRemove() && !!s.getCellIndex());
+
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        const a = active[i];
+        const b = active[j];
+        if (!this.getCanCollide(a, b) || resolvedPairKeys.has(toPairKey(a, b))) continue;
+
+        const endA = a.getCellIndex();
+        const endB = b.getCellIndex();
+        const isOverlap = overlapsBoundingBox(endA, a.widthCells, a.heightCells, endB, b.widthCells, b.heightCells);
+
+        let isSwap = false;
+        const startA = positionCache.get(a.id);
+        const startB = positionCache.get(b.id);
+        if (!isOverlap && isCheckingSwaps && startA && startB) {
+          isSwap =
+            overlapsBoundingBox(endA, a.widthCells, a.heightCells, startB, b.widthCells, b.heightCells) &&
+            overlapsBoundingBox(endB, b.widthCells, b.heightCells, startA, a.widthCells, a.heightCells);
+        }
+
+        if (isOverlap || isSwap) pairs.push({ a, b, isSwap });
+      }
+    }
+    return pairs;
+  };
+
+  private getCanCollide = (a: Spell, b: Spell): boolean => {
+    if (a.getIsRemove() || b.getIsRemove()) return false;
+    if (a.getIsBeingConsumed(b) || b.getIsBeingConsumed(a)) return false; // already inside the other
+    if (isSameSpellPieces(a, b)) return false;
+    if (a.isInPhlegmField && b instanceof Phlegm) return false; // orbiting spells pass over Phlegms
+    if (b.isInPhlegmField && a instanceof Phlegm) return false;
+    if (getIsBouncing(a) && b instanceof Phlegm) return false; // bouncing blocks too
+    if (getIsBouncing(b) && a instanceof Phlegm) return false;
+    if (getIsPhlegmFull(a) || getIsPhlegmFull(b)) return false; // used-up Phlegms are passed through (7c)
+    return true;
+  };
+
+  private resolvePair = ({ a, b, isSwap }: CollisionPair, positionCache: Map<string, CellIndex>): void => {
+    // An earlier collision this step may have changed either spell (1b)
+    if (!this.getCanCollide(a, b)) return;
+
+    const decision = this.decideCollision(a, b);
+
+    if (decision.kind === 'tie') {
+      if (isSwap) {
+        this.revertMove(a, positionCache);
+        this.revertMove(b, positionCache);
+      }
+      a.markSpellForRemoval();
+      b.markSpellForRemoval();
+      return;
+    }
+
+    const { winner, loser } = decision;
+    // (sized spells use capacity per cell, in breakUpAtPhlegm)
+    const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
+    if (loser instanceof Phlegm && !isWinnerSized) loser.capacityUsed += getPhlegmCapacityUse(loser, winner);
+    // Spells that swapped places meet in the loser's cell, so the winner ends up inside it
+    if (isSwap && !loser.getIsBeingConsumed()) this.revertMove(loser, positionCache);
+    this.applyCollision(winner, loser);
+  };
+
+  private revertMove = (spell: Spell, positionCache: Map<string, CellIndex>): void => {
+    const start = positionCache.get(spell.id);
+    if (start) spell.setCellIndex(start);
+  };
+
+  /** Decides the winner by power, applying the Phlegm/Gyre collision rules (2b). */
+  private decideCollision = (a: Spell, b: Spell): CollisionDecision => {
+    const win = (winner: Spell, loser: Spell): CollisionDecision => ({ kind: 'win', winner, loser });
+
+    // A Phlegm/Gyre that already has spells inside it can only be entered (1c)
+    const isAConsumed = a.getIsBeingConsumed();
+    const isBConsumed = b.getIsBeingConsumed();
+    if (isAConsumed !== isBConsumed) return isAConsumed ? win(b, a) : win(a, b);
+
+    const isAAlwaysLoser = isAlwaysLoserAgainst(a, b);
+    const isBAlwaysLoser = isAlwaysLoserAgainst(b, a);
+    if (isAAlwaysLoser !== isBAlwaysLoser) return isAAlwaysLoser ? win(b, a) : win(a, b);
+
+    const powerA = a.getPower();
+    const powerB = b.getPower();
+    if (powerA === powerB) return { kind: 'tie' };
+
+    // In 'alwaysLoses' mode the smaller Phlegm consumes the larger (enables the self-heal combo)
+    const isSmallerWinner = a instanceof Phlegm && b instanceof Phlegm && PHLEGM_RULES.collisionMode === 'alwaysLoses';
+    const isAWinner = isSmallerWinner ? powerA < powerB : powerA > powerB;
+    return isAWinner ? win(a, b) : win(b, a);
+  };
+
+  private applyCollision = (winner: Spell, loser: Spell): void => {
+    if (PHLEGM_RULES.absorbCostsPower && winner instanceof Phlegm && !(loser instanceof Phlegm)) {
+      winner.powerModifier -= loser.getPower();
+    }
 
     const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
     const isCollisionWithTerrain = loser instanceof Phlegm || loser instanceof Gyre;
+
+    // The winner inherits bonuses the loser picked up earlier (1b). Ethers and Quickens already
+    // pass on their own type's bonus in conferModifierTo.
+    if (!isCollisionWithTerrain) {
+      if (!(loser instanceof Quicken)) winner.consumedQuickens += loser.consumedQuickens;
+      if (!(loser instanceof Ether)) winner.consumedEthers += loser.consumedEthers;
+    }
+
+    // Pieces of a spell that breaks apart keep its remaining moves (from before entering the loser)
+    const winnerRemainingMoves = winner.remainingMoves;
+
+    if (isWinnerSized && loser instanceof Phlegm) {
+      this.breakUpAtPhlegm(winner, loser, winnerRemainingMoves);
+      return;
+    }
 
     winner.resolveSpellCollision(loser);
 
@@ -425,7 +629,6 @@ export class SpellMovementEngine {
       extraMoves = Math.max(Math.floor(absoluteDiff / 5), 1);
     }
 
-    let isShattered = false;
     if (isWinnerSized && isCollisionWithTerrain) {
       // Only apply direct shortcuts if the WINNER is also a native Gyre.
       // If a sized Quicken or Ether hits a Gyre, it MUST shatter first so its fragments are individual objects!
@@ -433,9 +636,7 @@ export class SpellMovementEngine {
         const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
         winner.consumedGyres = rowShifts;
       } else {
-        this.shatterSpellIntoFragments(winner, loser);
-        isShattered = true;
-        this.isShatteredSinceLastFrame = true;
+        this.shatterSpellIntoFragments(winner, loser, winnerRemainingMoves);
       }
     } else if (loser instanceof Gyre) {
       const rowShifts = loser instanceof GyreDown ? loser.cellIndex.i + loser.heightCells : loser.cellIndex.i - 1 - winner.cellIndex.i;
@@ -445,37 +646,6 @@ export class SpellMovementEngine {
       loser.consumingSpellIds.add(winner.id);
     } else if (loser instanceof Phlegm && extraMoves > 0) {
       winner.remainingMoves += extraMoves;
-    }
-
-    return { winner, loser, isShattered };
-  };
-
-  private resolveGridCollisions = (): void => {
-    const resolvedPairs = new Set();
-    while (true) {
-      let structuralCollisionFoundThisPass = false;
-      const activeSpells = this.spells.filter(s => !s.getIsRemove());
-      for (let i = 0; i < activeSpells.length; i++) {
-        for (let j = i + 1; j < activeSpells.length; j++) {
-          const spellA = activeSpells[i];
-          const spellB = activeSpells[j];
-          if (spellA.getIsRemove() || spellB.getIsRemove() || spellA.getIsBeingConsumed(spellB) || spellB.getIsBeingConsumed(spellA) || isSameSpellPieces(spellA, spellB)) continue;
-          const idxA = spellA.getCellIndex();
-          const idxB = spellB.getCellIndex();
-          if (!idxA || !idxB) continue;
-          const overlaps = overlapsBoundingBox(idxA, spellA.widthCells, spellA.heightCells, idxB, spellB.widthCells, spellB.heightCells);
-          if (overlaps) {
-            const pairKey = [spellA.id, spellB.id].sort().join('_');
-            if (resolvedPairs.has(pairKey)) continue;
-            resolvedPairs.add(pairKey);
-            structuralCollisionFoundThisPass = true;
-            this.doCollision(spellA, spellB);
-            break;
-          }
-        }
-        if (structuralCollisionFoundThisPass) break;
-      }
-      if (!structuralCollisionFoundThisPass) break;
     }
   };
 
@@ -489,7 +659,110 @@ export class SpellMovementEngine {
     parent.markSpellForRemoval();
   };
 
-  private shatterSpellIntoFragments = (parent: Spell, hit: Spell): [Array<Spell>, number] => {
+  /**
+   * A sized spell hitting a Phlegm (requirement 13, as revised):
+   * - Single-row spells (Quicken chains) enter cell by cell: cells inside the Phlegm break off as
+   *   1x1 pieces that orbit it in single file; the rest stays chained behind and enters later.
+   * - Taller spells split by rows: the rows touching the Phlegm bounce off it as a block (swirl in
+   *   place, then reverse); the other rows keep going. If every row touches, the whole spell bounces.
+   */
+  private breakUpAtPhlegm = (parent: Spell, phlegm: Phlegm, parentRemainingMoves: number): void => {
+    const isInsidePhlegm = (cell: CellIndex) => overlapsBoundingBox(cell, 1, 1, phlegm.cellIndex, phlegm.widthCells, phlegm.heightCells);
+    const isTouchingRow = (i: number) => i >= phlegm.cellIndex.i && i < phlegm.cellIndex.i + phlegm.heightCells;
+    const cells = getFootprintCells(parent);
+    const groupId = parent.fragmentGroupId || parent.id;
+
+    // The Phlegm only takes as many cells as its capacity allows (7c), leading cells first
+    const cellCost = getPhlegmCapacityUse(phlegm, parent) === 1 ? 1 : parent.baseCellDmg;
+    let capacityLeft = Math.floor((getPhlegmCapacity(phlegm) - phlegm.capacityUsed) / cellCost);
+    const dir = Math.sign(parent.speedDirection) || 1;
+    const byLeadingColumn = (a: CellIndex, b: CellIndex) => (b.j - a.j) * dir || a.i - b.i;
+    const isIn = (list: Array<CellIndex>) => (c: CellIndex) => list.some(l => l.i === c.i && l.j === c.j);
+    if (capacityLeft <= 0) return; // not enough capacity left for even one cell: the spell passes through
+
+    if (parent.heightCells === 1) {
+      const captured = cells.filter(isInsidePhlegm).sort(byLeadingColumn).slice(0, capacityLeft);
+      phlegm.capacityUsed += captured.length * cellCost;
+      capacityLeft -= captured.length;
+      captured.forEach(cell => {
+        const piece = this.createPiece(parent, phlegm, { ...cell, w: 1, h: 1 }, parentRemainingMoves, groupId);
+        phlegm.consumingSpellIds.add(piece.id);
+        piece.resolveSpellCollision(phlegm); // orbit
+      });
+      // The rest stays chained and follows in single file, unless the Phlegm is now used up:
+      // then it passes through as a separate spell
+      const restGroupId = capacityLeft > 0 ? groupId : `${groupId}:pass`;
+      splitIntoAllowedShapes(parent, cells.filter(c => !isIn(captured)(c)))
+        .forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves, restGroupId));
+      this.removeShatteredParent(parent, phlegm);
+      return;
+    }
+
+    // Taller spells: whole leading columns of the touching rows bounce, as many as capacity allows
+    const touchingCells = cells.filter(c => isTouchingRow(c.i));
+    const numTouchingRows = new Set(touchingCells.map(c => c.i)).size;
+    const columnsLeadingFirst = [...new Set([...touchingCells].sort(byLeadingColumn).map(c => c.j))];
+    const numBounceColumns = Math.floor(capacityLeft / numTouchingRows);
+    const bounceCells = numBounceColumns > 0
+      ? touchingCells.filter(c => columnsLeadingFirst.indexOf(c.j) < numBounceColumns)
+      : touchingCells.filter(c => c.j === columnsLeadingFirst[0]).sort((a, b) => a.i - b.i).slice(0, capacityLeft);
+    const passCells = cells.filter(c => !isIn(bounceCells)(c));
+    phlegm.capacityUsed += bounceCells.length * cellCost;
+
+    // Every bouncing piece slides in together, keeping its formation
+    const bounceMinJ = Math.min(...bounceCells.map(c => c.j));
+    const bounceWidth = Math.max(...bounceCells.map(c => c.j)) - bounceMinJ + 1;
+    const entrySteps = getBounceEntrySteps(bounceMinJ, bounceWidth, dir, phlegm);
+    if (!passCells.length) {
+      this.startPhlegmBounce(parent, phlegm, entrySteps);
+      return;
+    }
+
+    // The two parts reassemble separately (they now travel in opposite directions)
+    splitIntoAllowedShapes(parent, bounceCells)
+      .forEach(rect => this.startPhlegmBounce(this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:bounce`), phlegm, entrySteps));
+    splitIntoAllowedShapes(parent, passCells)
+      .forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:pass`));
+    this.removeShatteredParent(parent, phlegm);
+  };
+
+  /**
+   * The spell slides into the Phlegm, swirls in place for its orbit's duration, then reverses (13).
+   * Neither the slide nor the swirl uses up the spell's own moves.
+   */
+  private startPhlegmBounce = (spell: Spell, phlegm: Phlegm, entrySteps: number): void => {
+    const dwellSteps = Math.max(1, 4 * (phlegm.widthCells - 1));
+    spell.consumedSpellRef = phlegm;
+    phlegm.consumingSpellIds.add(spell.id);
+    spell.phlegmEntryStepsRemaining = entrySteps;
+    spell.phlegmDwellStepsRemaining = dwellSteps;
+    spell.remainingMoves += entrySteps + dwellSteps;
+    if (spell instanceof Phlegm) {
+      // Same empowerment as a Phlegm orbiting a Phlegm (Phlegm.conferModifierTo)
+      phlegm.consumedPhlegms++;
+      spell.consumedPhlegms += phlegm.consumedPhlegms;
+    }
+  };
+
+  /** Adds a piece of `parent` covering `rect`, keeping the parent's bonuses and remaining moves. */
+  private createPiece = (parent: Spell, breaker: Spell, rect: CellRect, remainingMoves: number, groupId: string): Spell => {
+    const piece: Spell = new (parent.constructor as any)(parent.caster);
+    piece.widthCells = rect.w;
+    piece.heightCells = rect.h;
+    piece.setCellIndex({ i: rect.i, j: rect.j });
+    piece.speedDirection = parent.speedDirection;
+    piece.consumedEthers = parent.consumedEthers;
+    piece.consumedQuickens = parent.consumedQuickens;
+    piece.consumedPhlegms = parent.consumedPhlegms;
+    piece.recordedMovesCount = parent.recordedMovesCount;
+    piece.remainingMoves = remainingMoves;
+    piece.fragmentGroupId = groupId;
+    piece.fragmentBreakerId = breaker.id;
+    this.spells.push(piece);
+    return piece;
+  };
+
+  private shatterSpellIntoFragments = (parent: Spell, hit: Spell, parentRemainingMoves: number): [Array<Spell>, number] => {
     const fragments: Array<Spell> = [];
 
     const hitDir = Math.sign(hit.getPropertyValue('speedDirection'));
@@ -501,7 +774,8 @@ export class SpellMovementEngine {
     const hitMinRow = hit.getCellIndex().i;
     const hitMaxRow = hit.getCellIndex().i + (hit.heightCells - 1);
 
-    const remainingMoves = Math.max(0, parent.widthCells - Math.abs(hitColumn - parent.cellIndex.j) + (parent.consumedQuickens > 0 ? 1 : 0));
+    // Pieces move at the parent's speed for the rest of the turn (13b)
+    const remainingMoves = parentRemainingMoves;
 
     if (parent instanceof Gyre) {
       // Only trigger the row shortcut if hitting another Gyre. If hitting a Phlegm or Ether, bypass this and fall directly to shattering!
@@ -521,12 +795,14 @@ export class SpellMovementEngine {
           frag.setCellIndex({ i: lowestPoint, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
+          frag.consumedPhlegms = parent.consumedPhlegms;
           frag.recordedMovesCount = parent.recordedMovesCount;
           frag.remainingMoves = remainingMoves;
           frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
           frag.consumingSpellIds = new Set();
           frag.consumedSpellRef = null;
           frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
+          frag.fragmentBreakerId = hit.id;
 
           this.spells.push(frag);
           fragments.push(frag);
@@ -537,11 +813,13 @@ export class SpellMovementEngine {
           frag.setCellIndex({ i: gyreRoot, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
+          frag.consumedPhlegms = parent.consumedPhlegms;
           frag.recordedMovesCount = parent.recordedMovesCount;
           frag.remainingMoves = remainingMoves;
           frag.consumingSpellIds = new Set();
           frag.consumedSpellRef = null;
           frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
+          frag.fragmentBreakerId = hit.id;
 
           this.spells.push(frag);
           fragments.push(frag);
@@ -563,12 +841,14 @@ export class SpellMovementEngine {
           frag.setCellIndex({ i: lowestPoint, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
+          frag.consumedPhlegms = parent.consumedPhlegms;
           frag.recordedMovesCount = parent.recordedMovesCount;
           frag.remainingMoves = remainingMoves;
           frag.updatePropertyValue('speedDirection', parent.getPropertyValue('speedDirection') * -1);
           frag.consumingSpellIds = new Set();
           frag.consumedSpellRef = null;
           frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
+          frag.fragmentBreakerId = hit.id;
 
           this.spells.push(frag);
           fragments.push(frag);
@@ -579,10 +859,12 @@ export class SpellMovementEngine {
           frag.setCellIndex({ i: gyreRoot, j: hitColumn });
           frag.consumedEthers = parent.consumedEthers;
           frag.consumedQuickens = parent.consumedQuickens;
+          frag.consumedPhlegms = parent.consumedPhlegms;
           frag.recordedMovesCount = parent.recordedMovesCount;
           frag.consumingSpellIds = new Set();
           frag.consumedSpellRef = null;
           frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
+          frag.fragmentBreakerId = hit.id;
 
           this.spells.push(frag);
           fragments.push(frag);
@@ -608,12 +890,14 @@ export class SpellMovementEngine {
 
         frag.consumedEthers = parent.consumedEthers;
         frag.consumedQuickens = parent.consumedQuickens;
+        frag.consumedPhlegms = parent.consumedPhlegms;
         frag.recordedMovesCount = parent.recordedMovesCount;
         frag.remainingMoves = remainingMoves;
 
         frag.consumingSpellIds = new Set();
         frag.consumedSpellRef = null;
         frag.fragmentGroupId = parent.fragmentGroupId || parent.id;
+        frag.fragmentBreakerId = hit.id;
 
         // Pieces already inside the hit spell are consumed by it; the rest keep moving and collide later
         const isOverlappingColumn = j >= hitMinColumn && j <= hitMaxColumn;
@@ -698,6 +982,7 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
             processed.add(m.id);
             root.consumedQuickens += m.consumedQuickens;
             root.consumedEthers += m.consumedEthers;
+            root.consumedPhlegms += m.consumedPhlegms;
             m.markSpellForRemoval();
           });
           root.widthCells = chainWidth;
@@ -790,6 +1075,7 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
       processed.add(m.id);
       root.consumedQuickens += m.consumedQuickens;
       root.consumedEthers += m.consumedEthers;
+      root.consumedPhlegms += m.consumedPhlegms;
       m.markSpellForRemoval();
     });
 

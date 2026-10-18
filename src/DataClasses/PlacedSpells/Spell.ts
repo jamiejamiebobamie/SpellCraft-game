@@ -2,7 +2,7 @@
 import { CellIndex, SpellPropertyName } from '../types';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqueId/UniqeId';
-import { GYRE_RULES } from './spellRules';
+import { GYRE_RULES, PHLEGM_RULES } from './spellRules';
 
 export abstract class Spell extends UniqueId {
   static readonly spellName: string;
@@ -15,6 +15,7 @@ export abstract class Spell extends UniqueId {
   isRemove: boolean = false;
 
   baseCellDmg: number = 5;
+  powerModifier: number = 0; // e.g. power drained from a Phlegm when PHLEGM_RULES.absorbCostsPower is on
   speedDirection: number = 0;
   dmgHealth: number = 0;
   rowShift: number = 0;
@@ -42,6 +43,8 @@ export abstract class Spell extends UniqueId {
 
   // Id of the spell this piece broke off from ('' if not a piece). Pieces of the same spell never collide.
   fragmentGroupId: string = '';
+  // Id of the Phlegm/Gyre that broke this piece off ('' if not a piece)
+  fragmentBreakerId: string = '';
 
   // Gyre and Phlegm bookkeeping, to ensure they are destroyed after all spells consuming them exit
   consumingSpellIds: Set<string> = new Set();
@@ -53,6 +56,14 @@ export abstract class Spell extends UniqueId {
   phlegmSize: number = 1;
   phlegmOrbitStepsRemaining: number = 0;
   phlegmDirectionSign: number = 1; // 1 for right-moving Phlegm, -1 for left-moving Phlegm
+
+  // Sized spells bounce off a Phlegm as a block: they slide into it for the entry steps, swirl in
+  // place for the dwell steps, then reverse
+  phlegmEntryStepsRemaining: number = 0;
+  phlegmDwellStepsRemaining: number = 0;
+
+  // Capacity a Phlegm has used (spells consumed in 'count' mode, power absorbed in 'power' mode)
+  capacityUsed: number = 0;
 
   readonly limits = {
     speedDirection: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
@@ -93,6 +104,9 @@ export abstract class Spell extends UniqueId {
     this.hitImpactCount++;
   };
 
+  /** Always-positive strength used to decide collisions (requirement 2a). */
+  getPower = (): number => Math.abs(this.getPropertyValue('dmgHealth'));
+
   getIsBeingConsumed = (possibleConsumer?: Spell): boolean => possibleConsumer ? this.consumingSpellIds.has(possibleConsumer.id) : !!this.consumingSpellIds.size;
 
   /**
@@ -101,11 +115,13 @@ export abstract class Spell extends UniqueId {
   getPropertyValue = (propertyName: SpellPropertyName): number => {
     const totalCellsSize = this.widthCells * this.heightCells;
 
+    // Damage (+) or healing (-, Phlegms) dealt to the player whose edge the spell exits.
+    // Its magnitude is the spell's power (see getPower).
     if (propertyName === 'dmgHealth') {
-      let baseDmg = totalCellsSize * this.baseCellDmg;
-      if (this instanceof Ether || this.consumedEthers > 0) baseDmg += 5; // isOnFire
-      if (this instanceof Phlegm) return -baseDmg + (this.consumedPhlegms > 0 ? -20 : 0); // Baseline negative value for healing properties
-      return baseDmg;
+      let power = totalCellsSize * this.baseCellDmg + this.powerModifier;
+      if (this instanceof Ether || this.consumedEthers > 0) power += 5; // isOnFire
+      if (this instanceof Phlegm && this.consumedPhlegms > 0) power += PHLEGM_RULES.empoweredBonus; // isHealing
+      return this instanceof Phlegm ? -power : power;
     }
 
     if (propertyName === 'speedDirection') {
@@ -172,6 +188,19 @@ export abstract class Spell extends UniqueId {
       return;
     }
 
+    // Bouncing off a Phlegm as a block: slide into it, stay in place, then reverse.
+    // (Not moveHorizontally: sliding in must not count as leaving the Phlegm.)
+    if (this.phlegmEntryStepsRemaining > 0) {
+      this.phlegmEntryStepsRemaining--;
+      this.cellIndex = { i: this.cellIndex.i, j: this.cellIndex.j + Math.sign(this.speedDirection) };
+      return;
+    }
+    if (this.phlegmDwellStepsRemaining > 0) {
+      this.phlegmDwellStepsRemaining--;
+      if (this.phlegmDwellStepsRemaining === 0) this.reverseDirection();
+      return;
+    }
+
     // 2. Vector field implementation for orbital paths inside Phlegm layouts
     if (this.isInPhlegmField && this.phlegmCenterIndex) {
       this.executePhlegmOrbitStep();
@@ -195,28 +224,53 @@ export abstract class Spell extends UniqueId {
       return;
     }
 
-    const size = this.phlegmSize;
-
     if (!this.phlegmCenterIndex) return;
 
-    // Calculate relative bounds from the root center cell index of the Phlegm structure
-    const minI = this.phlegmCenterIndex.i;
-    const maxI = this.phlegmCenterIndex.i + size - 1;
-    const minJ = this.phlegmCenterIndex.j;
-    const maxJ = this.phlegmCenterIndex.j + size - 1;
+    // A spell captured just outside the Phlegm first steps onto its edge; the orbit starts from there
+    const isEntering = this.getIsOutsidePhlegm();
+    this.cellIndex = this.getNextOrbitCell();
+    if (isEntering) return;
+
+    this.phlegmOrbitStepsRemaining--;
+
+    // Clean exit verification on the final orbital tick step
+    if (this.phlegmOrbitStepsRemaining === 0) {
+      this.isInPhlegmField = false;
+      this.phlegmCenterIndex = null;
+      this.reverseDirection();
+    }
+  };
+
+  private getPhlegmBounds = () => {
+    const center = this.phlegmCenterIndex!;
+    return {
+      minI: center.i,
+      maxI: center.i + this.phlegmSize - 1,
+      minJ: center.j,
+      maxJ: center.j + this.phlegmSize - 1,
+    };
+  };
+
+  private getIsOutsidePhlegm = (): boolean => {
+    const { minI, maxI, minJ, maxJ } = this.getPhlegmBounds();
+    const { i, j } = this.cellIndex;
+    return i < minI || i > maxI || j < minJ || j > maxJ;
+  };
+
+  /** The cell this spell's next orbit step moves to (its current cell when the orbit is ending). */
+  private getNextOrbitCell = (): CellIndex => {
+    if (this.phlegmOrbitStepsRemaining <= 0 || !this.phlegmCenterIndex) return { ...this.cellIndex };
+
+    const { minI, maxI, minJ, maxJ } = this.getPhlegmBounds();
 
     let nextI = this.cellIndex.i;
     let nextJ = this.cellIndex.j;
 
-    // Look-ahead collisions capture a spell one step before it reaches the Phlegm.
-    // Step it onto the Phlegm's edge first; the orbit starts from there.
-    const isOutsidePhlegm = nextI < minI || nextI > maxI || nextJ < minJ || nextJ > maxJ;
-    if (isOutsidePhlegm) {
-      this.cellIndex = {
+    if (this.getIsOutsidePhlegm()) {
+      return {
         i: Math.min(maxI, Math.max(minI, nextI)),
         j: Math.min(maxJ, Math.max(minJ, nextJ)),
       };
-      return;
     }
 
     const isClockwise = this.phlegmDirectionSign === 1;
@@ -246,15 +300,24 @@ export abstract class Spell extends UniqueId {
       }
     }
 
-    this.cellIndex = { i: nextI, j: nextJ };
-    this.phlegmOrbitStepsRemaining--;
+    return { i: nextI, j: nextJ };
+  };
 
-    // Clean exit verification on the final orbital tick step
-    if (this.phlegmOrbitStepsRemaining === 0) {
-      this.isInPhlegmField = false;
-      this.phlegmCenterIndex = null;
-      this.reverseDirection();
+  /** Where executeSingleMicroStep would move this spell, without moving it. */
+  peekNextCellIndex = (): CellIndex => {
+    if (this.consumedGyres !== 0) {
+      return { i: this.cellIndex.i + Math.sign(this.consumedGyres), j: this.cellIndex.j };
     }
+    if (this.phlegmEntryStepsRemaining > 0) {
+      return { i: this.cellIndex.i, j: this.cellIndex.j + Math.sign(this.speedDirection) };
+    }
+    if (this.phlegmDwellStepsRemaining > 0) {
+      return { ...this.cellIndex };
+    }
+    if (this.isInPhlegmField && this.phlegmCenterIndex) {
+      return this.getNextOrbitCell();
+    }
+    return { i: this.cellIndex.i, j: this.cellIndex.j + Math.sign(this.speedDirection) };
   };
 
   moveHorizontally = (): void => {
@@ -368,10 +431,9 @@ export class Ether extends Spell {
   }
 
   conferModifierTo = (consumer: Spell): void => {
-    if (!(consumer instanceof Phlegm)) {
-      this.consumedEthers++;
-      consumer.accumulateProperty(this, 'consumedEthers');
-    }
+    // Any consumer gains the fire bonus, including a Phlegm absorbing an Ether in 'power' mode
+    this.consumedEthers++;
+    consumer.accumulateProperty(this, 'consumedEthers');
     this.markSpellForRemoval();
   };
 

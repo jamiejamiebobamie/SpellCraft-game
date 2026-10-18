@@ -28,6 +28,13 @@ export function drawProceduralSpell(
     ctx.translate(-w / 2, -h / 2);
   }
 
+  // --- SIZED SPELL BOUNCING OFF A PHLEGM: ROTATES AS A WHOLE WHILE SWIRLING IN PLACE ---
+  if ((spell.phlegmDwellStepsRemaining || 0) > 0 && !spell.phlegmEntryStepsRemaining) {
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(time * 0.004);
+    ctx.translate(-w / 2, -h / 2);
+  }
+
   const spellClass = spell.constructor.spellName;
 
   if (spellClass === 'Ether') {

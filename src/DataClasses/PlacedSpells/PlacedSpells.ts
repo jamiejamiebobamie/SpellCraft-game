@@ -14,7 +14,6 @@ export class PlacedSpells {
 
   private static readonly FRAME_DELAY_MILLI: Record<SpellTurnFrameKind, number> = {
     step: PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI,
-    breakup: PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 2,
     turnEnd: PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI,
     final: 0,
   };
