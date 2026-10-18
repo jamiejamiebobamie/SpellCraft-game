@@ -16,10 +16,10 @@ import { Player } from './Player/Player';
 import { NPCPlayer } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
-import { Phlegm, Ether, GyreUp, GyreDown, Quicken } from './PlacedSpells/Spell';
 import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TooltipPage } from './TooltipManager/TooltipManager';
+import { SpellClass, createPlacedSpells, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
 
 /*
 
@@ -42,7 +42,6 @@ export class Game {
 
   // GAME OVER
   gameOver: GameOver | null = null;
-  private readonly CAUGHT_WEIGHT: number = 0.5;
 
   // KEY BINDINGS
   keyActions: Array<KeyAction> = [];
@@ -106,37 +105,18 @@ export class Game {
   }
 
   checkIfIsGameOverFromPlayerDeath = (): void => {
-    const deadPlayers = this.players.getDeadPlayers();
-    switch (deadPlayers.length) {
-      case 2:
-        this.gameOver = GameOverStatus.BothDead;
-        this.forceUpdate();
-        break;
-      case 1:
-        this.gameOver = deadPlayers[0] instanceof NPCPlayer ? GameOverStatus.PlayerWon : GameOverStatus.NpcWon;
-        this.forceUpdate();
-        break;
+    const [humanPlayer, npcPlayer] = this.players.getPlayers();
+    const deathGameOver = getDeathGameOver(humanPlayer, npcPlayer);
+    if (deathGameOver !== null) {
+      this.gameOver = deathGameOver;
+      this.forceUpdate();
     }
   }
 
   checkIfIsGameOverFromTime = (): void => {
-
-    const MINUTES_HAND = 12; // Increments of 5, (5 * 12 = 60 minutes)
-    const HOURS_HAND = 6; // 6 hours
-    const SUNRISE = MINUTES_HAND * HOURS_HAND;
-
-    const currTotalMinutes = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
-
-    // [.45,.5] + .5
-    const MIN = 0.45;
-    const MAX = 0.5;
-    const caughtChance = Math.random() * (MAX - MIN) + MIN + this.CAUGHT_WEIGHT;
-    const caughtLikelihood = currTotalMinutes / SUNRISE;
-
-    const isCaught = caughtLikelihood > caughtChance; // Danger-zone: >530AM ...possibly GAME_OVER
-    const isPastSunrise = currTotalMinutes >= SUNRISE; // Hard-stop: 6AM = GAME_OVER
-
-    if (isCaught || isPastSunrise) {
+    // One clock tick (5 minutes) per turn
+    const turnsElapsed = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
+    if (getIsTimeUp(turnsElapsed, Math.random)) {
       this.gameOver = GameOverStatus.TimesUp
       this.forceUpdate();
     }
@@ -658,220 +638,32 @@ export class Game {
   };
 
   /**
-   * Instantiates the sizing constraints and evaluates focus expenses cleanly
+   * Casts a drawn spell: where it lands, its shapes and its focus cost come from the shared
+   * casting rules (GameRules/gameRules.ts); this adds the effects (blood magic, sound).
    */
   private spawnSizedSpellInstance = (symbol: string, cells: CellIndex[], activeCaster: any): void => {
     if (cells.length === 0 || !activeCaster) return;
-
-    let instance, count = 0;
-
-    // 1. Establish absolute placement boundaries by caster direction / side
-    const isHuman = activeCaster.getDirection() === 1;
-    const minAllowedI = 0;
-    const maxAllowedI = GameBoard.NUM_ROWS - 1; // 2
-    const minAllowedJ = isHuman ? 0 : 4;
-    const maxAllowedJ = isHuman ? 2 : GameBoard.NUM_COLS - 1; // 6
-
-    // 2. Filter out gesture points that fall outside the caster's legal 3x3 deployment zone
-    const validZoneCells = cells.filter(c =>
-      c.i >= minAllowedI && c.i <= maxAllowedI &&
-      c.j >= minAllowedJ && c.j <= maxAllowedJ
-    );
-
-    if (validZoneCells.length === 0) return;
-
-    // 3. Compute the structural bounding box of the valid cells touched
-    let minI = Number.MAX_SAFE_INTEGER, maxI = Number.MIN_SAFE_INTEGER;
-    let minJ = Number.MAX_SAFE_INTEGER, maxJ = Number.MIN_SAFE_INTEGER;
-
-    validZoneCells.forEach(c => {
-      if (c.i < minI) minI = c.i;
-      if (c.i > maxI) maxI = c.i;
-      if (c.j < minJ) minJ = c.j;
-      if (c.j > maxJ) maxJ = c.j;
-    });
-
-    let widthSpan = (maxJ - minJ) + 1;
-    let heightSpan = (maxI - minI) + 1;
-    const lowerSymbol = symbol.toLowerCase();
-
-    // --- LAYER 4: SCAN OCCUPIED SUB-CELL MATRIX BOUNDS (WITH ACCURATE ROW CAP PROTECTION) ---
-    const footprintMatrix: boolean[][] = Array(heightSpan).fill(null).map(() => Array(widthSpan).fill(false));
-
-    for (let r = 0; r < heightSpan; r++) {
-      for (let c = 0; c < widthSpan; c++) {
-        const boardI = minI + r;
-        const boardJ = minJ + c;
-
-        // FIXED CAP: If a multi-cell placement calculation leaks past the 3-row grid limit, block it instantly
-        if (boardI >= GameBoard.NUM_ROWS || boardJ >= GameBoard.NUM_COLS) {
-          footprintMatrix[r][c] = true;
-          continue;
-        }
-
-        const cell = this.gameBoard.getCellAt({ i: boardI, j: boardJ });
-
-        // Safety block if it touches unfree tiles or any existing spell reference
-        if (!cell || !cell.getIsFree() || cell.getSpell() !== null) {
-          footprintMatrix[r][c] = true;
-          continue;
-        }
-
-        // SIZED ACCURATE EVALUATION: Double check multi-cell spatial overlaps across the entire board array
-        const overlappingActiveSpell = this.placedSpells.spells.find(s => {
-          if (s.isRemove) return false;
-          const root = s.getCellIndex();
-          if (!root) return false;
-
-          const sMaxI = root.i + s.heightCells - 1;
-          const sMaxJ = root.j + s.widthCells - 1;
-
-          return boardI >= root.i && boardI <= sMaxI && boardJ >= root.j && boardJ <= sMaxJ;
-        });
-
-        if (overlappingActiveSpell) {
-          footprintMatrix[r][c] = true;
-        }
-      }
-    }
-
-    const spell = GameSymbol.SPELL_LOOKUP.get(lowerSymbol as InferenceString);
+    const spell = GameSymbol.SPELL_LOOKUP.get(symbol.toLowerCase() as InferenceString);
     if (!spell) return;
 
-    // --- LAYER 5: TYPE-SPECIFIC COMPONENT DEPLOYMENT PASSTHROUGHS ---
-
-    // A. ETHER & PHLEGM MAXIMAL SPATIAL GRID SWEEPER
-    if (spell.spellName == 'Phlegm' || spell.spellName == 'Ether') {
-      const isPhlegm = spell.spellName == 'Phlegm';
-
-      const canFitSquare = (startR: number, startC: number, size: number): boolean => {
-        // 1. Structural Boundary Cap Check
-        if (startR + size > heightSpan || startC + size > widthSpan) return false;
-
-        // 2. ABSOLUTE VERIFICATION LOOP
-        for (let r = 0; r < size; r++) {
-          for (let c = 0; c < size; c++) {
-            // If ANY cell inside this proposed square size is blocked or occupied, reject the placement
-            if (footprintMatrix[startR + r][startC + c] === true) {
-              return false;
-            }
-          }
-        }
-        return true;
-      };
-
-      const placeSquare = (startR: number, startC: number, size: number): void => {
-        instance = isPhlegm ? new Phlegm(activeCaster) : new Ether(activeCaster);
-        instance.widthCells = size;
-        instance.heightCells = size;
-
-        instance.setCellIndex({ i: minI + startR, j: minJ + startC });
-        this.placedSpells.addSpell(instance);
-        count++;
-
-        // Mark the local matrix slots as locked so smaller sizes don't stack inside it
-        for (let r = 0; r < size; r++) {
-          for (let c = 0; c < size; c++) {
-            footprintMatrix[startR + r][startC + c] = true;
-          }
-        }
-      };
-
-      const allowedSizes = [3, 2, 1];
-      allowedSizes.forEach(size => {
-        for (let r = 0; r < heightSpan; r++) {
-          for (let c = 0; c < widthSpan; c++) {
-            if (canFitSquare(r, c, size)) {
-              placeSquare(r, c, size);
-            }
-          }
-        }
+    const isOccupied = (index: CellIndex): boolean => {
+      const cell = this.gameBoard.getCellAt(index);
+      if (!cell || !cell.getIsFree() || cell.getSpell() !== null) return true;
+      return this.placedSpells.spells.some(s => {
+        if (s.isRemove) return false;
+        const root = s.getCellIndex();
+        if (!root) return false;
+        return index.i >= root.i && index.i < root.i + s.heightCells && index.j >= root.j && index.j < root.j + s.widthCells;
       });
-    }
+    };
+    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), isOccupied);
+    const placed = createPlacedSpells(spell as SpellClass, rects, activeCaster);
+    placed.forEach(s => this.placedSpells.addSpell(s));
 
-    // B. GYREUP & GYREDOWN VERTICAL COLUMNS TRACKER
-    else if (spell.spellName == 'GyreUp' || spell.spellName == 'GyreDown') {
-      const isGyreUp = spell.spellName == 'GyreUp';
-
-      for (let c = 0; c < widthSpan; c++) {
-        let r = 0;
-        while (r < heightSpan) {
-          if (footprintMatrix[r][c]) {
-            r++;
-            continue;
-          }
-
-          let contiguousHeight = 0;
-          while (r + contiguousHeight < heightSpan && !footprintMatrix[r + contiguousHeight][c]) {
-            contiguousHeight++;
-          }
-
-          if (contiguousHeight > 0) {
-            instance = isGyreUp ? new GyreUp(activeCaster) : new GyreDown(activeCaster);
-            instance.widthCells = 1;
-            instance.heightCells = contiguousHeight;
-
-            instance.setCellIndex({ i: minI + r, j: minJ + c });
-
-            // Clear any lingering stale cells in this column slot
-            for (let h = 0; h < contiguousHeight; h++) {
-              const targetCell = this.gameBoard.getCellAt({ i: minI + r + h, j: minJ + c });
-              if (targetCell) targetCell.setSpell(null);
-            }
-
-            this.placedSpells.addSpell(instance);
-            count++;
-            r += contiguousHeight;
-          } else {
-            r++;
-          }
-        }
-      }
-    }
-
-    // C. QUICKEN HORIZONTAL CHAINS & VERTICAL ROW SPLITTING PASSTHROUGH
-    else if (spell.spellName == 'Quicken') {
-      for (let r = 0; r < heightSpan; r++) {
-        let c = 0;
-        while (c < widthSpan) {
-          if (footprintMatrix[r][c]) {
-            c++;
-            continue;
-          }
-
-          let contiguousWidth = 0;
-          while (c + contiguousWidth < widthSpan && !footprintMatrix[r][c + contiguousWidth]) {
-            contiguousWidth++;
-          }
-
-          if (contiguousWidth > 0) {
-            const finalWidth = heightSpan > 1 ? 1 : contiguousWidth;
-
-            instance = new Quicken(activeCaster);
-            instance.widthCells = finalWidth;
-            instance.heightCells = 1;
-
-            instance.setCellIndex({ i: minI + r, j: minJ + c });
-
-            for (let w = 0; w < finalWidth; w++) {
-              const targetCell = this.gameBoard.getCellAt({ i: minI + r, j: minJ + c + w });
-              if (targetCell) targetCell.setSpell(null);
-            }
-
-            this.placedSpells.addSpell(instance);
-            count++;
-            c += finalWidth;
-          } else {
-            c++;
-          }
-        }
-      }
-    }
-    if (!!count && instance && activeCaster && !activeCaster.getIsDead()) {
-      const s = new spell(activeCaster);
-      const spellName = s.getSpellName();
-      const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
-      const bloodMagicCost = activeCaster.incurPlayerCostForSpell(focusCost);
+    const instance = placed[placed.length - 1];
+    if (instance && !activeCaster.getIsDead()) {
+      const spellName = instance.getSpellName();
+      const bloodMagicCost = activeCaster.incurPlayerCostForSpell(getPlacementFocusCost(spell as SpellClass, rects));
       if (bloodMagicCost > 0) {
         instance.flagHitImpact(activeCaster.id === this.getHumanPlayer()?.id, bloodMagicCost, true);
         this.playPlayerDmgSound(activeCaster, bloodMagicCost);
