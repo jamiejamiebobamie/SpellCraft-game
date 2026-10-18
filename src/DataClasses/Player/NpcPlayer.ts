@@ -6,6 +6,7 @@ import { HARDCODED_SYMBOLS } from '../PlacedSpells/HardCodedSymbols'
 import { GameSymbol } from '../PlacedSpells/GameSymbol';
 import { Cell } from "../GameBoard/Cell";
 import type { PlannedNpcCast } from "./NpcBrain";
+import { SpellClass, getPlacementFocusCost, planSpellPlacement } from "../GameRules/gameRules";
 
 /** A cast decided by the NPC's brain: drawn like any other, then placed on exactly these cells. */
 export type PlannedNpcMove = PlannedNpcCast & { onCast: () => void };
@@ -183,6 +184,21 @@ export class NPCPlayer extends Player {
      * Draws a symbol and casts its spell. With `plannedMove` (from the NPC's brain), draws that symbol
      * over its cells and casts there, then calls `plannedMove.onCast`; otherwise draws a random one.
      */
+    /**
+     * The cells of a random drawing the NPC can cast without killing itself with blood magic: all of
+     * them, else just one (the smallest cast), else none.
+     */
+    private getCellsSafeToCast = (spell: SpellClass, cells: Array<CellIndex>, gameBoard: GameBoard): Array<CellIndex> => {
+        const isOccupied = (cell: CellIndex) => !gameBoard.getCellAt(cell)?.getIsFree();
+        const getIsSafe = (castCells: Array<CellIndex>) => {
+            const focusCost = Math.max(1, Math.ceil(getPlacementFocusCost(spell, planSpellPlacement(spell, castCells, this.getDirection(), isOccupied))));
+            const bloodMagicCost = Math.max(0, focusCost - this.getFocus()) * this.getBloodMagicCost();
+            return bloodMagicCost < this.getHealth();
+        };
+        if (getIsSafe(cells)) return cells;
+        return cells.length && getIsSafe(cells.slice(0, 1)) ? cells.slice(0, 1) : [];
+    };
+
     doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void => {
         if (!this.getFocus() || this.getIsDead()) {
             this.clearNumRemaningMovesPerTurn();
@@ -265,7 +281,8 @@ export class NPCPlayer extends Player {
                 if (spell) {
                     const freeCells = dominantCells.map((cellIndex: CellIndex) => gameBoard.getCellAt(cellIndex)).filter((cell: Cell) => isCanPlaceGameSymbolOn(cell, this as Player));
                     const freePositions = freeCells.filter((c: Cell | null) => !!c).map((c: Cell) => c?.getCellIndex());
-                    spawnSizedSpellInstance(inferenceString, freePositions, this);
+                    const safeCells = this.getCellsSafeToCast(spell as SpellClass, freePositions, gameBoard);
+                    if (safeCells.length) spawnSizedSpellInstance(inferenceString, safeCells, this);
                 }
             }
 
