@@ -3,8 +3,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Ether, Gyre, GyreDown, GyreUp, Phlegm, Quicken, Spell } from './Spell';
 import { Player } from '../Player/Player';
-import { SpellMovementEngine, SpellTurnFrame } from './SpellMovementEngine';
-import { GYRE_RULES, PHLEGM_RULES } from './spellRules';
+import { SpellMovementEngine, SpellTurnFrame, combineSpellsMaximally } from './SpellMovementEngine';
+import { GYRE_RULES, PHLEGM_RULES, QUICKEN_RULES } from './spellRules';
 
 const player = new Player(1, ''); // moves right
 const npc = new Player(-1, ''); // moves left
@@ -46,9 +46,11 @@ const statesOf = (turns: Array<Array<SpellTurnFrame>>, spell: Spell): Array<Spel
 
 const DEFAULT_PHLEGM_RULES = { ...PHLEGM_RULES };
 const DEFAULT_GYRE_RULES = { ...GYRE_RULES };
+const DEFAULT_QUICKEN_RULES = { ...QUICKEN_RULES };
 afterEach(() => {
   Object.assign(PHLEGM_RULES, DEFAULT_PHLEGM_RULES);
   Object.assign(GYRE_RULES, DEFAULT_GYRE_RULES);
+  Object.assign(QUICKEN_RULES, DEFAULT_QUICKEN_RULES);
 });
 
 describe('1a. collision detection', () => {
@@ -445,6 +447,47 @@ describe('invariants on random boards', () => {
         });
       });
     }
+  });
+});
+
+describe('11. bonuses', () => {
+  const finalColumn = (spells: Array<Spell>, spell: Spell) => {
+    const states = statesOf(runTurns(spells, 1), spell);
+    return states[states.length - 1].cellIndex.j;
+  };
+
+  it("'flat': consuming a Quicken gives +1 move this turn; 'perConsumption' gives bonusMovesPerConsumption", () => {
+    const setup = () => {
+      const ether = place(Ether, player, 0, 0); // speed 1: its one move is used on step 1
+      return [ether, place(Quicken, npc, 0, 2)] as const;
+    };
+    const [flatEther, flatQuicken] = setup();
+    expect(finalColumn([flatEther, flatQuicken], flatEther)).toBe(2); // +1 move after eating the Quicken
+
+    QUICKEN_RULES.bonusMode = 'perConsumption';
+    const [comboEther, comboQuicken] = setup();
+    expect(finalColumn([comboEther, comboQuicken], comboEther)).toBe(1 + QUICKEN_RULES.bonusMovesPerConsumption);
+  });
+
+  it("'flat': an already electrified spell gains nothing more from another Quicken", () => {
+    const ether = place(Ether, player, 0, 0);
+    ether.consumedQuickens = 1; // speed 2
+    const quicken = place(Quicken, npc, 0, 3);
+    expect(finalColumn([ether, quicken], ether)).toBe(2); // only its normal 2 moves
+    expect(ether.getPropertyValue('speedDirection')).toBe(2);
+  });
+});
+
+describe('14. recombining', () => {
+  it('only spells lying entirely inside a square merge into it', () => {
+    // A 2x2 Ether sticking out past column 2 must not be swallowed into a 3x3 at columns 0-2
+    const spells = [
+      [0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1], [2, 2],
+    ].map(([i, j]) => place(Ether, player, i, j));
+    spells.push(place(Ether, player, 0, 2, 2));
+    combineSpellsMaximally(spells);
+    const cellsKept = spells.filter(s => !s.isRemove).reduce((acc, s) => acc + s.widthCells * s.heightCells, 0);
+    expect(cellsKept).toBe(7 + 4);
   });
 });
 

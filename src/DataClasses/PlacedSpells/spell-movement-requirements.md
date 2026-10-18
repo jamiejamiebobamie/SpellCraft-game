@@ -277,6 +277,7 @@ GYRE_RULES = {
   capacityPerCell: 1,
   powerCapacityPerCell: 4,
   capacityResetsEachTurn: true,  //                                               (4c, 10c)
+  persistsAfterUse: false,       // true: survives until full instead of used once (10b, 10c)
   maxHeight: 3,                  //                                               (5c)
   exitBonusMode: 'none',         // 'none' | 'legacy'                             (11c)
   collisionMode: 'power',        // 'power' | 'alwaysLoses'                       (13c)
@@ -302,7 +303,5 @@ Proposed: a setting `NPC_PLACEMENT_VISIBILITY: 'full' | 'shape' | 'hidden'`:
 - **`'shape'`**: the player sees where and how big the NPC's spells are, but not their type, until spell movement starts. Recommended to playtest first.
 - **`'hidden'`**: the NPC visibly draws, but its spells are veiled until the clock is clicked (truly simultaneous moves; recommended for RL training).
 
-## Known bugs (current implementation)
-To fix during the rebuild:
-- The square merge (Phlegm/Ether combining) does not check that every merged piece fits inside the square.
-- Each consumed Quicken adds +2 moves rather than a flat +1 speed.
+## Known bugs
+All bugs found in the original implementation have been fixed by the rebuild (steps 1-5).

@@ -2,7 +2,7 @@
 import { CellIndex, SpellPropertyName } from '../types';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqueId/UniqeId';
-import { GYRE_RULES, PHLEGM_RULES } from './spellRules';
+import { GYRE_RULES, PHLEGM_RULES, QUICKEN_RULES } from './spellRules';
 
 type CellBounds = { minI: number; maxI: number; minJ: number; maxJ: number };
 
@@ -568,14 +568,20 @@ export class Quicken extends Spell {
     super(caster);
   }
 
+  /**
+   * The consumer becomes electrified (11a). 'flat': +1 speed, once; a spell electrified mid-turn
+   * immediately gains its extra move. 'perConsumption': every Quicken consumed grants
+   * QUICKEN_RULES.bonusMovesPerConsumption extra moves this turn.
+   */
   conferModifierTo = (consumer: Spell): void => {
+    const isAlreadyElectrified = consumer instanceof Quicken || consumer.consumedQuickens > 0;
     this.consumedQuickens++;
     consumer.accumulateProperty(this, 'consumedQuickens');
-    /*
-      Speeding up gives immediate dynamic move
-        ticks extensions inside the simulation frame
-    */
-    consumer.remainingMoves += 2;
+    if (QUICKEN_RULES.bonusMode === 'perConsumption') {
+      consumer.remainingMoves += QUICKEN_RULES.bonusMovesPerConsumption;
+    } else if (!isAlreadyElectrified) {
+      consumer.remainingMoves += 1;
+    }
     this.markSpellForRemoval();
   };
 

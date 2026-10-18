@@ -3,8 +3,8 @@
 // Runs a full spell-movement turn on a cloned copy of the placed spells and returns a log of
 // frames for the UI to replay (see PlacedSpells.updateSpells).
 //
-// The rules are being rebuilt step by step against spell-movement-requirements.md. Collisions
-// follow requirements 1-2; the rest still follow the original rules (see "Known bugs" there).
+// The rules follow spell-movement-requirements.md (numbers in comments refer to its sections);
+// tunable rules live in spellRules.ts. Saved scenarios: SpellMovementEngine.test.ts (npm test).
 import { Spell, Phlegm, Ether, Gyre, GyreUp, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex } from '../types';
@@ -1007,6 +1007,13 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
     if (!root || processed.has(root.id)) return false;
     if (!(root instanceof Phlegm || root instanceof Ether)) return false;
 
+    // Only spells lying entirely inside the square can merge into it, starting from its top-left
+    const isInsideSquare = (s: Spell) =>
+      s.cellIndex.i >= rootI && s.cellIndex.j >= rootJ &&
+      s.cellIndex.i + s.heightCells <= rootI + targetSize && s.cellIndex.j + s.widthCells <= rootJ + targetSize;
+    const isRootAnchored = root.cellIndex.i === rootI && root.cellIndex.j === rootJ;
+    if (!isRootAnchored || !isInsideSquare(root)) return false;
+
     const targetCluster = new Set<Spell>();
 
     for (let r = 0; r < targetSize; r++) {
@@ -1019,7 +1026,7 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
         const candidate = matrix[checkI][checkJ];
         if (candidate === root) continue;
 
-        if (componentsMatch(root, candidate)) {
+        if (componentsMatch(root, candidate) && isInsideSquare(candidate!)) {
           targetCluster.add(candidate!);
         } else {
           return false;

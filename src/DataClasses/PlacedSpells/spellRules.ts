@@ -1,6 +1,5 @@
 // spellRules.ts
 // Tunable spell rules. See spell-movement-requirements.md ("Config summary") for what each setting does.
-// NOTE: only GYRE_RULES.powerPerCell is wired into the engine so far; the rest are consumed as the rebuild progresses.
 
 export const PHLEGM_RULES = {
   collisionMode: 'alwaysLoses' as 'alwaysLoses' | 'power',
