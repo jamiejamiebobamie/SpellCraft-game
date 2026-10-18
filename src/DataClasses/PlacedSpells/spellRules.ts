@@ -35,11 +35,11 @@ export const PLAYER_RULES = {
 };
 
 export const CASTING_RULES = {
-  // A cast costs each spell's FOCUS_COST (Spell.ts) per cell, up to maxFocusCostPerCast (the most
-  // focus a player can hold, so any drawing can be cast without blood magic), except for the
-  // uncapped spells: e.g. three rows of Quickens cost 18, so 10 of it is paid in health
-  maxFocusCostPerCast: 8,
-  uncappedSpells: ['Quicken'] as Array<string>,
+  // A cast costs each spell's FOCUS_COST (Spell.ts) per cell, up to maxFocusCostPerCast (null: no
+  // cap, so big casts can need blood magic, e.g. a 3x3 Ether costs 18), except for uncappedSpells.
+  // (8, the most focus a player can hold, with Quickens uncapped, was tried)
+  maxFocusCostPerCast: null as number | null,
+  uncappedSpells: [] as Array<string>,
   // Most cells one Quicken cast can fill (null: no limit). The cells the drawing touched are filled
   // first. Tried at 3; replaced by uncapped Quicken costs
   maxQuickenCellsPerCast: null as number | null,

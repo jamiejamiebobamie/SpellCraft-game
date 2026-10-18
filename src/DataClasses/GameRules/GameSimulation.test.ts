@@ -30,15 +30,15 @@ describe('casting', () => {
     expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100 - 4 * PLAYER_RULES.bloodMagicHealthPerFocus);
   });
 
-  it('costs focus per cell, capped at 8 except for Quickens', () => {
+  it.runIf(CASTING_RULES.maxFocusCostPerCast === null)('costs focus per cell (cost x cells), with no cap', () => {
     const costOf = (spellName: SpellName, cells: Array<CellIndex>) => new GameSimulation().cast(PLAYER_INDEX, spellName, cells).focusCost;
     expect(costOf('Ether', cellsOf(0, 0, 1, 1))).toBe(2);
-    expect(costOf('Ether', cellsOf(0, 0, 3, 3))).toBe(8); // 18, capped
+    expect(costOf('Ether', cellsOf(0, 0, 3, 3))).toBe(18);
     expect(costOf('Phlegm', cellsOf(0, 0, 2, 2))).toBe(4);
-    expect(costOf('Phlegm', cellsOf(0, 0, 3, 3))).toBe(8); // 9, capped
-    expect(costOf('GyreUp', cellsOf(0, 0, 3, 3))).toBe(8); // three 3-tall Gyres: 9, capped
+    expect(costOf('Phlegm', cellsOf(0, 0, 3, 3))).toBe(9);
+    expect(costOf('GyreUp', cellsOf(0, 0, 3, 3))).toBe(9); // three 3-tall Gyres
     expect(costOf('Quicken', cellsOf(0, 0, 3, 1))).toBe(6);
-    expect(costOf('Quicken', cellsOf(0, 0, 3, 3))).toBe(18); // not capped
+    expect(costOf('Quicken', cellsOf(0, 0, 3, 3))).toBe(18);
     // The same whether drawn as one shape or as pieces (e.g. a 2x2 next to a 1x1)
     const sim = new GameSimulation();
     sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]);
