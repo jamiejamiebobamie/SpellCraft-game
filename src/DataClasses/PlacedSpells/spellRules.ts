@@ -31,7 +31,7 @@ export const QUICKEN_RULES = {
 };
 
 export const PLAYER_RULES = {
-  bloodMagicHealthPerFocus: 7, // health paid per focus point a cast costs beyond what the caster has (was 5)
+  bloodMagicHealthPerFocus: 5, // health paid per focus point a cast costs beyond what the caster has (7 was tried)
 };
 
 export const CASTING_RULES = {
@@ -39,6 +39,8 @@ export const CASTING_RULES = {
   // whole zone with Quickens. The cells the drawing touched are filled first.
   maxQuickenCellsPerCast: 3 as number | null,
   // Spells can be cast onto enemy spells in the column right next to the caster's wizard, where
-  // they collide at once (otherwise a spell there can't be answered before it hits)
-  canCastOntoEnemiesBesideWizard: true,
+  // they collide at once (otherwise a spell there can't be answered before it hits). Off for now:
+  // to revisit how it works with sized enemy spells (only part of them is in that column), and a
+  // Phlegm cast onto part of a sized enemy spell doesn't reflect the part it covers
+  canCastOntoEnemiesBesideWizard: false,
 };

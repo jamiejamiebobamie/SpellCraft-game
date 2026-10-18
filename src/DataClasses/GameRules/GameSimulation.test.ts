@@ -5,6 +5,7 @@ import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimula
 import { GameOverStatus, CellIndex } from '../types';
 import { SUNRISE_TURNS } from './gameRules';
 import { Ether } from '../PlacedSpells/Spell';
+import { CASTING_RULES, PLAYER_RULES } from '../PlacedSpells/spellRules';
 import { GameBoard } from '../GameBoard/GameBoard';
 
 /** All cells of a rectangle, as if a drawing touched them. */
@@ -24,9 +25,9 @@ describe('casting', () => {
     const { placed, focusCost, bloodMagicCost } = sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2));
     expect(placed.map(s => [s.widthCells, s.heightCells])).toEqual([[2, 2]]);
     expect(focusCost).toBe(1.25 * 4);
-    expect(bloodMagicCost).toBe(7); // costs ceil(5) = 5 focus; has 4, so 1 is paid in health (x7, PLAYER_RULES)
+    expect(bloodMagicCost).toBe(PLAYER_RULES.bloodMagicHealthPerFocus); // costs ceil(5) = 5 focus; has 4, so 1 is paid in health
     expect(sim.players[PLAYER_INDEX].getFocus()).toBe(0);
-    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(93);
+    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100 - PLAYER_RULES.bloodMagicHealthPerFocus);
   });
 
   it("only cells in the caster's own 3x3 zone are used", () => {
@@ -162,7 +163,7 @@ describe('casting rules (CASTING_RULES)', () => {
     expect(cells).toEqual(expect.arrayContaining([{ i: 0, j: 0 }, { i: 1, j: 1 }, { i: 2, j: 2 }]));
   });
 
-  it('a spell cast onto an enemy spell beside the wizard collides at once', () => {
+  it.runIf(CASTING_RULES.canCastOntoEnemiesBesideWizard)('a spell cast onto an enemy spell beside the wizard collides at once', () => {
     const sim = new GameSimulation();
     placeNpcSpell(sim, Ether, { i: 1, j: 0 });
     const { placed } = sim.cast(PLAYER_INDEX, 'Ether', [{ i: 1, j: 0 }]);
@@ -172,7 +173,7 @@ describe('casting rules (CASTING_RULES)', () => {
     expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100);
   });
 
-  it('a Phlegm cast onto an enemy spell beside the wizard stops it hitting', () => {
+  it.runIf(CASTING_RULES.canCastOntoEnemiesBesideWizard)('a Phlegm cast onto an enemy spell beside the wizard stops it hitting', () => {
     const sim = new GameSimulation();
     placeNpcSpell(sim, Ether, { i: 1, j: 0 });
     sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 1, j: 0 }]);
@@ -180,7 +181,7 @@ describe('casting rules (CASTING_RULES)', () => {
     expect(sim.players[PLAYER_INDEX].getHealth()).toBe(100);
   });
 
-  it('only beside the wizard, and never onto own spells', () => {
+  it('never onto other spells (beside the wizard: only enemy spells, if CASTING_RULES allows)', () => {
     const sim = new GameSimulation();
     placeNpcSpell(sim, Ether, { i: 1, j: 1 });
     expect(sim.cast(PLAYER_INDEX, 'Ether', [{ i: 1, j: 1 }]).placed).toHaveLength(0);
@@ -188,7 +189,7 @@ describe('casting rules (CASTING_RULES)', () => {
     expect(sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]).placed).toHaveLength(0);
   });
 
-  it('works the same for the NPC (beside its wizard, on the right)', () => {
+  it.runIf(CASTING_RULES.canCastOntoEnemiesBesideWizard)('works the same for the NPC (beside its wizard, on the right)', () => {
     const sim = new GameSimulation();
     const enemy = new Ether(sim.players[PLAYER_INDEX]);
     enemy.setCellIndex({ i: 2, j: GameBoard.NUM_COLS - 1 });
