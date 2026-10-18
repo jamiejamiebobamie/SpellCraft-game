@@ -1,6 +1,7 @@
 // Player.ts
 import { GameSymbol } from '../PlacedSpells/GameSymbol'
 import { UniqueId } from '../UniqueId/UniqeId';
+import { PLAYER_RULES } from '../PlacedSpells/spellRules';
 
 export class Player extends UniqueId {
   // Constants
@@ -21,7 +22,7 @@ export class Player extends UniqueId {
   private static readonly FOCUS_REGEN_AMT = -2; // amt of focus restored between turns (negative for "focusDecrement" method)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
-  private static readonly BLOOD_MAGIC_COST = 5; // amt of health that is spent per spell when out of focus
+  private static readonly BLOOD_MAGIC_COST = PLAYER_RULES.bloodMagicHealthPerFocus; // health spent per missing focus point
   // - - - - - - - - - - - -
   // State
   healthAmt: number = Player.MAX_HEALTH_AMT;

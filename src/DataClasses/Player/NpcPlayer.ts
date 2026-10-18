@@ -10,6 +10,9 @@ import type { PlannedNpcCast } from "./NpcBrain";
 /** A cast decided by the NPC's brain: drawn like any other, then placed on exactly these cells. */
 export type PlannedNpcMove = PlannedNpcCast & { onCast: () => void };
 
+/** How sloppy the NPC's random drawings are (was: up to 3.9 cells, up to 90 degrees, often outside its zone). */
+export const NPC_RANDOM_DRAWING = { minSize: 0.9, maxSize: 3, maxRotation: 25 };
+
 export class NPCPlayer extends Player {
     readonly avatarHeadUrl: string = './player_avatars/Head2.png';
     readonly avatarRobeUrl: string = './player_avatars/Robe2a.png';
@@ -48,13 +51,14 @@ export class NPCPlayer extends Player {
         const rand = min ? Math.random() * (max - min) + min : Math.random() * max;
         return rand;
     }
+    /** Whether this NPC turn is a random one (otherwise its brain plays it): more often on easier difficulties. */
     isRandomMove = (): boolean => {
         const rand = Math.random();
         switch (this.difficulty) {
             case 'Hard':
                 return rand > 0.5;
             case 'Brutal':
-                return rand > 0.7;
+                return false; // temporarily all trained AI, for testing (was: rand > 0.7)
             default: // 'Normal'
                 return rand > 0.3;
         }
@@ -109,10 +113,10 @@ export class NPCPlayer extends Player {
         */
         const inferenceString = this.getRandomInferenceString();
         // in cell widths
-        const x = this.getRandomNumberInRange(4, .9);
-        const scale = { x, y: Math.max(.9, this.getRandomNumberInRange(x + .2, x - .2)) };
-        // const randRot = this.getRandomNumberInRange(60, -60);
-        const randRot = this.getRandomNumberInRange(90, -90);
+        // Size (in cell widths), up to the zone's 3 cells; roughly as tall as wide
+        const x = this.getRandomFloatInRange(NPC_RANDOM_DRAWING.maxSize, NPC_RANDOM_DRAWING.minSize);
+        const scale = { x, y: Math.min(NPC_RANDOM_DRAWING.maxSize, Math.max(NPC_RANDOM_DRAWING.minSize, this.getRandomFloatInRange(x + .2, x - .2))) };
+        const randRot = this.getRandomFloatInRange(NPC_RANDOM_DRAWING.maxRotation, -NPC_RANDOM_DRAWING.maxRotation);
 
         /*
         
@@ -133,7 +137,11 @@ export class NPCPlayer extends Player {
 
         */
 
-        const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
+        // Kept inside the NPC's zone: fractions of the zone's width / the board's height
+        const translationNorm = {
+            x: this.getRandomFloatInRange((GameBoard.NUM_PLACEMENT_CELLS - scale.x) / GameBoard.NUM_PLACEMENT_CELLS, 0),
+            y: this.getRandomFloatInRange((GameBoard.NUM_ROWS - scale.y) / GameBoard.NUM_ROWS, 0),
+        };
         const npcMoveData = proxy(new NPCMoveData(inferenceString, translationNorm, scale, randRot));
         return npcMoveData;
     }

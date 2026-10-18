@@ -29,3 +29,7 @@ export const QUICKEN_RULES = {
   bonusMode: 'flat' as 'flat' | 'perConsumption',
   bonusMovesPerConsumption: 2,
 };
+
+export const PLAYER_RULES = {
+  bloodMagicHealthPerFocus: 7, // health paid per focus point a cast costs beyond what the caster has (was 5)
+};

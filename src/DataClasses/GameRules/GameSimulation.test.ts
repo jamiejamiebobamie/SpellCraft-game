@@ -22,9 +22,9 @@ describe('casting', () => {
     const { placed, focusCost, bloodMagicCost } = sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2));
     expect(placed.map(s => [s.widthCells, s.heightCells])).toEqual([[2, 2]]);
     expect(focusCost).toBe(1.25 * 4);
-    expect(bloodMagicCost).toBe(5); // costs ceil(5) = 5 focus; has 4, so 1 is paid in health (x5)
+    expect(bloodMagicCost).toBe(7); // costs ceil(5) = 5 focus; has 4, so 1 is paid in health (x7, PLAYER_RULES)
     expect(sim.players[PLAYER_INDEX].getFocus()).toBe(0);
-    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(95);
+    expect(sim.players[PLAYER_INDEX].getHealth()).toBe(93);
   });
 
   it("only cells in the caster's own 3x3 zone are used", () => {

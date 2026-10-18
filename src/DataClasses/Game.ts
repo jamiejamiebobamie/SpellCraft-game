@@ -722,7 +722,8 @@ export class Game {
   doNpcMove = (): void => {
     const npc = this.players.getNpcPlayer();
     if (!npc) return;
-    if (NPC_POLICY === 'trained' && this.npcBrain.getIsReady()) {
+    // Each turn, the difficulty decides between a random turn and a trained one
+    if (NPC_POLICY === 'trained' && this.npcBrain.getIsReady() && !npc.isRandomMove()) {
       this.doTrainedNpcMove(npc);
       return;
     }
