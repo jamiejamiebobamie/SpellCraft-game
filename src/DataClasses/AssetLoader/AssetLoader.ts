@@ -45,10 +45,11 @@ const tooltipImgs = [
     'tooltip-imgs/winners-and-losers.gif'
 ];
 
-export type LoaderProperties = 'isOnnxModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded';
+export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded';
 
 const loaders: Array<LoaderProperties> = [
     'isOnnxModelLoaded',
+    'isNpcModelLoaded', // the trained NPC (NpcBrain); set even if it fails to load, as the NPC then plays randomly
     'isFontsLoaded',
     'isSoundsEffectsLoaded',
     'isImgsLoaded'
@@ -56,6 +57,7 @@ const loaders: Array<LoaderProperties> = [
 
 export class AssetLoader {
     isOnnxModelLoaded: boolean = false;
+    isNpcModelLoaded: boolean = false;
     isFontsLoaded: boolean = false;
     isSoundsEffectsLoaded: boolean = false;
     isImgsLoaded: boolean = false;

@@ -3,6 +3,7 @@
 // on the live game, using the same observation and legal-move rules as training (NpcTrainingEnv.ts).
 import * as ort from 'onnxruntime-web';
 import { ref } from 'valtio';
+import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { CellIndex, InferenceString } from '../types';
 import { SpellName } from '../GameRules/GameSimulation';
 import { GameView, decodeAction, encodeObservation, getActionMask } from '../GameRules/NpcTrainingEnv';
@@ -35,12 +36,18 @@ export class NpcBrain {
   private session: ort.InferenceSession | null = null;
   private recentActions: Array<number> = [];
 
-  constructor() {
-    if (NPC_POLICY !== 'trained') return;
+  /** Loads the model; the game waits for it on the loading screen (AssetLoader isNpcModelLoaded). */
+  constructor(assetLoader: AssetLoader) {
+    const setIsLoaded = () => assetLoader.setIsLoading(new Map<LoaderProperties, boolean>([['isNpcModelLoaded', true]]));
+    if (NPC_POLICY !== 'trained') {
+      setIsLoaded();
+      return;
+    }
     ort.InferenceSession.create(MODEL_PATH)
       // ref(): keep valtio from proxying the native inference session
       .then(session => { this.session = ref(session); })
-      .catch(err => console.error('Failed to load the NPC model; the NPC will play randomly', err));
+      .catch(err => console.error('Failed to load the NPC model; the NPC will play randomly', err))
+      .finally(setIsLoaded);
   }
 
   getIsReady = (): boolean => !!this.session;

@@ -81,7 +81,7 @@ export class Game {
     this.gameClock = proxy(new GameClock(this.endTurn));
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
-    this.npcBrain = new NpcBrain();
+    this.npcBrain = new NpcBrain(this.assetLoader);
     this.setupGameplayKeyBindings();
   };
 
