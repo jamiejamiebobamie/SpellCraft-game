@@ -5,6 +5,10 @@ import { GameBoard } from "../GameBoard/GameBoard";
 import { HARDCODED_SYMBOLS } from '../PlacedSpells/HardCodedSymbols'
 import { GameSymbol } from '../PlacedSpells/GameSymbol';
 import { Cell } from "../GameBoard/Cell";
+import type { PlannedNpcCast } from "./NpcBrain";
+
+/** A cast decided by the NPC's brain: drawn like any other, then placed on exactly these cells. */
+export type PlannedNpcMove = PlannedNpcCast & { onCast: () => void };
 
 export class NPCPlayer extends Player {
     readonly avatarHeadUrl: string = './player_avatars/Head2.png';
@@ -55,6 +59,18 @@ export class NPCPlayer extends Player {
                 return rand > 0.3;
         }
     }
+    /** Draws the planned symbol (unrotated) over the area of its cells in the NPC's zone. */
+    getPlannedMoveData = ({ inferenceString, cells }: PlannedNpcCast): NPCMoveData => {
+        const zoneStartJ = GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS;
+        const minI = Math.min(...cells.map(c => c.i)), maxI = Math.max(...cells.map(c => c.i));
+        const minJ = Math.min(...cells.map(c => c.j)), maxJ = Math.max(...cells.map(c => c.j));
+        const inset = 0.1; // cells of margin around the drawing
+        // translationNorm: fraction of the zone's width / the board's height; scale: in cell widths
+        const translationNorm = { x: (minJ - zoneStartJ + inset) / GameBoard.NUM_PLACEMENT_CELLS, y: (minI + inset) / GameBoard.NUM_ROWS };
+        const scale = { x: maxJ - minJ + 1 - 2 * inset, y: maxI - minI + 1 - 2 * inset };
+        return proxy(new NPCMoveData(inferenceString, translationNorm, scale, 0));
+    }
+
     getRandomMoveForTesting = (): NPCMoveData => {
         /*
             
@@ -155,13 +171,17 @@ export class NPCPlayer extends Player {
         this.resetNpcMove();
     }
 
-    doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void => {
+    /**
+     * Draws a symbol and casts its spell. With `plannedMove` (from the NPC's brain), draws that symbol
+     * over its cells and casts there, then calls `plannedMove.onCast`; otherwise draws a random one.
+     */
+    doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void => {
         if (!this.getFocus() || this.getIsDead()) {
             this.clearNumRemaningMovesPerTurn();
             return;
         }
 
-        const npcMoveData = this.getRandomMoveForTesting();
+        const npcMoveData = plannedMove ? this.getPlannedMoveData(plannedMove) : this.getRandomMoveForTesting();
         const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
 
         const cellWidth = gameBoard.getCellWidth()
@@ -224,6 +244,13 @@ export class NPCPlayer extends Player {
 
         // Within doNpcMove -> storedSpell container:
         const storedSpell = () => {
+            if (plannedMove) {
+                spawnSizedSpellInstance(inferenceString, plannedMove.cells, this);
+                this.setGameSymbol(null);
+                plannedMove.onCast();
+                return;
+            }
+
             const dominantCells = filterDominantCells(rawPoints);
             if (dominantCells.length > 0) {
                 const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);

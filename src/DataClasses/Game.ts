@@ -20,6 +20,9 @@ import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
+import { NPC_INDEX } from './GameRules/GameSimulation';
+import { GameView } from './GameRules/NpcTrainingEnv';
+import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
 
 /*
 
@@ -56,6 +59,7 @@ export class Game {
   players!: Players;
   tooltipManager!: TooltipManager;
   assetLoader!: AssetLoader;
+  npcBrain!: NpcBrain;
 
   constructor() {
     this.init();
@@ -77,6 +81,7 @@ export class Game {
     this.gameClock = proxy(new GameClock(this.endTurn));
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
+    this.npcBrain = new NpcBrain();
     this.setupGameplayKeyBindings();
   };
 
@@ -637,6 +642,18 @@ export class Game {
     return dominantCells;
   };
 
+  /** Whether a cell is taken (by a placed spell, or marked on the board). */
+  private getIsCellOccupied = (index: CellIndex): boolean => {
+    const cell = this.gameBoard.getCellAt(index);
+    if (!cell || !cell.getIsFree() || cell.getSpell() !== null) return true;
+    return this.placedSpells.spells.some(s => {
+      if (s.isRemove) return false;
+      const root = s.getCellIndex();
+      if (!root) return false;
+      return index.i >= root.i && index.i < root.i + s.heightCells && index.j >= root.j && index.j < root.j + s.widthCells;
+    });
+  };
+
   /**
    * Casts a drawn spell: where it lands, its shapes and its focus cost come from the shared
    * casting rules (GameRules/gameRules.ts); this adds the effects (blood magic, sound).
@@ -646,17 +663,7 @@ export class Game {
     const spell = GameSymbol.SPELL_LOOKUP.get(symbol.toLowerCase() as InferenceString);
     if (!spell) return;
 
-    const isOccupied = (index: CellIndex): boolean => {
-      const cell = this.gameBoard.getCellAt(index);
-      if (!cell || !cell.getIsFree() || cell.getSpell() !== null) return true;
-      return this.placedSpells.spells.some(s => {
-        if (s.isRemove) return false;
-        const root = s.getCellIndex();
-        if (!root) return false;
-        return index.i >= root.i && index.i < root.i + s.heightCells && index.j >= root.j && index.j < root.j + s.widthCells;
-      });
-    };
-    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), isOccupied);
+    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied);
     const placed = createPlacedSpells(spell as SpellClass, rects, activeCaster);
     placed.forEach(s => this.placedSpells.addSpell(s));
 
@@ -714,7 +721,34 @@ export class Game {
   }
   doNpcMove = (): void => {
     const npc = this.players.getNpcPlayer();
-    if (npc) npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
+    if (!npc) return;
+    if (NPC_POLICY === 'trained' && this.npcBrain.getIsReady()) {
+      this.doTrainedNpcMove(npc);
+      return;
+    }
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
+  }
+
+  /** The game as the NPC's brain sees it: the same view a trained model saw in training. */
+  getNpcGameView = (): GameView => {
+    const [humanPlayer, npcPlayer] = this.players.getPlayers();
+    return {
+      spells: this.placedSpells.spells.filter(s => !s.getIsRemove()),
+      players: [humanPlayer, npcPlayer],
+      turnsElapsed: this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle(),
+      gameOver: this.gameOver,
+      getIsOccupied: this.getIsCellOccupied,
+    };
+  }
+
+  /** The trained NPC casts spell after spell (each drawn as usual) until it chooses to end its turn. */
+  private doTrainedNpcMove = async (npc: NPCPlayer): Promise<void> => {
+    const endNpcTurn = () => { npc.setIsDoneWithTurn(true); this.forceUpdate(); };
+    if (this.gameOver !== null || npc.getIsDead()) return endNpcTurn();
+    const cast = await this.npcBrain.planCast(this.getNpcGameView(), NPC_INDEX);
+    if (!cast) return endNpcTurn();
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
+      { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc), 300) });
   }
   getNPCMoveData = (): Array<NPCMoveData> => {
     const npc = this.players.getNpcPlayer();

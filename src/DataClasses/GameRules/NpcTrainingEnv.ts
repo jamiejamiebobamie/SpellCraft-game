@@ -18,6 +18,12 @@ const ROWS = GameBoard.NUM_ROWS;
 const COLS = GameBoard.NUM_COLS;
 const ZONE = GameBoard.NUM_PLACEMENT_CELLS;
 
+/**
+ * What the NPC needs to see of a game: a GameSimulation (training), or the live game (Game.getNpcGameView)
+ * so a trained model sees the real game exactly as it saw games in training.
+ */
+export type GameView = Pick<GameSimulation, 'spells' | 'players' | 'turnsElapsed' | 'gameOver' | 'getIsOccupied'>;
+
 // --- Actions -----------------------------------------------------------------------------------
 
 export const SPELL_ORDER: Array<SpellName> = ['Phlegm', 'Ether', 'Quicken', 'GyreUp', 'GyreDown'];
@@ -56,7 +62,7 @@ export const decodeAction = (action: number, side: number): DecodedAction => {
  * be on, the caster alive with some focus left, and at least one free cell under the drawing
  * (every spell type can fill a single free cell). Equivalent to getActionMaskByPlanning, but fast.
  */
-export const getActionMask = (sim: GameSimulation, side: number): Array<boolean> => {
+export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
   const caster = sim.players[side];
   const canCast = sim.gameOver === null && !caster.getIsDead() && caster.getFocus() > 0;
   const mask = new Array<boolean>(NUM_ACTIONS).fill(false);
@@ -102,7 +108,7 @@ const SPELL_TYPES = [Phlegm, Ether, Quicken, GyreUp, GyreDown];
  * What `side` sees, as numbers in [0, 1]: for each board cell (from its own side: its zone on the
  * left), the spell covering it, then health, focus, and the clock.
  */
-export const encodeObservation = (sim: GameSimulation, side: number): Array<number> => {
+export const encodeObservation = (sim: GameView, side: number): Array<number> => {
   const obs = new Array<number>(OBSERVATION_SIZE).fill(0);
   const set = (i: number, j: number, channel: number, value: number) => { obs[(i * COLS + j) * CHANNELS.length + channel] = value; };
 
