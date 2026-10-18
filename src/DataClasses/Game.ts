@@ -242,9 +242,7 @@ export class Game {
                 const cost = s.getFocusCost();
                 const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
                 if (bloodMagicCost > 0) {
-                  s.hitDamageAmount = bloodMagicCost;
-                  s.isPlayerHitImpact = true;
-                  s.isBloodMagic = true;
+                  s.flagHitImpact(true, bloodMagicCost, true);
                   this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
                 }
                 const spellName = s.getSpellName();
@@ -540,9 +538,7 @@ export class Game {
               const cost = s.getFocusCost();
               const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
               if (bloodMagicCost > 0) {
-                s.hitDamageAmount = bloodMagicCost;
-                s.isPlayerHitImpact = true;
-                s.isBloodMagic = true;
+                s.flagHitImpact(true, bloodMagicCost, true);
                 this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
               }
               const spellName = s.getSpellName();
@@ -874,9 +870,7 @@ export class Game {
       const focusCost = s.getFocusCost() * instance.widthCells * instance.heightCells * count;
       const bloodMagicCost = activeCaster.incurPlayerCostForSpell(focusCost);
       if (bloodMagicCost > 0) {
-        instance.hitDamageAmount = bloodMagicCost;
-        instance[activeCaster.id === this.getHumanPlayer()?.id ? 'isPlayerHitImpact' : 'isOpponentHitImpact'] = true;
-        instance.isBloodMagic = true;
+        instance.flagHitImpact(activeCaster.id === this.getHumanPlayer()?.id, bloodMagicCost, true);
         this.playPlayerDmgSound(activeCaster, bloodMagicCost);
       }
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);

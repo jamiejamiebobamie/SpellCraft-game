@@ -1,5 +1,6 @@
 import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { AudioType, SoundEffectName, SFX_REGISTRY } from '../types'
+import { ref } from 'valtio';
 
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
@@ -13,11 +14,13 @@ export class AudioHandler {
     private musicAudioLevel: number = this.MAX_MUSIC_LVL;
     private effectsAudioLevel: number = this.MAX_SOUND_EFFECT_LVL;
 
-    // A memory registry holding our preloaded audio blueprints
-    private sfxLibrary: Map<SoundEffectName, HTMLAudioElement> = new Map();
+    // Decoded sound effects, held in memory so they play instantly.
+    // ref() keeps valtio from proxying native audio objects (which breaks their methods).
+    private readonly audioContext: AudioContext = ref(new AudioContext());
+    private sfxLibrary: Map<SoundEffectName, AudioBuffer> = new Map();
 
-    // A tracker cataloging currently playing audio tracks so we can kill them instantly
-    private activeSfxInstances: HTMLAudioElement[] = [];
+    // A tracker cataloging currently playing sound effects so we can kill them instantly
+    private activeSfxInstances: Set<AudioBufferSourceNode> = new Set();
 
     constructor(assetLoader: AssetLoader) {
         this.preloadSoundEffects(assetLoader);
@@ -25,15 +28,19 @@ export class AudioHandler {
 
     /**
      * 1. PRELOADER PIPELINE
-     * Instantiates audio configurations immediately at game mount initialization.
-     * Setting preload="auto" instructs browser network nodes to start fetching binaries.
+     * Downloads and decodes every sound effect up front. Sound effects are only marked as loaded
+     * once all of them are decoded (a failed file is logged and skipped).
      */
-    private preloadSoundEffects = (assetLoader: AssetLoader) => {
-        Object.entries(SFX_REGISTRY).forEach(([name, path]) => {
-            const audioBlueprint = new Audio(path);
-            audioBlueprint.preload = 'auto'; // Forces background download ahead of time
-            this.sfxLibrary.set(name as SoundEffectName, audioBlueprint);
-        });
+    private preloadSoundEffects = async (assetLoader: AssetLoader) => {
+        await Promise.all(Object.entries(SFX_REGISTRY).map(async ([name, path]) => {
+            try {
+                const response = await fetch(path);
+                const buffer = await this.audioContext.decodeAudioData(await response.arrayBuffer());
+                this.sfxLibrary.set(name as SoundEffectName, buffer);
+            } catch (err) {
+                console.error(`Failed to load sound effect "${name}":`, err);
+            }
+        }));
         const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
         loaderObj.set('isSoundsEffectsLoaded', true);
         assetLoader.setIsLoading(loaderObj);
@@ -52,29 +59,36 @@ export class AudioHandler {
 
     /**
      * 2. POLYPHONIC SFX PLAYER
-     * Clones the cached file blueprint node so the same clip can fire repeatedly 
-     * and overlap seamlessly without cutting off previous layers.
+     * Each play gets its own source node from the shared decoded buffer, so the same clip can
+     * fire repeatedly and overlap without cutting off previous layers.
      */
     startSoundEffect = (name: SoundEffectName, volumeScalar = this.effectsAudioLevel) => {
-        const blueprint = this.sfxLibrary.get(name);
-        if (!blueprint) {
+        const buffer = this.sfxLibrary.get(name);
+        if (!buffer) {
             console.error(`Sound effect registry key "${name}" not found!`);
             return;
         }
 
-        // Clone node guarantees overlapping files don't hijack timeline trackers
-        const activeClone = blueprint.cloneNode(true) as HTMLAudioElement;
-        activeClone.volume = volumeScalar;
+        // Browsers start the context suspended until the first user interaction
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(err => console.log(`SFX "${name}" playback blocked:`, err));
+        }
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = buffer;
+        const gain = this.audioContext.createGain();
+        gain.gain.value = volumeScalar;
+        source.connect(gain).connect(this.audioContext.destination);
 
         // Keep a reference to the active channel so it can be terminated on demand
-        this.activeSfxInstances.push(activeClone);
+        this.activeSfxInstances.add(source);
 
         // Auto-remove instance from tracking cache stack once it hits completion
-        activeClone.addEventListener('ended', () => {
-            this.activeSfxInstances = this.activeSfxInstances.filter(instance => instance !== activeClone);
+        source.addEventListener('ended', () => {
+            this.activeSfxInstances.delete(source);
         });
 
-        activeClone.play().catch(err => console.log(`SFX "${name}" playback blocked:`, err));
+        source.start();
     }
 
     /**
@@ -82,11 +96,8 @@ export class AudioHandler {
      * Enumerates over all active, loose channels and kills them instantly.
      */
     stopAllSoundEffects = () => {
-        this.activeSfxInstances.forEach(instance => {
-            instance.pause();
-            instance.src = ''; // Force browser memory pipelines to release resource buffers immediately
-        });
-        this.activeSfxInstances = [];
+        this.activeSfxInstances.forEach(instance => instance.stop());
+        this.activeSfxInstances.clear();
     }
 
     stopBackgroundMusic = () => {

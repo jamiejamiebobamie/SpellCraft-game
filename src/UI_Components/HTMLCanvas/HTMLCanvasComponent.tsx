@@ -164,8 +164,10 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           const isBloodMagic = spell.isBloodMagic;
 
           // --- LAYER A: INDEPENDENT IMMEDIATE HIT/BLOOD MAGIC IMPACT PIPELINE ---
-          if ((isBloodMagic || isPlayerHit || isOpponentHit) && !(anim as any).hasSpawnedHitParticles) {
-            (anim as any).hasSpawnedHitParticles = true;
+          // Plays once per hit: a spell cast with blood magic can later hit a player too
+          const hitImpactCount = spell.hitImpactCount || 0;
+          if ((isBloodMagic || isPlayerHit || isOpponentHit) && (anim as any).handledHitImpactCount !== hitImpactCount) {
+            (anim as any).handledHitImpactCount = hitImpactCount;
 
             // Calculate raw screen metrics relative to current spell container context
             const bLeftX = viewW / 2 - boardWidth / 2;

@@ -2,7 +2,7 @@
 import { CellIndex, SpellPropertyName } from '../types';
 import { Player } from '../Player/Player';
 import { UniqueId } from '../UniqueId/UniqeId';
-import { proxy } from 'valtio';
+import { GYRE_RULES } from './spellRules';
 
 export abstract class Spell extends UniqueId {
   static readonly spellName: string;
@@ -24,6 +24,7 @@ export abstract class Spell extends UniqueId {
   isOpponentHitImpact: boolean = false;
   isBloodMagic: boolean = false;
   hitDamageAmount: number = 0;
+  hitImpactCount: number = 0; // incremented per hit, so the canvas plays each hit's effects once
 
   // isBeingConsumed: boolean = false;
   consumedEthers: number = 0;
@@ -38,6 +39,9 @@ export abstract class Spell extends UniqueId {
   // Vector field tracking mechanics
   phlegmOrbitStepsSpent: number = 0;
   isInPhlegmField: boolean = false;
+
+  // Id of the spell this piece broke off from ('' if not a piece). Pieces of the same spell never collide.
+  fragmentGroupId: string = '';
 
   // Gyre and Phlegm bookkeeping, to ensure they are destroyed after all spells consuming them exit
   consumingSpellIds: Set<string> = new Set();
@@ -72,12 +76,21 @@ export abstract class Spell extends UniqueId {
 
   getCaster = (): Player => this.caster;
   getCellIndex = (): CellIndex => this.cellIndex;
-  setCellIndex = (cellIndex: CellIndex): void => { this.cellIndex = proxy(cellIndex); };
+  setCellIndex = (cellIndex: CellIndex): void => { this.cellIndex = { ...cellIndex }; };
   getIsRemove = (): boolean => this.isRemove;// && !this.getIsBeingConsumed();// /* TESTING: */ && !this.isBeingConsumed;
   markSpellForRemoval = (): void => {
     this.isRemove = true;
     this.movesOutOfConsumed = Number.MAX_SAFE_INTEGER;
     this.clearConsumedRef();
+  };
+
+  /** Flags a hit on a player (or a blood magic cost paid by the caster) for the canvas to show. */
+  flagHitImpact = (isPlayerSide: boolean, amount: number, isBloodMagic: boolean = false): void => {
+    this.isPlayerHitImpact = isPlayerSide;
+    this.isOpponentHitImpact = !isPlayerSide;
+    this.hitDamageAmount = amount;
+    this.isBloodMagic = isBloodMagic;
+    this.hitImpactCount++;
   };
 
   getIsBeingConsumed = (possibleConsumer?: Spell): boolean => possibleConsumer ? this.consumingSpellIds.has(possibleConsumer.id) : !!this.consumingSpellIds.size;
@@ -195,6 +208,17 @@ export abstract class Spell extends UniqueId {
     let nextI = this.cellIndex.i;
     let nextJ = this.cellIndex.j;
 
+    // Look-ahead collisions capture a spell one step before it reaches the Phlegm.
+    // Step it onto the Phlegm's edge first; the orbit starts from there.
+    const isOutsidePhlegm = nextI < minI || nextI > maxI || nextJ < minJ || nextJ > maxJ;
+    if (isOutsidePhlegm) {
+      this.cellIndex = {
+        i: Math.min(maxI, Math.max(minI, nextI)),
+        j: Math.min(maxJ, Math.max(minJ, nextJ)),
+      };
+      return;
+    }
+
     const isClockwise = this.phlegmDirectionSign === 1;
 
     // Determine direction vectors based on edge coordinates
@@ -222,7 +246,7 @@ export abstract class Spell extends UniqueId {
       }
     }
 
-    this.cellIndex = proxy({ i: nextI, j: nextJ });
+    this.cellIndex = { i: nextI, j: nextJ };
     this.phlegmOrbitStepsRemaining--;
 
     // Clean exit verification on the final orbital tick step
@@ -234,20 +258,20 @@ export abstract class Spell extends UniqueId {
   };
 
   moveHorizontally = (): void => {
-    this.cellIndex = proxy({
+    this.cellIndex = {
       i: this.cellIndex.i,
       j: this.cellIndex.j + Math.sign(this.speedDirection) * 1
-    });
+    };
 
     this.clearConsumedRef();
   };
 
   moveVertically = (): void => {
     const stepDir = Math.sign(this.consumedGyres);
-    this.cellIndex = proxy({
+    this.cellIndex = {
       i: this.cellIndex.i + stepDir,
       j: this.cellIndex.j
-    });
+    };
     this.consumedGyres -= stepDir;
 
     if (this.consumedGyres == 0) {
@@ -310,7 +334,7 @@ export class Phlegm extends Spell {
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
     consumer.isInPhlegmField = true;
-    consumer.phlegmCenterIndex = proxy({ ...this.cellIndex });
+    consumer.phlegmCenterIndex = { ...this.cellIndex };
     consumer.phlegmSize = phlegmSize;
     consumer.phlegmDirectionSign = Math.sign(this.getPropertyValue('speedDirection') || 1);
     consumer.phlegmOrbitStepsRemaining = fullCircleSteps;
@@ -355,7 +379,7 @@ export class Ether extends Spell {
 }
 
 export abstract class Gyre extends Spell {
-  baseCellDmg = 4;
+  baseCellDmg = GYRE_RULES.powerPerCell;
   static readonly FOCUS_COST: number = 1;
 
   constructor(caster: Player) {
