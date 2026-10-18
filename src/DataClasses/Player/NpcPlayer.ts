@@ -117,8 +117,7 @@ export class NPCPlayer extends Player {
 
         */
 
-        // const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
-        const translationNorm = { x: this.getRandomFloatInRange(0, 0), y: this.getRandomFloatInRange(0, 0) };
+        const translationNorm = { x: this.getRandomFloatInRange(.9, -.25), y: this.getRandomFloatInRange(.9, -.5) };
         const npcMoveData = proxy(new NPCMoveData(inferenceString, translationNorm, scale, randRot));
         return npcMoveData;
     }
