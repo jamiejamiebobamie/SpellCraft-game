@@ -226,7 +226,8 @@ describe('13. sized spells hitting a Phlegm', () => {
       return !!e && e.phlegmDwellStepsRemaining > 0 && e.phlegmEntryStepsRemaining === 0;
     })!;
     const phlegmAtSwirl = byId(swirlStart, phlegm)!;
-    expect(byId(swirlStart, ether)!.cellIndex.j).toBe(phlegmAtSwirl.cellIndex.j + 0); // centered: floor((3 - 2) / 2) = 0
+    // Centered, rounding toward the side it came from (the right): ceil((3 - 2) / 2) = 1
+    expect(byId(swirlStart, ether)!.cellIndex.j).toBe(phlegmAtSwirl.cellIndex.j + 1);
   });
 
   it('a 1x1 Phlegm reflects only one spell, then is passed through (capacity)', () => {
@@ -408,6 +409,37 @@ describe('invariants on random boards', () => {
     }
     return spells;
   };
+
+  it('is fair: a board and its mirror image (flipped left-right, sides swapped) play out the same', () => {
+    /** The same spell, mirrored onto the other player's side. */
+    const mirrorSpell = (s: Spell): Spell => {
+      const mirrored = place(s.constructor as SpellClass, s.caster === player ? npc : player, s.cellIndex.i, 7 - s.cellIndex.j - s.widthCells, 1);
+      mirrored.widthCells = s.widthCells;
+      mirrored.heightCells = s.heightCells;
+      return mirrored;
+    };
+    /** A turn's outcome, described from the left player's side (mirrored back if needed). */
+    const describeOutcome = (frames: Array<SpellTurnFrame>, isMirrored: boolean): string => {
+      const flipJ = (j: number, w: number) => isMirrored ? 7 - j - w : j;
+      const flipSide = (isLeft: boolean) => isMirrored ? !isLeft : isLeft;
+      const board = finalBoard([frames]).filter(s => !s.isRemove).map(s =>
+        `${s.getSpellName()} ${flipSide(s.caster === player) ? 'L' : 'R'} ${s.speedDirection > 0 === !isMirrored ? '>' : '<'} ` +
+        `(${s.cellIndex.i},${flipJ(s.cellIndex.j, s.widthCells)}) ${s.widthCells}x${s.heightCells}`
+      ).sort();
+      const damage = [0, 0];
+      frames.forEach(f => f.healthEvents.forEach(e => { damage[isMirrored ? 1 - e.playerIndex : e.playerIndex] += e.dmg; }));
+      return JSON.stringify({ board, damage });
+    };
+
+    const asymmetricSeeds: Array<number> = [];
+    for (let seed = 1; seed <= 1000; seed++) {
+      const board = randomBoard(seed);
+      const outcome = describeOutcome(runTurns(board, 1)[0], false);
+      const mirroredOutcome = describeOutcome(runTurns(board.map(mirrorSpell), 1)[0], true);
+      if (outcome !== mirroredOutcome) asymmetricSeeds.push(seed);
+    }
+    expect(asymmetricSeeds).toEqual([]);
+  });
 
   it('no turn ends with a spell still sliding into, swirling in, or orbiting a Phlegm', () => {
     for (let seed = 1; seed <= 300; seed++) {

@@ -28,7 +28,8 @@ export const getPlacementZone = (direction: number) => {
  * - Phlegm, Ether: the largest squares, 3x3 first
  * - GyreUp, GyreDown: vertical runs, one per column
  * - Quicken: horizontal runs, one per row (1x1 pieces if the drawing spans more than one row)
- * Returns the shapes in placement order.
+ * Shapes are filled from the caster's back edge (the left for the player; mirrored for the NPC, so
+ * both sides cast the same way). Returns the shapes in placement order.
  */
 export const planSpellPlacement = (
   SpellType: SpellClass,
@@ -36,7 +37,22 @@ export const planSpellPlacement = (
   direction: number,
   isOccupied: (cell: CellIndex) => boolean,
 ): Array<CellRect> => {
-  const zone = getPlacementZone(direction);
+  if (direction === 1) return planSpellPlacementFromLeft(SpellType, touchedCells, isOccupied);
+  const mirrorJ = (j: number, width: number) => GameBoard.NUM_COLS - j - width;
+  return planSpellPlacementFromLeft(
+    SpellType,
+    touchedCells.map(c => ({ i: c.i, j: mirrorJ(c.j, 1) })),
+    c => isOccupied({ i: c.i, j: mirrorJ(c.j, 1) }),
+  ).map(rect => ({ ...rect, j: mirrorJ(rect.j, rect.w) }));
+};
+
+/** planSpellPlacement for a caster on the left side (zone at the left, moving right). */
+const planSpellPlacementFromLeft = (
+  SpellType: SpellClass,
+  touchedCells: Array<CellIndex>,
+  isOccupied: (cell: CellIndex) => boolean,
+): Array<CellRect> => {
+  const zone = getPlacementZone(1);
   const zoneCells = touchedCells.filter(c => c.i >= zone.minI && c.i <= zone.maxI && c.j >= zone.minJ && c.j <= zone.maxJ);
   if (!zoneCells.length) return [];
 

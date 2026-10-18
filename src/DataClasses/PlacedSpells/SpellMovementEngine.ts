@@ -173,14 +173,27 @@ const getPhlegmCapacityUse = (phlegm: Phlegm, entering: Spell): number => {
 
 const getIsPhlegmFull = (spell: Spell): boolean => spell instanceof Phlegm && spell.capacityUsed >= getPhlegmCapacity(spell);
 
+// --- Fairness ----------------------------------------------------------------------------------
+// The board must play the same for both sides: any scan order or rounding is done from the left
+// player's point of view (spells moving right), and mirrored for spells moving left.
+
+/** A shape's column, mirrored left-right across the board. */
+const mirrorColumn = (j: number, width: number): number => GameBoard.NUM_COLS - j - width;
+
+/** Mirrors every spell's position left-right across the board (in place). */
+const mirrorBoardColumns = (spells: Array<Spell>): void => {
+  spells.forEach(s => { if (s.cellIndex) s.setCellIndex({ i: s.cellIndex.i, j: mirrorColumn(s.cellIndex.j, s.widthCells) }); });
+};
+
 /**
- * Steps a block bouncing off a Phlegm slides in first: until centered on the Phlegm if it fits,
- * otherwise until its front edge reaches the Phlegm's far side.
+ * Steps a block bouncing off a Phlegm slides in first: until centered on the Phlegm if it fits
+ * (rounding toward the side it came from), otherwise until its front edge reaches the far side.
  */
 const getBounceEntrySteps = (blockJ: number, blockWidth: number, dir: number, phlegm: Phlegm): number => {
   const phlegmWidth = phlegm.widthCells;
+  const centeredOffset = (phlegmWidth - blockWidth) / 2;
   const targetJ = blockWidth <= phlegmWidth
-    ? phlegm.cellIndex.j + Math.floor((phlegmWidth - blockWidth) / 2)
+    ? phlegm.cellIndex.j + (dir > 0 ? Math.floor(centeredOffset) : Math.ceil(centeredOffset))
     : (dir < 0 ? phlegm.cellIndex.j : phlegm.cellIndex.j + phlegmWidth - blockWidth);
   return Math.max(0, (targetJ - blockJ) * dir);
 };
@@ -195,9 +208,17 @@ const getFootprintCells = (spell: Spell): Array<CellIndex> => {
 
 /**
  * Splits `cells` into the largest allowed shapes for `spell`'s type (requirement 13a), scanning
- * from the top-left so the result is deterministic.
+ * from the top-left (mirrored for spells moving left) so the result is deterministic and fair.
  */
 const splitIntoAllowedShapes = (spell: Spell, cells: Array<CellIndex>): Array<CellRect> => {
+  if (Math.sign(spell.speedDirection) < 0) {
+    return splitIntoAllowedShapesFromLeft(spell, cells.map(c => ({ i: c.i, j: mirrorColumn(c.j, 1) })))
+      .map(rect => ({ ...rect, j: mirrorColumn(rect.j, rect.w) }));
+  }
+  return splitIntoAllowedShapesFromLeft(spell, cells);
+};
+
+const splitIntoAllowedShapesFromLeft = (spell: Spell, cells: Array<CellIndex>): Array<CellRect> => {
   const remaining = new Set(cells.map(c => `${c.i},${c.j}`));
   const has = (i: number, j: number) => remaining.has(`${i},${j}`);
   const fits = (i: number, j: number, w: number, h: number) => {
@@ -871,8 +892,22 @@ export class SpellMovementEngine {
 
 // --- Combining -------------------------------------------------------------------------------
 
-/** Reassembles adjacent compatible spells into the largest allowed shapes. Mutates `spells`' members. */
+/**
+ * Reassembles adjacent compatible spells into the largest allowed shapes. Mutates `spells`' members.
+ * Spells moving left are combined on a mirrored board, so both sides combine the same way.
+ */
 export const combineSpellsMaximally = (spells: Array<Spell>): void => {
+  combineSpellsMovingIn(spells, 1);
+  mirrorBoardColumns(spells);
+  combineSpellsMovingIn(spells, -1);
+  mirrorBoardColumns(spells);
+};
+
+/**
+ * Combines the spells moving in `direction` (1: right, -1: left), scanning from the top-left.
+ * (Called on a mirrored board for spells moving left.)
+ */
+const combineSpellsMovingIn = (spells: Array<Spell>, direction: number): void => {
   const MAX_COLS = GameBoard.NUM_COLS;
   const MAX_ROWS = GameBoard.NUM_ROWS;
 
@@ -906,8 +941,8 @@ export const combineSpellsMaximally = (spells: Array<Spell>): void => {
     if (a.isInPhlegmField || b.isInPhlegmField) return false;
 
     const sameType = a.getSpellName() === b.getSpellName();
-    const sameDir = Math.sign(a.getPropertyValue('speedDirection')) === Math.sign(b.getPropertyValue('speedDirection'));
-    return sameType && sameDir;
+    const isMovingInDirection = (s: Spell) => Math.sign(s.getPropertyValue('speedDirection')) === direction;
+    return sameType && isMovingInDirection(a) && isMovingInDirection(b);
   };
 
   // --- PASS 1: Reassemble Horizontal Chains for Quickens ---

@@ -5,6 +5,7 @@ Supersedes `spell-enhancement.txt`. Built up point by point; each section is a c
 ## Design principles
 - **Everything is visual.** Any state the engine tracks that affects gameplay (a Gyre's remaining capacity, an empowered Phlegm, fire/electric bonuses, etc.) must have a visible indicator for the player.
 - **Each spell-movement turn is a mini battle.** Spells may persist between turns, but per-turn state (e.g. Gyre capacity, by default) resets.
+- **Both sides play the same.** A board and its mirror image (flipped left-right, sides swapped) must play out identically. Any scan order or rounding (merging, splitting, placement, sliding into a Phlegm) is defined from the left player's side and mirrored for the other. Checked by mirror tests on random boards and full random games.
 - **Rules are tunable.** Balance-sensitive rules live in config (`PHLEGM_RULES`, `GYRE_RULES`, ...) so they can be playtested and reverted without code changes. Guarding against easy exploits matters, since an RL agent (Gymnasium) will be trained on the game.
 
 ## 1. Collision detection and resolution order

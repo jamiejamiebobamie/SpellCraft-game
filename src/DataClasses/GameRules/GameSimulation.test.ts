@@ -113,4 +113,32 @@ describe('random games', () => {
   it('are deterministic for a given seed', () => {
     expect(playRandomGame(42).history).toEqual(playRandomGame(42).history);
   });
+
+  it('are fair: mirroring every cast onto the other side mirrors the whole game', () => {
+    /** A random game; if mirrored, each cast is made by the other player, flipped left-right. */
+    const playGame = (seed: number, isMirrored: boolean) => {
+      const rand = mulberry32(seed);
+      const sim = new GameSimulation({ random: rand });
+      const history: Array<Array<number>> = [];
+      while (sim.gameOver === null) {
+        [PLAYER_INDEX, NPC_INDEX].forEach(playerIndex => {
+          if (rand() >= 0.6) return;
+          const zoneJ = playerIndex === PLAYER_INDEX ? 0 : 4;
+          const w = 1 + Math.floor(rand() * 3), h = 1 + Math.floor(rand() * 3);
+          const i = Math.floor(rand() * (4 - h)), j = zoneJ + Math.floor(rand() * (4 - w));
+          const spellName = SPELLS[Math.floor(rand() * 5)];
+          const cells = cellsOf(i, j, w, h);
+          if (isMirrored) sim.cast(1 - playerIndex, spellName, cells.map(c => ({ i: c.i, j: 6 - c.j })));
+          else sim.cast(playerIndex, spellName, cells);
+        });
+        sim.endTurn();
+        const [left, right] = isMirrored ? [sim.players[NPC_INDEX], sim.players[PLAYER_INDEX]] : sim.players;
+        history.push([left.getHealth(), left.getFocus(), right.getHealth(), right.getFocus()]);
+      }
+      return history;
+    };
+    for (let seed = 1; seed <= 200; seed++) {
+      expect(playGame(seed, true), `seed ${seed}`).toEqual(playGame(seed, false));
+    }
+  });
 });
