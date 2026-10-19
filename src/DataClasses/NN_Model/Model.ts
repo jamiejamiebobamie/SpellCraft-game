@@ -1,4 +1,5 @@
-import * as ort from 'onnxruntime-web';
+import type { InferenceSession } from 'onnxruntime-web';
+import { loadOnnxRuntime } from './onnxRuntime';
 import { InferenceString, Point } from '../types';
 import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 
@@ -23,7 +24,7 @@ import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 export class Model {
 
     // Properties
-    private session: ort.InferenceSession | null = null;
+    private session: InferenceSession | null = null;
 
     // Define the human-readable labels matching your Python `labels` dictionary
 
@@ -47,9 +48,10 @@ export class Model {
         }
     }
 
-    private async loadModel(assetLoader: AssetLoader): Promise<ort.InferenceSession | null> {
+    private async loadModel(assetLoader: AssetLoader): Promise<InferenceSession | null> {
         try {
             await assetLoader.whenPriorityAssetsLoaded();
+            const ort = await loadOnnxRuntime();
             const net = await ort.InferenceSession.create('./models/sequential8.onnx');
             const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
             loaderObj.set('isOnnxModelLoaded', true);
@@ -103,8 +105,9 @@ export class Model {
      */
     private async runSpellInference(
         points: { x: number; y: number }[],
-        session: ort.InferenceSession
+        session: InferenceSession
     ): Promise<InferenceString> {
+        const ort = await loadOnnxRuntime();
 
         // 1. Create a flat 1D array of 80 elements (representing a 1x40x2 matrix)
         // Python test_sample array has exactly 40 elements, with zero-padding at the end

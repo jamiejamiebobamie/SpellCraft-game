@@ -1,7 +1,8 @@
 // NpcBrain.ts
 // The trained NPC: runs the model exported by training/export_onnx.py (public/models/npc-policy.onnx)
 // on the live game, using the same observation and legal-move rules as training (NpcTrainingEnv.ts).
-import * as ort from 'onnxruntime-web';
+import type { InferenceSession } from 'onnxruntime-web';
+import { loadOnnxRuntime } from '../NN_Model/onnxRuntime';
 import { ref } from 'valtio';
 import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { CellIndex, InferenceString } from '../types';
@@ -33,7 +34,7 @@ const SPELL_SYMBOLS: Record<SpellName, InferenceString> = {
 export type PlannedNpcCast = { inferenceString: InferenceString; cells: Array<CellIndex> };
 
 export class NpcBrain {
-  private session: ort.InferenceSession | null = null;
+  private session: InferenceSession | null = null;
   private recentActions: Array<number> = [];
 
   /** Loads the model; the game waits for it on the loading screen (AssetLoader isNpcModelLoaded). */
@@ -44,7 +45,8 @@ export class NpcBrain {
       return;
     }
     assetLoader.whenPriorityAssetsLoaded()
-      .then(() => ort.InferenceSession.create(MODEL_PATH))
+      .then(loadOnnxRuntime)
+      .then(ort => ort.InferenceSession.create(MODEL_PATH))
       // ref(): keep valtio from proxying the native inference session
       .then(session => { this.session = ref(session); })
       .catch(err => console.error('Failed to load the NPC model; the NPC will play randomly', err))
@@ -58,6 +60,7 @@ export class NpcBrain {
     if (!this.session) return null;
     const observation = Float32Array.from(encodeObservation(view, side));
     const mask = getActionMask(view, side);
+    const ort = await loadOnnxRuntime();
     const { logits } = await this.session.run({ observation: new ort.Tensor('float32', observation, [1, observation.length]) });
     const action = this.chooseAction(logits.data as Float32Array, mask);
 
