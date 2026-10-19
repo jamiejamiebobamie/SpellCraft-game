@@ -59,7 +59,7 @@ export const LOGO_CONFIG = {
    * scene's lighting takes over, fading from these): their brightness, and whether its case shows.
    */
   landingClock: {
-    bodyBrightness: 0.2, // the clock's case
+    bodyBrightness: 0.4, // the clock's case
     faceBrightness: 1, // its face
     haloBrightness: 1, // its halo
     showBody: true, // false: just the face and halo (no case, chimes or back)

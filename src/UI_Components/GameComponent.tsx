@@ -18,6 +18,12 @@ import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
 // NOTE: AI on BRUTAL kills himself often... also does similar opening move (3x3 Ether) every time...
 
+/**
+ * The background image's brightness, on top of the scene's lighting: dark (the landing page, and the
+ * intro walk until the lights come up; scene lighting 0.1) and lit (once they're up; 0.4). 1 = as is.
+ */
+const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 2, lit: 1.25 };
+
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   /* Vertical placement comes from the spacers around #root (index.css) */
   margin: 0 auto;
@@ -62,7 +68,7 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
     background-size: cover;
     background-position: center;
     transition: filter ${INTRO_WALK_ANIM_TIME}s;
-    filter: brightness(${props => props.$backgroundSceneBrightness}); 
+    filter: brightness(${props => props.$backgroundSceneBrightness * (props.$backgroundSceneBrightness > rootGameStore.LOW_BRIGHTNESS ? BACKGROUND_IMAGE_BRIGHTNESS.lit : BACKGROUND_IMAGE_BRIGHTNESS.dark)});
     z-index: -1;
   }
 `;

@@ -20,7 +20,18 @@ export const CLOCK_HALO = {
   longRay: { length: .8, width: 0.11, style: 'straight' as RayStyle, waves: 2, wave: 0.04 },
   shortRay: { length: 0.8, width: 0.12, style: 'wavy' as RayStyle, waves: 1.5, wave: 0.035 },
   rayStart: 0.36, // where the rays start (fraction of the radius: just inside the face's rim)
-  color: '255, 232, 170', // rgb
+  color: '255, 232, 170', // rgb: the glow around the face (and the rays, if rayColors is empty)
+  // The rays' colors, in turn around the circle (long, short, long, ...): the wand sparkles' colors
+  // (pixieColors), muted to about the cream's saturation. [] : every ray in `color`.
+  // toWhite slides a color toward white: 0 = as written, 1 = white
+  rayColors: [
+    // (in this order, the long rays alternate pale yellow and pink, the short ones mint and golden)
+    { rgb: '255, 246, 196', toWhite: 0 }, // pale yellow (#FFF7C2)
+    { rgb: '178, 255, 236', toWhite: 0 }, // mint (#A6FFEA)
+    { rgb: '255, 186, 224', toWhite: 0 }, // pink (#FFBBE1)
+    { rgb: '255, 229, 160', toWhite: 0 }, // golden yellow (#FFE53B)
+  ] as Array<{ rgb: string; toWhite: number }>,
+  rayColorsToWhite: .2, // slides all the ray colors toward white, on top of each one's own toWhite
   rayOpacity: 0.55, // at the rays' base, fading to nothing at their tips
   glowOpacity: 0.35, // a soft glow right around the face (lifts the dark carving there)
   rotationSeconds: 90, // one full turn (0: still)
@@ -123,6 +134,12 @@ const rayPoints = ({ length, width, style, waves, wave }: Ray): string => {
 };
 
 /** `isShown`: grows in when it turns true, shrinks away when it turns false. */
+/** An 'r, g, b' color moved `amount` (0 to 1) of the way to white. */
+const towardWhite = (rgb: string, amount: number): string => {
+  const t = Math.min(1, Math.max(0, amount));
+  return rgb.split(',').map(c => Math.round(Number(c) + (255 - Number(c)) * t)).join(', ');
+};
+
 export default function ClockHalo({ brightness, isShown }: { brightness: number; isShown: boolean }) {
   // Starts hidden, so it grows in when it first appears too (a transition only plays on a change)
   const [hasAppeared, setHasAppeared] = useState(false);
@@ -132,16 +149,22 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
   }, []);
   if (!CLOCK_HALO.enabled) return null;
   const { rays, color, rayOpacity, glowOpacity, rayStart } = CLOCK_HALO;
+  const rayColors = CLOCK_HALO.rayColors.length
+    ? CLOCK_HALO.rayColors.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - CLOCK_HALO.rayColorsToWhite)))
+    : [color];
   const step = 360 / rays;
   return (
     <HaloWrapper $brightness={brightness}>
       <Appear $isShown={isShown && hasAppeared}>
         <HaloRays viewBox='-100 -100 200 200'>
           <defs>
-            <radialGradient id='clock-halo-ray' cx='0' cy='0' r='100' gradientUnits='userSpaceOnUse'>
-              <stop offset={rayStart} stopColor={`rgb(${color})`} stopOpacity={rayOpacity} />
-              <stop offset='1' stopColor={`rgb(${color})`} stopOpacity='0' />
-            </radialGradient>
+            {/* one fading gradient per ray color */}
+            {rayColors.map((rayColor, c) => (
+              <radialGradient key={c} id={`clock-halo-ray-${c}`} cx='0' cy='0' r='100' gradientUnits='userSpaceOnUse'>
+                <stop offset={rayStart} stopColor={`rgb(${rayColor})`} stopOpacity={rayOpacity} />
+                <stop offset='1' stopColor={`rgb(${rayColor})`} stopOpacity='0' />
+              </radialGradient>
+            ))}
             <radialGradient id='clock-halo-glow' cx='0' cy='0' r='100' gradientUnits='userSpaceOnUse'>
               <stop offset={rayStart * 0.9} stopColor={`rgb(${color})`} stopOpacity={glowOpacity} />
               <stop offset='0.62' stopColor={`rgb(${color})`} stopOpacity='0' />
@@ -151,9 +174,9 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           {Array.from({ length: rays }, (_, k) => (
             <g key={k}>
               {/* the long and short rays breathe half a cycle apart; the ripple staggers them around the circle */}
-              <BreathingRay points={rayPoints(CLOCK_HALO.longRay)} fill='url(#clock-halo-ray)'
+              <BreathingRay points={rayPoints(CLOCK_HALO.longRay)} fill={`url(#clock-halo-ray-${(2 * k) % rayColors.length})`}
                 $angle={k * step} $phase={(k / rays) * CLOCK_HALO.breathe.ripple} />
-              <BreathingRay points={rayPoints(CLOCK_HALO.shortRay)} fill='url(#clock-halo-ray)'
+              <BreathingRay points={rayPoints(CLOCK_HALO.shortRay)} fill={`url(#clock-halo-ray-${(2 * k + 1) % rayColors.length})`}
                 $angle={k * step + step / 2} $phase={(k / rays) * CLOCK_HALO.breathe.ripple + 0.5} />
             </g>
           ))}

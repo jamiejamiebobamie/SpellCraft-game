@@ -100,6 +100,14 @@ const FloatingMessageContainer = styled.div<{ $isShow: boolean }>`
 `;
 
 // 🛠️ This component safely isolates your infinite looping pulse logic
+/** The outline around the "Click the Clock" text and its caret (thicknesses in cqw). */
+const CLICK_THE_CLOCK_OUTLINE = {
+  color: 'rgba(45, 32, 14, 0.95)', // dark brown (was a faint light gray, #a6a69d)
+  large: 0.06, // "Click", "Clock" (was 0.05; 0.12 was too heavy for this font)
+  small: 0.05, // "the"
+  caret: 0.1, // the caret's outline (a solid dark edge around it)
+};
+
 const EtherealGlowWrapper = styled.div`
   display: flex;
   flex-direction: row;
@@ -109,14 +117,36 @@ const EtherealGlowWrapper = styled.div`
   animation: ${etherealPulse} 3s ease-in-out infinite;
 `;
 
+/**
+ * The left-pointing caret: a pale triangle (::after) over a slightly larger dark one (::before), its
+ * solid outline. The caret itself bounces and glows (caretBouncePulse), taking both along.
+ */
 const EtherealCaret = styled.div`
-  width: 0;
-  height: 0;
-  border-top: 0.7cqw solid transparent;
-  border-bottom: 0.7cqw solid transparent;
-  border-right: 1.1cqw solid rgba(240, 248, 255, 0.95);
-  
+  position: relative;
+  width: 1.1cqw;
+  height: 1.4cqw;
   animation: ${caretBouncePulse} 2s ease-in-out infinite;
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+  &::before {
+    left: ${-CLICK_THE_CLOCK_OUTLINE.caret * 1.4}cqw;
+    top: ${-CLICK_THE_CLOCK_OUTLINE.caret}cqw;
+    border-top: ${0.7 + CLICK_THE_CLOCK_OUTLINE.caret}cqw solid transparent;
+    border-bottom: ${0.7 + CLICK_THE_CLOCK_OUTLINE.caret}cqw solid transparent;
+    border-right: ${1.1 + CLICK_THE_CLOCK_OUTLINE.caret * 2.4}cqw solid ${CLICK_THE_CLOCK_OUTLINE.color};
+  }
+  &::after {
+    left: 0;
+    top: 0;
+    border-top: 0.7cqw solid transparent;
+    border-bottom: 0.7cqw solid transparent;
+    border-right: 1.1cqw solid rgba(240, 248, 255, 0.95);
+  }
 `;
 
 
@@ -134,11 +164,11 @@ const EtherealText = styled.div`
   /* 🛠️ CENTRAL VARIABLES: Change these values to tweak your outline layout */
   // --stroke-color: #777777; 
   // --stroke-color: #F1E9D2;
-  --stroke-width-large: 0.05cqw;
-  --stroke-width-small: 0.05cqw;
+  --stroke-width-large: ${CLICK_THE_CLOCK_OUTLINE.large}cqw;
+  --stroke-width-small: ${CLICK_THE_CLOCK_OUTLINE.small}cqw;
 
   color: rgba(253, 253, 212, 0.95);
-  --stroke-color: #a6a69d; 
+  --stroke-color: ${CLICK_THE_CLOCK_OUTLINE.color};
 `;
 
 const LargeEtherealWord = styled.span`
