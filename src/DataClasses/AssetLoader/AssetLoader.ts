@@ -56,8 +56,11 @@ const tooltipImgs = [
 
 export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded' | 'isPriorityAssetsLoaded' | 'isMinLoadingTimeElapsed';
 
-/** The least time "Loading..." shows before the Play button, even if everything loads sooner. */
-const MIN_LOADING_TIME_MILLI = 1500;
+/**
+ * The least time "Loading..." shows before the Play button, even if everything loads sooner. 0: none
+ * (the boot screen in index.html now shows from the first paint; was 1500).
+ */
+const MIN_LOADING_TIME_MILLI = 0;
 
 const loaders: Array<LoaderProperties> = [
     'isOnnxModelLoaded',
