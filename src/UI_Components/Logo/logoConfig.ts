@@ -40,7 +40,9 @@ export const LOGO_CONFIG = {
 
   /** The clock behind everything. */
   clock: {
-    variant: 'none' as 'body' | 'face' | 'none', // the whole clock, just its face (e.g. oversized), or no clock (the scene has its own)
+    // 'scene': just the face, exactly over the background scene's clock (ignores transform); 'body': the
+    // whole clock; 'face': just the face (e.g. oversized); 'none': no clock (the scene has its own)
+    variant: 'scene' as 'scene' | 'body' | 'face' | 'none',
     transform: { x: 50, y: 29, scale: 2.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
     brightness: 0.5, // dimmer than the duel and the title, so they read first
     startTime: { hours: 12, minutes: 0, seconds: 0 }, // the hands then tick forward, one tick a second
@@ -49,6 +51,9 @@ export const LOGO_CONFIG = {
   /** The symbols and spells (all five move together). Anchored at the logo's center. */
   spells: {
     transform: { x: 0, y: 0, scale: 1.2, rotation: 0 } as GroupTransform,
+    // Spreads the spells' positions out from the logo's center (their sizes stay as scaled): e.g.
+    // x 1.2 moves them outward sideways, leaving the middle clearer, without moving them up or down
+    spread: { x: 1, y: 1 },
     symbolOpacity: 0.85, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
     symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)

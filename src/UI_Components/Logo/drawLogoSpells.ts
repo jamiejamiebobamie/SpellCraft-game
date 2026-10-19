@@ -71,7 +71,8 @@ export class LogoSpellsRenderer {
     ctx.rotate(rotation * Math.PI / 180);
     ctx.scale(scale, scale);
     ctx.translate(-anchor.x, -anchor.y);
-    ctx.translate(spell.x, spell.y);
+    const { spread } = LOGO_CONFIG.spells;
+    ctx.translate(anchor.x + (spell.x - anchor.x) * spread.x, anchor.y + (spell.y - anchor.y) * spread.y);
     ctx.rotate(spell.rotation * Math.PI / 180);
   };
 

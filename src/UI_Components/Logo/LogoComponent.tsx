@@ -77,11 +77,13 @@ const ClockFace = styled.svg`
 
 type HandRefs = { hour: SVGLineElement | null; minute: SVGLineElement | null; second: SVGLineElement | null };
 
-const LogoClock = ({ handRefs }: { handRefs: React.MutableRefObject<HandRefs> }) => {
+const LogoClock = ({ handRefs, clockRef }: { handRefs: React.MutableRefObject<HandRefs>; clockRef: React.MutableRefObject<HTMLDivElement | null> }) => {
   const { variant, transform, brightness } = LOGO_CONFIG.clock;
   if (variant === 'none') return null;
+  // 'scene': placed by alignToSceneClock (hidden until then)
+  const placement = variant === 'scene' ? { ...groupStyle({ x: 0, y: 0, scale: 1, rotation: 0 }), visibility: 'hidden' as const } : groupStyle(transform);
   return (
-    <div style={{ ...groupStyle(transform), filter: `brightness(${brightness})` }}>
+    <div ref={clockRef} style={{ ...placement, filter: `brightness(${brightness})` }}>
       {variant === 'body' && <>
         {/* Offsets from the face's center: ClockFaceComponent's, less the face's 5cqw */}
         <ClockImg $src='background-scene/Clock/Clock-body.png' $left={-10.9} $top={-9.1} $width={21.8} $aspect='260/390' $z={3} />
@@ -102,6 +104,19 @@ const LogoClock = ({ handRefs }: { handRefs: React.MutableRefObject<HandRefs> })
       </ClockFace>
     </div>
   );
+};
+
+/** Puts the logo's clock face exactly over the background scene's (variant 'scene'). */
+const alignToSceneClock = (clock: HTMLDivElement, root: HTMLDivElement): void => {
+  const sceneFace = document.querySelector('[data-scene-clock-face]');
+  if (!sceneFace) return;
+  const face = sceneFace.getBoundingClientRect(), logo = root.getBoundingClientRect();
+  if (!face.width || !logo.width) return;
+  const toUnits = 100 / logo.width; // the logo's face is 9 units wide at scale 1
+  clock.style.left = `${(face.left + face.width / 2 - logo.left) * toUnits}cqw`;
+  clock.style.top = `${(face.top + face.height / 2 - logo.top) * toUnits}cqw`;
+  clock.style.transform = `scale(${face.width * toUnits / 9})`;
+  clock.style.visibility = 'visible';
 };
 
 /** Sets the clock's hands: startTime plus `seconds`, ticking once a second. */
@@ -193,6 +208,7 @@ export default function LogoComponent() {
   const sparksCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sideRefs = useRef<Array<HTMLDivElement | null>>([null, null]);
   const handRefs = useRef<HandRefs>({ hour: null, minute: null, second: null });
+  const clockRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const root = rootRef.current, spellsCanvas = spellsCanvasRef.current, sparksCanvas = sparksCanvasRef.current;
@@ -216,8 +232,10 @@ export default function LogoComponent() {
     const sparks = new CrossingSparks();
 
     const start = performance.now();
-    let last = start, frameId = 0;
+    let last = start, frameId = 0, frameCount = 0;
     const animate = (now: number) => {
+      // Follow the scene's clock (a few times a second: the page can resize or still be settling)
+      if (LOGO_CONFIG.clock.variant === 'scene' && clockRef.current && frameCount++ % 15 === 0) alignToSceneClock(clockRef.current, root);
       const seconds = (now - start) / 1000, dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const pxPerUnit = spellsCanvas.width / 100;
@@ -250,7 +268,7 @@ export default function LogoComponent() {
 
   return (
     <LogoRoot ref={rootRef}>
-      <Layer $z={1}><LogoClock handRefs={handRefs} /></Layer>
+      <Layer $z={1}><LogoClock handRefs={handRefs} clockRef={clockRef} /></Layer>
       <CanvasLayer $z={2} ref={spellsCanvasRef} />
       <DuelLayer $z={3}>
         <div style={groupStyle(LOGO_CONFIG.avatars.transform)}>

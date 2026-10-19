@@ -352,7 +352,8 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
       data-click-type="ui-buttons"
       title='End turn'>
       <ClockWrapper>
-        <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
+        {/* data-scene-clock-face: the loading screen's logo lines its own clock face up with this one */}
+        <svg data-scene-clock-face viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
           {/* Clock Outer Rim */}
           <circle cx="50" cy="50" r="48" fill="#F1E9D2" stroke="#917d41" strokeWidth="4" />
           <circle cx="50" cy="50" r="46" fill="#F1E9D2" stroke="#e5c667" strokeWidth="4" />
