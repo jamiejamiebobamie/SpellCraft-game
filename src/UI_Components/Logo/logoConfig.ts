@@ -50,10 +50,20 @@ export const LOGO_CONFIG = {
 
   /** The symbols and spells (all five move together). Anchored at the logo's center. */
   spells: {
-    transform: { x: 0, y: 0, scale: 1.2, rotation: 0 } as GroupTransform,
-    // Spreads the spells' positions out from the logo's center (their sizes stay as scaled): e.g.
-    // x 1.2 moves them outward sideways, leaving the middle clearer, without moving them up or down
-    spread: { x: 1, y: 1 },
+    transform: { x: 0, y: 0, scale: .75, rotation: 0 } as GroupTransform,
+    // transform.scale and spread move the spells' positions (toward or away from the logo's center);
+    // their sizes stay the same. spread: e.g. x 1.2 moves them outward sideways, leaving the middle
+    // clearer, without moving them up or down
+    spread: { x: 2, y: 1 },
+    itemScale: 1, // resizes every spell and symbol (1 = as set in the list below)
+    // Which is in front of which, front first (anything left out goes behind)
+    layerOrder: [
+      ['Ether', 'spell'], ['Ether', 'symbol'],
+      ['Quicken', 'spell'], ['Quicken', 'symbol'],
+      ['GyreDown', 'spell'], ['GyreDown', 'symbol'],
+      ['GyreUp', 'spell'], ['GyreUp', 'symbol'],
+      ['Phlegm', 'spell'], ['Phlegm', 'symbol'],
+    ] as Array<[LogoSpell['spellName'], 'spell' | 'symbol']>,
     symbolOpacity: 0.85, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
     symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)

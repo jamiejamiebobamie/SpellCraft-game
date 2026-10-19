@@ -21,7 +21,7 @@ export class LogoSpellsRenderer {
   private scratch = document.createElement('canvas');
   private states = new Map<LogoSpell, SpellState>();
 
-  /** Draws every symbol, then every spell (the spells are in front), at `time` (ms; `dt` in s). */
+  /** Draws the symbols and spells back to front (LOGO_CONFIG.spells.layerOrder), at `time` (ms; `dt` in s). */
   render = (ctx: CanvasRenderingContext2D, frame: LogoFrame, time: number, dt: number): void => {
     const { canvas } = ctx;
     if (this.scratch.width !== canvas.width || this.scratch.height !== canvas.height) {
@@ -30,12 +30,16 @@ export class LogoSpellsRenderer {
     }
     const scratchCtx = this.scratch.getContext('2d');
     if (!scratchCtx) return;
-    const { list, symbolOpacity, spellOpacity } = LOGO_CONFIG.spells;
+    const { list, layerOrder, symbolOpacity, spellOpacity } = LOGO_CONFIG.spells;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const layers: Array<['symbol' | 'spell', number]> = [['symbol', symbolOpacity], ['spell', spellOpacity]];
-    layers.forEach(([layer, opacity]) => list.forEach(spell => {
+    // Back to front: anything not in layerOrder first, then layerOrder reversed
+    const ordered = layerOrder.flatMap(([name, layer]) => list.filter(s => s.spellName === name).map(spell => ({ spell, layer })));
+    const isOrdered = (spell: LogoSpell, layer: string) => ordered.some(o => o.spell === spell && o.layer === layer);
+    const rest = (['symbol', 'spell'] as const).flatMap(layer => list.filter(spell => !isOrdered(spell, layer)).map(spell => ({ spell, layer })));
+    [...rest, ...ordered.reverse()].forEach(({ spell, layer }) => {
+      const opacity = layer === 'symbol' ? symbolOpacity : spellOpacity;
       const state = this.getState(spell);
       scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
       scratchCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -54,7 +58,7 @@ export class LogoSpellsRenderer {
         ctx.drawImage(this.scratch, 0, 0);
       }
       ctx.globalAlpha = 1;
-    }));
+    });
   };
 
   private getState = (spell: LogoSpell): SpellState => {
@@ -62,18 +66,19 @@ export class LogoSpellsRenderer {
     return this.states.get(spell)!;
   };
 
-  /** The spells group's transform, then the spell's: drawing is then in logo units, around its center. */
+  /**
+   * The spells group's transform, then the spell's: drawing is then in logo units, around its center.
+   * The group's scale and spread move the spell; only itemScale resizes it.
+   */
   private setSpellTransform = (ctx: CanvasRenderingContext2D, spell: LogoSpell, pxPerUnit: number): void => {
-    const { x, y, scale, rotation } = LOGO_CONFIG.spells.transform;
+    const { transform: { x, y, scale, rotation }, spread, itemScale } = LOGO_CONFIG.spells;
     const anchor = { x: 50, y: LOGO_CONFIG.height / 2 };
     ctx.setTransform(pxPerUnit, 0, 0, pxPerUnit, 0, 0);
     ctx.translate(anchor.x + x, anchor.y + y);
     ctx.rotate(rotation * Math.PI / 180);
-    ctx.scale(scale, scale);
-    ctx.translate(-anchor.x, -anchor.y);
-    const { spread } = LOGO_CONFIG.spells;
-    ctx.translate(anchor.x + (spell.x - anchor.x) * spread.x, anchor.y + (spell.y - anchor.y) * spread.y);
+    ctx.translate((spell.x - anchor.x) * spread.x * scale, (spell.y - anchor.y) * spread.y * scale);
     ctx.rotate(spell.rotation * Math.PI / 180);
+    ctx.scale(itemScale, itemScale);
   };
 
   /** The spell's box corners, in device pixels. */
