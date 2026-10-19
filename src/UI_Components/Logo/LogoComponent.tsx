@@ -4,7 +4,7 @@
 // in logoConfig.ts. Inside the logo, 1cqw = 1 logo unit (100 units = its width).
 import { useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { LOGO_CONFIG, GroupTransform } from './logoConfig';
+import { LOGO_CONFIG, GroupTransform, Aura } from './logoConfig';
 import { FRAME_SIZE, LEAN_PIVOT, Vec, getDuelPose, getRestCrossing } from './duelMath';
 import { CrossingSparks, LogoSpellsRenderer } from './drawLogoSpells';
 
@@ -29,13 +29,22 @@ const Layer = styled.div<{ $z: number }>`
   z-index: ${props => props.$z};
 `;
 
+/** A canvas reaching LOGO_CONFIG.canvasMargin past the logo's box on every side. */
 const CanvasLayer = styled.canvas<{ $z: number }>`
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: ${-LOGO_CONFIG.canvasMargin.x}cqw;
+  top: ${-LOGO_CONFIG.canvasMargin.y}cqw;
+  width: ${100 + 2 * LOGO_CONFIG.canvasMargin.x}cqw;
+  height: ${LOGO_CONFIG.height + 2 * LOGO_CONFIG.canvasMargin.y}cqw;
   z-index: ${props => props.$z};
 `;
+
+/** CSS for an Aura: a thin drop-shadow outline, then wider, fainter ones fading outward. */
+const auraFilter = (aura: Aura): string => {
+  if (!aura) return 'none';
+  return Array.from({ length: 1 + Math.max(0, aura.layers) }, (_, k) =>
+    `drop-shadow(0 0 ${aura.size * aura.growth ** k}cqw rgba(${aura.rgb}, ${aura.opacity * aura.falloff ** k}))`).join(' ');
+};
 
 /** A group's transform, anchored at (x, y) in logo units. */
 const groupStyle = ({ x, y, scale, rotation }: GroupTransform): React.CSSProperties => ({
@@ -182,9 +191,29 @@ const DuelLayer = styled(Layer)`
   /* Below the waist, the duelists fade out behind the title */
   mask-image: linear-gradient(to bottom, black ${LOGO_CONFIG.avatars.fadeOut.start * 100}%, transparent ${LOGO_CONFIG.avatars.fadeOut.end * 100}%);
   -webkit-mask-image: linear-gradient(to bottom, black ${LOGO_CONFIG.avatars.fadeOut.start * 100}%, transparent ${LOGO_CONFIG.avatars.fadeOut.end * 100}%);
+  /* The aura (on this unscaled layer, so its size is in logo units; faded out with the rest) */
+  filter: ${auraFilter(LOGO_CONFIG.avatars.aura)};
 `;
 
 // --- The title -----------------------------------------------------------------------------------
+
+/** A gradient stop ('#rrggbb 40%') with its color scaled by `brightness`. */
+const scaleStop = (stop: string, brightness: number): string => stop.replace(/#([0-9a-f]{6})/i, (_, hex: string) =>
+  '#' + [0, 2, 4].map(k => Math.min(255, Math.round(parseInt(hex.slice(k, k + 2), 16) * brightness)).toString(16).padStart(2, '0')).join(''));
+
+/** The title's sheen: its gradient (with the darker ends over it) painted inside the letters. */
+const titleGradientCss = (): string => {
+  const { gradient } = LOGO_CONFIG.title;
+  if (!gradient) return '';
+  const shade = `rgba(90, 50, 5, ${gradient.endShade})`;
+  return `
+    background: linear-gradient(90deg, ${shade} 0%, transparent 20%, transparent 80%, ${shade} 100%),
+      linear-gradient(${gradient.angle}deg, ${gradient.stops.map(stop => scaleStop(stop, gradient.brightness)).join(', ')});
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  `;
+};
 
 const Title = styled.div`
   position: absolute;
@@ -196,8 +225,11 @@ const Title = styled.div`
   line-height: 1;
   white-space: nowrap;
   color: ${LOGO_CONFIG.title.color};
+  ${titleGradientCss()}
   -webkit-text-stroke: 0.12cqw ${LOGO_CONFIG.title.outline};
-  text-shadow: 0 0 1.2cqw ${LOGO_CONFIG.title.glow}, 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8);
+  /* The glow and drop shadow are drop-shadows (not text-shadow, which would show through the gradient) */
+  filter: drop-shadow(0 0 0.6cqw ${LOGO_CONFIG.title.glow}) drop-shadow(0 0.3cqw 0.3cqw rgba(0, 0, 0, 0.8))
+    ${LOGO_CONFIG.title.aura ? auraFilter(LOGO_CONFIG.title.aura) : ''};
 `;
 
 // --- The logo ------------------------------------------------------------------------------------
@@ -215,10 +247,12 @@ export default function LogoComponent() {
     const spellsCtx = spellsCanvas?.getContext('2d'), sparksCtx = sparksCanvas?.getContext('2d');
     if (!root || !spellsCanvas || !sparksCanvas || !spellsCtx || !sparksCtx) return;
 
-    // Canvases at the logo's size in device pixels
+    // Canvases at their size in device pixels (the logo's, plus canvasMargin)
+    const margin = LOGO_CONFIG.canvasMargin;
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const width = Math.round(root.clientWidth * dpr), height = Math.round(root.clientWidth * LOGO_CONFIG.height / 100 * dpr);
+      const width = Math.round(root.clientWidth * (100 + 2 * margin.x) / 100 * dpr);
+      const height = Math.round(root.clientWidth * (LOGO_CONFIG.height + 2 * margin.y) / 100 * dpr);
       [spellsCanvas, sparksCanvas].forEach(canvas => { canvas.width = width; canvas.height = height; });
     };
     const resizeObserver = new ResizeObserver(resize);
@@ -238,7 +272,8 @@ export default function LogoComponent() {
       if (LOGO_CONFIG.clock.variant === 'scene' && clockRef.current && frameCount++ % 15 === 0) alignToSceneClock(clockRef.current, root);
       const seconds = (now - start) / 1000, dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      const pxPerUnit = spellsCanvas.width / 100;
+      const pxPerUnit = spellsCanvas.width / (100 + 2 * margin.x);
+      const origin = { x: margin.x * pxPerUnit, y: margin.y * pxPerUnit }; // where the logo's (0, 0) is on the canvases
 
       const pose = getDuelPose(seconds);
       pose.sides.forEach((side, k) => {
@@ -252,9 +287,9 @@ export default function LogoComponent() {
         style.setProperty('--head', `${side.head}deg`);
       });
       setClockHands(handRefs.current, seconds);
-      spells.render(spellsCtx, { pxPerUnit, wandCrossing, radialCenter }, now, dt);
+      spells.render(spellsCtx, { pxPerUnit, origin, wandCrossing, radialCenter }, now, dt);
       const crossing = pose.crossing && fromGroup(pose.crossing, avatarsTransform);
-      sparks.render(sparksCtx, crossing && { x: crossing.x * pxPerUnit, y: crossing.y * pxPerUnit }, pose.intensity, pxPerUnit, dt);
+      sparks.render(sparksCtx, crossing && { x: origin.x + crossing.x * pxPerUnit, y: origin.y + crossing.y * pxPerUnit }, pose.intensity, pxPerUnit, dt);
 
       frameId = requestAnimationFrame(animate);
     };

@@ -40,8 +40,16 @@
         font-size: min(13vw, 20vh);
         line-height: 1;
         color: #f7d774;
+        /* The logo title's sheen (LOGO_CONFIG.title.gradient: angle 135, brightness 0.88 applied to its
+           stops, endShade 0.15); keep the two in step by hand */
+        background: linear-gradient(90deg, rgba(90, 50, 5, 0.15) 0%, transparent 20%, transparent 80%, rgba(90, 50, 5, 0.15) 100%),
+          linear-gradient(135deg, #bc9c4d 0%, #d9bd66 24%, #dfce9b 47%, #d9bd66 68%, #b99646 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
         -webkit-text-stroke: 0.15vmin #5a3d0c;
-        text-shadow: 0 0 2.5vmin rgba(255, 220, 120, 0.55), 0 0.5vmin 1vmin rgba(0, 0, 0, 0.8);
+        /* drop-shadows, not text-shadow (which would show through the gradient) */
+        filter: drop-shadow(0 0 1.2vmin rgba(255, 220, 120, 0.55)) drop-shadow(0 0.5vmin 0.5vmin rgba(0, 0, 0, 0.8));
       }
       #boot-screen .boot-spinner {
         width: 6vmin;

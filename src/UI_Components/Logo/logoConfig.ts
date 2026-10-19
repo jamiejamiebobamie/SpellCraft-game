@@ -28,8 +28,17 @@ export type LogoSpell = {
   symbolOpacity?: number; // this symbol's maximum opacity
   spellOpacity?: number; // this spell's maximum opacity
   spellBoost?: number; // draws a faint spell this many times over (e.g. 2), so it shows up more
+  fadeSpell?: boolean; // false: the spell is shown in full (only the symbol fades), e.g. so a long tail isn't cut off
+  hidden?: boolean; // true: hides this spell and its symbol (for testing)
   fadeRanges?: { symbolOut: FadeRange; spellIn: FadeRange }; // this spell's own fade.symbolOut / fade.spellIn
 };
+
+/**
+ * A glow around an element's outline (CSS drop-shadows, following its shape): a thin outline first
+ * (rgb color at its opacity, size in logo units), then `layers` more, each `growth` times wider and
+ * `falloff` times as opaque as the one before, fading outward. null: none.
+ */
+export type Aura = { rgb: string; opacity: number; size: number; layers: number; growth: number; falloff: number } | null;
 
 /** Fractions of the way from the outside (0) to the inside (1). */
 export type FadeRange = { start: number; end: number };
@@ -38,13 +47,16 @@ export const LOGO_CONFIG = {
   /** The logo's height, in logo units (its width is 100). */
   height: 72,
 
+  /** How far the spell and spark canvases reach past the logo's box (logo units), so nothing near its edges is cut off. */
+  canvasMargin: { x: 30, y: 12 },
+
   /** The clock behind everything. */
   clock: {
     // 'scene': just the face, exactly over the background scene's clock (ignores transform); 'body': the
     // whole clock; 'face': just the face (e.g. oversized); 'none': no clock (the scene has its own)
     variant: 'scene' as 'scene' | 'body' | 'face' | 'none',
     transform: { x: 50, y: 29, scale: 2.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
-    brightness: 0.5, // dimmer than the duel and the title, so they read first
+    brightness: 0.7, // dimmer than the duel and the title, so they read first
     startTime: { hours: 12, minutes: 0, seconds: 0 }, // the hands then tick forward, one tick a second
   },
 
@@ -62,9 +74,9 @@ export const LOGO_CONFIG = {
       ['Quicken', 'spell'], ['Quicken', 'symbol'],
       ['GyreDown', 'spell'], ['GyreDown', 'symbol'],
       ['GyreUp', 'spell'], ['GyreUp', 'symbol'],
-      ['Phlegm', 'spell'], ['Phlegm', 'symbol'],
+      ['Phlegm', 'symbol'], ['Phlegm', 'spell'],
     ] as Array<[LogoSpell['spellName'], 'spell' | 'symbol']>,
-    symbolOpacity: 0.85, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
+    symbolOpacity: 0.5, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
     symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)
     spellOpacity: 0.85,
@@ -75,25 +87,29 @@ export const LOGO_CONFIG = {
       spellIn: { start: 0.0, end: 0.3 } as FadeRange,
       radialCenter: null as { x: number; y: number } | null, // null: below the duelists
     },
+    // Pixie dust drifting down from the symbols (spawned only where a symbol is visible, then falling
+    // freely). Speeds and sizes in logo units
     pixieDustPerSecond: 14, // per symbol
+    show: { symbols: true, spells: true }, // turn all the symbols, or all the spells, off (for testing)
     list: [
-      { spellName: 'Quicken', symbol: 'line', x: 30.5, y: 32.5, rotation: 33, w: 22, h: 6, cells: { w: 4, h: 1 }, cellSize: 7.2, direction: 1, fade: 'towardWands', spellOffset: { x: -2, y: -1 } },
-      { spellName: 'Phlegm', symbol: 'star', x: 49.8, y: 20, rotation: 0, w: 24, h: 24, cells: { w: 2, h: 2 }, cellSize: 11, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 7 }, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.7 },
-      { spellName: 'Ether', symbol: 'circle', x: 70.3, y: 30.3, rotation: 0, w: 14.5, h: 14.5, cells: { w: 2, h: 2 }, cellSize: 12, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 0, y: -1 } },
-      { spellName: 'GyreDown', symbol: 'triangle', x: 41.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
-      { spellName: 'GyreUp', symbol: 'diamond', x: 58.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
+      { spellName: 'Quicken', symbol: 'line', x: 27, y: 5.25, rotation: 15, w: 25, h: 15, cells: { w: 3, h: 1 }, cellSize: 14, direction: 1, fade: 'towardWands', spellOffset: { x: -1.13, y: 1.93 }, fadeRanges: { symbolOut: { start: 0.5, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false }, // mirrors the Ether (its offset: the Ether's, mirrored, in the line's 33-degree frame)
+      { spellName: 'Phlegm', symbol: 'star', x: 50, y: 40, rotation: 0, w: 30, h: 30, cells: { w: 3, h: 3 }, cellSize: 13, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -2 }, fadeRanges: { symbolOut: { start: 0.9, end: .99 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.5 },
+      { spellName: 'Ether', symbol: 'circle', x: 70, y: 10.25, rotation: -10, w: 18, h: 18, cells: { w: 3, h: 3 }, cellSize: 11, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 3, y: 1 }, fadeRanges: { symbolOut: { start: 0.7, end: 0.99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false },
+      { spellName: 'GyreDown', symbol: 'triangle', x: 16, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: .8, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }  },
+      { spellName: 'GyreUp', symbol: 'diamond', x: 84, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.0, end: 0.1 } }  },
     ] as Array<LogoSpell>,
   },
 
   /** The two duelists. Anchored on the line between them, level with the tops of their frames. */
   avatars: {
-    transform: { x: 50, y: 25.5, scale: 2.08, rotation: 0 } as GroupTransform,
+    transform: { x: 50, y: 18, scale: 2.08, rotation: 0 } as GroupTransform, // (was 25.5: moved up 7.5 with the title; the wand tips just overlap the clock)
     // In the avatars' own units (the game's avatar parts, before scaling):
     spacing: 8, // from the center line to each avatar's middle
     wrist: { x: -2.9, y: 6.9 }, // the player's wand hand at rest, from the center line (the opponent's is mirrored)
     wandTilt: 25, // degrees from upright, leaning in toward the other wand
     // Below the waist, the avatars fade out behind the title (fractions of the logo's height)
-    fadeOut: { start: 0.62, end: 0.76 }, // (was 0.72 to 0.9 at height 66) mostly gone above the title, so the two read separately
+    fadeOut: { start: 0.595, end: 0.655 }, // (was 0.7 to 0.76: up 7.5 units, with the avatars)
+    aura: { rgb: '255, 244, 214', opacity: 0.55, size: 0.2, layers: 4, growth: 2, falloff: 0.5 } as Aura, // a cream outline, glowing outward // (was 0.72 to 0.9 at height 66) mostly gone above the title, so the two read separately
   },
 
   /** The push and shove. */
@@ -112,10 +128,21 @@ export const LOGO_CONFIG = {
   /** "SpellCraft", in front of everything. */
   title: {
     text: 'SpellCraft',
-    x: 50, y: 61, // its center (was 56)
-    size: 30, // font size, in logo units
-    color: '#f7d774',
+    x: 50, y: 53.5, // its center (was 61: moved up 7.5 with the avatars)
+    size: 27, // font size, in logo units
+    color: '#f7d774', // used if gradient is null
+    // A still sheen over the letters, in shades of the title's color: darker at the edges, lighter
+    // inside, along `angle` (CSS degrees: 180 = top to bottom; 135 = tilted -45, 120 = tilted -60).
+    // endShade (0 to 1) darkens the word's far left and right ends. null: plain color
+    gradient: {
+      angle: 135,
+      brightness: 0.88, // scales every color below by the same amount (1 = as written), keeping them relative to each other
+      // Shades of the title's own color (#f7d774): a little darker at the edges, a little lighter inside
+      stops: ['#d6b157 0%', '#f7d774 24%', '#fdeab0 47%', '#f7d774 68%', '#d2ab50 100%'],
+      endShade: 0.15,
+    } as { angle: number; brightness: number; stops: Array<string>; endShade: number } | null,
     outline: '#5a3d0c',
     glow: 'rgba(255, 220, 120, 0.55)',
+    aura: { rgb: '255, 238, 190', opacity: 0.0, size: 0.25, layers: 3, growth: 2.2, falloff: 0.5 } as Aura, // a pale outline, glowing outward
   },
 };

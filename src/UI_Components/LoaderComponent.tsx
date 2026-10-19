@@ -33,6 +33,9 @@ const scatterWispRight = keyframes`
   100% { transform: translate(7cqw, -15cqw) scale(1.3); opacity: 0; }
 `;
 
+/** Raises the Play button and "Loading..." toward the logo (visually only, so the logo doesn't move: its clock lines up with the scene's). */
+const PLAY_BUTTON_RAISE = '3cqw';
+
 /** The Play button and "Loading..." (and their slot), relative to their original size: kept smaller than the logo's title. */
 const PLAY_BUTTON_SCALE = 0.7;
 const playSize = (cqw: number) => `${cqw * PLAY_BUTTON_SCALE}cqw`;
@@ -78,6 +81,7 @@ const ActionSlot = styled.div`
   width: 80%;
   max-width: 800px;
   height: ${playSize(11)};
+  transform: translateY(-${PLAY_BUTTON_RAISE});
   position: relative;
   display: flex;
   align-items: center;

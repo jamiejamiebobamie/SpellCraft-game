@@ -14,8 +14,11 @@ type Dust = { x: number; y: number; vx: number; vy: number; size: number; life: 
 /** Per spell: its particles and pixie dust, kept between frames. */
 type SpellState = { particles: Array<any>; dust: Array<Dust> };
 
-/** Where things are on the canvas: device pixels per logo unit, and where the fades point. */
-export type LogoFrame = { pxPerUnit: number; wandCrossing: Vec; radialCenter: Vec };
+/**
+ * Where things are on the canvas: device pixels per logo unit, where the logo's (0, 0) is (device
+ * pixels: the canvas reaches past the logo), and where the fades point (logo units).
+ */
+export type LogoFrame = { pxPerUnit: number; origin: Vec; wandCrossing: Vec; radialCenter: Vec };
 
 export class LogoSpellsRenderer {
   private scratch = document.createElement('canvas');
@@ -38,18 +41,20 @@ export class LogoSpellsRenderer {
     const ordered = layerOrder.flatMap(([name, layer]) => list.filter(s => s.spellName === name).map(spell => ({ spell, layer })));
     const isOrdered = (spell: LogoSpell, layer: string) => ordered.some(o => o.spell === spell && o.layer === layer);
     const rest = (['symbol', 'spell'] as const).flatMap(layer => list.filter(spell => !isOrdered(spell, layer)).map(spell => ({ spell, layer })));
+    const { show } = LOGO_CONFIG.spells;
     [...rest, ...ordered.reverse()].forEach(({ spell, layer }) => {
+      if (spell.hidden || !(layer === 'symbol' ? show.symbols : show.spells)) return;
       const opacity = layer === 'symbol' ? symbolOpacity : spellOpacity;
       const state = this.getState(spell);
       scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
       scratchCtx.clearRect(0, 0, canvas.width, canvas.height);
-      this.setSpellTransform(scratchCtx, spell, frame.pxPerUnit);
+      this.setSpellTransform(scratchCtx, spell, frame);
       const corners = this.getCorners(scratchCtx, spell);
 
       if (layer === 'symbol') this.drawSymbol(scratchCtx, spell, state, frame.pxPerUnit, dt);
       else this.drawSpell(scratchCtx, spell, state, frame.pxPerUnit, time, dt);
 
-      this.applyFade(scratchCtx, spell, layer, corners, frame);
+      if (!(layer === 'spell' && spell.fadeSpell === false)) this.applyFade(scratchCtx, spell, layer, corners, frame);
       // Each spell's own maximum opacity, if set; a boosted spell is drawn over itself (the last time partly)
       const maxOpacity = (layer === 'symbol' ? spell.symbolOpacity : spell.spellOpacity) ?? opacity;
       const boost = layer === 'spell' ? Math.max(1, spell.spellBoost ?? 1) : 1;
@@ -70,10 +75,10 @@ export class LogoSpellsRenderer {
    * The spells group's transform, then the spell's: drawing is then in logo units, around its center.
    * The group's scale and spread move the spell; only itemScale resizes it.
    */
-  private setSpellTransform = (ctx: CanvasRenderingContext2D, spell: LogoSpell, pxPerUnit: number): void => {
+  private setSpellTransform = (ctx: CanvasRenderingContext2D, spell: LogoSpell, { pxPerUnit, origin }: LogoFrame): void => {
     const { transform: { x, y, scale, rotation }, spread, itemScale } = LOGO_CONFIG.spells;
     const anchor = { x: 50, y: LOGO_CONFIG.height / 2 };
-    ctx.setTransform(pxPerUnit, 0, 0, pxPerUnit, 0, 0);
+    ctx.setTransform(pxPerUnit, 0, 0, pxPerUnit, origin.x, origin.y);
     ctx.translate(anchor.x + x, anchor.y + y);
     ctx.rotate(rotation * Math.PI / 180);
     ctx.translate((spell.x - anchor.x) * spread.x * scale, (spell.y - anchor.y) * spread.y * scale);
@@ -181,7 +186,7 @@ export class LogoSpellsRenderer {
     let gradient: CanvasGradient;
 
     if (spell.fade === 'radial') {
-      const c = { x: frame.radialCenter.x * frame.pxPerUnit, y: frame.radialCenter.y * frame.pxPerUnit };
+      const c = { x: frame.origin.x + frame.radialCenter.x * frame.pxPerUnit, y: frame.origin.y + frame.radialCenter.y * frame.pxPerUnit };
       const distances = corners.map(p => Math.hypot(p.x - c.x, p.y - c.y));
       const inner = Math.max(0, Math.min(...distances)), outer = Math.max(...distances);
       gradient = ctx.createRadialGradient(c.x, c.y, inner, c.x, c.y, outer);
@@ -193,7 +198,7 @@ export class LogoSpellsRenderer {
       gradient.addColorStop(1, `rgba(0,0,0,${outside})`);
     } else {
       // The direction from the outside in: toward the wands, or down
-      const target = { x: frame.wandCrossing.x * frame.pxPerUnit, y: frame.wandCrossing.y * frame.pxPerUnit };
+      const target = { x: frame.origin.x + frame.wandCrossing.x * frame.pxPerUnit, y: frame.origin.y + frame.wandCrossing.y * frame.pxPerUnit };
       const raw = spell.fade === 'towardWands' ? { x: target.x - center.x, y: target.y - center.y } : { x: 0, y: 1 };
       const length = Math.hypot(raw.x, raw.y) || 1;
       const d = { x: raw.x / length, y: raw.y / length };
