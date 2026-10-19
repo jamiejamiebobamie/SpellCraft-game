@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
@@ -258,6 +258,15 @@ const LoaderComponent = () => {
   const isSceneImgsLoaded = snap.getIsSceneImgsLoaded();
   const isFontLoaded = snap.getIsFontLoaded();
   const isPriorityAssetsLoaded = snap.getIsPriorityAssetsLoaded();
+
+  // The boot screen (index.html: the title and a spinner) fades out as the logo fades in
+  useEffect(() => {
+    const bootScreen = document.getElementById('boot-screen');
+    if (!isPriorityAssetsLoaded || !bootScreen) return;
+    bootScreen.classList.add('boot-screen--done');
+    const removeTimeout = setTimeout(() => bootScreen.remove(), 1000);
+    return () => clearTimeout(removeTimeout);
+  }, [isPriorityAssetsLoaded]);
 
   // Dynamic state loop key triggering fresh wisp cycles on every re-hover
   const [hoverKey, setHoverKey] = useState<number>(0);

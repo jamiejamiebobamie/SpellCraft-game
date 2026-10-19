@@ -8,9 +8,59 @@
     <meta name="color-scheme" content="dark" />
     <!-- Black from the very first paint (index.css only arrives with the app's script). On html only:
          a body background would cover the game's background scene (drawn behind it, at z-index -1) -->
-    <style>html { background: #000; }</style>
+    <style>
+      html { background: #000; }
+
+      /* The boot screen: the title and a spinner, shown from the first paint until the loading
+         screen's logo is ready (LoaderComponent fades it out). The title's font is EnchantedLand cut
+         down to the letters of "SpellCraftLoading." and embedded, so it needs no download:
+           training/.venv/Scripts/pyftsubset "public/fonts/Enchanted Land.otf" --text="SpellCraftLoading."              --flavor=woff2 --layout-features='*' --output-file=title.woff2   (then base64 it into src below) */
+      @font-face {
+        font-family: 'SpellCraftTitle';
+        src: url(data:font/woff2;base64,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) format('woff2');
+        font-display: block;
+      }
+      #boot-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4vmin;
+        padding-bottom: 8vh; /* a little above center, like the game */
+        background: #000;
+        pointer-events: none;
+        transition: opacity 0.8s ease-out;
+      }
+      #boot-screen.boot-screen--done { opacity: 0; }
+      #boot-screen .boot-title {
+        font-family: 'SpellCraftTitle', serif;
+        font-size: min(13vw, 20vh);
+        line-height: 1;
+        color: #f7d774;
+        -webkit-text-stroke: 0.15vmin #5a3d0c;
+        text-shadow: 0 0 2.5vmin rgba(255, 220, 120, 0.55), 0 0.5vmin 1vmin rgba(0, 0, 0, 0.8);
+      }
+      #boot-screen .boot-spinner {
+        width: 6vmin;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        border: 0.4vmin solid rgba(247, 215, 116, 0.15);
+        border-top-color: #f7d774;
+        box-shadow: 0 0 1.5vmin rgba(255, 220, 120, 0.25);
+        animation: boot-spin 1s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #boot-screen .boot-spinner { animation-duration: 3s; } }
+    </style>
   </head>
   <body>
+    <div id="boot-screen" aria-hidden="true">
+      <div class="boot-title">SpellCraft</div>
+      <div class="boot-spinner"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
