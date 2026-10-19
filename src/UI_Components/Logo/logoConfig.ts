@@ -41,15 +41,15 @@ export const LOGO_CONFIG = {
   /** The clock behind everything. */
   clock: {
     variant: 'none' as 'body' | 'face' | 'none', // the whole clock, just its face (e.g. oversized), or no clock (the scene has its own)
-    transform: { x: 50, y: 29, scale: 3.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
-    brightness: 0.4, // dimmer than the duel and the title, so they read first
+    transform: { x: 50, y: 29, scale: 2.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
+    brightness: 0.5, // dimmer than the duel and the title, so they read first
     startTime: { hours: 12, minutes: 0, seconds: 0 }, // the hands then tick forward, one tick a second
   },
 
   /** The symbols and spells (all five move together). Anchored at the logo's center. */
   spells: {
-    transform: { x: 0, y: 0, scale: 1, rotation: 0 } as GroupTransform,
-    symbolOpacity: 0.7, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
+    transform: { x: 0, y: 0, scale: 1.2, rotation: 0 } as GroupTransform,
+    symbolOpacity: 0.85, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
     symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)
     spellOpacity: 0.85,
@@ -62,9 +62,9 @@ export const LOGO_CONFIG = {
     },
     pixieDustPerSecond: 14, // per symbol
     list: [
-      { spellName: 'Quicken', symbol: 'line', x: 30.5, y: 32.5, rotation: 33, w: 22, h: 6, cells: { w: 3, h: 1 }, cellSize: 7.2, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -1 }  },
-      { spellName: 'Phlegm', symbol: 'star', x: 49.8, y: 20, rotation: 0, w: 24, h: 24, cells: { w: 2, h: 2 }, cellSize: 11, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 7 }, spellOpacity: 0.55 },
-      { spellName: 'Ether', symbol: 'circle', x: 70.3, y: 30.3, rotation: 0, w: 14.5, h: 14.5, cells: { w: 2, h: 2 }, cellSize: 12, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 0, y: -1 }  },
+      { spellName: 'Quicken', symbol: 'line', x: 30.5, y: 32.5, rotation: 33, w: 22, h: 6, cells: { w: 4, h: 1 }, cellSize: 7.2, direction: 1, fade: 'towardWands', spellOffset: { x: -2, y: -1 } },
+      { spellName: 'Phlegm', symbol: 'star', x: 49.8, y: 20, rotation: 0, w: 24, h: 24, cells: { w: 2, h: 2 }, cellSize: 11, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 7 }, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.7 },
+      { spellName: 'Ether', symbol: 'circle', x: 70.3, y: 30.3, rotation: 0, w: 14.5, h: 14.5, cells: { w: 2, h: 2 }, cellSize: 12, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 0, y: -1 } },
       { spellName: 'GyreDown', symbol: 'triangle', x: 41.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
       { spellName: 'GyreUp', symbol: 'diamond', x: 58.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
     ] as Array<LogoSpell>,
@@ -72,7 +72,7 @@ export const LOGO_CONFIG = {
 
   /** The two duelists. Anchored on the line between them, level with the tops of their frames. */
   avatars: {
-    transform: { x: 50, y: 30.5, scale: 2.08, rotation: 0 } as GroupTransform,
+    transform: { x: 50, y: 25.5, scale: 2.08, rotation: 0 } as GroupTransform,
     // In the avatars' own units (the game's avatar parts, before scaling):
     spacing: 8, // from the center line to each avatar's middle
     wrist: { x: -2.9, y: 6.9 }, // the player's wand hand at rest, from the center line (the opponent's is mirrored)
@@ -98,7 +98,7 @@ export const LOGO_CONFIG = {
   title: {
     text: 'SpellCraft',
     x: 50, y: 61, // its center (was 56)
-    size: 24, // font size, in logo units
+    size: 30, // font size, in logo units
     color: '#f7d774',
     outline: '#5a3d0c',
     glow: 'rgba(255, 220, 120, 0.55)',
