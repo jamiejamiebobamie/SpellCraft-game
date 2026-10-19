@@ -157,31 +157,47 @@ const NavArrow = styled.button<{ $disabled: boolean }>`
   }
 `;
 
+const ChoiceControls = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 2cqw;
+  margin-top: 1.5cqw;
+  width: 100%;
+`;
+
+const ChoiceButton = styled.button<{ $isPrimary: boolean }>`
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 2.2cqw;
+  padding: 0.6cqw 2.2cqw;
+  border-radius: 0.5cqw;
+  border: 0.15cqw solid #e6c563;
+  background: ${props => props.$isPrimary ? 'rgba(230, 197, 99, 0.18)' : 'transparent'};
+  color: #e6c563;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+
+  &:hover {
+    background: rgba(230, 197, 99, 0.32);
+    color: #fff;
+    transform: scale(1.04);
+  }
+`;
+
 const TooltipModalComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const currTooltipPage = snap.getCurrPageContent();
 
-  useEffect(() => {
-    const item = window.localStorage.getItem('quickCast-isToolTips');
-    let isToolTips = undefined;
-    try {
-      if (item)
-        isToolTips = JSON.parse(item);
-    } catch (error) {
-      console.warn(`Error reading localStorage key :`, error);
-    }
-    if (isToolTips === true || isToolTips === undefined) {
-      rootGameStore.toggleToolTips(true);
-    } else {
-      rootGameStore.toggleToolTips(false);
-    }
-  }, []);
+  // The saved tooltips setting (on, if never chosen)
+  useEffect(() => { rootGameStore.loadToolTips(); }, []);
+  const isLore = snap.getIsLore();
+  const isLoreChoice = isLore && snap.getIsLastTooltipPage();
 
   return !!currTooltipPage && (
-    <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={rootGameStore.closeTooltip}>
+    // The story can only be left by choosing (no Close, and clicking outside does nothing)
+    <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={isLore ? undefined : rootGameStore.closeTooltip}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
-        <CloseButton onClick={rootGameStore.closeTooltip}>Close{" "}<CloseSymbol /></CloseButton>
+        {!isLore && <CloseButton onClick={rootGameStore.closeTooltip}>Close{" "}<CloseSymbol /></CloseButton>}
         <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%', flex: 1, overflow: 'hidden' }}>
           {(currTooltipPage.title || currTooltipPage.paragraphs) && (
             <TextColumn>
@@ -218,6 +234,13 @@ const TooltipModalComponent = () => {
               &#9654;
             </NavArrow>
           </FooterControls>
+        )}
+        {/* The story's last page: play with tooltips or without (saved for next time) */}
+        {isLoreChoice && (
+          <ChoiceControls>
+            <ChoiceButton $isPrimary onClick={() => rootGameStore.chooseToolTips(true)}>Play with tooltips</ChoiceButton>
+            <ChoiceButton $isPrimary={false} onClick={() => rootGameStore.chooseToolTips(false)}>Play</ChoiceButton>
+          </ChoiceControls>
         )}
       </ModalContent>
     </TooltipOverlay>

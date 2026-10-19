@@ -2,7 +2,7 @@
 
 **A strategy duel where you cast spells by drawing them.**
 
-You're a member of the Hell Raisers, a masked wizard fight club. After curfew, you sneak out of bed for a duel in the school's halls. Draw spell symbols to cast them; your spells travel across the board, collide, combine and interact with your opponent's. Bring their health to zero before sunrise or the faculty are sure to catch you.
+You're a member of a masked wizard fight club. After curfew, you sneak out of bed for a duel in the school's halls. Draw spell symbols to cast them; your spells travel across the board, collide, combine and interact with your opponent's. Bring their health to zero before sunrise or the faculty are sure to catch you.
 
 ### [▶ Play it: spellcraft-game.netlify.app](https://spellcraft-game.netlify.app/)
 

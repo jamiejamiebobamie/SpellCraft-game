@@ -273,6 +273,9 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
     ctx.restore();
 };
 
+/** "Hover for more info": its outline's thickness, as a fraction of the game's width. */
+const HOVER_HINT_OUTLINE = 0.0035;
+
 const drawSinusoidalFloatingMessage = (
     ctx: CanvasRenderingContext2D,
     ui: CanvasScrollUI,
@@ -296,9 +299,12 @@ const drawSinusoidalFloatingMessage = (
         const charW = ctx.measureText(char).width;
         const waveCharY = bottomY + (Math.cos(runningX * 0.04 + currentTime * 0.003) * 2.2);
         const targetCharY = waveCharY + verticalSpacing;
-        ctx.fillStyle = 'rgba(28, 18, 5, .5)';
-        ctx.fillText(char, runningX + 2, targetCharY + 2);
-        ctx.fillStyle = '#f0c24de2';
+        // A thin dark outline under solid gold, so it reads against the wall and the scroll
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = viewW * HOVER_HINT_OUTLINE;
+        ctx.strokeStyle = 'rgba(45, 30, 10, 0.95)';
+        ctx.strokeText(char, runningX, targetCharY);
+        ctx.fillStyle = '#f7d774'; // (was #f0c24de2, slightly see-through)
         ctx.fillText(char, runningX, targetCharY);
         if (char !== ' ' && Math.random() < 0.015 && textSparklePool.length < 60) {
             textSparklePool.push({

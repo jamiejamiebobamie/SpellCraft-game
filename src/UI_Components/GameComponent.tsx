@@ -5,6 +5,7 @@ import GameBoardComponent from './GameBoard/GameBoardComponent';
 import StarrySkyComponent from './SceneElements/StarrySkyComponent';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import TooltipModalComponent from './TooltipModalComponent';
+import LightTipLayer from './LightTipCard';
 import LoaderComponent from './LoaderComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
@@ -94,23 +95,24 @@ export const GameComponent = () => {
   const isOutOfFocus = snap.getIsOutOfFocus();
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
-  const isTooltips = snap.getIsTooltips();
+  const isLoreDone = snap.getIsLoreDone();
 
   useEffect(() => {
     if (isPlaying) {
-      if (isTooltips) {
-        // SEE TOOLTIPS
-        rootGameStore.showTooltip()
+      if (!isLoreDone) {
+        // THE STORY (tooltips on, or not chosen yet); its last page asks about tooltips
+        rootGameStore.showLore();
       } else if (!isDoneWithIntro) {
         // PLAY
         rootGameStore.beginIntro();
       } else {
         // BEGIN MATCH!
+        rootGameStore.triggerTips(['casting', 'spellBook']); // together
         rootGameStore.doClickClockFlash();
         setTimeout(() => rootGameStore.doNpcMove(), 3000);
       }
     }
-  }, [isPlaying, isDoneWithIntro, isTooltips]);
+  }, [isPlaying, isDoneWithIntro, isLoreDone]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
@@ -279,6 +281,7 @@ export const GameComponent = () => {
       <LoaderComponent />
       <TooltipModalComponent />
       <HTMLCanvasComponent gridOverlayRef={gridOverlayRef} />
+      <LightTipLayer />
       {sceneElements}
       {mainUI}
     </GameWrapper>)

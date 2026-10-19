@@ -18,7 +18,7 @@ import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
 import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
-import { TooltipPage } from './TooltipManager/TooltipManager';
+import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
 import { NPC_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
@@ -147,13 +147,17 @@ export class Game {
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
     if (!this.getIsGameBoardDisabled() && !this.gameOver && !isAnyPlayerDead) {
       this.tooltipManager.clearClickClockRef(); // turn-off helper message
+      // Ending the turn closes the light tip showing (and "Ending Your Turn" won't be needed)
+      this.tooltipManager.dropQueuedTip('endTurn');
+      this.tooltipManager.dismissLightTip();
+      const hadSpells = this.placedSpells.spells.length > 0;
       this.resetNpcMove();
 
       this.audioHandler.startSoundEffect('clock-chime');
       this.incrementMinuteAngleAcc();
       this.forceUpdate();
       this.disableGameBoard();
-      await this.updatePlacedSpells();
+      const isCollision = await this.updatePlacedSpells();
       this.regenFocusForPlayers();
       this.enableGameBoard();
 
@@ -173,8 +177,49 @@ export class Game {
       }
 
       this.tooltipManager.doClickClockFlash(this.forceUpdate);
+
+      // Tutorial tips that this turn made relevant
+      if (hadSpells) this.tooltipManager.triggerTip('spellsInMotion');
+      if (isCollision) this.tooltipManager.triggerTip('collisions');
+      if (this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle() >= Game.NIGHT_PASSING_TIP_TURN) this.tooltipManager.triggerTip('nightPassing');
       this.forceUpdate();
     }
+  }
+
+  /** After this many turns (5 minutes each, from midnight), the "night is passing" tip. */
+  static readonly NIGHT_PASSING_TIP_TURN = 6;
+
+  /** Tips a cast closes (the player has done, or moved past, what they describe). */
+  private static readonly TIPS_CLOSED_BY_CASTING: Array<TipId> = ['casting', 'spellBook', 'focus', 'spellSize', 'bloodMagic'];
+
+  /**
+   * The player cast a spell (their focus dropped): closes a tip the cast answers; the first time, the
+   * Focus tip, then Spell Size, then Ending Your Turn.
+   */
+  notePlayerCast = (): void => {
+    const shown = [...this.tooltipManager.getLightTips()];
+    const wasFocusShowing = shown.includes('focus');
+    shown.filter(tip => Game.TIPS_CLOSED_BY_CASTING.includes(tip)).forEach(tip => this.tooltipManager.dismissLightTip(tip));
+    if (this.isBloodMagicTipPending) {
+      this.isBloodMagicTipPending = false;
+      this.tooltipManager.triggerTip('bloodMagic');
+    }
+    if (!wasFocusShowing) {
+      // (each waits its turn: Focus, then Spell Size, then Ending Your Turn)
+      this.tooltipManager.triggerTip('focus');
+      this.tooltipManager.triggerTip('spellSize');
+      this.tooltipManager.triggerTip('endTurn');
+    }
+    this.forceUpdate();
+  }
+
+  /**
+   * A cast cost the player Health: the Blood Magic tip (the first time), shown by notePlayerCast once
+   * this same cast has closed the previous tip.
+   */
+  private isBloodMagicTipPending = false;
+  private noteBloodMagic = (caster: Player): void => {
+    if (caster.id === this.getHumanPlayer()?.id) this.isBloodMagicTipPending = true;
   }
   // GAME - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -234,6 +279,7 @@ export class Game {
                 if (bloodMagicCost > 0) {
                   s.flagHitImpact(true, bloodMagicCost, true);
                   this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
+                  this.noteBloodMagic(humanPlayer);
                 }
                 const spellName = s.getSpellName();
                 this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
@@ -336,12 +382,27 @@ export class Game {
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getIsTooltips = (): boolean => this.tooltipManager.getIsTooltips();
   getIsSpellBookOpen = (): boolean => this.tooltipManager.getIsSpellBookOpen();
-  setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => { this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen); this.forceUpdate(); }
+  setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => {
+    this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen);
+    if (this.tooltipManager.getIsSpellBookOpen()) this.tooltipManager.dismissLightTip('spellBook'); // they found it
+    this.forceUpdate();
+  }
   incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
   getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
   getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();
   toggleToolTips = (isOn?: boolean): void => { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
-  showTooltip = (): void => { this.tooltipManager.showTooltip(); this.forceUpdate(); }
+  loadToolTips = (): void => { this.tooltipManager.loadToolTips(); this.forceUpdate(); }
+  getIsLoreDone = (): boolean => this.tooltipManager.getIsLoreDone();
+  getIsLore = (): boolean => this.tooltipManager.getIsLore();
+  getIsLastTooltipPage = (): boolean => this.tooltipManager.getIsLastPage();
+  showLore = (): void => { this.tooltipManager.showLore(); this.forceUpdate(); }
+  chooseToolTips = (isOn: boolean): void => { this.tooltipManager.chooseToolTips(isOn); this.forceUpdate(); }
+  triggerTip = (tip: TipId): void => { this.tooltipManager.triggerTip(tip); this.forceUpdate(); }
+  triggerTips = (tips: Array<TipId>): void => { this.tooltipManager.triggerTips(tips); this.forceUpdate(); }
+  getLightTips = (): Array<TipId> => this.tooltipManager.getLightTips();
+  getIsKeyboardControlsShown = (): boolean => this.tooltipManager.getIsKeyboardControlsShown();
+  setIsKeyboardControlsShown = (isShown: boolean): void => { this.tooltipManager.setIsKeyboardControlsShown(isShown); this.forceUpdate(); }
+  dismissLightTip = (tip?: TipId): void => { this.tooltipManager.dismissLightTip(tip); this.forceUpdate(); }
   nextTooltipPage = (): void => { this.tooltipManager.nextPage(); this.forceUpdate(); }
   prevTooltipPage = (): void => { this.tooltipManager.prevPage(); this.forceUpdate(); }
   closeTooltip = (): void => { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
@@ -507,9 +568,10 @@ export class Game {
 
 
   // PLACED SPELLS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-  updatePlacedSpells = async () => {
+  /** Moves the spells for the turn; returns whether any collided. */
+  updatePlacedSpells = async (): Promise<boolean> => {
     // uses a generator/iterator
-    await this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
+    return this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
   }
 
   // Called "onMouseUp"
@@ -532,6 +594,7 @@ export class Game {
               if (bloodMagicCost > 0) {
                 s.flagHitImpact(true, bloodMagicCost, true);
                 this.playPlayerDmgSound(humanPlayer, bloodMagicCost);
+                this.noteBloodMagic(humanPlayer);
               }
               const spellName = s.getSpellName();
               this.audioHandler.startSoundEffect(`spell-${spellName}-${1}` as SoundEffectName);
@@ -678,6 +741,7 @@ export class Game {
       if (bloodMagicCost > 0) {
         instance.flagHitImpact(activeCaster.id === this.getHumanPlayer()?.id, bloodMagicCost, true);
         this.playPlayerDmgSound(activeCaster, bloodMagicCost);
+        this.noteBloodMagic(activeCaster);
       }
       this.audioHandler.startSoundEffect(`spell-${spellName}-${spellName === 'Ether' ? instance.widthCells * instance.heightCells : 1}` as SoundEffectName);
       this.checkIfIsGameOverFromPlayerDeath();

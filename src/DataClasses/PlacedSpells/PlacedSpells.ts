@@ -30,22 +30,31 @@ export class PlacedSpells {
 
   /**
    * Runs the spell-movement turn in the rules engine, then replays the resulting frames on the
-   * live (rendered) spells.
+   * live (rendered) spells. Returns whether any spells collided (or interacted) this turn.
    */
-  updateSpells = async (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<void> => {
+  updateSpells = async (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<boolean> => {
     const { frames } = new SpellMovementEngine(this.spells).simulateTurn();
 
     // Every live spell seen during the replay, by id, so frames can update them in place
     const liveSpells = new Map<string, Spell>();
     indexSpellGraph(this.spells, liveSpells);
 
+    // A collision: a step removes more spells than hit a wizard (each hit is a health event), or a
+    // spell interacts (reflected, lifted, buffed)
+    let isCollision = false;
+    const removedIds = new Set<string>();
     for (const frame of frames) {
+      const removedNow = frame.spells.filter(s => s.getIsRemove() && !removedIds.has(s.id));
+      removedNow.forEach(s => removedIds.add(s.id));
+      if (removedNow.length > frame.healthEvents.length || frame.interactionEvents.length > 0) isCollision = true;
+
       frame.healthEvents.forEach(e => decrementPlayerHealth(e.playerIndex, e.dmg));
       this.applyFrame(frame, liveSpells, gameBoard);
       forceUpdate();
       const delay = PlacedSpells.FRAME_DELAY_MILLI[frame.kind];
       if (delay > 0) await new Promise(r => setTimeout(r, delay));
     }
+    return isCollision;
   };
 
   /** Collides a spell just cast onto an enemy spell (SpellMovementEngine.resolveCastCollisions). */

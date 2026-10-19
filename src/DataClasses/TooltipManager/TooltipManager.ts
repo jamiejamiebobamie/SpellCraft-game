@@ -1,4 +1,3 @@
-import { proxy } from "valtio";
 import { PLAYER_RULES } from "../PlacedSpells/spellRules";
 
 export interface TooltipPage {
@@ -7,137 +6,108 @@ export interface TooltipPage {
     mediaUrl?: string;
 }
 
-// Define your pre-written tutorial database mapping keys to specific slide sets
+// The tutorial: the story (a modal, when you press Play, if tooltips are on or not chosen yet; it
+// asks "Play with tooltips" or "Play"), then light tips: small cards pointing at part of the screen,
+// each shown once per browser window, when it becomes relevant.
 export const GAME_TUTORIALS = {
-    WELCOME: [
+    LORE: [
         {
             title: "Welcome to SpellCraft",
             paragraphs: [
-                "Welcome to the world of SpellCraft, the strategy-drawing game!",
-                "You are a member of the Hell Raisers, a wizard fight club."
+                "You are a member of a secret wizard fight club.",
+                "Tonight, like every night, you've slipped out of bed after curfew to roam the school's halls, wand drawn, in search of a \"true education\" in magic.",
+                "Everyone wears a mask, even among themselves: if a teacher catches one of you, the rest stay safe.",
             ],
-            mediaUrl: './logo.png'
+            mediaUrl: './icon-512.png', // the mask
         },
-        {
-            title: "Out of Bed, After Curfew",
-            paragraphs: [
-                "Tonight, like the other nights, you have left the safety of your bed, to roam the halls of the school--your wand drawn--for one purpose: to gain a \"truer\" education in magic.",
-            ],
-            mediaUrl: './tooltip-imgs/out-of-bed.png'
-        },
-        {
-            title: "The Masquerade",
-            paragraphs: [
-                "You and every Hell Raiser wear a mask to hide your identities, even from each another.",
-                "A small insurance policy against tattle-tales... for if one of you gets caught by a teacher, the others are safe.",
-            ],
-            mediaUrl: './mask-icons/1mask-icon-Normal.png'
-        },
-        {
-            title: "How to Play",
-            paragraphs: [
-                "Each combatant casts Spells in the hopes of reducing their opponent's Health to zero.",
-                "To cast a Spell, click and hold the left mouse button and draw a Spell symbol.",
-            ],
-            mediaUrl: './tooltip-imgs/how-to-play.gif'
-        },
-        {
-            title: "Casting Area",
-            paragraphs: [
-                "Each player can cast Spells only on their side of the gameboard (the first 9 cells).",
-            ],
-            mediaUrl: './tooltip-imgs/casting-area.gif'
-        },
-        {
-            title: "Spell Book",
-            paragraphs: [
-                "Check your \"Spell Book\" to see what Spells are available and their corresponding symbols.",
-            ],
-            mediaUrl: './tooltip-imgs/spell-book.gif'
-        },
-        {
-            title: "The Ticking Clock",
-            paragraphs: [
-                "Once you are done adding Spells to the gameboard, click the Clock to end the turn.",
-                "Spells on the board will move and interact.",
-            ],
-            mediaUrl: './tooltip-imgs/ticking-clock.png'
-        },
-        {
-            title: "Sunrise",
-            paragraphs: [
-                "With every turn of the Clock, you grow one step closer to victory or defeat, but your chances of getting caught by the faculty also increase.",
-                "By 6 AM, you will surely be caught.",
-            ],
-            mediaUrl: './tooltip-imgs/sunrise.png'
-        },
-        {
-            title: "Many Ways to Play",
-            paragraphs: [
-                "SpellCraft has mouse and keyboard controls. You can use a mixture of mouse and keyboard controls or just mouse/keyboard to play.",
-                "Check the \"Settings\" button for the keyboard controls.",
-            ],
-            mediaUrl: './tooltip-imgs/many-ways-to-play.png'
-        },
-        {
-            title: "You Need to Focus",
-            paragraphs: [
-                "To cast a spell, you must spend Focus points. If you are out of Focus points, you will not be able to cast.",
-                "Larger Spells require more Focus points.",
-            ],
-            mediaUrl: './tooltip-imgs/out-of-focus.gif'
-        },
-        {
-            title: "Regaining Focus",
-            paragraphs: [
-                "After every turn, you will regain 2 Focus points to use on your next turn.",
-                "You can store up to 8 Focus points at a time.",
-            ],
-            mediaUrl: './tooltip-imgs/regaining-focus.gif'
-        },
-        {
-            title: "Blood Magic",
-            paragraphs: [
-                "If you cast a Spell that requires more Focus points than you have, the missing Focus points will come from your Health bar.",
-                `For every missing point of Focus, the Spell will cost you ${PLAYER_RULES.bloodMagicHealthPerFocus} Health points.`,
-            ],
-            mediaUrl: './tooltip-imgs/blood-magic.gif'
-        },
-        {
-            title: "Speed and Damage",
-            paragraphs: [
-                "Spells also have a Damage and a Speed.",
-                "Speed determines how fast a Spell moves during a turn.",
-                "Damage determines how many Health points are lost when the Spell collides with a player.",
-            ],
-            mediaUrl: './tooltip-imgs/speed-and-damage.gif'
-        },
-        {
-            title: "Winners and Losers",
-            paragraphs: [
-                "When two Spells collide, they are either destroyed or consumed.",
-                "If two Spells do the same amount of Damage and collide, they destroy each other.",
-                "If one Spell does more damage, the stronger Spell will consume the weaker one.",
-                "Consult your Spell Book for further information.",
-            ],
-            mediaUrl: './tooltip-imgs/winners-and-losers.gif'
-        },
-    ]
+    ],
 };
 
+/** The tutorial's chunks. */
+export type TipId = 'casting' | 'spellBook' | 'spellSize' | 'bloodMagic' | 'focus' | 'endTurn' | 'spellsInMotion' | 'collisions' | 'nightPassing';
+
+/** Where a light tip points (game cqw: x right, y down): its caret's tip, and which way the caret points. */
+export type TipAnchor = { x: number; y: number; caret: 'down' | 'up' | 'left' | 'right'; caretOffset: number };
+
+const ANCHORS = {
+    focusDots: { x: 3.2, y: 47.9, caret: 'down', caretOffset: 1.8 }, // your focus dots (the card above them)
+    clock: { x: 44.6, y: 9.8, caret: 'right', caretOffset: 3 }, // the clock face (the card to its left)
+    board: { x: 50, y: 41.2, caret: 'up', caretOffset: 12 }, // the board's bottom middle (the card below it)
+    castingArea: { x: 33.9, y: 41.2, caret: 'up', caretOffset: 12 }, // below your 3 columns of the board
+    healthBar: { x: 22, y: 51.4, caret: 'down', caretOffset: 3 }, // your health bar (the card above its right end)
+    spellBook: { x: 11, y: 6.2, caret: 'left', caretOffset: 3 }, // the Spell Book icon (the card to its right)
+} satisfies Record<string, TipAnchor>;
+
+/** The light tips: short, pointing at what they're about. */
+export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: TipAnchor }> = {
+    casting: {
+        title: "Casting Spells",
+        text: "Hold the mouse button and draw a spell's symbol on your side of the board: your 3 columns.",
+        anchor: ANCHORS.castingArea,
+    },
+    spellBook: {
+        title: "Spell Book",
+        text: "Your Spell Book shows every spell and the symbol that casts it.",
+        anchor: ANCHORS.spellBook,
+    },
+    spellSize: {
+        title: "Spell Size",
+        text: "The bigger you draw a symbol, the bigger the spell, up to 3 by 3 cells.",
+        anchor: ANCHORS.castingArea,
+    },
+    bloodMagic: {
+        title: "Blood Magic",
+        text: `Cast beyond your Focus, and the rest is paid in Health: ${PLAYER_RULES.bloodMagicHealthPerFocus} Health for every missing point of Focus.`,
+        anchor: ANCHORS.healthBar,
+    },
+    focus: {
+        title: "Focus",
+        text: "Each cell of a spell costs Focus. Fireball and Chain Lightning cost 2 per cell. You regain 2 Focus each turn, and can store up to 8.",
+        anchor: ANCHORS.focusDots,
+    },
+    endTurn: {
+        title: "Ending Your Turn",
+        text: "Done casting? Click the Clock (or press Space) to end your turn. Every spell on the board then moves and interacts.",
+        anchor: ANCHORS.clock,
+    },
+    spellsInMotion: {
+        title: "Speed and Damage",
+        text: "Speed is how far a spell travels each turn. Damage is how much Health it takes from a wizard it reaches.",
+        anchor: ANCHORS.board,
+    },
+    collisions: {
+        title: "When Spells Collide",
+        text: "The stronger spell consumes the weaker; equals destroy each other. Water Wheels and drafts bend the rules: see your Spell Book.",
+        anchor: ANCHORS.board,
+    },
+    nightPassing: {
+        title: "The Night Is Passing",
+        text: "Each turn brings sunrise five minutes closer. After 5:30, a teacher may catch you, and by 6 AM you'll surely be caught.",
+        anchor: ANCHORS.clock,
+    },
+};
+
+const TOOLTIPS_STORAGE_KEY = 'quickCast-isToolTips';
 
 /*
-    A class to manage game info state, tooltips, and helpers. 
+    A class to manage game info state, tooltips, and helpers.
 */
 export class TooltipManager {
 
-    // SHOW TOOLTIPS
+    // SHOW TOOLTIPS (saved between visits; the Settings button toggles it)
     isToolTips: boolean = true;
+
+    // THE TUTORIAL (for this browser window: a session spans every match in it)
+    isLoreDone: boolean = false; // the story has been shown (or tooltips are off)
+    seenTips: Set<TipId> = new Set();
+    lightTips: Array<TipId> = []; // the light tips showing (usually one; a group shows together)
+    tipQueue: Array<Array<TipId>> = []; // groups of tips waiting their turn (one group at a time)
 
     // ACTIVE MULTI-PAGE TOOLTIP STATE
     active: boolean = false;
     currentPageIndex: number = 0;
     pages: TooltipPage[] = [];
+    isLore: boolean = false; // the modal is showing the story (its last page asks about tooltips)
 
     // DRAWING OFF BOARD
     drawingOffBoardCount: number = 0;
@@ -153,8 +123,13 @@ export class TooltipManager {
     isClickClockRef: number = 0;
     private readonly CLICK_CLOCK_WAIT_TIME_MILLI: number = 30000;
 
-    // SPELLBOOK 
+    // SPELLBOOK
     isSpellBookOpen: boolean = false;
+
+    // KEYBOARD CONTROLS (shown while the Settings keyboard button is hovered; tips hide meanwhile)
+    isKeyboardControlsShown: boolean = false;
+    getIsKeyboardControlsShown = (): boolean => this.isKeyboardControlsShown;
+    setIsKeyboardControlsShown = (isShown: boolean): void => { this.isKeyboardControlsShown = isShown; }
 
     reset = (forceUpdate: Function): void => {
         // OUT OF FOCUS
@@ -174,23 +149,115 @@ export class TooltipManager {
         this.isClickClock = false;
         this.doClickClockFlash(forceUpdate);
 
-        // TOOLTIPS
+        // TOOLTIPS (which ones were seen carries over to the next match)
         this.closeTooltip();
+        this.lightTips = [];
+        this.tipQueue = [];
     }
 
+    /** Loads the saved setting: on if it was never chosen. */
+    loadToolTips = (): void => {
+        let saved: unknown = undefined;
+        try {
+            const item = window.localStorage.getItem(TOOLTIPS_STORAGE_KEY);
+            if (item) saved = JSON.parse(item);
+        } catch (error) {
+            console.warn('Error reading the tooltips setting:', error);
+        }
+        this.isToolTips = saved !== false;
+    }
+
+    /**
+     * Turns tooltips on or off (and saves it). Off: closes any showing. The story only opens a session,
+     * so turning them on later (Settings) starts with the in-game tips.
+     */
     toggleToolTips = (isOn?: boolean) => {
         this.isToolTips = typeof isOn === 'boolean' ? isOn : !this.isToolTips;
+        this.isLoreDone = true;
+        try {
+            window.localStorage.setItem(TOOLTIPS_STORAGE_KEY, JSON.stringify(this.isToolTips));
+        } catch (error) {
+            console.warn('Error saving the tooltips setting:', error);
+        }
         if (!this.isToolTips) {
             this.closeTooltip();
+            this.lightTips = [];
+            this.tipQueue = [];
         }
     }
 
-    // Accepts a single page or an entire sequence array
-    showTooltip = (tooltipPages: TooltipPage | TooltipPage[] = proxy(GAME_TUTORIALS.WELCOME)): void => {
-        if (!this.isToolTips) return;
-        this.pages = Array.isArray(tooltipPages) ? tooltipPages : [tooltipPages];
+    // THE STORY
+    getIsLoreDone = (): boolean => this.isLoreDone || !this.isToolTips;
+    showLore = (): void => {
+        this.pages = GAME_TUTORIALS.LORE;
         this.currentPageIndex = 0;
+        this.isLore = true;
         this.active = true;
+    }
+    /** The story's last page: "Play with tooltips" (true) or "Play" (false). */
+    chooseToolTips = (isOn: boolean): void => {
+        this.isLoreDone = true;
+        this.toggleToolTips(isOn);
+        this.closeTooltip();
+    }
+    getIsLore = (): boolean => this.isLore;
+
+    /**
+     * A chunk becomes relevant: shows it (once per session, if tooltips are on), or queues it while
+     * another is showing.
+     */
+    triggerTip = (tip: TipId): void => this.triggerTips([tip]);
+
+    /** Several chunks that show together (e.g. the opening two), each closing on its own. */
+    triggerTips = (tips: Array<TipId>): void => {
+        if (!this.isToolTips) return;
+        const isPending = (tip: TipId) => this.seenTips.has(tip) || this.lightTips.includes(tip) || this.tipQueue.some(group => group.includes(tip));
+        const group = tips.filter(tip => !isPending(tip));
+        if (!group.length) return;
+        if (this.active || this.lightTips.length) {
+            this.tipQueue.push(group);
+            return;
+        }
+        this.showTips(group);
+    }
+
+    private showTips = (group: Array<TipId>): void => {
+        group.forEach(tip => this.seenTips.add(tip));
+        this.lightTips = group;
+    }
+
+    /**
+     * Shows a tip again as a reminder (e.g. "Ending Your Turn" when the player idles), alongside any
+     * light tips already showing (not over the story).
+     */
+    remindTip = (tip: TipId): void => {
+        if (!this.isToolTips || this.active || this.lightTips.includes(tip)) return;
+        this.seenTips.add(tip);
+        this.lightTips = [...this.lightTips, tip];
+        this.dropQueuedTip(tip);
+    }
+
+    /** Shows the next queued group, once nothing is showing. */
+    private showNextTip = (): void => {
+        if (this.active || this.lightTips.length || !this.isToolTips) return;
+        const next = this.tipQueue.shift();
+        if (next) this.showTips(next);
+    }
+
+    getLightTips = (): Array<TipId> => this.lightTips;
+
+    /** Closes a light tip (`tip`, or every one showing); once none are left, the next queued group shows. */
+    dismissLightTip = (tip?: TipId): void => {
+        if (!this.lightTips.length || (tip && !this.lightTips.includes(tip))) return;
+        this.lightTips = tip ? this.lightTips.filter(shown => shown !== tip) : [];
+        this.showNextTip();
+    }
+
+    /** Drops a queued tip that's no longer relevant (and won't show it later). */
+    dropQueuedTip = (tip: TipId): void => {
+        if (!this.tipQueue.some(group => group.includes(tip))) return;
+        this.tipQueue = this.tipQueue.map(group => group.filter(queued => queued !== tip)).filter(group => group.length);
+        this.seenTips.add(tip);
     }
 
     getIsTooltips = (): boolean => this.isToolTips;
@@ -201,6 +268,7 @@ export class TooltipManager {
     getMultiPageProgress = (): string => `${this.currentPageIndex + 1} / ${this.pages.length}`;
     getIsNextDisabled = (): boolean => this.currentPageIndex === this.pages.length - 1;
     getIsPrevDisabled = (): boolean => this.currentPageIndex === 0;
+    getIsLastPage = (): boolean => this.currentPageIndex === this.pages.length - 1;
 
     nextPage = (): void => {
         if (this.currentPageIndex < this.pages.length - 1) {
@@ -214,12 +282,17 @@ export class TooltipManager {
         }
     }
 
+    /** Closes the modal. Closing the story keeps the current setting (on, if never chosen). */
     closeTooltip = (): void => {
+        if (this.isLore && !this.isLoreDone) {
+            this.isLoreDone = true;
+            this.toggleToolTips(this.isToolTips);
+        }
         this.active = false;
         this.currentPageIndex = 0;
         this.pages = [];
-        this.isToolTips = false;
-        window.localStorage.setItem('quickCast-isToolTips', JSON.stringify(false));
+        this.isLore = false;
+        this.showNextTip();
     }
 
     // SPELLBOOK
@@ -257,7 +330,8 @@ export class TooltipManager {
     turnOffIsClickClock = (): void => { this.isClickClock = false; }
     doClickClockFlash = (forceUpdate: Function, waitTimeMilli?: number): void => {
         clearTimeout(this.isClickClockRef);
-        this.isClickClockRef = setTimeout(() => { this.isClickClock = true; forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
+        // After a while without ending the turn: the "Ending Your Turn" tip, as a reminder
+        this.isClickClockRef = setTimeout(() => { this.isClickClock = true; this.remindTip('endTurn'); forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
     }
     clearClickClockRef = (): void => {
         clearTimeout(this.isClickClockRef);

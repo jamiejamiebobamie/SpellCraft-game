@@ -19,7 +19,7 @@ import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
 import { useSnapshot } from 'valtio';
 import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
-import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, CURSOR_MODE, WAND_CURSOR_CSS, WAND_HOTSPOT, getDefaultCursor } from '../cursors';
+import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
 
 const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
@@ -64,9 +64,9 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const [isCanvasWandReady, setIsCanvasWandReady] = useState(false);
   const wandPointerRef = useRef({ x: 0, y: 0, isOverCanvas: false });
 
+  const isCanvasWand = useSnapshot(cursorSettings).isCanvasWand; // the Settings wand button
   useEffect(() => {
-    if (CURSOR_MODE !== 'canvasWand') return;
-    const img = new Image();
+    const img = new Image(); // (loaded either way, so turning the wand on in Settings is instant)
     img.onload = () => setIsCanvasWandReady(true);
     img.src = CANVAS_WAND_SRC;
     wandImgRef.current = img;
@@ -478,8 +478,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const buttons = <>
     <SpellBookComponent isGearHovered={isGearHovered} />
     <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
-    <ClockFaceComponent isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null}  />
-    <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+    <ClockFaceComponent />
+    <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); rootGameStore.setIsKeyboardControlsShown(bool); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
   </>;
   return (
     <>
@@ -493,7 +493,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
         $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? 32 : 29}
-        $cursor={readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : getDefaultCursor(isCanvasWandReady))} />
+        $cursor={readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : getDefaultCursor(isCanvasWand, isCanvasWandReady))} />
     </>
   );
 };

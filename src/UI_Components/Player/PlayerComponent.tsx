@@ -199,6 +199,14 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   useHealthbar({ healthAmt, setCachedHealth, healthRefTimeout, setHealthDiff, ANIM_TIME });
   const isDead = playerSnap?.getIsDead() || false;
   const isDoneWithIntroWalk = playerSnap?.getIsDoneWithIntroWalk() || false;
+
+  // The player casting (their focus drops) drives the tutorial's Focus tip (Game.notePlayerCast)
+  const previousFocus = useRef(focusAmt);
+  useEffect(() => {
+    const hasSpentFocus = focusAmt < previousFocus.current;
+    previousFocus.current = focusAmt;
+    if (direction === 1 && hasSpentFocus) rootGameStore.notePlayerCast();
+  }, [focusAmt]);
   const isBeginIntroWalk = playerSnap?.getIsBeginIntroWalk() || false;
 
   const avatar = (
