@@ -79,6 +79,7 @@ type HandRefs = { hour: SVGLineElement | null; minute: SVGLineElement | null; se
 
 const LogoClock = ({ handRefs }: { handRefs: React.MutableRefObject<HandRefs> }) => {
   const { variant, transform, brightness } = LOGO_CONFIG.clock;
+  if (variant === 'none') return null;
   return (
     <div style={{ ...groupStyle(transform), filter: `brightness(${brightness})` }}>
       {variant === 'body' && <>

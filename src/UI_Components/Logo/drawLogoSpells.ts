@@ -46,8 +46,13 @@ export class LogoSpellsRenderer {
       else this.drawSpell(scratchCtx, spell, state, frame.pxPerUnit, time, dt);
 
       this.applyFade(scratchCtx, spell, layer, corners, frame);
-      ctx.globalAlpha = opacity;
-      ctx.drawImage(this.scratch, 0, 0);
+      // Each spell's own maximum opacity, if set; a boosted spell is drawn over itself (the last time partly)
+      const maxOpacity = (layer === 'symbol' ? spell.symbolOpacity : spell.spellOpacity) ?? opacity;
+      const boost = layer === 'spell' ? Math.max(1, spell.spellBoost ?? 1) : 1;
+      for (let k = 0; k < boost; k++) {
+        ctx.globalAlpha = maxOpacity * Math.min(1, boost - k);
+        ctx.drawImage(this.scratch, 0, 0);
+      }
       ctx.globalAlpha = 1;
     }));
   };
@@ -91,7 +96,7 @@ export class LogoSpellsRenderer {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#f7cb44';
-    ctx.shadowBlur = size * 0.08 * pxPerUnit; // (in pixels: the transform doesn't scale it)
+    ctx.shadowBlur = size * LOGO_CONFIG.spells.symbolGlow * pxPerUnit; // (in pixels: the transform doesn't scale it)
     ctx.shadowColor = '#e8dfb9';
     ctx.beginPath();
     points.forEach((p, k) => {
@@ -164,7 +169,8 @@ export class LogoSpellsRenderer {
    * LOGO_CONFIG.spells.fade.symbolOut (or .spellIn).
    */
   private applyFade = (ctx: CanvasRenderingContext2D, spell: LogoSpell, layer: 'symbol' | 'spell', corners: Array<Vec>, frame: LogoFrame): void => {
-    const { start, end } = layer === 'symbol' ? LOGO_CONFIG.spells.fade.symbolOut : LOGO_CONFIG.spells.fade.spellIn;
+    const ranges = spell.fadeRanges ?? LOGO_CONFIG.spells.fade;
+    const { start, end } = layer === 'symbol' ? ranges.symbolOut : ranges.spellIn;
     const center = { x: corners.reduce((s, c) => s + c.x, 0) / 4, y: corners.reduce((s, c) => s + c.y, 0) / 4 };
     let gradient: CanvasGradient;
 

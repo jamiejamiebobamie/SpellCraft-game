@@ -3,6 +3,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import LogoComponent from './Logo/LogoComponent';
+import { LOGO_CONFIG } from './Logo/logoConfig';
 
 const specularReflection = keyframes`
   0% { background-position: -200% center; }
@@ -31,6 +32,10 @@ const scatterWispRight = keyframes`
   20% { opacity: 1; }
   100% { transform: translate(7cqw, -15cqw) scale(1.3); opacity: 0; }
 `;
+
+/** The Play button and "Loading..." (and their slot), relative to their original size: kept smaller than the logo's title. */
+const PLAY_BUTTON_SCALE = 0.7;
+const playSize = (cqw: number) => `${cqw * PLAY_BUTTON_SCALE}cqw`;
 
 // --- Layout Structures ---
 
@@ -66,13 +71,13 @@ const LoadingContent = styled.div`
 const Logo = styled.div`
   width: 58cqw;
   position: relative;
-  aspect-ratio: 100 / 66;
+  aspect-ratio: 100 / ${LOGO_CONFIG.height};
 `;
 
 const ActionSlot = styled.div`
   width: 80%;
   max-width: 800px;
-  height: 11cqw;
+  height: ${playSize(11)};
   position: relative;
   display: flex;
   align-items: center;
@@ -112,7 +117,7 @@ const Loader = styled.div`
   display: flex;
 
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 5.5cqw;
+  font-size: ${playSize(5.5)};
   line-height: 1;
   
   background: linear-gradient(
@@ -129,10 +134,10 @@ const Loader = styled.div`
   -webkit-text-fill-color: transparent;
   animation: ${specularReflection} 3.5s linear infinite;
 
-  filter: drop-shadow(0.3cqw 0.3cqw 0px #1e1202) 
-          drop-shadow(-0.3cqw -0.3cqw 0px #1e1202)
-          drop-shadow(0.3cqw -0.3cqw 0px #1e1202)
-          drop-shadow(-0.3cqw 0.3cqw 0px #1e1202);
+  filter: drop-shadow(${playSize(0.3)} ${playSize(0.3)} 0px #1e1202) 
+          drop-shadow(-${playSize(0.3)} -${playSize(0.3)} 0px #1e1202)
+          drop-shadow(${playSize(0.3)} -${playSize(0.3)} 0px #1e1202)
+          drop-shadow(-${playSize(0.3)} ${playSize(0.3)} 0px #1e1202);
 `;
 
 // --- Advanced Art Nouveau & WoW Blue Button ---
@@ -172,17 +177,17 @@ const MagicalPlayButton = styled.button`
   border: none;
   outline: none;
   background: transparent;
-  width: 34cqw;
+  width: ${playSize(34)};
   height: 80%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 5cqw;
+  font-size: ${playSize(5)};
   line-height: 1;
 
   color: rgb(197 250 255);
-  text-shadow: rgba(255, 255, 255, 0.8) 0px 0cqw 1cqw;
+  text-shadow: rgba(255, 255, 255, 0.8) 0px ${playSize(0)} ${playSize(1)};
   user-select: none;
   z-index: 10;
   transition: filter 0.2s ease;
@@ -192,15 +197,15 @@ const MagicalPlayButton = styled.button`
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     background: linear-gradient(180deg, #745c22 0%, rgb(255 226 141) 70%, #513f13 100%);
-    clip-path: polygon(0% 50%, 14% 0%, 86% 0%, 100% 50%, 85% 6cqw, 15% 6cqw);
-    box-shadow: 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.5);
+    clip-path: polygon(0% 50%, 14% 0%, 86% 0%, 100% 50%, 85% ${playSize(6)}, 15% ${playSize(6)});
+    box-shadow: 0 ${playSize(0.3)} ${playSize(0.6)} rgba(0, 0, 0, 0.5);
     z-index: -2;
   }
 
   &::after {
     content: '';
     position: absolute;
-    top: 0.3cqw; left: 0.7cqw; right: 0.7cqw; bottom: 0.3cqw;
+    top: ${playSize(0.3)}; left: ${playSize(0.7)}; right: ${playSize(0.7)}; bottom: ${playSize(0.3)};
     
     background-color: rgb(1 52 72);
     background-image: 
@@ -213,9 +218,9 @@ const MagicalPlayButton = styled.button`
     
     clip-path: polygon(0% 50%, 13% 0%, 87% 0%, 100% 50%, 87% 100%, 13% 100%);
     box-shadow: 
-      inset 0 0.3cqw 0.5cqw rgba(255, 255, 255, 0.6), 
-      inset 0 -0.4cqw 0.8cqw #003554,
-      0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.5);
+      inset 0 ${playSize(0.3)} ${playSize(0.5)} rgba(255, 255, 255, 0.6), 
+      inset 0 -${playSize(0.4)} ${playSize(0.8)} #003554,
+      0 ${playSize(0.2)} ${playSize(0.4)} rgba(0, 0, 0, 0.5);
     z-index: -1;
     transform: translateY(0);
     transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
@@ -224,21 +229,21 @@ const MagicalPlayButton = styled.button`
   /* Hover Actions: Fluid tactical recession slide shift mechanism */
   &:hover {
     color: #fffdf0;
-    filter: drop-shadow(0 0 1cqw rgba(0, 164, 228, 0.7));
+    filter: drop-shadow(0 0 ${playSize(1)} rgba(0, 164, 228, 0.7));
     
     &::after {
       background-color: #00b4f0; /* Intense active WoW highlight surge */
-      transform: translateY(0.18cqw) scale(0.985);
+      transform: translateY(${playSize(0.18)}) scale(0.985);
       box-shadow: 
-        inset 0 0.5cqw 0.8cqw rgba(0, 0, 0, 0.85),
-        inset 0 -0.2cqw 0.4cqw rgba(255, 255, 255, 0.2);
+        inset 0 ${playSize(0.5)} ${playSize(0.8)} rgba(0, 0, 0, 0.85),
+        inset 0 -${playSize(0.2)} ${playSize(0.4)} rgba(255, 255, 255, 0.2);
     }
   }
 
   /* Mouse compress interaction vectors */
   &:active {
     &::after {
-      transform: translateY(0.3cqw) scale(0.96);
+      transform: translateY(${playSize(0.3)}) scale(0.96);
     }
   }
 `;

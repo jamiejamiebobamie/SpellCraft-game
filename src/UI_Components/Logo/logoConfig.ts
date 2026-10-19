@@ -24,15 +24,23 @@ export type LogoSpell = {
   fade: FadeMode;
   flipX?: boolean; // mirror the spell left to right (e.g. so the fireball faces inward)
   spellOffset?: { x: number; y: number }; // move the spell from the box's center (the symbol stays)
+  // Optional, per spell (otherwise the spells group's settings below):
+  symbolOpacity?: number; // this symbol's maximum opacity
+  spellOpacity?: number; // this spell's maximum opacity
+  spellBoost?: number; // draws a faint spell this many times over (e.g. 2), so it shows up more
+  fadeRanges?: { symbolOut: FadeRange; spellIn: FadeRange }; // this spell's own fade.symbolOut / fade.spellIn
 };
+
+/** Fractions of the way from the outside (0) to the inside (1). */
+export type FadeRange = { start: number; end: number };
 
 export const LOGO_CONFIG = {
   /** The logo's height, in logo units (its width is 100). */
-  height: 66,
+  height: 72,
 
   /** The clock behind everything. */
   clock: {
-    variant: 'face' as 'body' | 'face', // the whole clock, or just its face (e.g. oversized)
+    variant: 'none' as 'body' | 'face' | 'none', // the whole clock, just its face (e.g. oversized), or no clock (the scene has its own)
     transform: { x: 50, y: 29, scale: 3.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
     brightness: 0.4, // dimmer than the duel and the title, so they read first
     startTime: { hours: 12, minutes: 0, seconds: 0 }, // the hands then tick forward, one tick a second
@@ -41,23 +49,24 @@ export const LOGO_CONFIG = {
   /** The symbols and spells (all five move together). Anchored at the logo's center. */
   spells: {
     transform: { x: 0, y: 0, scale: 1, rotation: 0 } as GroupTransform,
-    symbolOpacity: 0.85, // dimmer than the duel and the title
+    symbolOpacity: 0.7, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
+    symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)
     spellOpacity: 0.85,
     // Where each symbol turns into its spell, as fractions of the way from the outside (0) to the
     // inside (1): the symbol fades out, then the spell fades in (overlapping if the ranges do)
     fade: {
-      symbolOut: { start: 0.3, end: 0.5 },
-      spellIn: { start: 0.5, end: 0.7 },
+      symbolOut: { start: 0.1, end: 0.9 } as FadeRange,
+      spellIn: { start: 0.0, end: 0.3 } as FadeRange,
       radialCenter: null as { x: number; y: number } | null, // null: below the duelists
     },
     pixieDustPerSecond: 14, // per symbol
     list: [
-      { spellName: 'Quicken', symbol: 'line', x: 30.5, y: 32.5, rotation: 33, w: 22, h: 6, cells: { w: 3, h: 1 }, cellSize: 7.2, direction: 1, fade: 'towardWands' },
-      { spellName: 'Phlegm', symbol: 'star', x: 49.8, y: 25, rotation: 0, w: 13.5, h: 13.5, cells: { w: 1, h: 1 }, cellSize: 11, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 3 } },
-      { spellName: 'Ether', symbol: 'circle', x: 70.3, y: 30.3, rotation: 0, w: 14.5, h: 14.5, cells: { w: 1, h: 1 }, cellSize: 12, direction: -1, fade: 'towardWands', flipX: true },
-      { spellName: 'GyreDown', symbol: 'triangle', x: 41.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: 1, fade: 'vertical' },
-      { spellName: 'GyreUp', symbol: 'diamond', x: 58.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: -1, fade: 'vertical' },
+      { spellName: 'Quicken', symbol: 'line', x: 30.5, y: 32.5, rotation: 33, w: 22, h: 6, cells: { w: 3, h: 1 }, cellSize: 7.2, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -1 }  },
+      { spellName: 'Phlegm', symbol: 'star', x: 49.8, y: 20, rotation: 0, w: 24, h: 24, cells: { w: 2, h: 2 }, cellSize: 11, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 7 }, spellOpacity: 0.55 },
+      { spellName: 'Ether', symbol: 'circle', x: 70.3, y: 30.3, rotation: 0, w: 14.5, h: 14.5, cells: { w: 2, h: 2 }, cellSize: 12, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 0, y: -1 }  },
+      { spellName: 'GyreDown', symbol: 'triangle', x: 41.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
+      { spellName: 'GyreUp', symbol: 'diamond', x: 58.5, y: 42, rotation: 0, w: 15, h: 24, cells: { w: 1, h: 3 }, cellSize: 8, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.55, spellOpacity: 1, spellBoost: 2 },
     ] as Array<LogoSpell>,
   },
 
@@ -69,7 +78,7 @@ export const LOGO_CONFIG = {
     wrist: { x: -2.9, y: 6.9 }, // the player's wand hand at rest, from the center line (the opponent's is mirrored)
     wandTilt: 25, // degrees from upright, leaning in toward the other wand
     // Below the waist, the avatars fade out behind the title (fractions of the logo's height)
-    fadeOut: { start: 0.72, end: 0.9 },
+    fadeOut: { start: 0.62, end: 0.76 }, // (was 0.72 to 0.9 at height 66) mostly gone above the title, so the two read separately
   },
 
   /** The push and shove. */
@@ -88,8 +97,8 @@ export const LOGO_CONFIG = {
   /** "SpellCraft", in front of everything. */
   title: {
     text: 'SpellCraft',
-    x: 50, y: 56, // its center
-    size: 14, // font size, in logo units
+    x: 50, y: 61, // its center (was 56)
+    size: 24, // font size, in logo units
     color: '#f7d774',
     outline: '#5a3d0c',
     glow: 'rgba(255, 220, 120, 0.55)',
