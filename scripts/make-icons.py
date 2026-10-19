@@ -2,7 +2,7 @@
 # small margin, and writes favicon.ico (16/32/48), favicon-32.png, apple-touch-icon.png (180, on
 # black, since iOS fills transparency with black anyway), and, if the source is large enough,
 # icon-192.png and icon-512.png (needs Pillow). Run from the repo root:
-#   python scripts/make-icons.py public/mockup/large-mask-icon.png public
+#   python scripts/make-icons.py <the mask exported at 1024 px or more>.png public
 import sys
 from PIL import Image
 
