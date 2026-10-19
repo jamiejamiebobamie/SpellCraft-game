@@ -54,7 +54,18 @@ export const LOGO_CONFIG = {
   /** How far the spell and spark canvases reach past the logo's box (logo units), so nothing near its edges is cut off. */
   canvasMargin: { x: 30, y: 12 },
 
-  /** The clock behind everything. */
+  /**
+   * The scene's own clock and its halo on the landing page, before Play (once you press Play, the
+   * scene's lighting takes over, fading from these): their brightness, and whether its case shows.
+   */
+  landingClock: {
+    bodyBrightness: 0.2, // the clock's case
+    faceBrightness: 1, // its face
+    haloBrightness: 1, // its halo
+    showBody: true, // false: just the face and halo (no case, chimes or back)
+  },
+
+  /** The logo's own clock (in front of the scene's), behind everything else in the logo. */
   clock: {
     // 'scene': just the face, exactly over the background scene's clock (ignores transform); 'body': the
     // whole clock; 'face': just the face (e.g. oversized); 'none': no clock (the scene has its own)

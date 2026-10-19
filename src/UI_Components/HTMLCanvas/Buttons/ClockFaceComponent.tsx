@@ -4,7 +4,11 @@ import { Game } from '../../../DataClasses/Game';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
-import ClockHalo from './ClockHalo';
+import ClockHalo, { CLOCK_HALO } from './ClockHalo';
+import { LOGO_CONFIG } from '../../Logo/logoConfig';
+
+/** How much brighter the clock face gets while hovered (1 = no change; it multiplies the flashing's level). */
+const CLOCK_FACE_HOVER_BRIGHTNESS = 1.1; // (was 1.25)
 
 const flashClockFace = keyframes`
   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--lowBrightness)); }
@@ -54,13 +58,22 @@ const MenuAnchor = styled.div<{
 
   --lowBrightness: ${props => props.$lowBrightness};
   --highBrightness: ${props => props.$highBrightness};
+  /* How much brighter hovering makes the face (on the inner ClockWrapper, see below) */
+  --hoverBoost: ${CLOCK_FACE_HOVER_BRIGHTNESS};
 
   ${props => !props.$isDoneWithIntro && `filter: drop-shadow(0 0 .5cqw white) brightness(${props.$backgroundSceneBrightness});`}
 
   ${props => props.$isDisabled && `filter: drop-shadow(0 0 .5cqw white) brightness(${props.$highBrightness});`}
   ${props => !props.$isDisabled && props.$isFlashClock && props.$isDoneWithIntro && css`animation: ${flashClockFace} 2.5s ease-in-out infinite;`}
-  &:hover{
-    filter: drop-shadow(0 0 .5cqw white) brightness(${props => props.$highBrightness});
+  /*
+   * Hovering pauses the flashing (where it is: no jump) and eases the inner face brighter. They're on
+   * separate elements so they never fight over one filter (an animation always overrides a rule).
+   */
+  &:hover {
+    animation-play-state: paused;
+  }
+  &:hover > * {
+    filter: brightness(var(--hoverBoost));
   }
 `;
 
@@ -162,15 +175,15 @@ const SmallEtherealWord = styled.span`
 
 
 
-const ClockImgWrapper = styled.div<{ $backgroundSceneBrightness: number, $isHovered: boolean, $isDisabled: boolean }>`
+const ClockImgWrapper = styled.div<{ $brightness: number, $isHidden: boolean, $isHovered: boolean, $isDisabled: boolean }>`
   position: absolute;
   top: 4.8cqw;   
   left: 45cqw; 
   z-index: 0;
-  transition: filter .5s;
   will-change: filter;
-  filter: brightness(${props => props.$backgroundSceneBrightness * 2});
-  transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
+  filter: brightness(${props => props.$brightness});
+  opacity: ${props => props.$isHidden ? 0 : 1};
+  transition: filter ${INTRO_WALK_ANIM_TIME / 2}s, opacity ${INTRO_WALK_ANIM_TIME / 4}s;
 `;
 
 const bellStrike = keyframes`
@@ -224,6 +237,8 @@ const ClockWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  filter: brightness(1);
+  transition: filter 0.4s ease-out; /* the hover brightening (MenuAnchor:hover) eases in and out */
 `;
 
 const ClockHands = styled.line<{ $brightness?: number, $transitionTime?: number }>`
@@ -280,6 +295,8 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   // Once either player is dead, the clock can't end the turn (and its halo hides)
+  // Before Play, the landing page's clock settings (LOGO_CONFIG.landingClock) instead of the scene's lighting
+  const isLanding = !snap.getIsPlaying();
   const isAnyPlayerDead = !!snap.getHumanPlayer()?.getIsDead() || !!snap.getNpcPlayer()?.getIsDead();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
@@ -297,7 +314,8 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
   return (<>
     {/* .png clock elements. */}
     <ClockImgWrapper
-      $backgroundSceneBrightness={backgroundSceneBrightness}
+      $brightness={isLanding ? LOGO_CONFIG.landingClock.bodyBrightness : backgroundSceneBrightness * 2}
+      $isHidden={isLanding && !LOGO_CONFIG.landingClock.showBody}
       $isDisabled={isGameBoardDisabled}
       $isHovered={isHovered && !isComputerPlayerDoingTurn}>
       <ClockImg
@@ -343,14 +361,15 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
       />
     </ClockImgWrapper>
     {/* The halo: always on the loading screen; in play, while the clock can end the turn (not once a player is dead) */}
-    <ClockHalo backgroundSceneBrightness={backgroundSceneBrightness}
+    <ClockHalo brightness={isLanding ? LOGO_CONFIG.landingClock.haloBrightness : backgroundSceneBrightness * CLOCK_HALO.sceneBrightness}
       isShown={!snap.getIsPlaying() || (isDoneWithIntro && !isGameBoardDisabled && !isComputerPlayerDoingTurn && !isAnyPlayerDead)} />
     <MenuAnchor
-      $lowBrightness={backgroundSceneBrightness * 2}
-      $highBrightness={backgroundSceneBrightness * 2.5}
-      $backgroundSceneBrightness={backgroundSceneBrightness}
+      // Before Play, every brightness the face uses (normal, disabled, flashing, hovered) is the landing one
+      $lowBrightness={isLanding ? LOGO_CONFIG.landingClock.faceBrightness : backgroundSceneBrightness * 2}
+      $highBrightness={isLanding ? LOGO_CONFIG.landingClock.faceBrightness : backgroundSceneBrightness * 2.5}
+      $backgroundSceneBrightness={isLanding ? LOGO_CONFIG.landingClock.faceBrightness : backgroundSceneBrightness}
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn || isAnyPlayerDead}
-      $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}
+      $isFlashClock={!isComputerPlayerDoingTurn} // (hovering pauses it in CSS, rather than removing it)
       $isDoneWithIntro={isDoneWithIntro}
       onClick={rootGameStore.endTurn}
       onMouseEnter={() => setIsHovered(true)}

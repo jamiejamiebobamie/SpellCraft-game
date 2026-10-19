@@ -42,7 +42,7 @@ export const CLOCK_HALO = {
     amount: 0.12, // how much shorter a ray gets at its smallest (fraction of its length)
     ripple: 1, // how many times the timing goes around the circle per cycle (0: all rays together)
   },
-  sceneBrightness: 2.5, // follows the scene: brightness(scene brightness x this), so it's dim until the lights come up
+  sceneBrightness: 2.5, // in play, follows the scene: brightness(scene brightness x this), dim until the lights come up (before Play: LOGO_CONFIG.landingClock)
 };
 
 const turn = keyframes`
@@ -123,7 +123,7 @@ const rayPoints = ({ length, width, style, waves, wave }: Ray): string => {
 };
 
 /** `isShown`: grows in when it turns true, shrinks away when it turns false. */
-export default function ClockHalo({ backgroundSceneBrightness, isShown }: { backgroundSceneBrightness: number; isShown: boolean }) {
+export default function ClockHalo({ brightness, isShown }: { brightness: number; isShown: boolean }) {
   // Starts hidden, so it grows in when it first appears too (a transition only plays on a change)
   const [hasAppeared, setHasAppeared] = useState(false);
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function ClockHalo({ backgroundSceneBrightness, isShown }: { back
   const { rays, color, rayOpacity, glowOpacity, rayStart } = CLOCK_HALO;
   const step = 360 / rays;
   return (
-    <HaloWrapper $brightness={backgroundSceneBrightness * CLOCK_HALO.sceneBrightness}>
+    <HaloWrapper $brightness={brightness}>
       <Appear $isShown={isShown && hasAppeared}>
         <HaloRays viewBox='-100 -100 200 200'>
           <defs>
