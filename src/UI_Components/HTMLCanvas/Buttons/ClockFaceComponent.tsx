@@ -4,6 +4,7 @@ import { Game } from '../../../DataClasses/Game';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
+import ClockHalo from './ClockHalo';
 
 const flashClockFace = keyframes`
   0%, 100% { filter: drop-shadow(0 0 .5cqw white) brightness(var(--lowBrightness)); }
@@ -278,6 +279,8 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
+  // Once either player is dead, the clock can't end the turn (and its halo hides)
+  const isAnyPlayerDead = !!snap.getHumanPlayer()?.getIsDead() || !!snap.getNpcPlayer()?.getIsDead();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Rotation angles (minute, hour)
@@ -339,11 +342,14 @@ export default function ClockFaceComponent({ isShowingModal }: ClockFaceComponen
         $isResetChime={isResetChime}
       />
     </ClockImgWrapper>
+    {/* The halo: always on the loading screen; in play, while the clock can end the turn (not once a player is dead) */}
+    <ClockHalo backgroundSceneBrightness={backgroundSceneBrightness}
+      isShown={!snap.getIsPlaying() || (isDoneWithIntro && !isGameBoardDisabled && !isComputerPlayerDoingTurn && !isAnyPlayerDead)} />
     <MenuAnchor
       $lowBrightness={backgroundSceneBrightness * 2}
       $highBrightness={backgroundSceneBrightness * 2.5}
       $backgroundSceneBrightness={backgroundSceneBrightness}
-      $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn}
+      $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn || isAnyPlayerDead}
       $isFlashClock={!isHovered && !isComputerPlayerDoingTurn}
       $isDoneWithIntro={isDoneWithIntro}
       onClick={rootGameStore.endTurn}

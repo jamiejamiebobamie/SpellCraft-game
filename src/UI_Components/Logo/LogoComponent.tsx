@@ -93,7 +93,7 @@ const LogoClock = ({ handRefs, clockRef }: { handRefs: React.MutableRefObject<Ha
   const placement = variant === 'scene' ? { ...groupStyle({ x: 0, y: 0, scale: 1, rotation: 0 }), visibility: 'hidden' as const } : groupStyle(transform);
   return (
     <div ref={clockRef} style={{ ...placement, filter: `brightness(${brightness})` }}>
-      {variant === 'body' && <>
+      {(variant === 'body' || (variant === 'scene' && LOGO_CONFIG.clock.sceneWithBody)) && <>
         {/* Offsets from the face's center: ClockFaceComponent's, less the face's 5cqw */}
         <ClockImg $src='background-scene/Clock/Clock-body.png' $left={-10.9} $top={-9.1} $width={21.8} $aspect='260/390' $z={3} />
         <ClockImg $src='background-scene/Clock/Clock-inside-back.png' $left={-6.5} $top={0} $width={13} $aspect='120/171' $z={1} />

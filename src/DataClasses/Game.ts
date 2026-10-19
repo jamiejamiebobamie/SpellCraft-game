@@ -143,7 +143,9 @@ export class Game {
   }
 
   endTurn = async (): Promise<void> => {
-    if (!this.getIsGameBoardDisabled() && !this.gameOver) {
+    // (the clock, the Space/Escape keys and the turn timer all end turns through here)
+    const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
+    if (!this.getIsGameBoardDisabled() && !this.gameOver && !isAnyPlayerDead) {
       this.tooltipManager.clearClickClockRef(); // turn-off helper message
       this.resetNpcMove();
 

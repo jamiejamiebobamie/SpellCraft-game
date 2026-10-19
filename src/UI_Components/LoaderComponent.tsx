@@ -34,7 +34,7 @@ const scatterWispRight = keyframes`
 `;
 
 /** Raises the Play button and "Loading..." toward the logo (visually only, so the logo doesn't move: its clock lines up with the scene's). */
-const PLAY_BUTTON_RAISE = '3cqw';
+const PLAY_BUTTON_RAISE = '2.4cqw'; // (was 3cqw)
 
 /** The Play button and "Loading..." (and their slot), relative to their original size: kept smaller than the logo's title. */
 const PLAY_BUTTON_SCALE = 0.7;

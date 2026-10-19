@@ -3,6 +3,10 @@
 // units": 100 units = the logo's width (x to the right, y down), laid out from the mock-up
 // (public/mockup/Logo-mockup.png, 2000 px wide = 100 units).
 
+// In development, a change here reloads the whole page: the logo's animation loop keeps the config it
+// started with, so a partial (hot) update would move some parts and not others
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
+
 /** Move, scale and rotate a whole group (rotation in degrees, about the group's anchor). */
 export type GroupTransform = { x: number; y: number; scale: number; rotation: number };
 
@@ -54,7 +58,8 @@ export const LOGO_CONFIG = {
   clock: {
     // 'scene': just the face, exactly over the background scene's clock (ignores transform); 'body': the
     // whole clock; 'face': just the face (e.g. oversized); 'none': no clock (the scene has its own)
-    variant: 'scene' as 'scene' | 'body' | 'face' | 'none',
+    variant: 'none' as 'scene' | 'body' | 'face' | 'none',
+    sceneWithBody: true, // 'scene' only: also draw the clock's body over the scene's (which is dark until Play), so it shows on the loading screen
     transform: { x: 50, y: 29, scale: 2.6, rotation: 0 } as GroupTransform, // anchored at the face's center (the face is 9 units wide at scale 1)
     brightness: 0.7, // dimmer than the duel and the title, so they read first
     startTime: { hours: 12, minutes: 0, seconds: 0 }, // the hands then tick forward, one tick a second
@@ -62,7 +67,7 @@ export const LOGO_CONFIG = {
 
   /** The symbols and spells (all five move together). Anchored at the logo's center. */
   spells: {
-    transform: { x: 0, y: 0, scale: .75, rotation: 0 } as GroupTransform,
+    transform: { x: 0, y: 5, scale: .75, rotation: 0 } as GroupTransform, // (y was 0: moved down 5 with the avatars and title)
     // transform.scale and spread move the spells' positions (toward or away from the logo's center);
     // their sizes stay the same. spread: e.g. x 1.2 moves them outward sideways, leaving the middle
     // clearer, without moving them up or down
@@ -93,7 +98,7 @@ export const LOGO_CONFIG = {
     show: { symbols: true, spells: true }, // turn all the symbols, or all the spells, off (for testing)
     list: [
       { spellName: 'Quicken', symbol: 'line', x: 27, y: 5.25, rotation: 15, w: 25, h: 15, cells: { w: 3, h: 1 }, cellSize: 14, direction: 1, fade: 'towardWands', spellOffset: { x: -1.13, y: 1.93 }, fadeRanges: { symbolOut: { start: 0.5, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false }, // mirrors the Ether (its offset: the Ether's, mirrored, in the line's 33-degree frame)
-      { spellName: 'Phlegm', symbol: 'star', x: 50, y: 40, rotation: 0, w: 30, h: 30, cells: { w: 3, h: 3 }, cellSize: 13, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -2 }, fadeRanges: { symbolOut: { start: 0.9, end: .99 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.5 },
+      { spellName: 'Phlegm', symbol: 'star', x: 50, y: 47, rotation: 0, w: 30, h: 30, cells: { w: 3, h: 3 }, cellSize: 13, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -5 }, fadeRanges: { symbolOut: { start: 0.9, end: .99 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.5 },
       { spellName: 'Ether', symbol: 'circle', x: 70, y: 10.25, rotation: -10, w: 18, h: 18, cells: { w: 3, h: 3 }, cellSize: 11, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 3, y: 1 }, fadeRanges: { symbolOut: { start: 0.7, end: 0.99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false },
       { spellName: 'GyreDown', symbol: 'triangle', x: 16, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: .8, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }  },
       { spellName: 'GyreUp', symbol: 'diamond', x: 84, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.0, end: 0.1 } }  },
@@ -102,13 +107,13 @@ export const LOGO_CONFIG = {
 
   /** The two duelists. Anchored on the line between them, level with the tops of their frames. */
   avatars: {
-    transform: { x: 50, y: 18, scale: 2.08, rotation: 0 } as GroupTransform, // (was 25.5: moved up 7.5 with the title; the wand tips just overlap the clock)
+    transform: { x: 50, y: 23, scale: 2.08, rotation: 0 } as GroupTransform, // (was 18: moved down 5 with the title and spells)
     // In the avatars' own units (the game's avatar parts, before scaling):
     spacing: 8, // from the center line to each avatar's middle
     wrist: { x: -2.9, y: 6.9 }, // the player's wand hand at rest, from the center line (the opponent's is mirrored)
     wandTilt: 25, // degrees from upright, leaning in toward the other wand
     // Below the waist, the avatars fade out behind the title (fractions of the logo's height)
-    fadeOut: { start: 0.595, end: 0.655 }, // (was 0.7 to 0.76: up 7.5 units, with the avatars)
+    fadeOut: { start: 0.665, end: 0.725 }, // (was 0.595 to 0.655: down 5 units, with the avatars)
     aura: { rgb: '255, 244, 214', opacity: 0.55, size: 0.2, layers: 4, growth: 2, falloff: 0.5 } as Aura, // a cream outline, glowing outward // (was 0.72 to 0.9 at height 66) mostly gone above the title, so the two read separately
   },
 
@@ -128,7 +133,7 @@ export const LOGO_CONFIG = {
   /** "SpellCraft", in front of everything. */
   title: {
     text: 'SpellCraft',
-    x: 50, y: 53.5, // its center (was 61: moved up 7.5 with the avatars)
+    x: 50, y: 58.5, // its center (was 53.5: moved down 5 with the avatars and spells)
     size: 27, // font size, in logo units
     color: '#f7d774', // used if gradient is null
     // A still sheen over the letters, in shades of the title's color: darker at the edges, lighter
