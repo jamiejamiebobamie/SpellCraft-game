@@ -222,6 +222,19 @@ const getFacetKeyframes = (start: number, length: number) => {
   });
 };
 
+/**
+ * The little sparkle on the ruby's upper left, varied per button (by its label) so buttons side by side
+ * don't flash alike: a slightly different spot (`dx`, `dy`: up to this far, in viewBox units), size
+ * (up to `size` larger or smaller) and moment (`delaySeconds`: up to this much later).
+ */
+const SPARKLE_VARIETY = { dx: 14, dy: 5, size: 0.25, delaySeconds: 3 };
+/** A steady pseudo-random 0..1 from a string (the same string, the same number). */
+const seedOf = (text: string, salt: number): number => {
+  let hash = 2166136261 ^ salt;
+  for (const char of text) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+  return ((hash >>> 0) % 10000) / 10000;
+};
+
 const twinkle = keyframes`
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.95; }
@@ -406,8 +419,11 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
               })}
               <polygon points={TABLE.join(' ')} fill="none" stroke="#ff9aa4" strokeOpacity={0.35} strokeWidth={0.8} />
               {PANEL_POINTS.map((p, k) => <line key={k} x1={p[0]} y1={p[1]} x2={TABLE[k][0]} y2={TABLE[k][1]} stroke="#ffb3ba" strokeOpacity={0.3} strokeWidth={0.8} />)}
-              {/* a glint flashing on the upper left facet now and then */}
-              <path className="glint" d="M 92 26 L 94 33 L 101 35 L 94 37 L 92 44 L 90 37 L 83 35 L 90 33 Z" fill="#fff4f4" />
+              {/* a glint flashing on the upper left facet now and then (its spot, size and moment varied per button) */}
+              <g transform={`translate(${((seedOf(label, 1) - 0.5) * 2 * SPARKLE_VARIETY.dx).toFixed(1)} ${((seedOf(label, 2) - 0.5) * 2 * SPARKLE_VARIETY.dy).toFixed(1)}) translate(92 35) scale(${(1 + (seedOf(label, 3) - 0.5) * 2 * SPARKLE_VARIETY.size).toFixed(2)}) translate(-92 -35)`}>
+                <path className="glint" d="M 92 26 L 94 33 L 101 35 L 94 37 L 92 44 L 90 37 L 83 35 L 90 33 Z" fill="#fff4f4"
+                  style={{ animationDelay: `${(-seedOf(label, 4) * SPARKLE_VARIETY.delaySeconds).toFixed(2)}s` }} />
+              </g>
             </g>
           )}
           {/* a soft light from above, in place of a hard gloss line */}
