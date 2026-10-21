@@ -221,12 +221,13 @@ export type InteractionCounts = {
   enemySpellsLiftedOffBoard: number; // its Gyre pushed an enemy spell off the board
   buffsFromEnemySpells: number; // its spell absorbed an enemy Ether/Quicken
   buffsFromOwnSpells: number; // its spell absorbed its own Ether/Quicken
+  empoweredByEther: number; // its spell absorbed an Ether (either side's), gaining its damage
 };
 
 const emptyCounts = (): InteractionCounts => ({
   reflectedEnemySpells: 0, selfHeals: 0, reflectedOwnSpells: 0, reflectedByEnemy: 0,
   liftsByOwnGyres: 0, ownSpellsLiftedByEnemyGyres: 0, ownSpellsLiftedSafely: 0, ownSpellsThroughOwnGyres: 0, enemySpellsLiftedOffBoard: 0,
-  buffsFromEnemySpells: 0, buffsFromOwnSpells: 0,
+  buffsFromEnemySpells: 0, buffsFromOwnSpells: 0, empoweredByEther: 0,
 });
 
 export const countInteractions = (events: Array<InteractionEvent>, side: number, counts: InteractionCounts = emptyCounts()): InteractionCounts => {
@@ -244,6 +245,7 @@ export const countInteractions = (events: Array<InteractionEvent>, side: number,
       if (e.spellSide === side && e.gyreSide === side && e.isSurvived) counts.ownSpellsThroughOwnGyres++;
       else if (e.gyreSide === side && e.spellSide !== side && !e.isSurvived) counts.enemySpellsLiftedOffBoard++;
     } else if (e.consumerSide === side) {
+      if (e.buff === 'fire') counts.empoweredByEther++;
       if (e.consumedSide === side) counts.buffsFromOwnSpells++;
       else counts.buffsFromEnemySpells++;
     }
@@ -262,11 +264,12 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
   liftsByOwnGyres: 0,
   ownSpellsLiftedByEnemyGyres: 0,
   ownSpellsLiftedSafely: 0, // e.g. sending a Quicken through a Gyre to change rows
-  ownSpellsThroughOwnGyres: 0.05, // its own spell sent through its own Gyre (moving it on, with the exit bonus)
-  enemySpellsLiftedOffBoard: 0.1, // its Gyre pushing an enemy spell off the board
+  ownSpellsThroughOwnGyres: 0.15, // a "bounce": its own spell sent through its own Gyre (moving it on, with the exit bonus)
+  enemySpellsLiftedOffBoard: 0.05, // a "push": its Gyre pushing an enemy spell off the board
   buffsFromEnemySpells: 0,
   buffsFromOwnSpells: 0,
-  maxPerGame: 0.5,
+  empoweredByEther: 0.1, // its spell empowered by an Ether's damage
+  maxPerGame: 1, // (as much as a win: playful play counts, at some cost to playing its strongest)
 };
 
 // --- Environment -------------------------------------------------------------------------------
