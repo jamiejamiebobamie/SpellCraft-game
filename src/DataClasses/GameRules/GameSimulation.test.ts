@@ -37,8 +37,8 @@ describe('casting', () => {
     expect(costOf('Phlegm', cellsOf(0, 0, 2, 2))).toBe(4);
     expect(costOf('Phlegm', cellsOf(0, 0, 3, 3))).toBe(9);
     expect(costOf('GyreUp', cellsOf(0, 0, 3, 3))).toBe(9); // three 3-tall Gyres
-    expect(costOf('Quicken', cellsOf(0, 0, 3, 1))).toBe(6);
-    expect(costOf('Quicken', cellsOf(0, 0, 3, 3))).toBe(18);
+    expect(costOf('Quicken', cellsOf(0, 0, 3, 1))).toBe(3);
+    expect(costOf('Quicken', cellsOf(0, 0, 3, 3))).toBe(9);
     // The same whether drawn as one shape or as pieces (e.g. a 2x2 next to a 1x1)
     const sim = new GameSimulation();
     sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]);

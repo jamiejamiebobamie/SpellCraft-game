@@ -201,7 +201,8 @@ describe('2. Phlegm power and collision modes', () => {
 });
 
 describe('13. sized spells hitting a Phlegm', () => {
-  it('a spell whose every row touches the Phlegm bounces off it as one block', () => {
+  it("sizedEntry 'bounce' (earlier rule): a spell whose every row touches the Phlegm bounces off it as one block", () => {
+    PHLEGM_RULES.sizedEntry = 'bounce';
     const phlegm = place(Phlegm, player, 0, 0, 3);
     const ether = place(Ether, npc, 0, 4, 3);
     const turns = runTurns([phlegm, ether], 2);
@@ -217,7 +218,8 @@ describe('13. sized spells hitting a Phlegm', () => {
     expect(frames.flatMap(f => f.healthEvents)).toEqual([{ playerIndex: 1, dmg: 50 }]);
   });
 
-  it('a bouncing block slides to the Phlegm\'s center before swirling', () => {
+  it("sizedEntry 'bounce': a bouncing block slides to the Phlegm's center before swirling", () => {
+    PHLEGM_RULES.sizedEntry = 'bounce';
     const phlegm = place(Phlegm, player, 0, 0, 3);
     const ether = place(Ether, npc, 0, 4, 2);
     const [frames] = runTurns([phlegm, ether]);
@@ -268,6 +270,17 @@ describe('13. sized spells hitting a Phlegm', () => {
     expect(ethers.filter(s => s.cellIndex.i === 2).every(s => s.speedDirection < 0)).toBe(true);
   });
 
+  it("sizedEntry 'cells': a 2x2 Ether entering a 2x2 Phlegm breaks into single cells that each orbit, then reassembles", () => {
+    const phlegm = place(Phlegm, player, 0, 0, 2);
+    const ether = place(Ether, npc, 0, 4, 2);
+    const frames = runTurns([phlegm, ether], 2).flat();
+    const ethersIn = (f: SpellTurnFrame) => f.spells.filter(x => x instanceof Ether && !x.isRemove);
+    // It breaks into single cells, several orbiting at once
+    expect(frames.some(f => ethersIn(f).filter(x => x.isInPhlegmField && x.widthCells === 1).length >= 2)).toBe(true);
+    // ...and comes back out as one 2x2, reflected
+    expect(frames.some(f => ethersIn(f).some(x => x.widthCells === 2 && x.heightCells === 2 && x.speedDirection > 0))).toBe(true);
+  });
+
   it('a Quicken chain enters cell by cell, orbits in single file, and recombines', () => {
     const phlegm = place(Phlegm, player, 0, 0, 3);
     const quicken = place(Quicken, npc, 1, 4, 3);
@@ -285,7 +298,8 @@ describe('13. sized spells hitting a Phlegm', () => {
 });
 
 describe('4-5. Gyres', () => {
-  it('GyreUp lifts a spell to one cell past its tip, with no extra horizontal moves', () => {
+  it("GyreUp lifts a spell to one cell past its tip (exitBonusMode 'none': no extra horizontal moves)", () => {
+    GYRE_RULES.exitBonusMode = 'none';
     const gyre = place(GyreUp, player, 1, 1, 2); // rows 1-2
     const ether = place(Ether, npc, 2, 4); // enters at row 2
     const turns = runTurns([gyre, ether], 3);
@@ -318,7 +332,30 @@ describe('4-5. Gyres', () => {
     expect(clampedStates.some(s => !s.isRemove && s.cellIndex.j <= 1)).toBe(true); // got past the Gyre
   });
 
-  it('a 1x1 Gyre lifts one spell, then is used up and removed', () => {
+  it("exitBonusMode 'height': a spell leaving a Gyre gets +1 move per Gyre cell, once, right away", () => {
+    const lastColumn = () => {
+      const ether = place(Ether, npc, 2, 6); // speed 1; room to use its bonus moves before the board's edge
+      const states = statesOf(runTurns([place(GyreUp, player, 1, 4, 2), ether], 2), ether).filter(x => !x.isRemove);
+      return states[states.length - 1].cellIndex.j;
+    };
+    GYRE_RULES.exitBonusMode = 'none';
+    const withoutBonus = lastColumn();
+    GYRE_RULES.exitBonusMode = 'height';
+    expect(lastColumn()).toBe(withoutBonus - 2); // a 2-tall Gyre: 2 more moves on exit
+  });
+
+  it("lifetime 'turn': a 1x1 Gyre lifts every spell that reaches it this turn, then dissipates at the turn's end", () => {
+    const gyre = place(GyreDown, player, 1, 1);
+    const first = place(Quicken, npc, 1, 3); // speed 2: reaches the Gyre in turn 1
+    const second = place(Quicken, npc, 1, 4, 2); // a 2-cell chain right behind it
+    const [turn] = runTurns([gyre, first, second], 1);
+    const liftedIds = new Set(turn.flatMap(f => f.spells.filter(x => x instanceof Quicken && x.consumedGyres !== 0).map(x => x.id)));
+    expect(liftedIds.size).toBeGreaterThanOrEqual(2); // more than one spell lifted in the same turn
+    expect(turn[turn.length - 1].spells.some(x => x.id === gyre.id)).toBe(false); // gone after the turn
+  });
+
+  it("lifetime 'capacity' (earlier rule): a 1x1 Gyre lifts one spell, then is used up and removed", () => {
+    GYRE_RULES.lifetime = 'capacity';
     const gyre = place(GyreDown, player, 1, 1);
     const first = place(Ether, npc, 1, 4);
     const second = place(Ether, npc, 1, 5);
@@ -336,7 +373,8 @@ describe('4-5. Gyres', () => {
     expect(finalBoard(turns).some(s => s.id === gyre.id)).toBe(false);
   });
 
-  it("persistsAfterUse: a sized Gyre with capacity left survives into the next turn", () => {
+  it("persistsAfterUse (lifetime 'capacity'): a sized Gyre with capacity left survives into the next turn", () => {
+    GYRE_RULES.lifetime = 'capacity';
     GYRE_RULES.persistsAfterUse = true;
     const gyre = place(GyreDown, player, 0, 1, 2);
     const ether = place(Ether, npc, 1, 4);
@@ -351,7 +389,20 @@ describe('4-5. Gyres', () => {
     expect(finalBoard(runTurns([a, b], 2)).filter(s => s instanceof Gyre && !s.isRemove)).toHaveLength(0);
   });
 
-  it('same-direction Gyres merge, growing from the base; opposite Gyres cancel', () => {
+  it("meetingMode 'consume': the bigger Gyre takes in the smaller, which lifts it past its tip by its base", () => {
+    const gyresLeft = (spells: Array<Spell>) => finalBoard(runTurns(spells, 2)).filter(x => x instanceof Gyre && !x.isRemove);
+
+    // A downdraft on the bottom row pushes a 3-tall updraft (base: bottom row) off the board
+    expect(gyresLeft([place(GyreUp, player, 0, 2, 3), place(GyreDown, npc, 2, 4)])).toHaveLength(0);
+
+    // A downdraft on the top row pushes a 2-tall downdraft (base: its top) down a row; it survives
+    const pushed = gyresLeft([place(GyreDown, player, 0, 2, 2), place(GyreDown, npc, 0, 4)]);
+    expect(pushed).toHaveLength(1);
+    expect([pushed[0].heightCells, pushed[0].cellIndex.i]).toEqual([2, 1]);
+  });
+
+  it("meetingMode 'merge' (earlier rule): same-direction Gyres merge, growing from the base; opposite Gyres cancel", () => {
+    GYRE_RULES.meetingMode = 'merge';
     const tall = place(GyreUp, player, 1, 2, 2); // rows 1-2, base row 2
     const short = place(GyreUp, npc, 2, 4); // row 2
     const merged = finalBoard(runTurns([tall, short], 2)).filter(s => s instanceof Gyre && !s.isRemove);

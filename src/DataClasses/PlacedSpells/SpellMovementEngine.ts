@@ -285,6 +285,7 @@ export class SpellMovementEngine {
       s.isBloodMagic = false; // a casting effect, already shown; otherwise it hides the spell's destruction effect
       if (s instanceof Phlegm && PHLEGM_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
       if (s instanceof Gyre && GYRE_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
+      if (s instanceof Gyre) s.liftedThisTurn.clear();
     });
 
     this.spells.forEach(s => {
@@ -390,9 +391,11 @@ export class SpellMovementEngine {
       s.consumingSpellIds.clear();
       if (s.getIsUsedUp()) s.markSpellForRemoval();
     });
-    // A used Gyre that is no longer carrying anything is cleared too
+    // A used Gyre that is no longer carrying anything is cleared too; with GYRE_RULES.lifetime
+    // 'turn', every Gyre that lifted anything this turn dissipates now
     this.spells.forEach(s => {
-      if (s instanceof Gyre && s.capacityUsed > 0 && s.getIsUsedUp() && !s.getIsRemove()) s.markSpellForRemoval();
+      if (!(s instanceof Gyre) || s.capacityUsed <= 0 || s.getIsRemove()) return;
+      if (GYRE_RULES.lifetime === 'turn' || s.getIsUsedUp()) s.markSpellForRemoval();
     });
   };
 
@@ -663,6 +666,9 @@ export class SpellMovementEngine {
     if (getIsInTransit(b) && getIsTerrain(a)) return false;
     if ((getIsTerrain(a) && getIsInTransit(a)) || (getIsTerrain(b) && getIsInTransit(b))) return false;
     if (getIsPhlegmFull(a) || getIsPhlegmFull(b)) return false; // used-up Phlegms are passed through (7c)
+    // A Gyre lifts each spell at most once per turn; after that it's passed through
+    if (a instanceof Gyre && a.liftedThisTurn.has(b.id)) return false;
+    if (b instanceof Gyre && b.liftedThisTurn.has(a.id)) return false;
     // Used-up Gyres are passed through by other spells (4c), but still merge with Gyres (5d)
     const isGyreMeeting = a instanceof Gyre && b instanceof Gyre;
     if (!isGyreMeeting && ((a instanceof Gyre && a.getIsFull()) || (b instanceof Gyre && b.getIsFull()))) return false;
@@ -768,9 +774,12 @@ export class SpellMovementEngine {
   };
 
   /**
-   * Two Gyres meet (5). Equal power: both are destroyed. Otherwise, same direction: the stronger
-   * grows by the other's height; opposite directions: the stronger shrinks by the other's height.
-   * The absorbed Gyre is destroyed immediately.
+   * Two Gyres meet (5). Equal power: both are destroyed. Otherwise the stronger takes in the weaker:
+   * - GYRE_RULES.meetingMode 'consume': the weaker lifts the stronger, as it would any spell, until
+   *   the stronger's base (a GyreUp's bottom cell, a GyreDown's top cell) is one row past the
+   *   weaker's tip, in the weaker's direction (off the board: destroyed)
+   * - 'merge': same direction, the stronger grows by the other's height; opposite, it shrinks by it
+   * The weaker Gyre is destroyed immediately.
    */
   private resolveGyreMeeting = (a: Gyre, b: Gyre): void => {
     const isSameDirection = (a instanceof GyreUp) === (b instanceof GyreUp);
@@ -779,6 +788,21 @@ export class SpellMovementEngine {
     if (a.getPower() === b.getPower()) {
       a.markSpellForRemoval();
       b.markSpellForRemoval();
+      return;
+    }
+
+    if (GYRE_RULES.meetingMode === 'consume') {
+      const isLoserUp = loser instanceof GyreUp;
+      const loserTip = isLoserUp ? loser.cellIndex.i : loser.cellIndex.i + loser.heightCells - 1;
+      const winnerBase = winner instanceof GyreUp ? winner.cellIndex.i + winner.heightCells - 1 : winner.cellIndex.i;
+      const targetBase = isLoserUp ? loserTip - 1 : loserTip + 1;
+      // (only in the weaker's direction: a base already past its tip stays put)
+      const rows = isLoserUp ? Math.min(0, targetBase - winnerBase) : Math.max(0, targetBase - winnerBase);
+      winner.consumedGyres = rows;
+      winner.consumedEthers += loser.consumedEthers;
+      winner.consumedQuickens += loser.consumedQuickens;
+      if (rows !== 0) this.pendingInteractionEvents.push({ kind: 'lift', spellSide: getSpellSide(winner), gyreSide: getSpellSide(loser) });
+      loser.markSpellForRemoval();
       return;
     }
 
@@ -869,7 +893,11 @@ export class SpellMovementEngine {
     const isIn = (list: Array<CellIndex>) => (c: CellIndex) => list.some(l => l.i === c.i && l.j === c.j);
     if (capacityLeft <= 0) return; // not enough capacity left for even one cell: the spell passes through
 
-    if (parent.heightCells === 1) {
+    // Single-row spells (Quicken chains), and every sized spell with PHLEGM_RULES.sizedEntry 'cells':
+    // its cells inside the Phlegm break off as single cells that each orbit it (leading cells
+    // first); the rest of its rows touching the Phlegm stay together and follow them in; rows
+    // missing the Phlegm carry on past it. All reassemble once out.
+    if (parent.heightCells === 1 || PHLEGM_RULES.sizedEntry === 'cells') {
       const captured = cells.filter(isInsidePhlegm).sort(byLeadingColumn).slice(0, capacityLeft);
       phlegm.capacityUsed += captured.length * cellCost;
       capacityLeft -= captured.length;
@@ -879,11 +907,19 @@ export class SpellMovementEngine {
         piece.resolveSpellCollision(phlegm); // orbit
         piece.phlegmBonusMoves = reflectBonusMoves;
       });
-      // The rest stays chained and follows in single file, unless the Phlegm is now used up:
-      // then it passes through as a separate spell
-      const restGroupId = capacityLeft > 0 ? groupId : `${groupId}:pass`;
-      splitIntoAllowedShapes(parent, cells.filter(c => !isIn(captured)(c)))
-        .forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves, restGroupId));
+      // The rest follows in, unless the Phlegm is now used up or the row misses it: then it passes
+      // through as a separate spell
+      const rest = cells.filter(c => !isIn(captured)(c));
+      const following = capacityLeft > 0 ? rest.filter(c => isTouchingRow(c.i)) : [];
+      const passing = rest.filter(c => !isIn(following)(c));
+      // Following in doesn't use up the spell's own moves (as with the slide into a bounce), so no piece
+      // is stranded outside while the rest orbits and comes back out into it
+      const stepsToReach = (rect: CellRect) => dir > 0
+        ? phlegm.cellIndex.j - (rect.j + rect.w - 1)
+        : rect.j - (phlegm.cellIndex.j + phlegm.widthCells - 1);
+      splitIntoAllowedShapes(parent, following)
+        .forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves + Math.max(0, stepsToReach(rect)), groupId));
+      splitIntoAllowedShapes(parent, passing).forEach(rect => this.createPiece(parent, phlegm, rect, parentRemainingMoves, `${groupId}:pass`));
       this.removeShatteredParent(parent, phlegm);
       return;
     }

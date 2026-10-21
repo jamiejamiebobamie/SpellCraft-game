@@ -62,7 +62,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     focus: {
         title: "Focus",
-        text: "Each cell of a spell costs Focus. Fireball and Chain Lightning cost 2 per cell. You regain 2 Focus each turn, and can store up to 8.",
+        text: "Each cell of a spell costs Focus. A Fireball costs 2 per cell; the others, 1. You regain 2 Focus each turn, and can store up to 8.",
         anchor: ANCHORS.focusDots,
     },
     endTurn: {

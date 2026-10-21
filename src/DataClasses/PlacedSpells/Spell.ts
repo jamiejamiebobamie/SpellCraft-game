@@ -102,6 +102,7 @@ export abstract class Spell extends UniqueId {
 
   // Reflection bonus moves (7b), granted when the spell leaves the Phlegm it entered
   phlegmBonusMoves: number = 0;
+  gyreExitBonusMoves: number = 0; // moves added once its Gyre lift ends (GYRE_RULES.exitBonusMode)
 
   // The Phlegm this spell just left: ignored while the spell is still on its edge, so it isn't recaptured
   exitedPhlegmId: string = '';
@@ -319,10 +320,7 @@ export abstract class Spell extends UniqueId {
   forfeitStep = (): void => {
     if (this.consumedGyres !== 0) {
       this.consumedGyres -= Math.sign(this.consumedGyres);
-      if (this.consumedGyres === 0) {
-        this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
-        this.clearConsumedRef();
-      }
+      if (this.consumedGyres === 0) this.endGyreLift();
       return; // vertical moves don't use up horizontal moves
     }
     this.remainingMoves--;
@@ -376,10 +374,15 @@ export abstract class Spell extends UniqueId {
     this.consumedGyres -= stepDir;
 
     // One cell past the Gyre's tip: the spell has left the Gyre
-    if (this.consumedGyres == 0) {
-      this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
-      this.clearConsumedRef();
-    }
+    if (this.consumedGyres == 0) this.endGyreLift();
+  };
+
+  /** The lift has ended (one cell past the Gyre's tip): it lets go of the Gyre, and gets its exit bonus. */
+  private endGyreLift = (): void => {
+    this.remainingMoves += this.gyreExitBonusMoves;
+    this.gyreExitBonusMoves = 0;
+    this.movesOutOfConsumed = Math.max(1, this.movesOutOfConsumed);
+    this.clearConsumedRef();
   };
 
   /**
@@ -460,7 +463,10 @@ export class Phlegm extends Spell {
     const isEnteringFromOutside = entry.i !== consumer.cellIndex.i || entry.j !== consumer.cellIndex.j;
     // It exits on the side it faces after reversing (7a)
     const exitColumn = -Math.sign(consumer.speedDirection || 1) > 0 ? bounds.maxJ : bounds.minJ;
-    const orbitSteps = getOrbitSteps(entry, bounds, isClockwise, exitColumn);
+    // A piece of a spell that broke up on entering (PHLEGM_RULES.sizedEntry 'cells') orbits exactly one
+    // lap and leaves from where it entered, so the pieces come back out in formation and reassemble
+    const isLapFromEntry = PHLEGM_RULES.sizedEntry === 'cells' && !!consumer.fragmentGroupId;
+    const orbitSteps = isLapFromEntry ? 4 * (phlegmSize - 1) : getOrbitSteps(entry, bounds, isClockwise, exitColumn);
 
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
@@ -503,6 +509,8 @@ export class Ether extends Spell {
 
 export abstract class Gyre extends Spell {
   baseCellDmg = GYRE_RULES.powerPerCell;
+  // Spells this Gyre has lifted this turn: it lifts each at most once (no endless lifts or ping-pong)
+  liftedThisTurn: Set<string> = new Set();
   static readonly FOCUS_COST: number = 1;
 
   constructor(caster: Player) {
@@ -521,12 +529,15 @@ export abstract class Gyre extends Spell {
     const isUp = this.rowShift < 0;
     consumer.consumedGyres = isUp ? -(entryRow - top + 1) : bottom - entryRow + 1;
     if (GYRE_RULES.exitBonusMode === 'legacy') consumer.remainingMoves += this.heightCells + 1;
+    if (GYRE_RULES.exitBonusMode === 'height') consumer.gyreExitBonusMoves = this.heightCells;
     consumer.consumedSpellRef = this;
     this.consumingSpellIds.add(consumer.id);
+    this.liftedThisTurn.add(consumer.id);
   }
 
   /** How many spells ('count') or how much power ('power') this Gyre can lift (4c). A 1x1 Gyre lifts one. */
   getCapacity = (): number => {
+    if (GYRE_RULES.lifetime === 'turn') return Infinity;
     if (this.heightCells === 1) return 1;
     if (GYRE_RULES.capacityMode === 'unlimited') return Infinity;
     return this.heightCells * (GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell);
@@ -540,7 +551,10 @@ export abstract class Gyre extends Spell {
   getIsFull = (): boolean => this.capacityUsed >= this.getCapacity();
 
   /** Removed once empty: after any use, or (persistsAfterUse) only when full (10b). */
-  getIsUsedUp = (): boolean => GYRE_RULES.persistsAfterUse ? this.getIsFull() : true;
+  getIsUsedUp = (): boolean => {
+    if (GYRE_RULES.lifetime === 'turn') return false; // (dissipates at the turn's end, in the engine)
+    return GYRE_RULES.persistsAfterUse ? this.getIsFull() : true;
+  };
 
   getFocusCost = (): number => Gyre.FOCUS_COST;
 }
@@ -562,7 +576,7 @@ export class GyreDown extends Gyre {
 }
 
 export class Quicken extends Spell {
-  static readonly FOCUS_COST: number = 2; // per cell (was 1)
+  static readonly FOCUS_COST: number = 1; // per cell (2 was tried)
   static readonly spellName = "Quicken";
   constructor(caster: Player) {
     super(caster);

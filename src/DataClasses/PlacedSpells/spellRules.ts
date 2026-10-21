@@ -4,12 +4,15 @@
 export const PHLEGM_RULES = {
   collisionMode: 'alwaysLoses' as 'alwaysLoses' | 'power',
   absorbCostsPower: false,
-  empoweredBonus: 20,
+  empoweredBonus: 15, // flat (was 20)
   reflectBonusMode: 'powerDiff' as 'powerDiff' | 'size' | 'none',
   capacityMode: 'count' as 'count' | 'power' | 'unlimited',
   capacityPerCell: 1,
   powerCapacityPerCell: 5,
   capacityResetsEachTurn: true,
+  // A sized spell entering a Phlegm: 'cells' breaks into single cells that each orbit it (and
+  // reassemble on the way out); 'bounce' (the earlier rule) bounces the rows touching it as a block
+  sizedEntry: 'cells' as 'cells' | 'bounce',
 };
 
 export const GYRE_RULES = {
@@ -19,9 +22,16 @@ export const GYRE_RULES = {
   capacityPerCell: 1,
   powerCapacityPerCell: 4,
   capacityResetsEachTurn: true,
-  persistsAfterUse: false, // false: a Gyre disappears once its last carried spell exits. true: it stays until its capacity is used up
+  // 'turn': a Gyre lifts every spell that reaches it this turn, then dissipates at the turn's end if
+  // it lifted any (capacity is ignored). 'capacity': the earlier rule (capacity, persistsAfterUse)
+  lifetime: 'turn' as 'turn' | 'capacity',
+  persistsAfterUse: false, // (lifetime 'capacity') false: a Gyre disappears once its last carried spell exits. true: it stays until its capacity is used up
   maxHeight: 3,
-  exitBonusMode: 'none' as 'none' | 'legacy',
+  // 'height': a spell leaving a Gyre gets +1 move per cell of its height, once, used right away
+  exitBonusMode: 'height' as 'height' | 'none' | 'legacy',
+  // Two Gyres meeting: 'consume', the bigger takes in the smaller, which lifts it one row past the
+  // smaller's tip, in the smaller's direction (by its base); 'merge' (the earlier rule) grows or shrinks it
+  meetingMode: 'consume' as 'consume' | 'merge',
   collisionMode: 'power' as 'power' | 'alwaysLoses',
 };
 
@@ -31,9 +41,8 @@ export const QUICKEN_RULES = {
 };
 
 export const PLAYER_RULES = {
-  // Health paid per focus point a cast costs beyond what the caster has (was 5; 7 was tried). At 3,
-  // a 3x3 Ether (18 focus) saved up for costs 30 health; cast every turn (2 focus), 48
-  bloodMagicHealthPerFocus: 3,
+  // Health paid per focus point a cast costs beyond what the caster has (3 and 7 were tried)
+  bloodMagicHealthPerFocus: 5,
 };
 
 export const CASTING_RULES = {
