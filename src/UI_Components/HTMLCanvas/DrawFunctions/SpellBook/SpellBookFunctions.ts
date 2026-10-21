@@ -17,7 +17,7 @@ import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMargi
  */
 const MARGIN_NOTES: Record<string, { text: string; place: 'gap' | 'below'; tilt: number; nudge?: { x: number; y: number } }> = {
     // (nudged toward 255 degrees on the unit circle: down and a little left, off the preview's edge)
-    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.009, y: 0.034 } },
+    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } },
     Quicken: { text: 'fast!!', place: 'gap', tilt: -15 },
     Phlegm: { text: 'patches you up', place: 'below', tilt: -3 },
     GyreUp: { text: 'gives breathing room', place: 'below', tilt: -3 },
