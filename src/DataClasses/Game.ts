@@ -903,9 +903,19 @@ export class Game {
       this.forceUpdate();
     }
   }
+  /** At most this long (ms) for the NPC's turn: after it, it's ended (a safety net, so a stalled NPC can never lock the clock). */
+  static readonly NPC_TURN_LIMIT_MILLI = 30000;
+
   doNpcMove = (): void => {
     const npc = this.players.getNpcPlayer();
     if (!npc) return;
+    const token = this.turnToken;
+    setTimeout(() => {
+      if (!this.getIsTurnStill(token) || npc.getIsDoneWithTurn()) return;
+      console.warn('The NPC took too long to finish its turn; ending it');
+      npc.setIsDoneWithTurn(true);
+      this.forceUpdate();
+    }, Game.NPC_TURN_LIMIT_MILLI);
     // Each turn, the difficulty decides between a random turn and a trained one
     if (NPC_POLICY === 'trained' && this.npcBrain.getIsReady() && !npc.isRandomMove()) {
       this.doTrainedNpcMove(npc);
