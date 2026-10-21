@@ -82,6 +82,22 @@ const STARS: Array<[number, number, number, number, number]> = (() => {
 const TABLE = [[62, 50], [88, 31], [298, 31], [324, 50], [298, 69], [88, 69]];
 const PANEL_POINTS = [[15, 50], [55, 14], [331, 14], [371, 50], [331, 86], [55, 86]];
 const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#000000', 0.22], ['#000000', 0.34], ['#000000', 0.16]] as const;
+/**
+ * The ruby's light turning with the word's (see getFacetKeyframes): each facet lit as it faces the
+ * light and shaded as it faces away, by its outward direction (normal). At rest the light is above, and
+ * each facet keeps its resting light (FACET_LIGHT); turning, a facet that's lit at rest can fall into
+ * shade by `shade` and one shaded at rest can light up by `light` (opacities, facing the light squarely).
+ */
+const RUBY_LIGHT = { isTurning: true, light: 0.26, shade: 0.3 };
+const FACET_NORMALS = PANEL_POINTS.map((p, k) => {
+  const q = PANEL_POINTS[(k + 1) % 6];
+  const mx = (p[0] + q[0]) / 2 - 193, my = (p[1] + q[1]) / 2 - 50; // outward: from the middle toward the edge
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  let nx = dy, ny = -dx; // perpendicular to the edge
+  if (nx * mx + ny * my < 0) { nx = -nx; ny = -ny; }
+  const length = Math.hypot(nx, ny);
+  return [nx / length, ny / length];
+});
 
 /**
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
@@ -95,7 +111,7 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
  */
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
-  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 13.5, fontSize: 57, y: 63,
+  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 4.5, fontSize: 57, y: 63,
   // steady: as the light swings, each letter's dark core would seem to slide away from it (and the
   // letter with it), so the letter shifts toward the light by this much of the light's move (0: off)
   // rest: how far the light reaches into the cut (its width): at rest on the bottom walls, and never more;
@@ -168,6 +184,44 @@ const getOrbitKeyframes = (start: number, length: number, heightFactor: number) 
   };
 };
 
+/**
+ * The ruby's facets' light (white) and shade (black) opacities as the light turns once around over
+ * [start, start + length] of the cycle (fractions), the same way the letters' light does (starting and
+ * ending above, where it rests).
+ */
+const getFacetKeyframes = (start: number, length: number) => {
+  const steps = 24;
+  // the light's direction: the letters' light falls on the walls facing away from it, so it's opposite
+  // their light's offset (which starts below): above at rest
+  const toward = (u: number) => { const angle = Math.PI / 2 + u * Math.PI * 2; return [-Math.cos(angle), -Math.sin(angle)]; };
+  const times = [
+    ...(start > 0.001 ? [0] : []),
+    ...Array.from({ length: steps + 1 }, (_, k) => start + (k / steps) * length),
+    ...(start + length < 0.999 ? [1] : []),
+  ];
+  times[0] = 0; times[times.length - 1] = 1;
+  const uOf = (time: number) => Math.min(1, Math.max(0, (time - start) / length));
+  return FACET_NORMALS.map(([nx, ny], k) => {
+    const [restColor, restOpacity] = FACET_LIGHT[k];
+    const [sx, sy] = toward(0);
+    const restFacing = nx * sx + ny * sy;
+    // gains keeping the resting light exactly as it is
+    const lightGain = restColor === '#ffffff' && restFacing > 0 ? restOpacity / restFacing : RUBY_LIGHT.light;
+    const shadeGain = restColor === '#000000' && restFacing < 0 ? restOpacity / -restFacing : RUBY_LIGHT.shade;
+    const frames = times.map(time => {
+      const [lx, ly] = toward(uOf(time));
+      const facing = nx * lx + ny * ly;
+      return { light: (lightGain * Math.max(0, facing)).toFixed(3), shade: (shadeGain * Math.max(0, -facing)).toFixed(3) };
+    });
+    return {
+      keyTimes: times.map(t => t.toFixed(4)).join('; '),
+      light: frames.map(f => f.light).join('; '),
+      shade: frames.map(f => f.shade).join('; '),
+      restLight: frames[0].light, restShade: frames[0].shade,
+    };
+  });
+};
+
 const twinkle = keyframes`
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.95; }
@@ -228,6 +282,8 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
   // Where each letter is (once the font has loaded), so each can catch the light as the sweep reaches it
   const measureRef = useRef<SVGTextElement | null>(null);
   const [letters, setLetters] = useState<Array<{ char: string; x: number; orbit: ReturnType<typeof getOrbitKeyframes> }> | null>(null);
+  // The ruby's light, turning once while the sweep crosses the word (as its letters' light turns)
+  const [facetLight, setFacetLight] = useState<ReturnType<typeof getFacetKeyframes> | null>(null);
   const isOrbit = l.text === 'etched' && ETCHING.glint === 'orbit';
   useLayoutEffect(() => {
     if (!isOrbit) return;
@@ -244,6 +300,10 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
         return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
       });
       const tallest = Math.max(...heights, 1);
+      const wordStart = text.getStartPositionOfChar(0).x, wordEnd = text.getEndPositionOfChar(label.length - 1).x;
+      const turnStart = Math.max(0, getSweepTime(wordStart - SWEEP_BAND / 2));
+      const turnLength = Math.min(1 - turnStart, Math.max(0.01, getSweepTime(wordEnd + SWEEP_BAND / 2) - turnStart));
+      if (l.jewel && RUBY_LIGHT.isTurning) setFacetLight(getFacetKeyframes(turnStart, turnLength));
       setLetters(Array.from(label).map((char, k) => {
         const x = text.getStartPositionOfChar(k).x, end = text.getEndPositionOfChar(k).x;
         // swinging while the sweep's band crosses the letter (from its reaching the letter to its leaving it)
@@ -331,8 +391,21 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
             <g>
               {PANEL_POINTS.map((p, k) => {
                 const q = PANEL_POINTS[(k + 1) % 6], tq = TABLE[(k + 1) % 6], tp = TABLE[k];
+                const points = `${p} ${q} ${tq} ${tp}`;
                 const [color, opacity] = FACET_LIGHT[k];
-                return <polygon key={k} points={`${p} ${q} ${tq} ${tp}`} fill={color} opacity={opacity} />;
+                const turning = facetLight?.[k];
+                if (!turning) return <polygon key={k} points={points} fill={color} opacity={opacity} />;
+                // lit as it faces the turning light, shaded as it faces away
+                return (
+                  <g key={k}>
+                    <polygon points={points} fill="#ffffff" opacity={turning.restLight}>
+                      <animate attributeName="opacity" values={turning.light} keyTimes={turning.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+                    </polygon>
+                    <polygon points={points} fill="#000000" opacity={turning.restShade}>
+                      <animate attributeName="opacity" values={turning.shade} keyTimes={turning.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+                    </polygon>
+                  </g>
+                );
               })}
               <polygon points={TABLE.join(' ')} fill="none" stroke="#ff9aa4" strokeOpacity={0.35} strokeWidth={0.8} />
               {PANEL_POINTS.map((p, k) => <line key={k} x1={p[0]} y1={p[1]} x2={TABLE[k][0]} y2={TABLE[k][1]} stroke="#ffb3ba" strokeOpacity={0.3} strokeWidth={0.8} />)}
