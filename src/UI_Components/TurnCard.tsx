@@ -8,7 +8,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { titleLetteringCss } from './Logo/titleLettering';
 
 /** The card (seconds; size in cqw). */
-export const TURN_CARD = { inSeconds: 0.35, holdSeconds: 1.1, outSeconds: 0.55, size: 6, yourMove: 'Your Move', theirMove: 'Their Move' };
+export const TURN_CARD = { delaySeconds: 0.5, inSeconds: 0.35, holdSeconds: 1.1, outSeconds: 0.55, size: 6, yourMove: 'Your Move', theirMove: 'Their Move' };
 const TOTAL = TURN_CARD.inSeconds + TURN_CARD.holdSeconds + TURN_CARD.outSeconds;
 
 const showAndFade = keyframes`
@@ -30,7 +30,7 @@ const Card = styled.div`
   line-height: 1;
   opacity: 0;
   ${titleLetteringCss({ strokeCqw: 0.06, glowCqw: 0.6 })}
-  animation: ${showAndFade} ${TOTAL}s ease-in-out forwards;
+  animation: ${showAndFade} ${TOTAL}s ease-in-out ${TURN_CARD.delaySeconds}s forwards; /* (the delay: clear of the game over screen fading) */
 `;
 
 export default function TurnCard() {
