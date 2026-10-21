@@ -490,7 +490,7 @@ export class Phlegm extends Spell {
 }
 
 export class Ether extends Spell {
-  static readonly FOCUS_COST: number = 2; // per cell (was 1.25)
+  static readonly FOCUS_COST: number = 1; // per cell (1.25 and 2 were tried)
   static readonly spellName = "Ether";
 
   constructor(caster: Player) {

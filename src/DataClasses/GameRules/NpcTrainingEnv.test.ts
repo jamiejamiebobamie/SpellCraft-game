@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { CellIndex } from '../types';
+import { Ether } from '../PlacedSpells/Spell';
 
 const mulberry32 = (seed: number) => () => {
   seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -64,9 +65,10 @@ describe('actions', () => {
     caster.decrementHealth(caster.getHealth() - 6); // 6 health, 4 focus: 1 missing focus point costs 5
     const mask = getActionMask(sim, PLAYER_INDEX);
     const legalCasts = Array.from({ length: END_TURN_ACTION }, (_, a) => a).filter(a => mask[a]).map(a => decodeAction(a, PLAYER_INDEX));
-    // e.g. a 2x2 Fireball costs 8 (4 short: 20 health), so none is legal; a single Phlegm costs 1
+    // A single Phlegm costs 1 (legal); a Fireball needing 2 focus more than the caster has costs 10 health
+    // of its 6, so none that big is legal
     expect(legalCasts.some(d => d.kind === 'cast' && d.spellName === 'Phlegm' && d.cells.length === 1)).toBe(true);
-    expect(legalCasts.every(d => d.kind !== 'cast' || !(d.spellName === 'Ether' && d.cells.length >= 4))).toBe(true);
+    expect(legalCasts.every(d => d.kind !== 'cast' || !(d.spellName === 'Ether' && d.cells.length * Ether.FOCUS_COST >= 6))).toBe(true);
   });
 });
 

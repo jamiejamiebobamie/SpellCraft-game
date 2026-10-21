@@ -31,7 +31,7 @@ Every spell beats some situations and loses to others, so there's no single best
 
 | Spell | Name in code | Symbol | Cost per cell | What it does |
 |---|---|---|---|---|
-| **Fireball** | `Ether` | circle | 2 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
+| **Fireball** | `Ether` | circle | 1 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
 | **Chain Lightning** | `Quicken` | line | 1 | Travels fast. Whatever destroys it inherits +1 speed. |
 | **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
 | **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
@@ -52,8 +52,8 @@ Because spells pass their power on, combos emerge naturally: a Chain Lightning f
 - **Per-cell costs** (focus × cells), so a spell costs the same whether you draw it at full size or place its cells one by one with the keyboard.
 - **No cost cap.** The biggest casts deliberately cost more focus than you can hold, so they always involve blood magic, which keeps a fully charged 3×3 Fireball a real decision.
 - **Blood magic at 5 health per missing focus point** (3 and 7 were tried), tuned against two scenarios:
-  - a 3×3 Fireball (18 focus) cast with a full 8 focus costs 50 health for up to 50 damage, a gamble that only pays when it lands;
-  - casting the same spell every turn, on 2 regained focus, costs 80 health each time, so it never pays off.
+  - a 3×3 Fireball (9 focus) cast with a full 8 focus costs 5 health for up to 50 damage;
+  - casting the same spell every turn, on 2 regained focus, costs 35 health each time.
 
   Saving up for a big turn is possible, but spamming isn't.
 
