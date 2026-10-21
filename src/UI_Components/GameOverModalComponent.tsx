@@ -226,7 +226,11 @@ export const GameOverModalComponent: React.FC = () => {
         </RaisedText>
         {isGameOver && <ButtonRow>
           <ModalButtonWithSymbols label="Yes" onClick={rootGameStore.resetGame} />
-          <ModalButtonWithSymbols label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
+          <ModalButtonWithSymbols label="No" onClick={() => {
+            // The project's GitHub in a new tab, and this one back to the landing page (a fresh start)
+            window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer');
+            window.location.reload();
+          }} />
         </ButtonRow>}
       </ModalCardContent>
     </ModalDimOverlay>

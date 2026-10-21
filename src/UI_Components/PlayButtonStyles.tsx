@@ -60,6 +60,12 @@ const FACET_NORMALS = PANEL_POINTS.map((p, k) => {
 });
 
 /**
+ * The glint's timing (while the button is hovered): one glint takes `sweepSeconds` (the band of light
+ * crossing the word, the letters' and the ruby's light turning), then it rests `restSeconds` before the next.
+ */
+export const GLINT = { sweepSeconds: 1.925, restSeconds: 1.575 };
+
+/**
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
  * shadowed along the top and lit along the bottom, and a glint sweeping across every `glintSeconds`:
  *   glint 'orbit':  the light inside the letters' cuts turns once around with the ruby's light
@@ -71,7 +77,7 @@ const FACET_NORMALS = PANEL_POINTS.map((p, k) => {
  */
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
-  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 7.5, fontSize: 57, y: 63,
+  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: GLINT.sweepSeconds + GLINT.restSeconds, fontSize: 57, y: 63, // (glintSeconds: one glint and its rest: see GLINT)
   // steady: as the light swings, each letter's dark core would seem to slide away from it (and the
   // letter with it), so the letter shifts toward the light by this much of the light's move (0: off)
   // rest: how far the light reaches into the cut (its width): at rest on the bottom walls, and never more;
@@ -85,7 +91,7 @@ const ETCHING = {
  * The sweeping glint's band: it crosses from `from` to `to` (a shift in the viewBox's x) over the first
  * `moving` of each cycle, its middle at x = 145 + the shift (halfway up the word), then waits.
  */
-const SWEEP = { from: -90, to: 190, moving: 0.55 };
+const SWEEP = { from: -90, to: 190, moving: GLINT.sweepSeconds / (GLINT.sweepSeconds + GLINT.restSeconds) };
 /** When (a fraction of the cycle) the sweeping band's middle passes x. */
 const getSweepTime = (x: number): number => SWEEP.moving * (x - 145 - SWEEP.from) / (SWEEP.to - SWEEP.from);
 /** The sweeping band's width across the word (viewBox units): it lights a letter from when its edge arrives until it's past. */
