@@ -12,10 +12,12 @@ import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMargi
 /**
  * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
  * description and the preview ('gap'); longer ones below the preview ('below'). tilt: degrees, as in
- * CSS (negative: rising to the right).
+ * CSS (negative: rising to the right). nudge: moved from there, in fractions of the page's width
+ * (x right, y down).
  */
-const MARGIN_NOTES: Record<string, { text: string; place: 'gap' | 'below'; tilt: number }> = {
-    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15 },
+const MARGIN_NOTES: Record<string, { text: string; place: 'gap' | 'below'; tilt: number; nudge?: { x: number; y: number } }> = {
+    // (nudged toward 255 degrees on the unit circle: down and a little left, off the preview's edge)
+    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.009, y: 0.034 } },
     Quicken: { text: 'fast!!', place: 'gap', tilt: -15 },
     Phlegm: { text: 'patches you up', place: 'below', tilt: -3 },
     GyreUp: { text: 'gives breathing room', place: 'below', tilt: -3 },
@@ -668,7 +670,8 @@ export const drawModalDetails = (
         // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
         const lineCount = targetData.desc.split('\n').length;
         const noteY = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
-        drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535, noteY, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+        const nudge = marginNote.nudge ?? { x: 0, y: 0 };
+        drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535 + viewW * nudge.x, noteY + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
     } else if (marginNote) {
         drawMarginNote(ctx, marginNote.text, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, marginNote.tilt * Math.PI / 180);
     }
