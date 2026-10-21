@@ -36,6 +36,9 @@ export const GYRE_RULES = {
 };
 
 export const QUICKEN_RULES = {
+  // false: a Quicken (or a spell electrified by one) gets no extra speed, and conferring its modifier
+  // gives no extra moves (then a Gyre's exit bonus is the only way to gain moves); true: the earlier rule
+  hasSpeedBonus: false,
   bonusMode: 'flat' as 'flat' | 'perConsumption',
   bonusMovesPerConsumption: 2,
 };

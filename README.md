@@ -32,11 +32,11 @@ Every spell beats some situations and loses to others, so there's no single best
 | Spell | Name in code | Symbol | Cost per cell | What it does |
 |---|---|---|---|---|
 | **Fireball** | `Ether` | circle | 1 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
-| **Chain Lightning** | `Quicken` | line | 1 | Travels fast. Whatever destroys it inherits +1 speed. |
+| **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells. |
 | **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
 | **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
 
-Because spells pass their power on, combos emerge naturally: a Chain Lightning fed into your own Fireball makes a faster fireball, and an Updraft or Downdraft can lift an incoming spell out of a threatened row or straight off the board.
+Because spells pass their power on, combos emerge naturally: a Fireball fed into your own spell makes it hit harder, and an Updraft or Downdraft can lift an incoming spell out of a threatened row, send your own spell on with extra moves (the only way to gain them), or push an enemy spell straight off the board.
 
 **Water Wheels.** A sized spell that runs into a Water Wheel breaks into single cells. Each cell swirls once around the wheel, and they reassemble as they leave it.
 
