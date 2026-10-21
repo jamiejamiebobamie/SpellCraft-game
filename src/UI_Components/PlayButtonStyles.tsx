@@ -87,19 +87,23 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
  * shadowed along the top and lit along the bottom, and a glint sweeping across every `glintSeconds`:
  *   glint 'orbit':  the light inside each letter's cut swings once around it (its shadow opposite),
- *                   brightening to `litFlare`, as the sweeping glint passes over that letter, then
- *                   settles on the lower walls again (`orbit`: how far the light reaches into the cut,
- *                   at rest and at its brightest; `letterSwingSeconds`: how long each letter's swing takes)
+ *                   brightening to `litFlare`, while the sweeping glint crosses that letter, then
+ *                   settles on the lower walls again (see `orbit`)
  *   glint 'lit':    the light along the letters' bottom edges flares as it passes (`litFlare`)
  *   glint 'stroke': a band of light runs around the letters' outlines as it passes
  * `rim`: how much the outlines catch the light all the time.
  */
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
-  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 3.5, fontSize: 57, y: 63,
+  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 13.5, fontSize: 57, y: 63,
   // steady: as the light swings, each letter's dark core would seem to slide away from it (and the
   // letter with it), so the letter shifts toward the light by this much of the light's move (0: off)
-  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, letterSwingSeconds: 0.7, steady: 0.5 },
+  // rest: how far the light reaches into the cut (its width): at rest on the bottom walls, and never more;
+  // top: its width on the top walls, as a fraction of rest (thinner than the bottom's);
+  // byHeight: mid-swing, shorter letters' light is thinner, in proportion to their height (0: all alike);
+  // swingSpan: how much of the sweep's crossing of a letter its swing lasts (1: from the band's
+  // reaching it to its leaving it)
+  orbit: { rest: 1.6, top: 0.6, byHeight: 1, shadowRest: 1.4, peakOpacity: 0.7, swingSpan: 1, steady: 0.5 },
   sweepToo: true, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
 };
 
@@ -110,23 +114,28 @@ const ETCHING = {
 const SWEEP = { from: -90, to: 190, moving: 0.55 };
 /** When (a fraction of the cycle) the sweeping band's middle passes x. */
 const getSweepTime = (x: number): number => SWEEP.moving * (x - 145 - SWEEP.from) / (SWEEP.to - SWEEP.from);
+/** The sweeping band's width across the word (viewBox units): it lights a letter from when its edge arrives until it's past. */
+const SWEEP_BAND = 12;
 
 /**
  * One letter's 'orbit' keyframes, swinging during [start, start + length] of the cycle (fractions)
  * and resting otherwise. The light and shadow fall inside the cut, as in a real one: the light on the
  * walls facing it, the shadow on those facing away; each band is the letter minus a copy of itself
  * shifted away from that band's side (`lightCut`, `shadowCut`). The light's offset goes once around
- * the circle (starting and ending straight below, reaching further mid-swing), the shadow's opposite.
+ * the circle (starting and ending straight below), the shadow's opposite. The light is never wider than
+ * at rest: thinner on the top walls (orbit.top), and mid-swing thinner on shorter letters
+ * (`heightFactor`: the letter's height relative to the tallest, 0 to 1).
  */
-const getOrbitKeyframes = (start: number, length: number) => {
-  const steps = 12;
-  const { rest, peak, shadowRest } = ETCHING.orbit;
+const getOrbitKeyframes = (start: number, length: number, heightFactor: number) => {
+  const steps = 16;
+  const { rest, top, byHeight, shadowRest } = ETCHING.orbit;
   const frames = Array.from({ length: steps + 1 }, (_, k) => {
     const u = k / steps; // 0..1 through the swing
     const swell = Math.sin(Math.PI * u); // 0 at rest, 1 mid-swing
     const angle = Math.PI / 2 + u * Math.PI * 2; // straight below (SVG y is down), once around
-    const reach = rest + (peak - rest) * swell;
-    const shadowReach = shadowRest + (peak - shadowRest) * 0.5 * swell;
+    const upness = Math.max(0, -Math.sin(angle)); // 0 below or to the side, 1 on the top walls
+    const reach = rest * (1 - (1 - top) * upness) * (1 + (heightFactor - 1) * byHeight * swell);
+    const shadowReach = shadowRest;
     return {
       time: start + u * length,
       lightCut: `${(-Math.cos(angle) * reach).toFixed(2)} ${(-Math.sin(angle) * reach).toFixed(2)}`,
@@ -226,11 +235,22 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
     const measure = () => {
       const text = measureRef.current;
       if (isCancelled || !text) return;
-      const length = ETCHING.orbit.letterSwingSeconds / ETCHING.glintSeconds;
+      // Each letter's inked height (for orbit.byHeight), relative to the tallest
+      const ink = document.createElement('canvas').getContext('2d');
+      const heights = Array.from(label).map(char => {
+        if (!ink) return 1;
+        ink.font = `${ETCHING.fontSize}px 'EnchantedLand', sans-serif`;
+        const metrics = ink.measureText(char);
+        return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      });
+      const tallest = Math.max(...heights, 1);
       setLetters(Array.from(label).map((char, k) => {
         const x = text.getStartPositionOfChar(k).x, end = text.getEndPositionOfChar(k).x;
-        const start = Math.min(1 - length, Math.max(0, getSweepTime((x + end) / 2) - length / 2));
-        return { char, x, orbit: getOrbitKeyframes(start, length) };
+        // swinging while the sweep's band crosses the letter (from its reaching the letter to its leaving it)
+        const center = getSweepTime((x + end) / 2);
+        const length = Math.min(0.9, Math.max(0.01, ETCHING.orbit.swingSpan * (getSweepTime(end + SWEEP_BAND / 2) - getSweepTime(x - SWEEP_BAND / 2))));
+        const start = Math.min(1 - length, Math.max(0, center - length / 2));
+        return { char, x, orbit: getOrbitKeyframes(start, length, heights[k] / tallest) };
       }));
     };
     (document.fonts ? document.fonts.ready : Promise.resolve()).then(measure);
