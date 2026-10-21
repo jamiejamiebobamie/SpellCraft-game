@@ -131,10 +131,11 @@ export class Game {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     this.checkIfIsGameOverFromPlayerDeath();
     // - GAMEOVER CONDITION #2: Player is caught by teacher. <TIME'S UP>
-    if (!this.gameOver) this.checkIfIsGameOverFromTime();
+    // (compared with null: a draw, GameOverStatus.BothDead, is 0)
+    if (this.gameOver === null) this.checkIfIsGameOverFromTime();
 
     const isGameOver = this.gameOver !== null;
-    if (this.gameOver) {
+    if (this.gameOver !== null) {
       this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
       this.forceUpdate();
@@ -145,7 +146,7 @@ export class Game {
   endTurn = async (): Promise<void> => {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
-    if (!this.getIsGameBoardDisabled() && !this.gameOver && !isAnyPlayerDead) {
+    if (!this.getIsGameBoardDisabled() && this.gameOver === null && !isAnyPlayerDead) {
       this.tooltipManager.clearClickClockRef(); // turn-off helper message
       // Ending the turn closes the light tip showing (and "Ending Your Turn" won't be needed)
       this.tooltipManager.dropQueuedTip('endTurn');

@@ -298,17 +298,19 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
   const currentGameOverState = snap.getGameOver();
-  const contentConfig = currentGameOverState ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
+  // (compared with null: a draw, GameOverStatus.BothDead, is 0)
+  const isGameOver = currentGameOverState !== null;
+  const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
 
   return (
-    <ModalDimOverlay $isDisplay={!!currentGameOverState} $bgOpacity={!!currentGameOverState ? MAX_OPACITY : MIN_OPACITY}>
+    <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
       <ModalCardContent>
         <ModalTitle>{contentConfig.title}</ModalTitle>
         <ModalSubTextContainer>
           <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
           <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
         </ModalSubTextContainer>
-        {currentGameOverState && <ButtonRow>
+        {isGameOver && <ButtonRow>
           <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
           <ModalButtonWithWisps label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
         </ButtonRow>}
