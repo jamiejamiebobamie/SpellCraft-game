@@ -1,29 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
 import { titleLetteringCss } from './Logo/titleLettering';
+import HoverSymbols from './HoverSymbols';
 import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
-
-// --- Inherited Animation Keyframes ---
-const scatterWispLeft = keyframes`
-  0% { transform: translate(0, 0) scale(0.3); opacity: 0; }
-  15% { opacity: 1; }
-  100% { transform: translate(-6cqw, -14cqw) scale(1.2); opacity: 0; }
-`;
-
-const scatterWispCenter = keyframes`
-  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translate(1cqw, -18cqw) scale(0.9); opacity: 0; }
-`;
-
-const scatterWispRight = keyframes`
-  0% { transform: translate(0, 0) scale(0.3); opacity: 0; }
-  20% { opacity: 1; }
-  100% { transform: translate(7cqw, -15cqw) scale(1.3); opacity: 0; }
-`;
 
 // --- Configuration Content Maps ---
 interface ModalTextConfig {
@@ -162,27 +144,6 @@ const ButtonRow = styled.div`
 `;
 
 // --- Shared Core Shape Sub-Layouts ---
-const WispContainer = styled.div`
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  z-index: 5;
-`;
-
-const SingleBurstWisp = styled.div<{ $left: string; $anim: any }>`
-  position: absolute;
-  bottom: 30%;
-  left: ${props => props.$left};
-  width: 0.7cqw;
-  height: 0.7cqw;
-  background: #fff59d;
-  border-radius: 50%;
-  box-shadow: 0 0 6px #ffeb3b, 0 0 12px #f57f17;
-  animation: ${props => props.$anim} 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  animation-iteration-count: 1;
-`;
-
 /** The ruby button (PlayButtonStyles), as on the landing screen. */
 const RubyModalButton = styled.button<{ $glow: string }>`
   position: relative;
@@ -231,7 +192,7 @@ interface ActionButtonProps {
   onClick: () => void;
 }
 
-const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) => {
+const ModalButtonWithSymbols: React.FC<ActionButtonProps> = ({ label, onClick }) => {
   const [hoverKey, setHoverKey] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
@@ -243,15 +204,7 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
       onMouseLeave={() => setIsHovered(false)}
     >
       <PlayButtonFace look="ruby" label={label} />
-      {isHovered && (
-        <WispContainer key={hoverKey}>
-          <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
-          <SingleBurstWisp $left="38%" $anim={scatterWispCenter} />
-          <SingleBurstWisp $left="52%" $anim={scatterWispLeft} />
-          <SingleBurstWisp $left="66%" $anim={scatterWispRight} />
-          <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
-        </WispContainer>
-      )}
+      <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
     </RubyModalButton>
   );
 };
@@ -292,8 +245,8 @@ export const GameOverModalComponent: React.FC = () => {
           </ModalSubTextContainer>
         </RaisedText>
         {isGameOver && <ButtonRow>
-          <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
-          <ModalButtonWithWisps label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
+          <ModalButtonWithSymbols label="Yes" onClick={rootGameStore.resetGame} />
+          <ModalButtonWithSymbols label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
         </ButtonRow>}
       </ModalCardContent>
     </ModalDimOverlay>

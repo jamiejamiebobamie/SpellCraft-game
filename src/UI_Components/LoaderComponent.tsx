@@ -8,6 +8,7 @@ import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
 
 /** How wide one sweep of "Loading..."'s sheen is (cqw): about the word's width. */
 const LOADING_SHEEN_TILE = 16;
+import HoverSymbols from './HoverSymbols';
 import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
 
 /**
@@ -381,7 +382,7 @@ const LoaderComponent = () => {
                 onMouseLeave={handleMouseLeave}
               >
                 <PlayButtonFace look={look} label="Play" />
-                {wisps}
+                <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
                 {caption}
               </FramedPlayButton>
             )
