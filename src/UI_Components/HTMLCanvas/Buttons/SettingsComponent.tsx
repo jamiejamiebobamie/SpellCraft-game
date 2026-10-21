@@ -157,6 +157,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   const isMusicMuted = snap.getIsMusicMuted();
   const isFxMuted = snap.getIsFxMuted();
   const [isClicked, setIsClicked] = useState<boolean>(false);
+  const [isShowingKeys, setIsShowingKeys] = useState<boolean>(false); // the keyboard controls overlay
   const isToolTips = snap.getIsTooltips();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const isCanvasWand = useSnapshot(cursorSettings).isCanvasWand;
@@ -223,8 +224,9 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
         <SubIcons
           {...at(2)}
           title='See keyboard controls'
-          onMouseEnter={() => setIsGearHovered(true)}
-          onMouseLeave={() => setIsGearHovered(false)}
+          // Shown on a click (a second click hides them), hidden once the mouse leaves the button
+          onMouseUp={() => { const isShowing = !isShowingKeys; setIsShowingKeys(isShowing); setIsGearHovered(isShowing); }}
+          onMouseLeave={() => { setIsShowingKeys(false); setIsGearHovered(false); }}
         >
           {SUB_ICONS.KEYBOARD_CONTROLS}
         </SubIcons>
