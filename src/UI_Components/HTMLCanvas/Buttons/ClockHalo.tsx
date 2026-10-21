@@ -16,7 +16,7 @@ export const CLOCK_HALO = {
   radius: 11, // the rays' reach upward (cqw; the face's radius is about 4.3)
   // The long rays' reach straight down (cqw from the face's center): the clock body's bottom edge (its
   // image is 21.8 x 32.7 cqw, from 0.7 cqw down). Rays in between reach smoothly between the two
-  bottomReach: 23.6,
+  bottomReach: 26.1, // (cqw) straight down: halfway between the clock body's bottom (23.6) and where the wall meets the floor
   rays: 12, // long rays (lined up with the hour marks), with as many short ones between them
   // Each ray type: length (fraction of the radius), width (at its base, fraction of the radius),
   // style: 'straight' (a spike) or 'wavy' (a flame-like ray snaking outward, as on a monstrance), with
@@ -30,6 +30,13 @@ export const CLOCK_HALO = {
   // The ribbons slide in and out: the halo shows with plain rays, which twist into ribbons
   // `delaySeconds` after it appears (over `blendSeconds`); before hiding, they untwist back to
   // plain rays (over `unwindSeconds`), and then the halo shrinks away
+  // Spreading the rays apart around the lower sides (where the long rays crowd): `centers` in degrees
+  // clockwise from 12 o'clock (135: 4:30, 225: 7:30), `width` how far each spread reaches (degrees),
+  // `amount` how much wider the gaps get there (0: evenly spaced all round)
+  spread: { centers: [135, 225], width: 28, amount: 1.2 },
+  // More strands at the bottom: a ray between each pair (at the quarter marks), fading in as it
+  // turns down past `from` (0: straight up, 1: straight down) and fully there past `to`
+  bottomFill: { enabled: true, from: 0.45, to: 0.8, ray: { length: 0.75, width: 0.1, style: 'wavy' as RayStyle, waves: 1.5, wave: 0.04, ribbon: true } },
   ribbonBlend: { delaySeconds: 1.2, blendSeconds: 1.6, unwindSeconds: 0.5 },
   rayStart: 0.36, // where the rays start (fraction of the radius: just inside the face's rim)
   color: '255, 232, 170', // rgb: the glow around the face (and the rays, if rayColors is empty)
@@ -116,6 +123,29 @@ const towardWhite = (rgb: string, amount: number): string => {
 /** An 'r, g, b' color scaled by `factor` (darker below 1). */
 const shade = (rgb: string, factor: number): string =>
   rgb.split(',').map(c => Math.round(Math.min(255, Number(c) * factor))).join(', ');
+
+/**
+ * Where a ray at `angle` (radians, 0 = up, clockwise) is drawn so the rays spread apart around
+ * CLOCK_HALO.spread's centers: the gaps there are wider, and a little narrower elsewhere. (A lookup
+ * table of the spacing's running total, so the rays still turn smoothly through it.)
+ */
+const SPREAD_TABLE = (() => {
+  const { centers, width, amount } = CLOCK_HALO.spread;
+  const n = 720, table = [0];
+  const density = (deg: number) => 1 + amount * centers.reduce((sum, c) => {
+    const d = ((deg - c + 540) % 360) - 180; // -180..180 from the center
+    return sum + Math.exp(-(d * d) / (2 * width * width));
+  }, 0);
+  for (let k = 1; k <= n; k++) table.push(table[k - 1] + density(((k - 0.5) / n) * 360));
+  const total = table[n];
+  return table.map(v => (v / total) * Math.PI * 2);
+})();
+const spreadAngle = (angle: number): number => {
+  const turn = Math.PI * 2, n = SPREAD_TABLE.length - 1;
+  const a = ((angle % turn) + turn) % turn;
+  const at = (a / turn) * n, k = Math.min(n - 1, Math.floor(at));
+  return SPREAD_TABLE[k] + (SPREAD_TABLE[k + 1] - SPREAD_TABLE[k]) * (at - k);
+};
 
 /**
  * How much longer a ray pointing at `angle` (radians, 0 = straight up, clockwise) is than one pointing
@@ -244,7 +274,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       const flow = ribbon.flowSeconds > 0 ? seconds / ribbon.flowSeconds : 0;
       for (let k = 0; k < rays; k++) {
         ([[CLOCK_HALO.longRay, 0, 2 * k], [CLOCK_HALO.shortRay, 0.5, 2 * k + 1]] as Array<[Ray, number, number]>).forEach(([ray, offset, colorIndex]) => {
-          const angle = rotation + (k + offset) * step;
+          const angle = spreadAngle(rotation + (k + offset) * step);
           // Breathing: long and short rays half a cycle apart, the timing rippling around the circle
           const phase = (k / rays) * breathe.ripple + offset;
           const breath = breathe.seconds > 0
@@ -256,6 +286,26 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           drawRay(ctx, ray, radiusPx * rayStart, tip, (radiusPx * ray.width) / 2, rayColors[colorIndex % rayColors.length], rayOpacity, flow + k * 0.37, ribbonAmount);
           ctx.restore();
         });
+        // The bottom's extra strands, between the others
+        const fill = CLOCK_HALO.bottomFill;
+        if (fill.enabled) {
+          [0.25, 0.75].forEach((offset, f) => {
+            const angle = spreadAngle(rotation + (k + offset) * step);
+            const downness = (1 - Math.cos(angle)) / 2;
+            const t = Math.min(1, Math.max(0, (downness - fill.from) / Math.max(0.01, fill.to - fill.from)));
+            const presence = t * t * (3 - 2 * t);
+            if (presence <= 0) return;
+            const phase = (k / rays) * breathe.ripple + offset;
+            const breath = breathe.seconds > 0
+              ? 1 - breathe.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / breathe.seconds + phase)))
+              : 1;
+            const tip = radiusPx * fill.ray.length * breath * getReachFactor(angle);
+            ctx.save();
+            ctx.rotate(angle);
+            drawRay(ctx, fill.ray, radiusPx * rayStart, tip, (radiusPx * fill.ray.width) / 2, rayColors[(2 * k + f + 3) % rayColors.length], rayOpacity * presence, flow + k * 0.37 + 0.5 + f * 0.21, ribbonAmount);
+            ctx.restore();
+          });
+        }
       }
       frameId = requestAnimationFrame(draw);
     };
