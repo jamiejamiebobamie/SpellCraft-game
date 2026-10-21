@@ -3,13 +3,9 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
+import { titleLetteringCss } from './Logo/titleLettering';
 
 // --- Inherited Animation Keyframes ---
-const specularReflection = keyframes`
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-`;
-
 const scatterWispLeft = keyframes`
   0% { transform: translate(0, 0) scale(0.3); opacity: 0; }
   15% { opacity: 1; }
@@ -111,24 +107,8 @@ const ModalTitle = styled.h2`
 
   margin-bottom: 1cqw;
   
-  background: linear-gradient(
-    90deg, 
-    #ffd700 0%, 
-    #ffe875 25%, 
-    #ffffff 45%, 
-    #ffffff 55%, 
-    #ffe875 75%, 
-    #ffa500 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: ${specularReflection} 3.5s linear infinite;
-
-  filter: drop-shadow(0.3cqw 0.3cqw 0px #1e1202) 
-          drop-shadow(-0.3cqw -0.3cqw 0px #1e1202)
-          drop-shadow(0.3cqw -0.3cqw 0px #1e1202)
-          drop-shadow(-0.3cqw 0.3cqw 0px #1e1202);
+  /* In the "SpellCraft" title's lettering (still) */
+  ${titleLetteringCss({ strokeCqw: 0.1, glowCqw: 0.8 })}
 `;
 
 const ModalSubText = styled.p<{ $fontSize: number }>`

@@ -4,7 +4,7 @@
 //   brass:     a beveled brass frame on a midnight-indigo panel (the window skies) of twinkling,
 //              drifting stars, gold-leaf lettering
 //   verdigris: an aged bronze frame gone green in its recesses, on a dark green panel
-//   ruby:      a brass frame set with a faceted ruby, gold-leaf lettering
+//   ruby:      a brass frame set with a faceted ruby, the lettering etched into it
 import React from 'react';
 import styled, { css, keyframes } from 'styled-components';
 
@@ -19,7 +19,7 @@ type Look = {
   stars: boolean; // a night sky: stars twinkling and slowly drifting by
   jewel: boolean; // cut like a gem: a flat table in the middle, beveled facets around it, and a glint
   studs: [string, string]; // the diamond studs at the side points: face, edge
-  text: 'gold' | 'ink';
+  text: 'gold' | 'ink' | 'etched'; // etched: cut into the panel (dark, its upper edge in shadow and its lower edge catching the light)
   glow: string; // on hover
 };
 
@@ -57,7 +57,7 @@ export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
     stars: false,
     jewel: true,
     studs: ['#f6dd8e', '#6b4a16'],
-    text: 'gold',
+    text: 'etched',
     glow: 'rgba(255, 90, 90, 0.55)',
   },
 };
@@ -82,6 +82,13 @@ const STARS: Array<[number, number, number, number, number]> = (() => {
 const TABLE = [[62, 50], [88, 31], [298, 31], [324, 50], [298, 69], [88, 69]];
 const PANEL_POINTS = [[15, 50], [55, 14], [331, 14], [371, 50], [331, 86], [55, 86]];
 const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#000000', 0.22], ['#000000', 0.34], ['#000000', 0.16]] as const;
+
+/**
+ * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
+ * shadowed along the top and lit along the bottom; its edges catch the light as a glint sweeps across
+ * every `glintSeconds` (`rim`: how much the edges catch even between glints).
+ */
+const ETCHING = { fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: 'rgba(255, 150, 160, 0.6)', rim: 0.22, glintSeconds: 3.5, fontSize: 57, y: 53 };
 
 const twinkle = keyframes`
   0%, 100% { opacity: 0.3; }
@@ -115,7 +122,7 @@ const Frame = styled.svg`
   .glint { transform-box: fill-box; transform-origin: center; animation: ${glint} 4.5s ease-in-out infinite; }
 `;
 
-const Label = styled.span<{ $text: 'gold' | 'ink' }>`
+const Label = styled.span<{ $text: 'gold' | 'ink' | 'etched' }>`
   position: relative;
   ${props => props.$text === 'gold' ? css`
     background: linear-gradient(90deg, #ffd700 0%, #ffe875 25%, #ffffff 45%, #ffffff 55%, #ffe875 75%, #ffa500 100%);
@@ -126,6 +133,9 @@ const Label = styled.span<{ $text: 'gold' | 'ink' }>`
     animation: ${shimmer} 3.5s linear infinite;
     filter: drop-shadow(0.15cqw 0.15cqw 0 #1e1202) drop-shadow(-0.15cqw -0.15cqw 0 #1e1202)
             drop-shadow(0.15cqw -0.15cqw 0 #1e1202) drop-shadow(-0.15cqw 0.15cqw 0 #1e1202);
+  ` : props.$text === 'etched' ? css`
+    /* (drawn in the SVG instead, with its glinting edges: see ETCHING) */
+    color: transparent;
   ` : css`
     color: #2b1a0c;
     text-shadow: 0 0.1cqw 0 rgba(255, 245, 215, 0.6);
@@ -157,6 +167,18 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
             <stop offset="1" stopColor={l.panel[2]} />
           </radialGradient>
           <clipPath id={`${id}-clip`}><polygon points={PANEL} /></clipPath>
+          {l.text === 'etched' && (
+            <linearGradient id={`${id}-glint`} gradientUnits="userSpaceOnUse" x1="120" y1="20" x2="170" y2="80">
+              <stop offset="0" stopColor="#fff2f2" stopOpacity={0} />
+              <stop offset="0.4" stopColor="#ffd9dd" stopOpacity={0} />
+              <stop offset="0.5" stopColor="#ffffff" stopOpacity={1} />
+              <stop offset="0.6" stopColor="#ffd9dd" stopOpacity={0} />
+              <stop offset="1" stopColor="#fff2f2" stopOpacity={0} />
+              {/* sweeps from left of the word to past its right, then waits a moment off to the side */}
+              <animateTransform attributeName="gradientTransform" type="translate" values="-90 0; 190 0; 190 0"
+                keyTimes="0; 0.55; 1" dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+            </linearGradient>
+          )}
         </defs>
         {/* The panel (sinks a little when pressed) */}
         <g className="inner">
@@ -187,6 +209,16 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
           {/* a soft light from above, in place of a hard gloss line */}
           <polygon points={PANEL} fill={`url(#${id}-light)`} />
         </g>
+        {/* The etched lettering, with its edges catching the light (inside the panel, so it sinks with it) */}
+        {l.text === 'etched' && (
+          <g className="inner" fontFamily="'EnchantedLand', sans-serif" fontSize={ETCHING.fontSize} textAnchor="middle">
+            <text x={193} y={ETCHING.y + 1.6} fill={ETCHING.lit}>{label}</text>
+            <text x={193} y={ETCHING.y - 1.4} fill={ETCHING.shadow}>{label}</text>
+            <text x={193} y={ETCHING.y} fill={ETCHING.fill}>{label}</text>
+            <text x={193} y={ETCHING.y} fill="none" stroke="#ffc2c8" strokeOpacity={ETCHING.rim} strokeWidth={0.9}>{label}</text>
+            <text x={193} y={ETCHING.y} fill="none" stroke={`url(#${id}-glint)`} strokeWidth={2.2}>{label}</text>
+          </g>
+        )}
         {/* The frame: a dark outline, the beveled metal band, and a fine line inside it */}
         <polygon points={FRAME} fill="none" stroke={l.outline} strokeWidth={15} strokeLinejoin="miter" />
         <polygon points={FRAME} fill="none" stroke={`url(#${id}-frame)`} strokeWidth={10} strokeLinejoin="miter" />

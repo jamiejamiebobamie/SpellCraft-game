@@ -4,6 +4,10 @@ import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import LogoComponent from './Logo/LogoComponent';
 import { LOGO_CONFIG } from './Logo/logoConfig';
+import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
+
+/** How wide one sweep of "Loading..."'s sheen is (cqw): about the word's width. */
+const LOADING_SHEEN_TILE = 16;
 import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, getPlayButtonGlow } from './PlayButtonStyles';
 
 /**
@@ -12,11 +16,6 @@ import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, getPlayButtonGlow } 
  * click plays. 'original' is the button as it was.
  */
 const PLAY_BUTTON_TRYOUT = { isOn: true, looks: ['ruby', 'brass', 'verdigris', 'original'] as Array<PlayButtonLook | 'original'> };
-
-const specularReflection = keyframes`
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-`;
 
 const twinkleSparkle = keyframes`
   0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
@@ -131,25 +130,10 @@ const Loader = styled.div`
   font-family: 'EnchantedLand', sans-serif;
   font-size: ${playSize(5.5)};
   line-height: 1;
-  
-  background: linear-gradient(
-    90deg, 
-    #ffd700 0%, 
-    #ffe875 25%, 
-    #ffffff 45%, 
-    #ffffff 55%, 
-    #ffe875 75%, 
-    #ffa500 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: ${specularReflection} 3.5s linear infinite;
 
-  filter: drop-shadow(${playSize(0.3)} ${playSize(0.3)} 0px #1e1202) 
-          drop-shadow(-${playSize(0.3)} -${playSize(0.3)} 0px #1e1202)
-          drop-shadow(${playSize(0.3)} -${playSize(0.3)} 0px #1e1202)
-          drop-shadow(-${playSize(0.3)} ${playSize(0.3)} 0px #1e1202);
+  /* In the "SpellCraft" title's lettering, its sheen sliding across */
+  ${titleLetteringCss({ strokeCqw: 0.05, glowCqw: 0.5, slide: { tileCqw: LOADING_SHEEN_TILE } })}
+  animation: ${titleSheenSlide(LOADING_SHEEN_TILE)} 3s linear infinite;
 `;
 
 // --- Advanced Art Nouveau & WoW Blue Button ---
@@ -260,6 +244,9 @@ const MagicalPlayButton = styled.button`
   }
 `;
 
+/** How bright the Play button is (1: as drawn): dimmed so it doesn't compete with the title; a little brighter on hover. */
+const PLAY_BUTTON_BRIGHTNESS = { rest: 0.75, hover: 0.88 };
+
 /** The Play button in one of PlayButtonStyles' looks: the same size and place as MagicalPlayButton. */
 const FramedPlayButton = styled.button<{ $glow: string }>`
   position: relative;
@@ -277,10 +264,11 @@ const FramedPlayButton = styled.button<{ $glow: string }>`
   line-height: 1;
   user-select: none;
   z-index: 10;
+  filter: brightness(${PLAY_BUTTON_BRIGHTNESS.rest});
   transition: filter 0.2s ease;
 
   &:hover {
-    filter: drop-shadow(0 0 ${playSize(1.2)} ${props => props.$glow});
+    filter: brightness(${PLAY_BUTTON_BRIGHTNESS.hover}) drop-shadow(0 0 ${playSize(1.2)} ${props => props.$glow});
     .panel { filter: brightness(1.25); }
   }
   &:active {
