@@ -20,7 +20,6 @@ import { useSnapshot } from 'valtio';
 import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
 import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
-import { QUICKEN_FX } from './DrawFunctions/RenderSpells/drawQuicken';
 
 const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
@@ -282,9 +281,9 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
                 anim.particles.push({ x: w / 2 + Math.cos(angle) * offset, y: h / 2 + Math.sin(angle) * (offset * (ry / rx)), vx: (Math.random() * 30 - 15), vy: -(60 + Math.random() * 50), alpha: 1.0, size: Math.min(w, h) * (0.04 + Math.random() * 0.02) * (GameBoard.NUM_ROWS + 1 - cellRows), color: '#a8ff69', shadowColor: '#2ecc71', rotation: Math.random() * Math.PI / 6, vRotation: 0, life: 1.0, decay: 0.1 + Math.random() * 0.3 * (GameBoard.NUM_ROWS + 1 - cellRows), type: 'healCross' });
               }
             }
-            if ((spellClass === 'Quicken' || spell.consumedQuickens > 0) && Math.random() < Math.min(QUICKEN_FX.liveArcMax, QUICKEN_FX.liveArcChance * totalCells)) {
+            if ((spellClass === 'Quicken' || spell.consumedQuickens > 0) && Math.random() < 0.25 * totalCells) {
               const sx = Math.random() * w; const sy = Math.random() * h; const len = Math.min(w, h) * (0.2 + Math.random() * 0.3); const ang = Math.random() * Math.PI * 2;
-              anim.particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.5 + Math.random() * 2.0, color: '#5ff0ea', life: 1.0, decay: 12.0 + Math.random() * 6.0, type: 'lightningArc' }); // (no glow: too costly)
+              anim.particles.push({ x: sx, y: sy, targetX: sx + Math.cos(ang) * len, targetY: sy + Math.sin(ang) * len, vx: 0, vy: 0, initialX: sx, initialY: sy, alpha: 1.0, size: 1.5 + Math.random() * 2.0, color: '#16e0d6', shadowColor: '#00ffff', life: 1.0, decay: 12.0 + Math.random() * 6.0, type: 'lightningArc' });
             }
             if ((spellClass === 'Ether' || spell.consumedEthers > 0) && Math.random() < Math.min(0.9, 0.35 * totalCells)) {
               const ang = Math.random() * Math.PI * 2; const rad = Math.min(w, h) * 0.25;

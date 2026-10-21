@@ -2,14 +2,14 @@ import { PALETTE } from "./ColorPalette";
 import { GameParticle } from "../../../../DataClasses/types";
 
 /**
- * Chain Lightning's effects, kept light (canvas glow, shadowBlur, is costly: drawn per stroke, it
- * made the game stutter when many Quickens appeared or broke at once). The bolt's glow is one soft,
- * wide stroke under each branch instead.
+ * Chain Lightning's effects as it appears and breaks, kept light (canvas glow, shadowBlur, is costly:
+ * drawn on hundreds of sparks, or the cast flash's every segment, it made the game stutter when many
+ * Quickens appeared or broke at once). The cast flash's glow is one soft, wide stroke instead
+ * (glowWidth, glowAlpha); a live bolt keeps its own glow.
  *   burstSparks: sparks when one is destroyed; burstBudget: at most this many sparks from all bursts
  *   together each burstBudgetSeconds (many breaking at once share it)
- *   liveArcChance: the chance per cell, each frame, of a small arc crackling off a live one (and at most)
  */
-export const QUICKEN_FX = { burstSparks: 28, burstBudget: 90, burstBudgetSeconds: 0.25, liveArcChance: 0.08, liveArcMax: 0.4, glowWidth: 2.6, glowAlpha: 0.22 };
+export const QUICKEN_FX = { burstSparks: 28, burstBudget: 90, burstBudgetSeconds: 0.25, glowWidth: 2.6, glowAlpha: 0.22 };
 
 // The sparks spent from the shared burst budget, this window
 let burstWindow = { start: 0, spent: 0 };
@@ -26,7 +26,9 @@ export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number,
     const seed2 = Math.floor(time * 2 / 60);
     const seed3 = Math.floor(time * 3 / 60);
 
-    // (its glow: a soft wide stroke under each branch, drawn in drawLightningBranch, not shadowBlur)
+    // Set glow state profile
+    ctx.shadowColor = PALETTE.lightningMain;
+    ctx.shadowBlur = 15;
 
     const coreThickness = w * .15 / cellCols;
     const x1: number = 0, y: number = h / 2, x2: number = w, crests: number = 4, amplitude: number = h / 5;
@@ -72,7 +74,8 @@ function drawLightningBranch(
     color: string,
     thickness: number,
     offset: number,
-    inheritedAlpha: number // Accepted parent container loop transparency
+    inheritedAlpha: number, // Accepted parent container loop transparency
+    isSoftGlow: boolean = false // a soft wide stroke under it as its glow (cheaper than shadowBlur: the cast flash)
 ) {
     const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
 
@@ -93,12 +96,14 @@ function drawLightningBranch(
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // The glow: the whole branch once, wide and faint (in place of a shadow on every segment)
+    // The soft glow: the whole branch once, wide and faint (in place of a shadow on every segment)
+    if (isSoftGlow) {
     ctx.beginPath();
     points.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
     ctx.globalAlpha = inheritedAlpha * QUICKEN_FX.glowAlpha;
     ctx.lineWidth = Math.max(1, thickness * QUICKEN_FX.glowWidth);
     ctx.stroke();
+    }
 
     // DRAW SEGMENT-BY-SEGMENT WITH CLAMPED EDGE PINCHING
     for (let i = 0; i < points.length - 1; i++) {
@@ -169,7 +174,7 @@ export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: nu
         const seed = Math.floor(time / 30);
 
         // Pass inherited alpha through to the branch drawing stage
-        drawLightningBranch(ctx, 0, h / 2, w, h / 2, 4, h * 0.4, seed, '#ffffff', w * 0.12, 0, baseInheritedAlpha);
+        drawLightningBranch(ctx, 0, h / 2, w, h / 2, 4, h * 0.4, seed, '#ffffff', w * 0.12, 0, baseInheritedAlpha, true);
     } else {
         drawQuicken(ctx, w, h, cellCols, time);
     }
