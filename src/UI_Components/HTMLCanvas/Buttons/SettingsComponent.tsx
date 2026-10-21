@@ -5,12 +5,21 @@ import { UIFadeIn } from '../../UIFadeIn';
 import { useSnapshot } from 'valtio';
 import { cursorSettings, toggleCanvasWand } from '../../cursors';
 
+/**
+ * How the settings buttons show: 'row', always there in a row along the bottom (no gear); 'gear', hidden
+ * behind the gear, swinging out around it on hover.
+ */
+export const SETTINGS_LAYOUT: 'row' | 'gear' = 'row' as 'row' | 'gear';
+/** The row: the space between the buttons' centers, and the buttons' size (cqw). */
+const ROW = { spacing: 4.6, size: 3.6 };
+
 const MenuAnchor = styled(UIFadeIn) < { $isShowingModal: boolean } > `
   display: ${props => props.$isShowingModal ? 'none' : 'initial'};
   position: absolute;
   bottom: -4cqw;   
   left: 42.8cqw;
   z-index: 35;
+  ${SETTINGS_LAYOUT === 'row' ? 'pointer-events: none; /* only the buttons take the mouse, not the space around them */' : ''}
   filter: brightness(${props => props.$isShowingModal ? .55 : 1});
     width: 15.5cqw;
     height: 15.5cqw;
@@ -70,13 +79,13 @@ const CLOSE_DELAY_MILLI = 500;
 const SWING_SECONDS = 0.45;
 const SWING_STAGGER_SECONDS = 0.04;
 
-const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number }>`
+const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number; $rowX: number | null }>`
   /* --at: where it is on its way round (its place when open; swung back below the gear when closed) */
   --at: ${props => props.$isOpen ? props.$angle : props.$angle - SWING_DEGREES}deg;
   opacity: ${props => props.$isOpen ? 1 : 0};
   pointer-events: ${props => props.$isOpen ? 'auto' : 'none'};
-  width: 4.5cqw;
-  height: 4.5cqw;
+  width: ${props => props.$rowX === null ? 4.5 : ROW.size}cqw;
+  height: ${props => props.$rowX === null ? 4.5 : ROW.size}cqw;
   position: absolute;
   display: flex;
   align-items: center;
@@ -88,7 +97,7 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number }
   border: 0.15cqw solid #444;
   border-radius: 50%;
   box-shadow: 0 .2cqw .5cqw rgba(0,0,0,0.6);
-  font-size: 2.2cqw;
+  font-size: ${props => props.$rowX === null ? 2.2 : 1.8}cqw;
   
   /* Radial layout placement mechanics using polar coordinates */
   /* Distance radius is set safely to 5.8cqw from the gear axis */
@@ -96,6 +105,7 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number }
              rotate(var(--at)) 
              translate(0, -5.8cqw) 
              rotate(calc(-1 * var(--at)));
+  ${props => props.$rowX !== null && `transform: translate(calc(-50% + ${props.$rowX}cqw), -50%);`}
 
   transition:
     transform ${SWING_SECONDS}s cubic-bezier(0.34, 1.3, 0.64, 1) ${props => props.$order * SWING_STAGGER_SECONDS}s,
@@ -111,6 +121,7 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number }
                translate(0, -6.1cqw) /* Pops outward visually on hover */
                rotate(calc(-1 * var(--at))) 
                scale(1.15);
+    ${props => props.$rowX !== null && `transform: translate(calc(-50% + ${props.$rowX}cqw), -60%) scale(1.15);`}
   }
 
   &:active {
@@ -119,6 +130,7 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number }
                translate(0, -5.8cqw) 
                rotate(calc(-1 * var(--at))) 
                scale(0.95);
+    ${props => props.$rowX !== null && `transform: translate(calc(-50% + ${props.$rowX}cqw), -50%) scale(0.95);`}
   }
 `;
 
@@ -159,8 +171,10 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
     closeTimeout.current = setTimeout(() => setIsClicked(false), CLOSE_DELAY_MILLI);
   };
   useEffect(() => () => clearTimeout(closeTimeout.current), []);
-  // The buttons, left to right around the gear (each with its place and swing order)
-  const at = (order: number) => ({ $angle: 270 + order * 45, $order: order, $isOpen: isClicked });
+  // The buttons, left to right (around the gear, each with its place and swing order; or in a row)
+  const isRow = SETTINGS_LAYOUT === 'row';
+  const isOpen = isRow || isClicked;
+  const at = (order: number) => ({ $angle: 270 + order * 45, $order: order, $isOpen: isOpen, $rowX: isRow ? (order - 2) * ROW.spacing : null });
 
   useEffect(() => {
     localStorageKeys.forEach((k, i) => {
@@ -181,10 +195,10 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   return (
     <MenuAnchor $isDoneWithIntro={isDoneWithIntro} onMouseEnter={keepOpen} onMouseLeave={closeSoon} $isShowingModal={isShowingModal} data-click-type="ui-buttons">
       {/* Opens on hover (not mid-drawing, when the mouse may just be passing over) or on click */}
-      <TriggerBox
+      {!isRow && <TriggerBox
         onMouseEnter={() => { if (!rootGameStore.getIsDrawing()) open(); }}
         onMouseUp={open}
-        $isClicked={isClicked} title={'Settings'} />
+        $isClicked={isClicked} title={'Settings'} />}
       {/* Always there, so they can swing in and out (hidden and unclickable while closed) */}
       <SubIconGroup>
         <SubIcons
@@ -202,7 +216,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
           {...at(1)}
           onMouseUp={() => rootGameStore.toggleToolTips()}
           title={isToolTips ? 'Turn off tooltips' : 'Turn on tooltips'}
-          style={{ opacity: isClicked ? (isToolTips ? 1 : 0.45) : 0 }}
+          style={{ opacity: isOpen ? (isToolTips ? 1 : 0.45) : 0 }}
         >
           {SUB_ICONS.SEE_TOOLTIPS}
         </SubIcons>
@@ -218,7 +232,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
           {...at(3)}
           onMouseUp={toggleCanvasWand}
           title={isCanvasWand ? 'Use the regular cursor' : 'Use the wand cursor'}
-          style={{ opacity: isClicked ? (isCanvasWand ? 1 : 0.45) : 0 }}
+          style={{ opacity: isOpen ? (isCanvasWand ? 1 : 0.45) : 0 }}
         >
           {SUB_ICONS.CANVAS_WAND}
         </SubIcons>

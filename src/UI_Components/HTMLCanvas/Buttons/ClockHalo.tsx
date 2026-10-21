@@ -27,6 +27,10 @@ export const CLOCK_HALO = {
   // Ribbons: how many half-turns along a ray, how long one twist takes to travel along it, how dark
   // the ribbon's back face is (1: as bright as the front), and the sheen where it faces you
   ribbon: { twists: 2, flowSeconds: 3, backShade: 0.55, sheen: 0.35 },
+  // The ribbons slide in and out: the halo shows with plain rays, which twist into ribbons
+  // `delaySeconds` after it appears (over `blendSeconds`); before hiding, they untwist back to
+  // plain rays (over `unwindSeconds`), and then the halo shrinks away
+  ribbonBlend: { delaySeconds: 1.2, blendSeconds: 1.6, unwindSeconds: 0.5 },
   rayStart: 0.36, // where the rays start (fraction of the radius: just inside the face's rim)
   color: '255, 232, 170', // rgb: the glow around the face (and the rays, if rayColors is empty)
   // The rays' colors, in turn around the circle (long, short, long, ...): the wand sparkles' colors
@@ -129,15 +133,17 @@ const getReachFactor = (angle: number): number => {
  * at `tip` (in pixels), fading from `opacity` to nothing at the tip. A ribbon twists as it goes, its
  * width narrowing where it turns edge-on and its back face darker; `flow` moves the twist along it.
  */
-const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number) => {
-  const steps = ray.style === 'wavy' || ray.ribbon ? 32 : 1;
+const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number) => {
+  const isRibbon = ray.ribbon && ribbonAmount > 0;
+  const steps = ray.style === 'wavy' || isRibbon ? 32 : 1;
   const swingOf = (u: number) => ray.style === 'wavy'
     ? Math.sin(u * ray.waves * 2 * Math.PI) * ray.wave * (tip / ray.length) * Math.sin(u * Math.PI)
     : 0;
   const { twists, backShade, sheen } = CLOCK_HALO.ribbon;
   const points = Array.from({ length: steps + 1 }, (_, k) => {
     const u = k / steps; // 0 at the base, 1 at the tip
-    const twist = ray.ribbon ? Math.cos(Math.PI * (twists * u - flow)) : 1; // -1..1: back..front
+    // -1..1: back..front (a ribbon partway in only partly twists: `ribbonAmount` of the way from flat)
+    const twist = isRibbon ? 1 + (Math.cos(Math.PI * (twists * u - flow)) - 1) * ribbonAmount : 1;
     return { u, x: swingOf(u), y: -(base + (tip - base) * u), half: halfWidth * (1 - u), twist };
   });
 
@@ -146,7 +152,9 @@ const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: num
     const twist = (a.twist + b.twist) / 2;
     const isFront = twist >= 0;
     // The face toward you is lit (with a sheen where it faces you squarely); the back is in shadow
-    const faceRgb = isFront ? (sheen > 0 ? towardWhite(rgb, sheen * twist * twist) : rgb) : shade(rgb, backShade);
+    // (a ray turning into a ribbon gains its sheen as it does; the plain rays keep theirs)
+    const sheenAmount = sheen * (ray.ribbon ? ribbonAmount : 1);
+    const faceRgb = isFront ? (sheenAmount > 0 ? towardWhite(rgb, sheenAmount * twist * twist) : rgb) : shade(rgb, backShade);
     const alpha = opacity * (1 - (a.u + b.u) / 2);
     ctx.fillStyle = `rgba(${faceRgb}, ${alpha})`;
     ctx.beginPath();
@@ -170,6 +178,28 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  // The ribbons sliding in and out (CLOCK_HALO.ribbonBlend): `amount` 0 (plain rays) to 1 (ribbons),
+  // heading for `target` from `startAt` (performance.now() milliseconds)
+  const ribbonRef = useRef({ amount: 0, target: 0, startAt: 0 });
+  // The halo hides once its ribbons have untwisted
+  const [isAppearShown, setIsAppearShown] = useState(isShown);
+  useEffect(() => {
+    const ribbon = ribbonRef.current;
+    const { delaySeconds, unwindSeconds } = CLOCK_HALO.ribbonBlend;
+    if (isShown) {
+      ribbon.target = 1;
+      ribbon.startAt = performance.now() + delaySeconds * 1000;
+      setIsAppearShown(true);
+      return;
+    }
+    ribbon.target = 0;
+    ribbon.startAt = performance.now();
+    const unwindMilli = ribbon.amount * unwindSeconds * 1000;
+    if (unwindMilli <= 0) { setIsAppearShown(false); return; }
+    const timeout = setTimeout(() => setIsAppearShown(false), unwindMilli);
+    return () => clearTimeout(timeout);
+  }, [isShown]);
+
   useEffect(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !CLOCK_HALO.enabled) return;
@@ -179,9 +209,18 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       : [color];
 
     const start = performance.now();
-    let frameId = 0;
+    let frameId = 0, lastNow = start;
     const draw = (now: number) => {
       const seconds = (now - start) / 1000;
+      // The ribbons slide toward their target (twisting in slowly, untwisting quickly)
+      const blend = ribbonRef.current, dt = Math.max(0, (now - lastNow) / 1000);
+      lastNow = now;
+      if (now >= blend.startAt && blend.amount !== blend.target) {
+        const { blendSeconds, unwindSeconds } = CLOCK_HALO.ribbonBlend;
+        const rate = blend.target > blend.amount ? 1 / Math.max(0.01, blendSeconds) : 1 / Math.max(0.01, unwindSeconds);
+        blend.amount = blend.target > blend.amount ? Math.min(blend.target, blend.amount + rate * dt) : Math.max(blend.target, blend.amount - rate * dt);
+      }
+      const ribbonAmount = blend.amount * blend.amount * (3 - 2 * blend.amount); // eased
       const dpr = window.devicePixelRatio || 1;
       const size = Math.round(canvas.clientWidth * dpr);
       if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
@@ -214,7 +253,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           const tip = radiusPx * ray.length * breath * getReachFactor(angle);
           ctx.save();
           ctx.rotate(angle);
-          drawRay(ctx, ray, radiusPx * rayStart, tip, (radiusPx * ray.width) / 2, rayColors[colorIndex % rayColors.length], rayOpacity, flow + k * 0.37);
+          drawRay(ctx, ray, radiusPx * rayStart, tip, (radiusPx * ray.width) / 2, rayColors[colorIndex % rayColors.length], rayOpacity, flow + k * 0.37, ribbonAmount);
           ctx.restore();
         });
       }
@@ -227,7 +266,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
   if (!CLOCK_HALO.enabled) return null;
   return (
     <HaloWrapper $brightness={brightness}>
-      <Appear $isShown={isShown && hasAppeared}>
+      <Appear $isShown={isAppearShown && hasAppeared}>
         <HaloCanvas ref={canvasRef} />
       </Appear>
     </HaloWrapper>

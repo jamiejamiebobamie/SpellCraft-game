@@ -240,3 +240,78 @@ export const drawIlluminatedCapital = (ctx: CanvasRenderingContext2D, letter: st
   ctx.restore();
   return panel;
 };
+
+// --- Margin notes -----------------------------------------------------------------------------
+
+/** The quill hand of the notes scribbled in the margins (QuillHand, in index.css). */
+const QUILL_FONT = "'QuillHand', cursive";
+/** Loads the quill font ahead of time (a canvas only draws with a font once it's loaded). */
+let isQuillFontRequested = false;
+const getIsQuillFontReady = (): boolean => {
+  if (typeof document === 'undefined' || !document.fonts) return false;
+  if (!isQuillFontRequested) { isQuillFontRequested = true; document.fonts.load(`20px ${QUILL_FONT}`).catch(() => { }); }
+  return document.fonts.check(`20px ${QUILL_FONT}`);
+};
+
+/**
+ * A note scribbled in the margin by some earlier owner of the book: brown ink in a quick hand, tilted
+ * by `tilt` (radians), centered on (x, y), with a wobbly underline. Skipped until the font has loaded.
+ */
+export const drawMarginNote = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, tilt: number): void => {
+  if (!getIsQuillFontReady()) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(tilt);
+  ctx.font = `${size}px ${QUILL_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(48, 26, 10, 0.92)'; // iron-gall ink, browned with age
+  ctx.fillText(text, 0, 0);
+  // The underline: one quick stroke, wobbling a little (the same wobble every frame)
+  const halfW = ctx.measureText(text).width / 2;
+  ctx.strokeStyle = 'rgba(48, 26, 10, 0.75)';
+  ctx.lineWidth = Math.max(1, size * 0.07);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  const underY = size * 0.45, steps = 12;
+  for (let k = 0; k <= steps; k++) {
+    const u = k / steps;
+    const px = -halfW * 0.95 + halfW * 1.9 * u;
+    const py = underY + Math.sin(u * 7 + text.length) * size * 0.06 + u * size * 0.12;
+    if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+};
+
+// --- The whole page, cached -------------------------------------------------------------------
+
+/** The page's frame (vellum, knotwork border, triskeles) never changes, so it's drawn once per size and reused. */
+let pageCache: { key: string; canvas: HTMLCanvasElement; pad: number } | null = null;
+
+/** The page (x, y, w, h), its band of knotwork `band` wide: drawn from a cached image after the first frame. */
+export const drawKellsPage = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, band: number, radius: number): void => {
+  const dpr = ctx.getTransform().a || 1; // the canvas' scale (device pixels per drawing unit)
+  const key = `${Math.round(w)}x${Math.round(h)}:${band.toFixed(2)}@${dpr}`;
+  if (pageCache?.key !== key) {
+    const pad = 24; // room for the page's shadow
+    const canvas = pageCache?.canvas ?? document.createElement('canvas');
+    canvas.width = Math.ceil((w + pad * 2) * dpr);
+    canvas.height = Math.ceil((h + pad * 2) * dpr);
+    const page = canvas.getContext('2d')!;
+    page.setTransform(dpr, 0, 0, dpr, pad * dpr, pad * dpr);
+    page.clearRect(-pad, -pad, w + pad * 2, h + pad * 2);
+    drawVellum(page, 0, 0, w, h, radius);
+    const inset = band * 0.3;
+    drawKnotworkBorder(page, inset, inset, w - inset * 2, h - inset * 2, band);
+    const knotR = band * 0.95;
+    const k0 = inset + band / 2, kx1 = w - inset - band / 2, ky1 = h - inset - band / 2;
+    drawTriskele(page, k0, k0, knotR, 0);
+    drawTriskele(page, kx1, k0, knotR, Math.PI / 2);
+    drawTriskele(page, kx1, ky1, knotR, Math.PI);
+    drawTriskele(page, k0, ky1, knotR, Math.PI * 1.5);
+    pageCache = { key, canvas, pad };
+  }
+  const { canvas, pad } = pageCache;
+  ctx.drawImage(canvas, x - pad, y - pad, w + pad * 2, h + pad * 2);
+};

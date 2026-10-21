@@ -51,6 +51,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const boardLayoutRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const animStatesRef = useRef<Map<string, SpellAnimTracker>>(new Map());
   const drawingParticlesRef = useRef<DustParticle[]>([]);
+  // The damage and healing numbers, in screen space: not tied to their spell (which may fly off the board or be removed)
+  const floatingNumbersRef = useRef<any[]>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
 
   // Performance-optimized reference tracking for NPC stroke progress mapping
@@ -231,10 +233,10 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
               spawnGyreHitParticles(anim.particles, tLocalX, tLocalY, isOpponentHit ? 'right' : 'left', cellWidthPx);
             }
 
-            // Render floating text metrics instantly
-            anim.particles.push({
-              x: tLocalX + (Math.random() * 60 - 30),
-              y: tLocalY - 20,
+            // The damage or healing number, over the player's body (kept on screen as it floats; see below)
+            floatingNumbersRef.current.push({
+              x: tGlobalX + (Math.random() * 60 - 30),
+              y: tGlobalY - 20,
               vx: (Math.random() * 20 - 10),
               vy: -130 - Math.random() * 30,
               alpha: 1.0,
@@ -296,6 +298,16 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           }
           if (anim.particles.length > 0) { ctx.save(); ctx.translate(anim.visualX, anim.visualY); updateAndDrawParticles(ctx, anim.particles, deltaTime); ctx.restore(); }
         });
+        // The damage and healing numbers, on top, held inside the screen's edges
+        const floatingNumbers = floatingNumbersRef.current;
+        if (floatingNumbers.length > 0) {
+          floatingNumbers.forEach(p => {
+            const marginX = p.size * 0.9, marginY = p.size * 0.6;
+            p.x = Math.min(viewW - marginX, Math.max(marginX, p.x));
+            p.y = Math.min(viewH - marginY, Math.max(marginY, p.y));
+          });
+          updateAndDrawParticles(ctx, floatingNumbers, deltaTime);
+        }
         // LIVE MOUSE HOVER SPELL PREVIEW PIPELINE
         if (readiedSpell && scrollUIRef.current.currentMousePos.x > -500) {
           const mX = scrollUIRef.current.currentMousePos.x;

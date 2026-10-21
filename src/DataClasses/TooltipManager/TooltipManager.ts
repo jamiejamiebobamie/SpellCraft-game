@@ -36,7 +36,7 @@ const ANCHORS = {
     castingArea: { x: 33.9, y: 41.2, caret: 'up', caretOffset: 12 }, // below your 3 columns of the board
     healthBar: { x: 22, y: 51.4, caret: 'down', caretOffset: 3 }, // your health bar (the card above its right end)
     spellBook: { x: 11, y: 6.2, caret: 'left', caretOffset: 3 }, // the Spell Book icon (the card to its right)
-    opponentFocusDots: { x: 96.8, y: 47.9, caret: 'down', caretOffset: 22.2 }, // the opponent's focus dots (the card above them)
+    opponent: { x: 90.4, y: 37, caret: 'up', caretOffset: 18 }, // the opponent's robe, below the belt (the card below, clear of the focus dots)
 } satisfies Record<string, TipAnchor>;
 
 /** The light tips: short, pointing at what they're about. */
@@ -78,7 +78,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     collisions: {
         title: "When Spells Collide",
-        text: "The stronger spell consumes the weaker; equals destroy each other. Water Wheels and drafts bend the rules: see your Spell Book.",
+        text: "The stronger spell consumes the weaker; equal spells destroy each other. Water Wheels and drafts bend the rules: see your Spell Book.",
         anchor: ANCHORS.board,
     },
     nightPassing: {
@@ -89,8 +89,8 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     // A reminder (Game): shown when the opponent has waited a while for you to cast first
     waitingForYou: {
         title: "Your Move First",
-        text: "Your opponent is waiting for you to cast first. Draw a spell and they'll answer, or end your turn.",
-        anchor: ANCHORS.opponentFocusDots,
+        text: "Your opponent is waiting for you to cast first. Draw a spell.",
+        anchor: ANCHORS.opponent,
     },
 };
 

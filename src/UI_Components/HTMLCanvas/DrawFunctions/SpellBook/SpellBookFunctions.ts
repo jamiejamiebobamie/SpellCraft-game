@@ -7,7 +7,16 @@ import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
-import { KELLS, drawDotContour, drawIlluminatedCapital, drawKnotworkBorder, drawTriskele, drawVellum } from './kellsOrnaments';
+import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote } from './kellsOrnaments';
+
+/** Notes scribbled in each page's margin (below the preview) by some earlier owner of the book. */
+const MARGIN_NOTES: Record<string, string> = {
+    Ether: 'hurts a lot!',
+    Quicken: 'fast!!',
+    Phlegm: 'patches you up',
+    GyreUp: 'gives breathing room',
+    GyreDown: 'gives breathing room',
+};
 
 const displayNameLookup = new Map<string, string>([
     ['GyreDown', 'Downdraft'],
@@ -497,18 +506,8 @@ export const drawModalDetails = (
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.fillRect(0, 0, viewW, viewH);
     // The page (Book of Kells): mottled vellum in a band of interlaced knotwork, triskeles at the corners
-    const cardRadius = viewW * 0.006;
-    drawVellum(ctx, infoX, infoY, infoW, infoH, cardRadius);
-    const band = viewW * 0.02;
-    const bPadding = viewW * 0.006;
-    drawKnotworkBorder(ctx, infoX + bPadding, infoY + bPadding, infoW - bPadding * 2, infoH - bPadding * 2, band);
-    const knotR = band * 0.95;
-    const kx0 = infoX + bPadding + band / 2, kx1 = infoX + infoW - bPadding - band / 2;
-    const ky0 = infoY + bPadding + band / 2, ky1 = infoY + infoH - bPadding - band / 2;
-    drawTriskele(ctx, kx0, ky0, knotR, 0);
-    drawTriskele(ctx, kx1, ky0, knotR, Math.PI / 2);
-    drawTriskele(ctx, kx1, ky1, knotR, Math.PI);
-    drawTriskele(ctx, kx0, ky1, knotR, Math.PI * 1.5);
+    // (drawn once per size, then reused: see drawKellsPage)
+    drawKellsPage(ctx, infoX, infoY, infoW, infoH, viewW * 0.02, viewW * 0.006);
     const firstLetter = displayTitle.charAt(0);
     const restOfTitle = displayTitle.slice(1);
     const padLeft = infoW * 0.07;
@@ -658,5 +657,8 @@ export const drawModalDetails = (
             activeFadeAlpha
         );
     }
+    // A note in the margin, below the preview
+    const marginNote = MARGIN_NOTES[currentTargetKey];
+    if (marginNote) drawMarginNote(ctx, marginNote, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, -0.05);
     ctx.restore();
 }  
