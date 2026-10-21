@@ -94,18 +94,18 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
  * `rim`: how much the outlines catch the light all the time.
  */
 const ETCHING = {
-  fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffffff',
+  fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
   rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 3.5, fontSize: 57, y: 63,
-  orbit: { rest: 1.6, peak: 2.6, shadowRest: 1.4 },
+  // the orbit: its reach at rest and at its brightest, its brightest opacity, and its timing (one swing, then a rest)
+  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, swingSeconds: 2.6, restSeconds: 8 },
 };
 
 /**
- * The 'orbit' glint's keyframes, timed like the sweeping glint (moving for the first 55% of each
- * cycle, then resting): the light's offset around the circle (starting and ending straight below,
+ * The 'orbit' glint's keyframes (swinging for orbit.swingSeconds, then resting for orbit.restSeconds): the light's offset around the circle (starting and ending straight below,
  * reaching further out mid-swing), the shadow's (opposite it), and the light's color and opacity.
  */
 const ORBIT_KEYFRAMES = (() => {
-  const steps = 16, moving = 0.55;
+  const steps = 16, moving = ETCHING.orbit.swingSeconds / (ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds);
   const { rest, peak, shadowRest } = ETCHING.orbit;
   const frames = Array.from({ length: steps + 1 }, (_, k) => {
     const u = k / steps; // 0..1 through the swing
@@ -117,7 +117,7 @@ const ORBIT_KEYFRAMES = (() => {
       time: u * moving,
       light: `${(Math.cos(angle) * reach).toFixed(2)} ${(Math.sin(angle) * reach).toFixed(2)}`,
       shadow: `${(-Math.cos(angle) * shadowReach).toFixed(2)} ${(-Math.sin(angle) * shadowReach).toFixed(2)}`,
-      opacity: (ETCHING.litOpacity + (1 - ETCHING.litOpacity) * swell).toFixed(2),
+      opacity: (ETCHING.litOpacity + (ETCHING.orbit.peakOpacity - ETCHING.litOpacity) * swell).toFixed(2),
       flare: swell,
     };
   });
@@ -274,14 +274,14 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
                 {/* the light, swinging around the letters and brightening, then resting below */}
                 <text x={193} y={ETCHING.y} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} transform={`translate(0 ${ETCHING.orbit.rest})`}>
                   {label}
-                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.light} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="fill-opacity" values={ORBIT_KEYFRAMES.opacity} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="fill" values={ORBIT_KEYFRAMES.color} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.light} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                  <animate attributeName="fill-opacity" values={ORBIT_KEYFRAMES.opacity} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                  <animate attributeName="fill" values={ORBIT_KEYFRAMES.color} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
                 </text>
                 {/* the shadow, opposite the light */}
                 <text x={193} y={ETCHING.y} fill={ETCHING.shadow} transform={`translate(0 ${-ETCHING.orbit.shadowRest})`}>
                   {label}
-                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.shadow} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.shadow} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
                 </text>
               </>
             ) : (
