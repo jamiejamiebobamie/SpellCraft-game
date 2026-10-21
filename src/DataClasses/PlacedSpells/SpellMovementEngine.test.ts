@@ -571,7 +571,7 @@ describe('11. bonuses', () => {
     expect(ether.getPropertyValue('speedDirection')).toBe(1); // its speed is unchanged
   });
 
-  it("'instant': a sized Quicken gives as many moves as it is wide, and has no extra speed itself; a Quicken eating one gets none", () => {
+  it("'instant': a sized Quicken gives as many moves as it is wide, and has no extra speed itself; a Quicken eating one gets them only if isBonusForQuickens", () => {
     QUICKEN_RULES.speedMode = 'instant';
     const wide = place(Quicken, npc, 0, 3, 2); // 2 wide
     expect(wide.getPropertyValue('speedDirection')).toBe(-2); // just its width
@@ -580,10 +580,16 @@ describe('11. bonuses', () => {
     const before = ether.remainingMoves;
     target.conferModifierTo(ether);
     expect(ether.remainingMoves - before).toBe(2);
+    QUICKEN_RULES.isBonusForQuickens = false;
     const quickenEater = place(Quicken, player, 1, 0);
     const movesBefore = quickenEater.remainingMoves;
     new Quicken(npc).conferModifierTo(quickenEater);
-    expect(quickenEater.remainingMoves).toBe(movesBefore); // a Quicken gains no moves from another
+    expect(quickenEater.remainingMoves).toBe(movesBefore); // none
+    QUICKEN_RULES.isBonusForQuickens = true;
+    const chainer = place(Quicken, player, 2, 0);
+    const chainBefore = chainer.remainingMoves;
+    new Quicken(npc).conferModifierTo(chainer);
+    expect(chainer.remainingMoves).toBe(chainBefore + 1); // a chain: +1 for a 1x1
   });
 
   it("'none': a spell that eats a Quicken gets no extra move", () => {

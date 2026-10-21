@@ -32,7 +32,7 @@ Every spell beats some situations and loses to others, so there's no single best
 | Spell | Name in code | Symbol | Cost per cell | What it does |
 |---|---|---|---|---|
 | **Fireball** | `Ether` | circle | 1 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
-| **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells; a single cell of it travels fast (+1 speed). Whatever destroys it gets a move right away for each cell of its width (that turn only, not lasting speed; a Chain Lightning gets none from another). |
+| **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells; a single cell of it travels fast (+1 speed). Whatever destroys it gets a move right away for each cell of its width (that turn only, not lasting speed; another Chain Lightning too, so they can chain). |
 | **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
 | **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
 

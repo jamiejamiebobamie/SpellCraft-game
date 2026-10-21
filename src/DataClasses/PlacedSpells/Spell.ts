@@ -595,8 +595,9 @@ export class Quicken extends Spell {
     if (QUICKEN_RULES.speedMode === 'none') {
       // (no bonus)
     } else if (QUICKEN_RULES.speedMode === 'instant') {
-      // extra moves right away, this turn only, as many as this Quicken is wide (not for a Quicken)
-      if (!(consumer instanceof Quicken)) consumer.remainingMoves += this.widthCells;
+      // extra moves right away, this turn only, as many as this Quicken is wide (for a Quicken too, if
+      // QUICKEN_RULES.isBonusForQuickens)
+      if (QUICKEN_RULES.isBonusForQuickens || !(consumer instanceof Quicken)) consumer.remainingMoves += this.widthCells;
     } else if (QUICKEN_RULES.bonusMode === 'perConsumption') {
       consumer.remainingMoves += QUICKEN_RULES.bonusMovesPerConsumption;
     } else if (!isAlreadyElectrified) {
