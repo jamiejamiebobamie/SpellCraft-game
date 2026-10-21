@@ -101,6 +101,8 @@ const ETCHING = {
 };
 
 /**
+ * (The light and shadow fall inside the letters, as in a real cut: the light on the walls facing it,
+ * the shadow on the walls facing away.)
  * The 'orbit' glint's keyframes (swinging for orbit.swingSeconds, then resting for orbit.restSeconds): the light's offset around the circle (starting and ending straight below,
  * reaching further out mid-swing), the shadow's (opposite it), and the light's color and opacity.
  */
@@ -123,6 +125,7 @@ const ORBIT_KEYFRAMES = (() => {
   });
   const last = frames[frames.length - 1];
   const all = [...frames, { ...last, time: 1 }];
+  const negate = (offset: string) => offset.split(' ').map(v => (-Number(v)).toFixed(2)).join(' ');
   const mix = (t: number) => { // the light's color, toward litFlare by t
     const from = ETCHING.lit.match(/[0-9a-f]{2}/gi)!.map(h => parseInt(h, 16)), to = ETCHING.litFlare.match(/[0-9a-f]{2}/gi)!.map(h => parseInt(h, 16));
     return '#' + from.map((c, k) => Math.round(c + (to[k] - c) * t).toString(16).padStart(2, '0')).join('');
@@ -131,6 +134,9 @@ const ORBIT_KEYFRAMES = (() => {
     keyTimes: all.map(f => f.time.toFixed(3)).join('; '),
     light: all.map(f => f.light).join('; '),
     shadow: all.map(f => f.shadow).join('; '),
+    // inside the letters: each band is the letter minus a copy of it shifted away from that band's side
+    lightCut: all.map(f => negate(f.light)).join('; '),
+    shadowCut: all.map(f => negate(f.shadow)).join('; '),
     opacity: all.map(f => f.opacity).join('; '),
     color: all.map(f => mix(f.flare)).join('; '),
   };
@@ -213,6 +219,19 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
             <stop offset="1" stopColor={l.panel[2]} />
           </radialGradient>
           <clipPath id={`${id}-clip`}><polygon points={PANEL} /></clipPath>
+          {l.text === 'etched' && ETCHING.glint === 'orbit' && (['light', 'shadow'] as const).map(band => (
+            <mask key={band} id={`${id}-${band}-band`} maskUnits="userSpaceOnUse" x={0} y={0} width={386} height={100}>
+              <g fontFamily="'EnchantedLand', sans-serif" fontSize={ETCHING.fontSize} textAnchor="middle">
+                <text x={193} y={ETCHING.y} fill="#fff">{label}</text>
+                <text x={193} y={ETCHING.y} fill="#000"
+                  transform={band === 'light' ? `translate(0 ${-ETCHING.orbit.rest})` : `translate(0 ${ETCHING.orbit.shadowRest})`}>
+                  {label}
+                  <animateTransform attributeName="transform" type="translate" values={band === 'light' ? ORBIT_KEYFRAMES.lightCut : ORBIT_KEYFRAMES.shadowCut}
+                    keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                </text>
+              </g>
+            </mask>
+          ))}
           {l.text === 'etched' && (
             <linearGradient id={`${id}-lit`} gradientUnits="userSpaceOnUse" x1="120" y1="20" x2="170" y2="80">
               <stop offset="0" stopColor={ETCHING.lit} stopOpacity={ETCHING.litOpacity} />
@@ -269,28 +288,24 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
         {/* The etched lettering, with its edges catching the light (inside the panel, so it sinks with it) */}
         {l.text === 'etched' && (
           <g className="inner" fontFamily="'EnchantedLand', sans-serif" fontSize={ETCHING.fontSize} textAnchor="middle">
-            {ETCHING.glint === 'orbit' ? (
-              <>
-                {/* the light, swinging around the letters and brightening, then resting below */}
-                <text x={193} y={ETCHING.y} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} transform={`translate(0 ${ETCHING.orbit.rest})`}>
-                  {label}
-                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.light} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="fill-opacity" values={ORBIT_KEYFRAMES.opacity} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="fill" values={ORBIT_KEYFRAMES.color} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
-                </text>
-                {/* the shadow, opposite the light */}
-                <text x={193} y={ETCHING.y} fill={ETCHING.shadow} transform={`translate(0 ${-ETCHING.orbit.shadowRest})`}>
-                  {label}
-                  <animateTransform attributeName="transform" type="translate" values={ORBIT_KEYFRAMES.shadow} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
-                </text>
-              </>
-            ) : (
+            {ETCHING.glint === 'orbit' ? null : (
               <>
                 <text x={193} y={ETCHING.y + 1.6} fill={ETCHING.glint === 'lit' ? `url(#${id}-lit)` : ETCHING.lit} fillOpacity={ETCHING.glint === 'lit' ? 1 : ETCHING.litOpacity}>{label}</text>
                 <text x={193} y={ETCHING.y - 1.4} fill={ETCHING.shadow}>{label}</text>
               </>
             )}
             <text x={193} y={ETCHING.y} fill={ETCHING.fill}>{label}</text>
+            {ETCHING.glint === 'orbit' && (
+              <>
+                {/* the light inside the cut, swinging around and brightening, then resting on the lower walls */}
+                <rect x={0} y={0} width={386} height={100} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} mask={`url(#${id}-light-band)`}>
+                  <animate attributeName="fill-opacity" values={ORBIT_KEYFRAMES.opacity} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                  <animate attributeName="fill" values={ORBIT_KEYFRAMES.color} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                </rect>
+                {/* the shadow inside the cut, opposite the light */}
+                <rect x={0} y={0} width={386} height={100} fill={ETCHING.shadow} mask={`url(#${id}-shadow-band)`} />
+              </>
+            )}
             <text x={193} y={ETCHING.y} fill="none" stroke="#ffc2c8" strokeOpacity={ETCHING.rim} strokeWidth={0.9}>{label}</text>
             {ETCHING.glint === 'stroke' && <text x={193} y={ETCHING.y} fill="none" stroke={`url(#${id}-glint)`} strokeWidth={2.2}>{label}</text>}
           </g>
