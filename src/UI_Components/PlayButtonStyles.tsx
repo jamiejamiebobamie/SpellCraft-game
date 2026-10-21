@@ -97,7 +97,9 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
   rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 3.5, fontSize: 57, y: 63,
-  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, letterSwingSeconds: 0.7 },
+  // steady: as the light swings, each letter's dark core would seem to slide away from it (and the
+  // letter with it), so the letter shifts toward the light by this much of the light's move (0: off)
+  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, letterSwingSeconds: 0.7, steady: 0.5 },
   sweepToo: true, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
 };
 
@@ -128,6 +130,8 @@ const getOrbitKeyframes = (start: number, length: number) => {
     return {
       time: start + u * length,
       lightCut: `${(-Math.cos(angle) * reach).toFixed(2)} ${(-Math.sin(angle) * reach).toFixed(2)}`,
+      // the counter-shift keeping the letter's dark core in place: toward the light, from where it rests
+      steady: `${(ETCHING.orbit.steady * Math.cos(angle) * reach).toFixed(2)} ${(ETCHING.orbit.steady * (Math.sin(angle) * reach - rest)).toFixed(2)}`,
       shadowCut: `${(Math.cos(angle) * shadowReach).toFixed(2)} ${(Math.sin(angle) * shadowReach).toFixed(2)}`,
       opacity: (ETCHING.litOpacity + (ETCHING.orbit.peakOpacity - ETCHING.litOpacity) * swell).toFixed(2),
       flare: swell,
@@ -148,6 +152,7 @@ const getOrbitKeyframes = (start: number, length: number) => {
   return {
     keyTimes: all.map(f => f.time.toFixed(4)).join('; '),
     lightCut: all.map(f => f.lightCut).join('; '),
+    steady: all.map(f => f.steady).join('; '),
     shadowCut: all.map(f => f.shadowCut).join('; '),
     opacity: all.map(f => f.opacity).join('; '),
     color: all.map(f => mix(f.flare)).join('; '),
@@ -327,13 +332,16 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
                 <text x={193} y={ETCHING.y - 1.4} fill={ETCHING.shadow}>{label}</text>
               </>
             )}
-            <text x={193} y={ETCHING.y} fill={ETCHING.fill}>{label}</text>
+            {!(isOrbit && letters) && <text x={193} y={ETCHING.y} fill={ETCHING.fill}>{label}</text>}
             {/* (for measuring where each letter is) */}
             {isOrbit && <text ref={measureRef} x={193} y={ETCHING.y} opacity={0}>{label}</text>}
             {/* in each letter's cut: the light, swinging around and brightening as the sweep passes, then
                 resting on the lower walls; and the shadow, opposite it */}
             {isOrbit && letters?.map((letter, k) => (
               <g key={k}>
+                {/* held steady: shifted toward the light so the dark core stays put (the masks move with it) */}
+                <animateTransform attributeName="transform" type="translate" values={letter.orbit.steady} keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
+                <text x={letter.x} y={ETCHING.y} textAnchor="start" fill={ETCHING.fill}>{letter.char}</text>
                 <rect x={0} y={0} width={386} height={100} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} mask={`url(#${id}-light-band-${k})`}>
                   <animate attributeName="fill-opacity" values={letter.orbit.opacity} keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
                   <animate attributeName="fill" values={letter.orbit.color} keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
