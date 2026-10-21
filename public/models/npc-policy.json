@@ -1,38 +1,38 @@
 {
-  "model": "quickcast-20261018-0612-c496511.zip",
-  "rulesCommit": "9ce3069",
-  "observationSize": 341,
+  "model": "quickcast-20261021-0223-d2f67e6.zip",
+  "rulesCommit": "0cb886f",
+  "observationSize": 342,
   "numActions": 181,
   "evaluation": {
-    "win": 198,
-    "loss": 2,
+    "win": 200,
+    "loss": 0,
     "draw": 0,
-    "winRate": 0.99,
-    "meanReward": 1.8782999999999999,
+    "winRate": 1.0,
+    "meanReward": 1.7291999999999996,
     "combosPerGame": {
       "agent": {
-        "reflectedEnemySpells": 1.53,
-        "selfHeals": 8.085,
-        "reflectedOwnSpells": 2.16,
-        "reflectedByEnemy": 8.6,
-        "liftsByOwnGyres": 0.025,
-        "ownSpellsLiftedByEnemyGyres": 1.9,
-        "ownSpellsLiftedSafely": 0.99,
-        "enemySpellsLiftedOffBoard": 0.02,
-        "buffsFromEnemySpells": 1.44,
-        "buffsFromOwnSpells": 5.355
+        "reflectedEnemySpells": 1.23,
+        "selfHeals": 0.46,
+        "reflectedOwnSpells": 0.085,
+        "reflectedByEnemy": 0.7,
+        "liftsByOwnGyres": 0.18,
+        "ownSpellsLiftedByEnemyGyres": 1.2,
+        "ownSpellsLiftedSafely": 0.825,
+        "enemySpellsLiftedOffBoard": 0.09,
+        "buffsFromEnemySpells": 4.165,
+        "buffsFromOwnSpells": 0.445
       },
       "opponent": {
-        "reflectedEnemySpells": 8.6,
-        "selfHeals": 0.015,
-        "reflectedOwnSpells": 0.105,
-        "reflectedByEnemy": 1.53,
-        "liftsByOwnGyres": 2.035,
-        "ownSpellsLiftedByEnemyGyres": 0.02,
-        "ownSpellsLiftedSafely": 0.08,
-        "enemySpellsLiftedOffBoard": 0.76,
-        "buffsFromEnemySpells": 0.325,
-        "buffsFromOwnSpells": 0.07
+        "reflectedEnemySpells": 0.7,
+        "selfHeals": 0.025,
+        "reflectedOwnSpells": 0.23,
+        "reflectedByEnemy": 1.23,
+        "liftsByOwnGyres": 1.635,
+        "ownSpellsLiftedByEnemyGyres": 0.14,
+        "ownSpellsLiftedSafely": 0.185,
+        "enemySpellsLiftedOffBoard": 0.345,
+        "buffsFromEnemySpells": 0.375,
+        "buffsFromOwnSpells": 0.185
       }
     }
   }

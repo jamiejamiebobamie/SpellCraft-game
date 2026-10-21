@@ -289,14 +289,17 @@ export class NPCPlayer extends Player {
     };
 
     doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void => {
-        if (!this.getFocus() || this.getIsDead()) {
+        // (every way out of a move that casts nothing ends the NPC's turn, so the turn can always end)
+        const endTurnWithoutCasting = () => {
             this.clearNumRemaningMovesPerTurn();
-            return;
-        }
+            this.setIsDoneWithTurn(true);
+            forceUpdate();
+        };
+        if (!this.getFocus() || this.getIsDead()) return endTurnWithoutCasting();
 
         let npcMoveData = plannedMove ? this.getPlannedMoveData(plannedMove) : this.getRandomMoveForTesting();
         let rawPoints = this.getDrawingPoints(npcMoveData, gameBoard);
-        if (!rawPoints) return;
+        if (!rawPoints) return endTurnWithoutCasting(); // (the board isn't laid out yet)
 
         // A random drawing: its cells, worked out before drawing it. If blood magic would kill the NPC,
         // the cast shrinks to one cell (and is drawn there, at its real size), or is skipped.
