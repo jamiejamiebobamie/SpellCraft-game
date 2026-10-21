@@ -45,6 +45,17 @@ interface NpcDrawTracker {
   id: string;
 }
 
+/** A spell striking a wizard: how long its flight off the board takes (seconds). */
+const STRIKE = { seconds: 0.32 };
+
+type Strike = {
+  spell: any; spellClass: string; w: number; h: number; dir: number; side: 'left' | 'right';
+  fromX: number; fromY: number; toX: number; toY: number; // its top left, from and to
+  targetX: number; targetY: number; amount: number; boardHeight: number; cellWidthPx: number;
+  progress: number; hasArrived: boolean; particles: Array<any>;
+  anim: any; // the spell's animation state on the board
+};
+
 const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const snap = useSnapshot(rootGameStore);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -53,6 +64,9 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const drawingParticlesRef = useRef<DustParticle[]>([]);
   // The damage and healing numbers, in screen space: not tied to their spell (which may fly off the board or be removed)
   const floatingNumbersRef = useRef<any[]>([]);
+  // Spells striking a wizard: flying off the board into them, their hit effects on arrival (STRIKE).
+  // Kept apart from the board's spells, so a flight finishes even once the spell is gone from the board
+  const strikesRef = useRef<Array<Strike>>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
 
   // Performance-optimized reference tracking for NPC stroke progress mapping
@@ -220,33 +234,22 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             const tLocalX = tGlobalX - anim.visualX;
             const tLocalY = tGlobalY - anim.visualY;
 
-            // Execute corresponding blast triggers instantly 
             if (isBloodMagic) {
+              // Blood magic: the caster pays at once (nothing travels)
               spawnBloodMagicHitParticles(anim.particles, tLocalX, tLocalY, spell.hitDamageAmount);
-            } else if (spellClass === 'Quicken') {
-              spawnQuickenHitParticles(anim.particles, tLocalX, tLocalY, boardHeight);
-            } else if (spellClass === 'Ether') {
-              spawnEtherHitParticles(anim.particles, tLocalX, tLocalY);
-            } else if (spellClass === 'Phlegm') {
-              spawnPhlegmHitParticles(anim.particles, tLocalX, tLocalY);
-            } else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') {
-              spawnGyreHitParticles(anim.particles, tLocalX, tLocalY, isOpponentHit ? 'right' : 'left', cellWidthPx);
+              pushFloatingNumber(tGlobalX, tGlobalY, spell.hitDamageAmount);
+            } else {
+              // A spell reaching a wizard: it flies on off the board and strikes them, its hit effects
+              // (and the damage or healing) on arrival
+              strikesRef.current.push({
+                spell, spellClass, w, h, dir, side: isOpponentHit ? 'right' : 'left',
+                fromX: (anim as any).visualX, fromY: (anim as any).visualY, toX: tGlobalX - w / 2, toY: tGlobalY - h / 2,
+                targetX: tGlobalX, targetY: tGlobalY, amount: spell.hitDamageAmount, boardHeight, cellWidthPx,
+                progress: 0, hasArrived: false, particles: [], anim,
+              });
+              (anim as any).isStriking = true;
+              anim.hasSpawnedParticles = true; // (its burst is its hit, on arrival)
             }
-
-            // The damage or healing number, over the player's body (kept on screen as it floats; see below)
-            floatingNumbersRef.current.push({
-              x: tGlobalX + (Math.random() * 60 - 30),
-              y: tGlobalY - 20,
-              vx: (Math.random() * 20 - 10),
-              vy: -130 - Math.random() * 30,
-              alpha: 1.0,
-              size: 46,
-              color: spell.hitDamageAmount < 0 ? '#3bed8e' : '#ee3737',
-              text: spell.hitDamageAmount < 0 ? `+${Math.abs(spell.hitDamageAmount)}` : `-${spell.hitDamageAmount}`,
-              life: 1.0,
-              decay: 0.75,
-              type: 'floatingText'
-            } as any);
           }
 
           // --- LAYER B: INDEPENDENT AMBIENT / REMOVAL TRACKER ---
@@ -262,7 +265,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             }
           }
 
-          if (isDisplay) {
+          if (isDisplay && !(anim as any).isStriking) {
             if (spellClass === 'Ether' && anim) {
               const cx = w / 2 + (w / 10) * dir; const cy = h / 2; const radius = Math.min(w, h) * 0.3;
               if (Math.random() < Math.min(0.95, 0.4 * totalCells)) {
@@ -298,6 +301,29 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           }
           if (anim.particles.length > 0) { ctx.save(); ctx.translate(anim.visualX, anim.visualY); updateAndDrawParticles(ctx, anim.particles, deltaTime); ctx.restore(); }
         });
+        // The strikes: each spell flying off the board into its wizard, gathering speed, then its hit
+        strikesRef.current.forEach(strike => {
+          if (!strike.hasArrived) {
+            strike.progress = Math.min(1, strike.progress + deltaTime / STRIKE.seconds);
+            const t = strike.progress * strike.progress; // (gathering speed)
+            const x = strike.fromX + (strike.toX - strike.fromX) * t, y = strike.fromY + (strike.toY - strike.fromY) * t;
+            ctx.save(); ctx.translate(x + strike.w / 2, y + strike.h / 2); applySpellFacing(ctx, undefined, strike.dir); ctx.translate(-strike.w / 2, -strike.h / 2);
+            drawProceduralSpell(ctx, strike.spell, cellWidthPx, cellHeightPx, currentTime, 1); ctx.restore();
+            if (strike.progress >= 1) {
+              strike.hasArrived = true;
+              strike.anim.isStriking = false; // (if the spell is still on the board, it shows again)
+              const { particles, targetX, targetY } = strike;
+              if (strike.spellClass === 'Quicken') spawnQuickenHitParticles(particles, targetX, targetY, strike.boardHeight);
+              else if (strike.spellClass === 'Ether') spawnEtherHitParticles(particles, targetX, targetY);
+              else if (strike.spellClass === 'Phlegm') spawnPhlegmHitParticles(particles, targetX, targetY);
+              else if (strike.spellClass === 'GyreUp' || strike.spellClass === 'GyreDown') spawnGyreHitParticles(particles, targetX, targetY, strike.side, strike.cellWidthPx);
+              pushFloatingNumber(targetX, targetY, strike.amount);
+            }
+          }
+          if (strike.particles.length > 0) updateAndDrawParticles(ctx, strike.particles, deltaTime);
+        });
+        strikesRef.current = strikesRef.current.filter(strike => !strike.hasArrived || strike.particles.length > 0);
+
         // The damage and healing numbers, on top, held inside the screen's edges
         const floatingNumbers = floatingNumbersRef.current;
         if (floatingNumbers.length > 0) {
@@ -464,6 +490,15 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   }
 
   /** Where a spell is drawn. A block swirling inside a Phlegm it fits in is drawn at the Phlegm's exact center. */
+  /** A damage (red) or healing (green) number floating up over a wizard. */
+  function pushFloatingNumber(x: number, y: number, amount: number) {
+    floatingNumbersRef.current.push({
+      x: x + (Math.random() * 60 - 30), y: y - 20, vx: (Math.random() * 20 - 10), vy: -130 - Math.random() * 30,
+      alpha: 1.0, size: 46, color: amount < 0 ? '#3bed8e' : '#ee3737', text: amount < 0 ? `+${Math.abs(amount)}` : `-${amount}`,
+      life: 1.0, decay: 0.75, type: 'floatingText',
+    });
+  }
+
   function calculateSpellTargetCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
     const phlegm = spell.consumedSpellRef;
     const isSwirlingInPhlegm = spell.phlegmDwellStepsRemaining > 0 && !spell.phlegmEntryStepsRemaining && phlegm?.constructor?.spellName === 'Phlegm';
