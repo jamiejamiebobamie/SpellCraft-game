@@ -4,12 +4,12 @@ import { GameParticle } from "../../../../DataClasses/types";
 /**
  * Chain Lightning's effects as it appears and breaks, kept light (canvas glow, shadowBlur, is costly:
  * drawn on hundreds of sparks, or the cast flash's every segment, it made the game stutter when many
- * Quickens appeared or broke at once). The cast flash's glow is one soft, wide stroke instead
- * (glowWidth, glowAlpha); a live bolt keeps its own glow.
+ * Quickens appeared or broke at once). The cast flash's glow is drawn once, on the whole bolt as one
+ * thin line (flashGlowBlur, flashGlowWidth: of the bolt's width, flashGlowAlpha); a live bolt keeps its own glow.
  *   burstSparks: sparks when one is destroyed; burstBudget: at most this many sparks from all bursts
  *   together each burstBudgetSeconds (many breaking at once share it)
  */
-export const QUICKEN_FX = { burstSparks: 28, burstBudget: 90, burstBudgetSeconds: 0.25, glowWidth: 2.6, glowAlpha: 0.22 };
+export const QUICKEN_FX = { burstSparks: 28, burstBudget: 90, burstBudgetSeconds: 0.25, flashGlowBlur: 30, flashGlowWidth: 0.35, flashGlowAlpha: 0.9 };
 
 // The sparks spent from the shared burst budget, this window
 let burstWindow = { start: 0, spent: 0 };
@@ -75,7 +75,7 @@ function drawLightningBranch(
     thickness: number,
     offset: number,
     inheritedAlpha: number, // Accepted parent container loop transparency
-    isSoftGlow: boolean = false // a soft wide stroke under it as its glow (cheaper than shadowBlur: the cast flash)
+    isSoftGlow: boolean = false // its glow drawn once, on the whole bolt (not on every segment: the cast flash)
 ) {
     const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
 
@@ -98,11 +98,18 @@ function drawLightningBranch(
 
     // The soft glow: the whole branch once, wide and faint (in place of a shadow on every segment)
     if (isSoftGlow) {
-    ctx.beginPath();
-    points.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-    ctx.globalAlpha = inheritedAlpha * QUICKEN_FX.glowAlpha;
-    ctx.lineWidth = Math.max(1, thickness * QUICKEN_FX.glowWidth);
-    ctx.stroke();
+        // The glow once, on the whole bolt as one thin line (a single shadow, not one per segment),
+        // then the tapered segments on top without it
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = QUICKEN_FX.flashGlowBlur;
+        ctx.beginPath();
+        points.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.globalAlpha = inheritedAlpha * QUICKEN_FX.flashGlowAlpha;
+        ctx.lineWidth = Math.max(1, thickness * QUICKEN_FX.flashGlowWidth);
+        ctx.stroke();
+        ctx.restore();
+        ctx.shadowBlur = 0;
     }
 
     // DRAW SEGMENT-BY-SEGMENT WITH CLAMPED EDGE PINCHING
