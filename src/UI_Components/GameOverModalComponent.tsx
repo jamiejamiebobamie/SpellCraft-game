@@ -30,35 +30,35 @@ interface ModalTextConfig {
   title: string;
   text: string;
   fontSize: number;
+  isPlayAgainOwnLine?: boolean; // "Play again?" on its own line, below (for a long ending)
 }
 
 // Assuming your 4th state "Caught by Teacher" maps to a status key or string fallback
-// (fontSize, cqw: each line on one line)
+// (fontSize, cqw: each ending's line, with "Play again?" after it, on one line)
 const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   [GameOverStatus.BothDead]: {
     title: 'A Draw',
     text: "The match ends in a draw!",
-    fontSize: 2.8
+    fontSize: 3.6
   },
   [GameOverStatus.PlayerWon]: {
     title: 'You Won',
     text: 'You won ...this night.',
-    fontSize: 2.8
+    fontSize: 3.6
   },
   [GameOverStatus.NpcWon]: {
     title: 'You Lost',
     text: 'You lost...',
-    fontSize: 2.8
+    fontSize: 3.6
   },
   [GameOverStatus.TimesUp]: {
     title: 'Caught!',
     text: 'You have been caught out of bed after curfew and will surely be expelled.',
-    fontSize: 2.4
+    fontSize: 3.2,
+    isPlayAgainOwnLine: true,
   },
 };
 
-/** "Play again?", under each ending's line (cqw). */
-const PLAY_AGAIN_FONT_SIZE = 2.6;
 
 /**
  * Reviewing the endings: open the game with ?gameOverPreview in the address to show this modal with a
@@ -67,7 +67,7 @@ const PLAY_AGAIN_FONT_SIZE = 2.6;
 const PREVIEW_ORDER = [GameOverStatus.PlayerWon, GameOverStatus.NpcWon, GameOverStatus.BothDead, GameOverStatus.TimesUp];
 const getIsPreview = (): boolean => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gameOverPreview');
 
-const MIN_OPACITY = 0, MAX_OPACITY = .65, TRANSITION_TIME_SEC = 1.5;
+const MIN_OPACITY = 0, MAX_OPACITY = .85, TRANSITION_TIME_SEC = 1.5;
 
 // --- Styled Component Architectures ---
 
@@ -289,8 +289,14 @@ export const GameOverModalComponent: React.FC = () => {
       <ModalCardContent>
         <ModalTitle>{contentConfig.title}</ModalTitle>
         <ModalSubTextContainer>
-          <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
-          <ModalSubText $fontSize={PLAY_AGAIN_FONT_SIZE}>Play again?</ModalSubText>
+          {contentConfig.isPlayAgainOwnLine ? (
+            <>
+              <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
+              <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
+            </>
+          ) : (
+            <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text} Play again?</ModalSubText>
+          )}
         </ModalSubTextContainer>
         {isGameOver && <ButtonRow>
           <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
