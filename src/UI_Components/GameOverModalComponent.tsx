@@ -38,12 +38,12 @@ interface ModalTextConfig {
 const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   [GameOverStatus.BothDead]: {
     title: 'A Draw',
-    text: "The match ends in a draw!",
+    text: "The match ends in a draw.",
     fontSize: 3.6
   },
   [GameOverStatus.PlayerWon]: {
     title: 'You Won',
-    text: 'You won ...this night.',
+    text: 'You won.',
     fontSize: 3.6
   },
   [GameOverStatus.NpcWon]: {
@@ -61,8 +61,8 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
 
 
 /**
- * Reviewing the endings: open the game with ?gameOverPreview in the address to show this modal with a
- * switcher (or the left and right arrow keys) going through each ending.
+ * Reviewing the endings: open the game with ?gameOverPreview in the address to show this modal; click
+ * anywhere on it (or press the left and right arrow keys) to go through each ending.
  */
 const PREVIEW_ORDER = [GameOverStatus.PlayerWon, GameOverStatus.NpcWon, GameOverStatus.BothDead, GameOverStatus.TimesUp];
 const getIsPreview = (): boolean => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gameOverPreview');
@@ -123,6 +123,11 @@ const ModalTitle = styled.h2`
   ${titleLetteringCss({ strokeCqw: 0.1, glowCqw: 0.8 })}
 `;
 
+/** The ending's text's line height (in its font size). */
+const SUBTEXT_LINE_HEIGHT = 1.4;
+/** The usual ending's text size (cqw): the buttons sit where they do below one line of it. */
+const STANDARD_SUBTEXT_SIZE = 3.6;
+
 const ModalSubText = styled.p<{ $fontSize: number }>`
   font-family: 'EnchantedLand', sans-serif;
   font-size: ${props => props.$fontSize}cqw;
@@ -130,17 +135,19 @@ const ModalSubText = styled.p<{ $fontSize: number }>`
   white-space: nowrap; /* one line */
   margin: 0 auto;
   text-shadow: 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.9), 0 0 0.8cqw rgba(0, 0, 0, 0.7);
-  line-height: 1.4;
+  line-height: ${SUBTEXT_LINE_HEIGHT};
   text-align: center;
 `;
 
-const ModalSubTextContainer = styled.div`
-   display: flex;
-    flex-flow: column wrap;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    text-align: center;
+/** The ending's text. $extraLinesCqw: how much taller it is than one line at the standard size, taken back out of the layout so the buttons stay where they are on every ending. */
+const ModalSubTextContainer = styled.div<{ $extraLinesCqw: number }>`
+  display: flex;
+  flex-flow: column wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+  margin-bottom: -${props => props.$extraLinesCqw}cqw;
 `;
 
 const ButtonRow = styled.div`
@@ -205,28 +212,17 @@ const RubyModalButton = styled.button<{ $glow: string }>`
   }
 `;
 
-/** Steps through the endings while reviewing them (?gameOverPreview). */
-const PreviewSwitcher = styled.div`
-  position: absolute;
-  top: 1.5cqw;
-  left: 50%;
-  transform: translateX(-50%);
+/** Raises the title and its line of text (not the buttons) this far (cqw). */
+const TEXT_RAISE = 4;
+
+/** The title and its line of text, raised (TEXT_RAISE). */
+const RaisedText = styled.div`
+  width: 100%;
   display: flex;
-  gap: 1cqw;
+  flex-direction: column;
   align-items: center;
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 1.6cqw;
-  color: #efe0b9;
-  z-index: 1;
-  button {
-    font: inherit;
-    color: inherit;
-    background: rgba(0, 0, 0, 0.5);
-    border: 0.1cqw solid #9a7432;
-    border-radius: 0.4cqw;
-    padding: 0.2cqw 0.9cqw;
-    cursor: pointer;
-  }
+  gap: 3cqw;
+  transform: translateY(-${TEXT_RAISE}cqw);
 `;
 
 // --- Component Definition ---
@@ -262,7 +258,7 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
 
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
-  // Reviewing the endings (?gameOverPreview): one at a time, by the switcher or the arrow keys
+  // Reviewing the endings (?gameOverPreview): one at a time, by clicking or the arrow keys
   const [isPreview] = useState(getIsPreview);
   const [previewIndex, setPreviewIndex] = useState(0);
   const step = (by: number) => setPreviewIndex(k => (k + by + PREVIEW_ORDER.length) % PREVIEW_ORDER.length);
@@ -278,26 +274,23 @@ export const GameOverModalComponent: React.FC = () => {
   const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
 
   return (
-    <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
-      {isPreview && (
-        <PreviewSwitcher>
-          <button onClick={() => step(-1)}>&lt;</button>
-          {contentConfig.title} ({previewIndex + 1}/{PREVIEW_ORDER.length})
-          <button onClick={() => step(1)}>&gt;</button>
-        </PreviewSwitcher>
-      )}
+    <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}
+      // reviewing: a click anywhere (the buttons included, which then do nothing) shows the next ending
+      onClickCapture={isPreview ? (event => { event.stopPropagation(); step(1); }) : undefined}>
       <ModalCardContent>
-        <ModalTitle>{contentConfig.title}</ModalTitle>
-        <ModalSubTextContainer>
-          {contentConfig.isPlayAgainOwnLine ? (
-            <>
-              <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
-              <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
-            </>
-          ) : (
-            <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text} Play again?</ModalSubText>
-          )}
-        </ModalSubTextContainer>
+        <RaisedText>
+          <ModalTitle>{contentConfig.title}</ModalTitle>
+          <ModalSubTextContainer $extraLinesCqw={contentConfig.isPlayAgainOwnLine ? (2 * contentConfig.fontSize - STANDARD_SUBTEXT_SIZE) * SUBTEXT_LINE_HEIGHT : 0}>
+            {contentConfig.isPlayAgainOwnLine ? (
+              <>
+                <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
+                <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
+              </>
+            ) : (
+              <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text} Play again?</ModalSubText>
+            )}
+          </ModalSubTextContainer>
+        </RaisedText>
         {isGameOver && <ButtonRow>
           <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />
           <ModalButtonWithWisps label="No" onClick={() => window.open('https://github.com/jamiejamiebobamie/QuickCast', '_blank', 'noopener,noreferrer')} />
