@@ -89,7 +89,7 @@ export class NPCPlayer extends Player {
             case 'Hard':
                 return rand > 0.5;
             case 'Brutal':
-                return false; // temporarily all trained AI, for testing (was: rand > 0.7)
+                return rand > 0.7; // 30% random, 70% the trained model
             default: // 'Normal'
                 return rand > 0.3;
         }

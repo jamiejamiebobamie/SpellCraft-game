@@ -25,7 +25,7 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   },
   [GameOverStatus.PlayerWon]: {
     title: 'You Won',
-    text: 'You won.',
+    text: 'You won!',
     fontSize: 3.6
   },
   [GameOverStatus.NpcWon]: {
