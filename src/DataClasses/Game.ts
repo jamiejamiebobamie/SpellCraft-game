@@ -79,9 +79,10 @@ export class Game {
     this.model.init(this.assetLoader);
     this.spellCanvas = proxy(new SpellCanvas());
     this.gameClock = proxy(new GameClock(this.endTurn));
-    // (the turn clock holds still while the welcome story is open, while the Spell Book is open, so a
-    // player who'd rather not be timed can take their time, or once the game is over)
-    this.gameClock.getIsHeld = () => this.tooltipManager.active || this.getIsSpellBookOpen() || this.gameOver !== null;
+    // The turn clock holds still while the welcome story is open; while a tip card is showing (so a
+    // beginner has time to read it, and it isn't swept away by the turn ending); while the Spell Book
+    // is open (so a player who'd rather not be timed can take their time); and once the game is over
+    this.gameClock.getIsHeld = () => this.tooltipManager.active || this.tooltipManager.lightTips.length > 0 || this.getIsSpellBookOpen() || this.gameOver !== null;
     // Two thirds of the way through a turn's time, the first time: the tip on ending your turn (and the
     // seconds hand), in case the player hasn't cast yet (which usually brings it up)
     this.gameClock.onTick = (fraction: number) => {
