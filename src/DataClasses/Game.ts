@@ -13,7 +13,7 @@ import { Spell } from './PlacedSpells/Spell';
 import { GameSymbol } from './PlacedSpells/GameSymbol';
 import { GameClock } from './GameClock/GameClock'
 import { Player } from './Player/Player';
-import { NPCPlayer } from './Player/NpcPlayer';
+import { NPCPlayer, NPC_TURN_ORDER, NPC_WAITING_TIP } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
 import { proxy } from 'valtio';
@@ -101,9 +101,58 @@ export class Game {
     this.tooltipManager.reset(this.forceUpdate);
     this.spellCanvas.setIsDrawing(false);
     this.spellCanvas.clearDrawing();
-    setTimeout(() => this.doNpcMove(), 3000);
+    this.matchNumber++;
+    this.stopNpcWaiting();
+    this.startNpcTurn(3000);
     this.forceUpdate();
   };
+
+  // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  private matchNumber = 0; // rematches in this session
+  private isNpcWaitingForPlayer = false;
+  private npcWaitingTipsShown = 0; // this session (each makes the next wait 5 seconds longer)
+  private npcWaitingTipRef: number | undefined = undefined;
+
+  /** Whether the NPC waits for the player's first cast each turn, this match (NPC_TURN_ORDER). */
+  private getIsNpcWaitingThisMatch = (): boolean =>
+    NPC_TURN_ORDER === 'waitForPlayer' || (NPC_TURN_ORDER === 'alternate' && this.matchNumber % 2 === 0);
+  getIsNpcWaitingForPlayer = (): boolean => this.isNpcWaitingForPlayer;
+
+  /** The NPC's turn begins: it casts after `delayMilli`, or waits for the player to cast first. */
+  startNpcTurn = (delayMilli: number): void => {
+    if (!this.getIsNpcWaitingThisMatch()) {
+      setTimeout(() => this.doNpcMove(), delayMilli);
+      return;
+    }
+    this.isNpcWaitingForPlayer = true;
+    // After a while, a reminder: 10 seconds the first time, 5 more each time it shows (up to 30)
+    const { firstSeconds, stepSeconds, maxSeconds } = NPC_WAITING_TIP;
+    const waitSeconds = Math.min(maxSeconds, firstSeconds + stepSeconds * this.npcWaitingTipsShown);
+    clearTimeout(this.npcWaitingTipRef);
+    this.npcWaitingTipRef = setTimeout(() => {
+      if (!this.isNpcWaitingForPlayer) return;
+      this.npcWaitingTipsShown++;
+      this.tooltipManager.remindTip('waitingForYou');
+      this.forceUpdate();
+    }, waitSeconds * 1000);
+    this.forceUpdate();
+  };
+
+  /** Stops waiting (and its reminder), without starting the NPC's turn. */
+  private stopNpcWaiting = (): void => {
+    this.isNpcWaitingForPlayer = false;
+    clearTimeout(this.npcWaitingTipRef);
+    this.tooltipManager.cancelReminder('waitingForYou');
+  };
+
+  /** The player has cast (or is ending the turn): a waiting NPC now plays its turn. */
+  private releaseNpc = (delayMilli: number): void => {
+    if (!this.isNpcWaitingForPlayer) return;
+    this.stopNpcWaiting();
+    setTimeout(() => this.doNpcMove(), delayMilli);
+    this.forceUpdate();
+  };
+  // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getGameOver = (): GameOver | null => this.gameOver;
   setGameOver = (status: GameOver): void => {
     this.gameOver = status;
@@ -146,6 +195,17 @@ export class Game {
   endTurn = async (): Promise<void> => {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
+    // The NPC was waiting for the player to cast first: it plays its turn now, then the turn ends
+    if (this.isNpcWaitingForPlayer && !this.getIsGameBoardDisabled() && this.gameOver === null && !isAnyPlayerDead) {
+      this.releaseNpc(0);
+      const npc = this.players.getNpcPlayer();
+      const endOnceNpcIsDone = () => {
+        if (!npc || npc.getIsDoneWithTurn() || npc.getFocus() <= 0 || npc.getIsDead()) this.endTurn();
+        else setTimeout(endOnceNpcIsDone, 200);
+      };
+      setTimeout(endOnceNpcIsDone, 200);
+      return;
+    }
     if (!this.getIsGameBoardDisabled() && this.gameOver === null && !isAnyPlayerDead) {
       this.tooltipManager.clearClickClockRef(); // turn-off helper message
       // Ending the turn closes the light tip showing (and "Ending Your Turn" won't be needed)
@@ -174,7 +234,7 @@ export class Game {
         npcPlayer.setGameSymbol(null);
         humanPlayer.setGameSymbol(null);
         (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-        setTimeout(() => this.doNpcMove(), 1000);
+        this.startNpcTurn(1000);
       }
 
       this.tooltipManager.doClickClockFlash(this.forceUpdate);
@@ -198,6 +258,7 @@ export class Game {
    * Focus tip, then Spell Size, then Ending Your Turn.
    */
   notePlayerCast = (): void => {
+    this.releaseNpc(700); // a NPC waiting for the player to cast first now answers
     const shown = [...this.tooltipManager.getLightTips()];
     const wasFocusShowing = shown.includes('focus');
     shown.filter(tip => Game.TIPS_CLOSED_BY_CASTING.includes(tip)).forEach(tip => this.tooltipManager.dismissLightTip(tip));
@@ -525,7 +586,8 @@ export class Game {
   getIsComputerPlayerDoneWithTurn = (): boolean => {
     const npc = this.players.getNpcPlayer();
     if (npc) {
-      return npc.getIsDoneWithTurn();
+      // (waiting for the player to cast first counts as done, so the player can end the turn)
+      return npc.getIsDoneWithTurn() || this.isNpcWaitingForPlayer;
     }
     return false; // default to false...
   }

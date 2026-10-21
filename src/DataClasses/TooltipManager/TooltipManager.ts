@@ -24,7 +24,7 @@ export const GAME_TUTORIALS = {
 };
 
 /** The tutorial's chunks. */
-export type TipId = 'casting' | 'spellBook' | 'spellSize' | 'bloodMagic' | 'focus' | 'endTurn' | 'spellsInMotion' | 'collisions' | 'nightPassing';
+export type TipId = 'casting' | 'spellBook' | 'spellSize' | 'bloodMagic' | 'focus' | 'endTurn' | 'spellsInMotion' | 'collisions' | 'nightPassing' | 'waitingForYou';
 
 /** Where a light tip points (game cqw: x right, y down): its caret's tip, and which way the caret points. */
 export type TipAnchor = { x: number; y: number; caret: 'down' | 'up' | 'left' | 'right'; caretOffset: number };
@@ -36,6 +36,7 @@ const ANCHORS = {
     castingArea: { x: 33.9, y: 41.2, caret: 'up', caretOffset: 12 }, // below your 3 columns of the board
     healthBar: { x: 22, y: 51.4, caret: 'down', caretOffset: 3 }, // your health bar (the card above its right end)
     spellBook: { x: 11, y: 6.2, caret: 'left', caretOffset: 3 }, // the Spell Book icon (the card to its right)
+    opponentFocusDots: { x: 96.8, y: 47.9, caret: 'down', caretOffset: 22.2 }, // the opponent's focus dots (the card above them)
 } satisfies Record<string, TipAnchor>;
 
 /** The light tips: short, pointing at what they're about. */
@@ -84,6 +85,12 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
         title: "The Night Is Passing",
         text: "Each turn brings sunrise five minutes closer. After 5:30, a teacher may catch you, and by 6 AM you'll surely be caught.",
         anchor: ANCHORS.clock,
+    },
+    // A reminder (Game): shown when the opponent has waited a while for you to cast first
+    waitingForYou: {
+        title: "Your Move First",
+        text: "Your opponent is waiting for you to cast first. Draw a spell and they'll answer, or end your turn.",
+        anchor: ANCHORS.opponentFocusDots,
     },
 };
 
@@ -208,17 +215,14 @@ export class TooltipManager {
      */
     triggerTip = (tip: TipId): void => this.triggerTips([tip]);
 
-    /** Several chunks that show together (e.g. the opening two), each closing on its own. */
+    /** Several chunks at once: shown one at a time, in order (the rest wait their turn). */
     triggerTips = (tips: Array<TipId>): void => {
         if (!this.isToolTips) return;
         const isPending = (tip: TipId) => this.seenTips.has(tip) || this.lightTips.includes(tip) || this.tipQueue.some(group => group.includes(tip));
-        const group = tips.filter(tip => !isPending(tip));
-        if (!group.length) return;
-        if (this.active || this.lightTips.length) {
-            this.tipQueue.push(group);
-            return;
-        }
-        this.showTips(group);
+        tips.filter(tip => !isPending(tip)).forEach(tip => {
+            if (this.active || this.lightTips.length) this.tipQueue.push([tip]);
+            else this.showTips([tip]);
+        });
     }
 
     private showTips = (group: Array<TipId>): void => {
@@ -227,14 +231,19 @@ export class TooltipManager {
     }
 
     /**
-     * Shows a tip again as a reminder (e.g. "Ending Your Turn" when the player idles), alongside any
-     * light tips already showing (not over the story).
+     * Shows a tip again as a reminder (e.g. "Ending Your Turn" when the player idles), even if seen
+     * before: now, or after the tip showing (one at a time).
      */
     remindTip = (tip: TipId): void => {
-        if (!this.isToolTips || this.active || this.lightTips.includes(tip)) return;
-        this.seenTips.add(tip);
-        this.lightTips = [...this.lightTips, tip];
-        this.dropQueuedTip(tip);
+        if (!this.isToolTips || this.lightTips.includes(tip) || this.tipQueue.some(group => group.includes(tip))) return;
+        if (this.active || this.lightTips.length) this.tipQueue.push([tip]);
+        else this.showTips([tip]);
+    }
+
+    /** Drops a reminder that's no longer relevant, showing or queued (unlike dropQueuedTip, it can come back). */
+    cancelReminder = (tip: TipId): void => {
+        this.tipQueue = this.tipQueue.map(group => group.filter(queued => queued !== tip)).filter(group => group.length);
+        this.dismissLightTip(tip);
     }
 
     /** Shows the next queued group, once nothing is showing. */

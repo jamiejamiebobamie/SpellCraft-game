@@ -57,6 +57,17 @@ describe('actions', () => {
     sim.players[PLAYER_INDEX].depleteFocusToZero();
     expect(getActionMask(sim, PLAYER_INDEX).filter(Boolean)).toHaveLength(1); // only ending the turn
   });
+
+  it("never include a cast whose blood magic would kill the caster", () => {
+    const sim = new GameSimulation();
+    const caster = sim.players[PLAYER_INDEX];
+    caster.decrementHealth(caster.getHealth() - 6); // 6 health, 4 focus: 1 missing focus point costs 5
+    const mask = getActionMask(sim, PLAYER_INDEX);
+    const legalCasts = Array.from({ length: END_TURN_ACTION }, (_, a) => a).filter(a => mask[a]).map(a => decodeAction(a, PLAYER_INDEX));
+    // e.g. a 2x2 Fireball costs 8 (4 short: 20 health), so none is legal; a single Phlegm costs 1
+    expect(legalCasts.some(d => d.kind === 'cast' && d.spellName === 'Phlegm' && d.cells.length === 1)).toBe(true);
+    expect(legalCasts.every(d => d.kind !== 'cast' || !(d.spellName === 'Ether' && d.cells.length >= 4))).toBe(true);
+  });
 });
 
 describe('observations', () => {

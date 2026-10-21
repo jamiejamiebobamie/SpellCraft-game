@@ -11,7 +11,8 @@ import { Spell, Phlegm, Ether, Quicken, GyreUp, GyreDown } from '../PlacedSpells
 import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
-import { getIsBlockedForCasting, planSpellPlacement } from './gameRules';
+import { SpellClass, getFocusCost, getIsBlockedForCasting, getPlacementFocusCost, planSpellPlacement } from './gameRules';
+import { Player } from '../Player/Player';
 import { playScriptedTurn } from './scriptedOpponent';
 
 const ROWS = GameBoard.NUM_ROWS;
@@ -57,10 +58,16 @@ export const decodeAction = (action: number, side: number): DecodedAction => {
   return { kind: 'cast', spellName, cells };
 };
 
+/** Whether a cast costing `focusCost` would kill its caster with blood magic (never allowed for the AI). */
+const getIsLethalCast = (caster: Player, focusCost: number): boolean =>
+  Math.max(0, focusCost - caster.getFocus()) * caster.getBloodMagicCost() >= caster.getHealth();
+
 /**
  * Which actions `side` may take now. Ending the turn is always allowed; casting needs the game to
- * be on, the caster alive with some focus left, and at least one cell it can cast onto under the
- * drawing (every spell type can fill a single cell). Equivalent to getActionMaskByPlanning, but fast.
+ * be on, the caster alive with some focus left, at least one cell it can cast onto under the
+ * drawing (every spell type can fill a single cell), and blood magic that wouldn't kill it. A cast
+ * fills every free cell under the drawing, so its cost is the spell's cost per cell x the free cells.
+ * Equivalent to getActionMaskByPlanning, but fast.
  */
 export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
   const caster = sim.players[side];
@@ -73,9 +80,12 @@ export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
   const isFree = Array.from({ length: ROWS }, (_, i) => Array.from({ length: ZONE }, (_, j) =>
     !getIsBlockedForCasting({ i, j: toSideColumn(j, side) }, direction, sim.getIsOccupied, sim.spells)));
   ZONE_RECTS.forEach((rect, r) => {
-    let hasFreeCell = false;
-    for (let dr = 0; dr < rect.h && !hasFreeCell; dr++) for (let dc = 0; dc < rect.w; dc++) if (isFree[rect.i + dr][rect.j + dc]) hasFreeCell = true;
-    if (hasFreeCell) SPELL_ORDER.forEach((_, s) => { mask[s * ZONE_RECTS.length + r] = true; });
+    let freeCells = 0;
+    for (let dr = 0; dr < rect.h; dr++) for (let dc = 0; dc < rect.w; dc++) if (isFree[rect.i + dr][rect.j + dc]) freeCells++;
+    if (!freeCells) return;
+    SPELL_ORDER.forEach((spellName, s) => {
+      mask[s * ZONE_RECTS.length + r] = !getIsLethalCast(caster, getFocusCost(SPELL_CLASSES[spellName] as SpellClass, freeCells));
+    });
   });
   return mask;
 };
@@ -88,7 +98,9 @@ export const getActionMaskByPlanning = (sim: GameSimulation, side: number): Arra
     if (action === END_TURN_ACTION) return true;
     if (!canCast) return false;
     const decoded = decodeAction(action, side) as Extract<DecodedAction, { kind: 'cast' }>;
-    return planSpellPlacement(SPELL_CLASSES[decoded.spellName], decoded.cells, caster.getDirection(), sim.getIsOccupied, sim.spells).length > 0;
+    const SpellType = SPELL_CLASSES[decoded.spellName];
+    const rects = planSpellPlacement(SpellType, decoded.cells, caster.getDirection(), sim.getIsOccupied, sim.spells);
+    return rects.length > 0 && !getIsLethalCast(caster, getPlacementFocusCost(SpellType, rects));
   });
 };
 

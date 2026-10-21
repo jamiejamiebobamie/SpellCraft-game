@@ -107,9 +107,9 @@ export const GameComponent = () => {
         rootGameStore.beginIntro();
       } else {
         // BEGIN MATCH!
-        rootGameStore.triggerTips(['casting', 'spellBook']); // together
+        rootGameStore.triggerTips(['casting', 'spellBook']); // one after the other
         rootGameStore.doClickClockFlash();
-        setTimeout(() => rootGameStore.doNpcMove(), 3000);
+        rootGameStore.startNpcTurn(3000);
       }
     }
   }, [isPlaying, isDoneWithIntro, isLoreDone]);

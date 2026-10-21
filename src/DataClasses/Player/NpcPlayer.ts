@@ -12,7 +12,36 @@ import { SpellClass, getPlacementFocusCost, planSpellPlacement } from "../GameRu
 export type PlannedNpcMove = PlannedNpcCast & { onCast: () => void };
 
 /** How sloppy the NPC's random drawings are (was: up to 3.9 cells, up to 90 degrees, often outside its zone). */
-export const NPC_RANDOM_DRAWING = { minSize: 0.9, maxSize: 3, maxRotation: 25 };
+export const NPC_RANDOM_DRAWING = {
+  minSize: 0.9, maxSize: 3, // in cell widths
+  maxRotation: 25,
+  overhang: 0.5, // how far (in cells) a drawing may stray past the zone's edges (only the zone's cells count)
+};
+
+/**
+ * The AI's drawings keep their proportions: a symbol's width / height stays within this range, so a
+ * star or circle never looks squashed (a line, being one-dimensional, is exempt).
+ */
+export const NPC_DRAWING_ASPECT = { min: 0.55, max: 1.45 };
+
+/**
+ * Who casts first each turn: 'waitForPlayer', the NPC waits for the player's first cast, then answers
+ * (if the player ends the turn without casting, the NPC still plays first); 'first', the NPC casts
+ * right away; 'alternate', switching every match (the first match waits for the player).
+ */
+export const NPC_TURN_ORDER: 'alternate' | 'waitForPlayer' | 'first' = 'alternate' as 'alternate' | 'waitForPlayer' | 'first';
+
+/** The "your move first" reminder: after this many seconds of waiting, then 5 seconds later each time it shows. */
+export const NPC_WAITING_TIP = { firstSeconds: 10, stepSeconds: 5, maxSeconds: 30 };
+
+/** `scale` with its width / height brought within NPC_DRAWING_ASPECT, by shrinking the longer side. */
+const limitAspect = (inferenceString: InferenceString, scale: { x: number; y: number }) => {
+  if (inferenceString === 'line') return scale;
+  const ratio = scale.x / scale.y;
+  if (ratio > NPC_DRAWING_ASPECT.max) return { x: scale.y * NPC_DRAWING_ASPECT.max, y: scale.y };
+  if (ratio < NPC_DRAWING_ASPECT.min) return { x: scale.x, y: scale.x / NPC_DRAWING_ASPECT.min };
+  return scale;
+};
 
 export class NPCPlayer extends Player {
     readonly avatarHeadUrl: string = './player_avatars/Head2.png';
@@ -64,15 +93,22 @@ export class NPCPlayer extends Player {
                 return rand > 0.3;
         }
     }
-    /** Draws the planned symbol (unrotated) over the area of its cells in the NPC's zone. */
-    getPlannedMoveData = ({ inferenceString, cells }: PlannedNpcCast): NPCMoveData => {
+    /**
+     * Draws the planned symbol (unrotated) over the area of its cells in the NPC's zone, keeping its
+     * proportions (NPC_DRAWING_ASPECT): centered in that area if it can't fill it.
+     */
+    getPlannedMoveData = ({ inferenceString, cells }: Pick<PlannedNpcCast, 'inferenceString' | 'cells'>): NPCMoveData => {
         const zoneStartJ = GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS;
         const minI = Math.min(...cells.map(c => c.i)), maxI = Math.max(...cells.map(c => c.i));
         const minJ = Math.min(...cells.map(c => c.j)), maxJ = Math.max(...cells.map(c => c.j));
         const inset = 0.1; // cells of margin around the drawing
+        const area = { x: maxJ - minJ + 1 - 2 * inset, y: maxI - minI + 1 - 2 * inset };
+        const scale = limitAspect(inferenceString, area);
         // translationNorm: fraction of the zone's width / the board's height; scale: in cell widths
-        const translationNorm = { x: (minJ - zoneStartJ + inset) / GameBoard.NUM_PLACEMENT_CELLS, y: (minI + inset) / GameBoard.NUM_ROWS };
-        const scale = { x: maxJ - minJ + 1 - 2 * inset, y: maxI - minI + 1 - 2 * inset };
+        const translationNorm = {
+            x: (minJ - zoneStartJ + inset + (area.x - scale.x) / 2) / GameBoard.NUM_PLACEMENT_CELLS,
+            y: (minI + inset + (area.y - scale.y) / 2) / GameBoard.NUM_ROWS,
+        };
         return proxy(new NPCMoveData(inferenceString, translationNorm, scale, 0));
     }
 
@@ -116,7 +152,7 @@ export class NPCPlayer extends Player {
         // in cell widths
         // Size (in cell widths), up to the zone's 3 cells; roughly as tall as wide
         const x = this.getRandomFloatInRange(NPC_RANDOM_DRAWING.maxSize, NPC_RANDOM_DRAWING.minSize);
-        const scale = { x, y: Math.min(NPC_RANDOM_DRAWING.maxSize, Math.max(NPC_RANDOM_DRAWING.minSize, this.getRandomFloatInRange(x + .2, x - .2))) };
+        const scale = limitAspect(inferenceString, { x, y: Math.min(NPC_RANDOM_DRAWING.maxSize, Math.max(NPC_RANDOM_DRAWING.minSize, this.getRandomFloatInRange(x * 1.2, x * 0.85))) });
         const randRot = this.getRandomFloatInRange(NPC_RANDOM_DRAWING.maxRotation, -NPC_RANDOM_DRAWING.maxRotation);
 
         /*
@@ -138,10 +174,12 @@ export class NPCPlayer extends Player {
 
         */
 
-        // Kept inside the NPC's zone: fractions of the zone's width / the board's height
+        // Mostly inside the NPC's zone, straying up to NPC_RANDOM_DRAWING.overhang cells past its edges:
+        // fractions of the zone's width / the board's height
+        const { overhang } = NPC_RANDOM_DRAWING;
         const translationNorm = {
-            x: this.getRandomFloatInRange((GameBoard.NUM_PLACEMENT_CELLS - scale.x) / GameBoard.NUM_PLACEMENT_CELLS, 0),
-            y: this.getRandomFloatInRange((GameBoard.NUM_ROWS - scale.y) / GameBoard.NUM_ROWS, 0),
+            x: this.getRandomFloatInRange((GameBoard.NUM_PLACEMENT_CELLS - scale.x + overhang) / GameBoard.NUM_PLACEMENT_CELLS, -overhang / GameBoard.NUM_PLACEMENT_CELLS),
+            y: this.getRandomFloatInRange((GameBoard.NUM_ROWS - scale.y + overhang) / GameBoard.NUM_ROWS, -overhang / GameBoard.NUM_ROWS),
         };
         const npcMoveData = proxy(new NPCMoveData(inferenceString, translationNorm, scale, randRot));
         return npcMoveData;
@@ -180,6 +218,56 @@ export class NPCPlayer extends Player {
         this.resetNpcMove();
     }
 
+    /** After a random move: another one (if any are left this turn and there's focus), or the turn is done. */
+    private finishNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void => {
+        this.decrementNumRemaningMovesPerTurn();
+        if (this.getNumRemainingMovesPerTurn() > 0 && this.getFocus() > 0) {
+            setTimeout(
+                () => this.doNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate),
+                Math.random() * 1000);
+        } else {
+            this.setIsDoneWithTurn(true);
+            forceUpdate();
+        }
+    };
+
+    /** The screen points of a drawing (its symbol rotated, scaled and placed), densely sampled; null before layout. */
+    private getDrawingPoints = (npcMoveData: NPCMoveData, gameBoard: GameBoard): Array<Point> | null => {
+        const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
+        const cellWidth = gameBoard.getCellWidth();
+        const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
+        const { left, top, width, height } = gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
+        if (!cellWidth || !normalizedPoints || !width) return null;
+
+        const radians = (rotation * Math.PI) / 180;
+        const cos = Math.cos(radians), sin = Math.sin(radians);
+        const cx = 0.5, cy = 0.5; // rotation is about the symbol's center
+        const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
+        const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
+
+        let lastPoint: Point | null = null;
+        const rawPoints: Array<Point> = [];
+        normalizedPoints.forEach(({ x, y }) => {
+            const tx = x - cx, ty = y - cy;
+            const finalNormX = tx * cos - ty * sin + cx;
+            const finalNormY = tx * sin + ty * cos + cy;
+            const newPoint = {
+                x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
+                y: top + height * translationNorm.y + finalNormY * scale.y * cellWidth,
+            };
+            if (lastPoint) {
+                const numMorePoints = 200; // generate more points for board interaction
+                const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
+                for (let i = 0; i < numMorePoints; i++) {
+                    rawPoints.push({ x: lastPoint.x + i * vec.x / numMorePoints, y: lastPoint.y + i * vec.y / numMorePoints });
+                }
+            }
+            rawPoints.push(newPoint);
+            lastPoint = newPoint;
+        });
+        return rawPoints;
+    };
+
     /**
      * Draws a symbol and casts its spell. With `plannedMove` (from the NPC's brain), draws that symbol
      * over its cells and casts there, then calls `plannedMove.onCast`; otherwise draws a random one.
@@ -205,66 +293,31 @@ export class NPCPlayer extends Player {
             return;
         }
 
-        const npcMoveData = plannedMove ? this.getPlannedMoveData(plannedMove) : this.getRandomMoveForTesting();
-        const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
+        let npcMoveData = plannedMove ? this.getPlannedMoveData(plannedMove) : this.getRandomMoveForTesting();
+        let rawPoints = this.getDrawingPoints(npcMoveData, gameBoard);
+        if (!rawPoints) return;
 
-        const cellWidth = gameBoard.getCellWidth()
-        if (!cellWidth) return;
-
-        const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
-        if (!normalizedPoints) return;
-
-        // Convert degrees to radians for Math.cos and Math.sin
-        const radians = (rotation * Math.PI) / 180;
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-
-        // Center of rotation for normalized space
-        const cx = 0.5;
-        const cy = 0.5;
-
-        const { left, top, width, height } = gameBoard.getBoardRefDimensions() || { left: 0, top: 0, width: 0, height: 0 };
-        if (!width) return;
-
-        const startOfNpcPlacementCellsX = left + (GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS) * cellWidth;
-        const startOfNpcPlacementCellsY = top;
-        const widthOfPlacementCells = GameBoard.NUM_PLACEMENT_CELLS * cellWidth;
-
-        let lastPoint: Point | null = null;
-        const rawPoints: Array<Point> = []
-        normalizedPoints.forEach(({ x, y }) => {
-            // Step 1: Translate point so that the center (0.5, 0.5) is at origin (0, 0)
-            const tx = x - cx;
-            const ty = y - cy;
-
-            // Step 2: Apply 2D Rotation Matrix
-            const rotatedX = tx * cos - ty * sin;
-            const rotatedY = tx * sin + ty * cos;
-
-            // Step 3: Translate back from origin to center space
-            const finalNormX = rotatedX + cx;
-            const finalNormY = rotatedY + cy;
-
-            const newPoint = {
-                x: startOfNpcPlacementCellsX + widthOfPlacementCells * translationNorm.x + finalNormX * scale.x * cellWidth,
-                y: startOfNpcPlacementCellsY + height * translationNorm.y + finalNormY * scale.y * cellWidth
+        // A random drawing: its cells, worked out before drawing it. If blood magic would kill the NPC,
+        // the cast shrinks to one cell (and is drawn there, at its real size), or is skipped.
+        let randomCastCells: Array<CellIndex> = [];
+        if (!plannedMove) {
+            const spell = GameSymbol.SPELL_LOOKUP.get(npcMoveData.inferenceString);
+            const freeCells = spell ? filterDominantCells(rawPoints)
+                .map((cellIndex: CellIndex) => gameBoard.getCellAt(cellIndex))
+                .filter((cell: Cell | null) => !!cell && isCanPlaceGameSymbolOn(cell, this as Player))
+                .map((cell: Cell) => cell.getCellIndex()) : [];
+            randomCastCells = spell ? this.getCellsSafeToCast(spell as SpellClass, freeCells, gameBoard) : [];
+            if (randomCastCells.length && randomCastCells.length < freeCells.length) {
+                npcMoveData = this.getPlannedMoveData({ inferenceString: npcMoveData.inferenceString, cells: randomCastCells });
+                rawPoints = this.getDrawingPoints(npcMoveData, gameBoard) ?? rawPoints;
             }
-            if (lastPoint) {
-                const numMorePoints = 200;
-                const vec: Point = { x: newPoint.x - lastPoint.x, y: newPoint.y - lastPoint.y };
-                // generate more points for board interaction...
-                for (let i = 0; i < numMorePoints; i++) {
-                    rawPoints.push(
-                        {
-                            x: lastPoint.x + i * vec.x / numMorePoints,
-                            y: lastPoint.y + i * vec.y / numMorePoints
-                        }
-                    )
-                }
+            if (!randomCastCells.length && freeCells.length) {
+                // Nothing safe to cast: this move is skipped (not drawn)
+                this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate);
+                return;
             }
-            rawPoints.push(newPoint);
-            lastPoint = newPoint
-        });
+        }
+        const { inferenceString, scale } = npcMoveData;
 
         // Within doNpcMove -> storedSpell container:
         const storedSpell = () => {
@@ -275,28 +328,9 @@ export class NPCPlayer extends Player {
                 return;
             }
 
-            const dominantCells = filterDominantCells(rawPoints);
-            if (dominantCells.length > 0) {
-                const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
-                if (spell) {
-                    const freeCells = dominantCells.map((cellIndex: CellIndex) => gameBoard.getCellAt(cellIndex)).filter((cell: Cell) => isCanPlaceGameSymbolOn(cell, this as Player));
-                    const freePositions = freeCells.filter((c: Cell | null) => !!c).map((c: Cell) => c?.getCellIndex());
-                    const safeCells = this.getCellsSafeToCast(spell as SpellClass, freePositions, gameBoard);
-                    if (safeCells.length) spawnSizedSpellInstance(inferenceString, safeCells, this);
-                }
-            }
-
+            if (randomCastCells.length) spawnSizedSpellInstance(inferenceString, randomCastCells, this);
             this.setGameSymbol(null);
-            this.decrementNumRemaningMovesPerTurn();
-
-            if (this.getNumRemainingMovesPerTurn() > 0 && this.getFocus() > 0) {
-                setTimeout(
-                    () => this.doNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate),
-                    Math.random() * 1000);
-            } else {
-                this.setIsDoneWithTurn(true);
-                forceUpdate();
-            }
+            this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate);
         };
 
 
