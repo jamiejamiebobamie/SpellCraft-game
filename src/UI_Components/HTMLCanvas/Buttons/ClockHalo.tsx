@@ -34,9 +34,6 @@ export const CLOCK_HALO = {
   // clockwise from 12 o'clock (135: 4:30, 225: 7:30), `width` how far each spread reaches (degrees),
   // `amount` how much wider the gaps get there (0: evenly spaced all round)
   spread: { centers: [135, 225], width: 28, amount: 1.2 },
-  // More strands at the bottom: a ray between each pair (at the quarter marks), fading in as it
-  // turns down past `from` (0: straight up, 1: straight down) and fully there past `to`
-  bottomFill: { enabled: true, from: 0.45, to: 0.8, ray: { length: 0.75, width: 0.1, style: 'wavy' as RayStyle, waves: 1.5, wave: 0.04, ribbon: true } },
   ribbonBlend: { delaySeconds: 1.2, blendSeconds: 1.6, unwindSeconds: 0.5 },
   rayStart: 0.36, // where the rays start (fraction of the radius: just inside the face's rim)
   color: '255, 232, 170', // rgb: the glow around the face (and the rays, if rayColors is empty)
@@ -286,26 +283,6 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           drawRay(ctx, ray, radiusPx * rayStart, tip, (radiusPx * ray.width) / 2, rayColors[colorIndex % rayColors.length], rayOpacity, flow + k * 0.37, ribbonAmount);
           ctx.restore();
         });
-        // The bottom's extra strands, between the others
-        const fill = CLOCK_HALO.bottomFill;
-        if (fill.enabled) {
-          [0.25, 0.75].forEach((offset, f) => {
-            const angle = spreadAngle(rotation + (k + offset) * step);
-            const downness = (1 - Math.cos(angle)) / 2;
-            const t = Math.min(1, Math.max(0, (downness - fill.from) / Math.max(0.01, fill.to - fill.from)));
-            const presence = t * t * (3 - 2 * t);
-            if (presence <= 0) return;
-            const phase = (k / rays) * breathe.ripple + offset;
-            const breath = breathe.seconds > 0
-              ? 1 - breathe.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / breathe.seconds + phase)))
-              : 1;
-            const tip = radiusPx * fill.ray.length * breath * getReachFactor(angle);
-            ctx.save();
-            ctx.rotate(angle);
-            drawRay(ctx, fill.ray, radiusPx * rayStart, tip, (radiusPx * fill.ray.width) / 2, rayColors[(2 * k + f + 3) % rayColors.length], rayOpacity * presence, flow + k * 0.37 + 0.5 + f * 0.21, ribbonAmount);
-            ctx.restore();
-          });
-        }
       }
       frameId = requestAnimationFrame(draw);
     };
