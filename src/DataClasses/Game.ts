@@ -124,16 +124,21 @@ export class Game {
   private npcWaitingTipsShown = 0; // this session (each makes the next wait 5 seconds longer)
   private npcWaitingTipRef: number | undefined = undefined;
 
-  /** Whether the NPC waits for the player's first cast each turn, this match (NPC_TURN_ORDER). */
-  private getIsNpcWaitingThisMatch = (): boolean =>
-    NPC_TURN_ORDER === 'waitForPlayer' || (NPC_TURN_ORDER === 'alternate' && this.matchNumber % 2 === 0);
+  /** Whether the NPC waits for the player's first cast this turn (NPC_TURN_ORDER: by default, every other turn). */
+  private getIsNpcWaitingThisTurn = (): boolean => {
+    if (NPC_TURN_ORDER === 'waitForPlayer') return true;
+    if (NPC_TURN_ORDER === 'alternate') return this.matchNumber % 2 === 0;
+    // 'alternateTurns': the player first on odd turns (turnsElapsed 0, 2, ...), the NPC on even ones
+    if (NPC_TURN_ORDER === 'alternateTurns') return Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) % 2 === 0;
+    return false;
+  };
   getIsNpcWaitingForPlayer = (): boolean => this.isNpcWaitingForPlayer;
 
   /** The NPC's turn begins: it casts after `delayMilli`, or waits for the player to cast first. */
   startNpcTurn = (delayMilli: number): void => {
     // (the player's turn begins with the NPC's: the clock's seconds hand starts counting it down)
     this.gameClock.startTurnClock();
-    if (!this.getIsNpcWaitingThisMatch()) {
+    if (!this.getIsNpcWaitingThisTurn()) {
       setTimeout(() => this.doNpcMove(), delayMilli);
       return;
     }

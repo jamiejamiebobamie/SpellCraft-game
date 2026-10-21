@@ -67,7 +67,7 @@ The movement rules are defined from one player's side and mirrored for the other
 - **Variety:** rather than always playing its top-rated move, it samples among its good moves, with a penalty for repeating a recent move (the same spell at the same size), so it doesn't fall into the same opening every game.
 - **Difficulty:** Normal, Hard and Brutal mix in more or fewer random turns. Their drawings are deliberately imperfect, like a human's, but always true to the size of the spell cast, and never stretched too far out of shape.
 - **No self-destruction:** casts whose blood magic would kill the NPC are removed from its legal moves, both in training and in play.
-- **Turn order:** every other match, the NPC waits for you to cast first, then answers. If it's waiting too long, a tip reminds you it's your move.
+- **Turn order:** the first move alternates every turn. On odd turns (the first, the third...) the NPC waits for you to cast first, then answers; on even turns it goes first. If it's waiting too long, a tip reminds you it's your move.
 
 ## Technical highlights
 

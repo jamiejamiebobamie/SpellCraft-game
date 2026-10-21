@@ -27,9 +27,10 @@ export const NPC_DRAWING_ASPECT = { min: 0.55, max: 1.45 };
 /**
  * Who casts first each turn: 'waitForPlayer', the NPC waits for the player's first cast, then answers
  * (if the player ends the turn without casting, the NPC still plays first); 'first', the NPC casts
- * right away; 'alternate', switching every match (the first match waits for the player).
+ * right away; 'alternateTurns', switching every turn (the player first on odd turns: the first, third...,
+ * the NPC on even ones); 'alternate', switching every match (the first match waits for the player).
  */
-export const NPC_TURN_ORDER: 'alternate' | 'waitForPlayer' | 'first' = 'alternate' as 'alternate' | 'waitForPlayer' | 'first';
+export const NPC_TURN_ORDER: 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first' = 'alternateTurns' as 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first';
 
 /** The "your move first" reminder: after this many seconds of waiting, then 5 seconds later each time it shows. */
 export const NPC_WAITING_TIP = { firstSeconds: 10, stepSeconds: 5, maxSeconds: 30 };
