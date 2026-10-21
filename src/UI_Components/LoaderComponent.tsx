@@ -17,7 +17,7 @@ const twinkleSparkle = keyframes`
 `;
 
 /** Raises the Play button and "Loading..." toward the logo (visually only, so the logo doesn't move: its clock lines up with the scene's). */
-const PLAY_BUTTON_RAISE = '5cqw'; // (was 2.4cqw: up so the title's "p" dips into the space beside the button, a gap still between them)
+const PLAY_BUTTON_RAISE = '4.5cqw'; // (was 2.4cqw: up so the title's "p" dips into the space beside the button, a gap still between them)
 
 /** The Play button and "Loading..." (and their slot), relative to their original size: kept smaller than the logo's title. */
 const PLAY_BUTTON_SCALE = 0.7;

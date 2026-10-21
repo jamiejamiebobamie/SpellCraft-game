@@ -1,12 +1,13 @@
 // HoverSymbols.tsx
 // The ruby buttons' hover effect: the clock's golden symbols (see ClockSymbolFunctions: diamond,
 // circle with a dot, hourglass, rhombus, lopsided X, dot), as in an old book of hours.
-// While hovered, symbols appear here and there around (and behind) the button, each spot shifting
+// While hovered, symbols appear on the button's outline (partly behind it), each spot shifting
 // through the symbols: a golden symbol is deciphered (flickering through a few glyphs before it
 // settles), holds for a moment, then turns a red glow and blurs away as the next is deciphered in its
 // place. Each spot shifts a few times, then its last symbol burns out; the whole spot falls all the
-// while, its afterburns with it. Quick, like a half-read cipher. The spots keep to their own slices of the ring around the button (so they're all
-// around it, never bunched), and a slice that empties fills again right away.
+// while, its afterburns with it: a waterfall, thinning out sooner at its sides. Quick, like a half-read
+// cipher. The spots keep to their own slices of the button's outline (so they're all round it, never
+// bunched), and a slice that empties fills again right away.
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 
@@ -16,33 +17,32 @@ export const HOVER_SYMBOLS = {
   glow: '#ffcf5a',
   burnColor: '#ff6a55', // the red a symbol turns as it gives way to the next
   burnGlow: '#e0281e',
-  firstSeconds: 0.4, // on hovering: one spot at once, then two more together this much later
-  everySeconds: 1.1, // then, while hovered, a new spot this often (and right away when one burns out)
-  maxSpots: 5, // at most this many at once: the ring around the button is cut into this many slices, one spot each
-  size: [2.4, 3.6], // smallest, largest
-  opacity: [0.3, 0.45], // at their brightest (faint, so they don't compete with the button)
+  firstSeconds: 0.2, // on hovering: one spot at once, then two more together this much later
+  everySeconds: 0.5, // then, while hovered, a new spot this often (and right away when one burns out)
+  maxSpots: 7, // at most this many at once: the ring around the button is cut into this many slices, one spot each
+  size: [1.55, 2.35], // smallest, largest (cqw)
+  opacity: [0.45, 0.6], // at their brightest (faint, so they don't compete with the button)
   // Quick cuts (like the Batman Beyond intro): symbols snap in, flicker as they're deciphered, hold
   // only a moment, and flash red as the next cuts in
   holdSeconds: [0.15, 0.3], // how long a golden symbol holds (once deciphered) before turning red
-  shifts: [4, 7], // how many symbols a spot shows before it burns out
+  shifts: [2, 4], // how many symbols a spot shows before it burns out
   decipherSeconds: 0.15, // a new symbol flickering through glyphs before it settles
   flickerSeconds: 0.04, // each glyph in that flicker
   appearSeconds: 0.04, // a new symbol cutting in
   redSeconds: 0.06, // a symbol flashing red
   // Then it blurs and fades: slowly near the button's middle, quicker out at its sides (by how far
   // out it is, left or right of the middle)
-  burnSeconds: { middle: 3, sides: 1 },
+  burnSeconds: { middle: 1.4, sides: 0.8 },
   burnBlur: 0.4, // how blurred it is by the end
   // Each spot falls from the moment it appears, its symbols and their red afterburns together,
   // gathering speed: this far (cqw) per second of the spot's life
-  fallPerSecond: 1.6,
-  // where they appear: around the button, this far out from its middle (fractions of its width and
-  // height from the middle to the edge: 1 is the edge)
-  // (x reaches no further than the button's own sides, so symbols keep clear of a button beside it;
-  // and they never sit closer above or below it than nearY, so none hide behind it)
-  // shiftY: the whole area shifted down by this much (so they don't rise far above the button), though
-  // those above it still keep just clear of it (aboveY at the closest)
-  reach: { x: [0.75, 1], y: [1.4, 2.4], nearY: 1.3, shiftY: 0.7, aboveY: 1.15 },
+  fallPerSecond: 2.4,
+  // A waterfall: each spot fades away as it falls, over this much of its life: all of it at the
+  // button's middle, less out toward its ends (so the fall thins out sooner at its sides)
+  fadeOver: { middle: 1, sides: 0.4 },
+  // where they appear: on the button's outline (touching it, partly behind it), spread all the way
+  // round it; out from the outline by up to `outward` (in the button's own units: it's 386 x 100)
+  outward: 10,
 };
 
 type Shape = 'diamond' | 'circleDot' | 'hourglass' | 'rhombus' | 'lopsidedX' | 'dot';
@@ -97,13 +97,17 @@ const fall = keyframes`
   from { transform: translateY(0); }
   to { transform: translateY(var(--fall)); }
 `;
+const fadeAway = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
 
 /** A spot: where its symbols are, falling from the moment it appears (gathering speed). */
 const Falling = styled.div`
   position: absolute;
   width: 0;
   height: 0;
-  animation: ${fall} var(--life) cubic-bezier(0.45, 0, 0.85, 0.55) forwards;
+  animation: ${fall} var(--life) cubic-bezier(0.45, 0, 0.85, 0.55) forwards, ${fadeAway} var(--fade) ease-in forwards;
 `;
 
 /** A symbol being deciphered: flickering through other glyphs, then settling on `shape`. */
@@ -122,13 +126,35 @@ const Deciphering = ({ shape }: { shape: Shape }) => {
   return <Glyph shape={showing} />;
 };
 
+/** The button's outline (its frame, in its 386 x 100 units: see PlayButtonStyles), and its length. */
+const OUTLINE = [[9, 50], [52, 9], [334, 9], [377, 50], [334, 91], [52, 91]];
+const OUTLINE_LENGTH = OUTLINE.reduce((sum, p, k) => { const q = OUTLINE[(k + 1) % 6]; return sum + Math.hypot(q[0] - p[0], q[1] - p[1]); }, 0);
+/** The point `along` (0 to 1) the outline, pushed out from it by `out` (units). */
+const pointOnOutline = (along: number, out: number): [number, number] => {
+  let distance = along * OUTLINE_LENGTH;
+  for (let k = 0; k < 6; k++) {
+    const p = OUTLINE[k], q = OUTLINE[(k + 1) % 6];
+    const length = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (distance <= length || k === 5) {
+      const t = Math.min(1, distance / length);
+      const x = p[0] + (q[0] - p[0]) * t, y = p[1] + (q[1] - p[1]) * t;
+      // out: away from the button's middle, square to this side
+      let nx = (q[1] - p[1]) / length, ny = -(q[0] - p[0]) / length;
+      if (nx * (x - 193) + ny * (y - 50) < 0) { nx = -nx; ny = -ny; }
+      return [x + nx * out, y + ny * out];
+    }
+    distance -= length;
+  }
+  return [193, 50];
+};
+
 const between = ([low, high]: Array<number>) => low + Math.random() * (high - low);
 const pick = <T,>(list: Array<T>, not?: T): T => {
   const choices = not === undefined ? list : list.filter(item => item !== not);
   return choices[Math.floor(Math.random() * choices.length)];
 };
 
-type SpotInfo = { id: number; slice: number; left: number; top: number; size: number; peak: number; shifts: number; burnSeconds: number; isLeaving?: boolean };
+type SpotInfo = { id: number; slice: number; left: number; top: number; size: number; peak: number; shifts: number; burnSeconds: number; sideways: number; isLeaving?: boolean };
 type Showing = { id: number; shape: Shape; isBurning: boolean };
 
 /** One spot: shifting through symbols (each holding, then burning as the next appears), then burning out. */
@@ -168,7 +194,10 @@ const Spot = ({ spot, isHovered, onLeaving, onDone }: { spot: SpotInfo; isHovere
   // (its whole life, at the longest: every symbol held as long as they may be, then the last one burning out)
   const life = spot.shifts * (H.decipherSeconds + H.holdSeconds[1]) + spot.burnSeconds;
   return (
-    <Falling style={{ left: `${spot.left}%`, top: `${spot.top}%`, '--life': `${life}s`, '--fall': `${life * H.fallPerSecond}cqw` } as React.CSSProperties}>
+    <Falling style={{
+      left: `${spot.left}%`, top: `${spot.top}%`, '--life': `${life}s`, '--fall': `${life * H.fallPerSecond}cqw`,
+      '--fade': `${life * (H.fadeOver.middle + (H.fadeOver.sides - H.fadeOver.middle) * spot.sideways)}s`,
+    } as React.CSSProperties}>
       {showing.map(s => (
         <SymbolAt key={s.id} viewBox="0 0 24 24" $isBurning={s.isBurning}
           style={{ width: `${spot.size}cqw`, height: `${spot.size}cqw`, '--peak': spot.peak, '--burn': `${spot.burnSeconds}s` } as React.CSSProperties}>
@@ -185,27 +214,26 @@ export default function HoverSymbols({ isHovered }: { isHovered: boolean; hoverK
   const nextId = useRef(0);
   const isHoveredRef = useRef(isHovered);
   isHoveredRef.current = isHovered;
-  // A new spot, in a free slice of the ring (somewhere inside it, not at its very edges)
+  // A new spot, in a free slice of the button's outline
   const add = () => setSpots(current => {
     const staying = current.filter(spot => !spot.isLeaving);
     if (staying.length >= H.maxSpots) return current;
     const free = Array.from({ length: H.maxSpots }, (_, k) => k).filter(k => !staying.some(spot => spot.slice === k));
     if (!free.length) return current;
     const slice = pick(free);
-    const angle = ((slice + 0.15 + Math.random() * 0.7) / H.maxSpots) * Math.PI * 2;
-    const left = 50 + Math.cos(angle) * 50 * between(H.reach.x);
-    // how far above (-) or below (+) the middle, in half-heights: out from the button, shifted down
-    const outward = (Math.sin(angle) < 0 ? -1 : 1) * Math.max(H.reach.nearY, Math.abs(Math.sin(angle)) * between(H.reach.y));
-    const shifted = outward < 0 ? Math.min(-H.reach.aboveY, outward + H.reach.shiftY) : outward + H.reach.shiftY;
-    // how far out to the side it is (0 at the middle, 1 as far as they go)
-    const sideways = Math.min(1, Math.abs(left - 50) / (50 * H.reach.x[1]));
+    // somewhere in its slice of the outline (not at the slice's very ends), touching the button
+    const [x, y] = pointOnOutline((slice + 0.15 + Math.random() * 0.7) / H.maxSpots, Math.random() * H.outward);
+    const left = (x / 386) * 100, top = y;
+    // how far out to the side it is (0 at the middle, 1 at the button's ends)
+    const sideways = Math.min(1, Math.abs(left - 50) / 50);
     return [...current, {
       id: nextId.current++, slice,
       left,
       burnSeconds: H.burnSeconds.middle + (H.burnSeconds.sides - H.burnSeconds.middle) * sideways,
-      top: 50 + 50 * shifted,
+      top, sideways,
       size: between(H.size), peak: between(H.opacity),
-      shifts: Math.round(between(H.shifts)),
+      // (fewer toward the sides, so those spots, fading sooner, make way for new ones sooner)
+      shifts: Math.max(1, Math.round(between(H.shifts) * (1 - 0.5 * sideways))),
     }];
   });
   useEffect(() => {
