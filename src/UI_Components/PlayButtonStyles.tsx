@@ -97,7 +97,9 @@ const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
   rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 3.5, fontSize: 57, y: 63,
   // the orbit: its reach at rest and at its brightest, its brightest opacity, and its timing (one swing, then a rest)
-  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, swingSeconds: 2.6, restSeconds: 8 },
+  // (timed with the sweeping glint: swinging while it sweeps, resting while it waits)
+  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, swingSeconds: 3.5 * 0.55, restSeconds: 3.5 * 0.45 },
+  sweepToo: true, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
 };
 
 /**
@@ -307,7 +309,7 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
               </>
             )}
             <text x={193} y={ETCHING.y} fill="none" stroke="#ffc2c8" strokeOpacity={ETCHING.rim} strokeWidth={0.9}>{label}</text>
-            {ETCHING.glint === 'stroke' && <text x={193} y={ETCHING.y} fill="none" stroke={`url(#${id}-glint)`} strokeWidth={2.2}>{label}</text>}
+            {(ETCHING.glint === 'stroke' || (ETCHING.glint === 'orbit' && ETCHING.sweepToo)) && <text x={193} y={ETCHING.y} fill="none" stroke={`url(#${id}-glint)`} strokeWidth={2.2}>{label}</text>}
           </g>
         )}
         {/* The frame: a dark outline, the beveled metal band, and a fine line inside it */}
