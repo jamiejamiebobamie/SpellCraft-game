@@ -217,6 +217,7 @@ export type InteractionCounts = {
   liftsByOwnGyres: number; // its Gyre moved a spell (either side's) to another row
   ownSpellsLiftedByEnemyGyres: number; // an enemy Gyre moved its spell to another row
   ownSpellsLiftedSafely: number; // its spell finished a lift (by either side's Gyre) still on the board
+  ownSpellsThroughOwnGyres: number; // its spell went through its own Gyre and out, still on the board (with the exit bonus)
   enemySpellsLiftedOffBoard: number; // its Gyre pushed an enemy spell off the board
   buffsFromEnemySpells: number; // its spell absorbed an enemy Ether/Quicken
   buffsFromOwnSpells: number; // its spell absorbed its own Ether/Quicken
@@ -224,7 +225,7 @@ export type InteractionCounts = {
 
 const emptyCounts = (): InteractionCounts => ({
   reflectedEnemySpells: 0, selfHeals: 0, reflectedOwnSpells: 0, reflectedByEnemy: 0,
-  liftsByOwnGyres: 0, ownSpellsLiftedByEnemyGyres: 0, ownSpellsLiftedSafely: 0, enemySpellsLiftedOffBoard: 0,
+  liftsByOwnGyres: 0, ownSpellsLiftedByEnemyGyres: 0, ownSpellsLiftedSafely: 0, ownSpellsThroughOwnGyres: 0, enemySpellsLiftedOffBoard: 0,
   buffsFromEnemySpells: 0, buffsFromOwnSpells: 0,
 });
 
@@ -240,6 +241,7 @@ export const countInteractions = (events: Array<InteractionEvent>, side: number,
       else if (e.spellSide === side) counts.ownSpellsLiftedByEnemyGyres++;
     } else if (e.kind === 'liftEnd') {
       if (e.spellSide === side && e.isSurvived) counts.ownSpellsLiftedSafely++;
+      if (e.spellSide === side && e.gyreSide === side && e.isSurvived) counts.ownSpellsThroughOwnGyres++;
       else if (e.gyreSide === side && e.spellSide !== side && !e.isSurvived) counts.enemySpellsLiftedOffBoard++;
     } else if (e.consumerSide === side) {
       if (e.consumedSide === side) counts.buffsFromOwnSpells++;
@@ -260,13 +262,20 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
   liftsByOwnGyres: 0,
   ownSpellsLiftedByEnemyGyres: 0,
   ownSpellsLiftedSafely: 0, // e.g. sending a Quicken through a Gyre to change rows
-  enemySpellsLiftedOffBoard: 0,
+  ownSpellsThroughOwnGyres: 0.05, // its own spell sent through its own Gyre (moving it on, with the exit bonus)
+  enemySpellsLiftedOffBoard: 0.1, // its Gyre pushing an enemy spell off the board
   buffsFromEnemySpells: 0,
   buffsFromOwnSpells: 0,
   maxPerGame: 0.5,
 };
 
 // --- Environment -------------------------------------------------------------------------------
+
+/**
+ * Casting the same spell (whatever its size or place) as one of its last `window` casts costs `penalty`
+ * (0: off): a nudge toward using all its spells. (For scale: a point of damage is 0.01, a win 1.)
+ */
+export const REPEAT_PENALTY = { window: 3, penalty: 0.03 };
 
 export type EnvStepResult = {
   observation: Array<number>;
@@ -318,6 +327,7 @@ export class NpcTrainingEnv {
   private interactionRewardGiven: number = 0;
   private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
   private hasOpponentPlayedThisTurn = false;
+  private recentCasts: Array<SpellName> = []; // the agent's last casts (REPEAT_PENALTY)
   /** Health changes before the agent's first step (the opponent casting first on turn 1): given with that step. */
   private pendingReward = 0;
 
@@ -330,6 +340,7 @@ export class NpcTrainingEnv {
     this.interactions = { agent: emptyCounts(), opponent: emptyCounts() };
     this.sim = new GameSimulation({ random: this.random });
     this.hasOpponentPlayedThisTurn = false;
+    this.recentCasts = [];
     const before = this.healths();
     this.beginTurn();
     this.pendingReward = this.healthReward(before);
@@ -355,7 +366,9 @@ export class NpcTrainingEnv {
       if (!getActionMask(this.sim, AGENT)[action]) return this.result(pending, false); // illegal: ignored
       const before = this.healths();
       this.sim.cast(AGENT, decoded.spellName, decoded.cells);
-      return this.result(pending + this.healthReward(before), true); // blood magic costs health
+      const repeatPenalty = this.recentCasts.includes(decoded.spellName) ? REPEAT_PENALTY.penalty : 0;
+      this.recentCasts = [...this.recentCasts, decoded.spellName].slice(-REPEAT_PENALTY.window);
+      return this.result(pending + this.healthReward(before) - repeatPenalty, true); // blood magic costs health
     }
 
     const before = this.healths();

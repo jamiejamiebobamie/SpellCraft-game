@@ -1,7 +1,7 @@
 // NpcTrainingEnv.test.ts
 // The NPC's view of the game for training: observations, actions, legal-move masks, rewards.
 import { describe, expect, it } from 'vitest';
-import { END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
+import { END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, REPEAT_PENALTY, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { CellIndex } from '../types';
 import { Ether } from '../PlacedSpells/Spell';
@@ -191,9 +191,12 @@ describe('episodes', () => {
   });
 
   it('reward damage dealt minus damage taken, and +1 / -1 once for a win or loss', () => {
+    // (just the health and win rewards: the combo rewards and repeat penalty off)
+    const repeatPenalty = REPEAT_PENALTY.penalty;
+    REPEAT_PENALTY.penalty = 0;
     for (let seed = 1; seed <= 100; seed++) {
       const env = new NpcTrainingEnv();
-      let result = env.reset({ seed, opponent: 'random' });
+      let result = env.reset({ seed, opponent: 'random', interactionRewardScale: 0 });
       const rand = mulberry32(seed);
       let totalReward = 0, steps = 0;
       while (!result.terminated) {
@@ -208,6 +211,17 @@ describe('episodes', () => {
       expect(totalReward, `seed ${seed}`).toBeCloseTo((100 - opponentHealth - (100 - ownHealth)) / 100 + terminal, 9);
       expect(env.step(END_TURN_ACTION).reward).toBe(0); // nothing more once the game is over
     }
+    REPEAT_PENALTY.penalty = repeatPenalty;
+  });
+
+  it('penalize casting the same spell as one of the last few casts, whatever its size or place', () => {
+    const env = new NpcTrainingEnv();
+    env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
+    const castOf = (spellName: SpellName, row: number) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)
+      .find(a => { const d = decodeAction(a, PLAYER_INDEX); return d.kind === 'cast' && d.spellName === spellName && d.cells.length === 1 && d.cells[0].i === row; })!;
+    expect(env.step(castOf('Phlegm', 0)).reward).toBeCloseTo(0, 9);
+    expect(env.step(castOf('Quicken', 1)).reward).toBeCloseTo(0, 9); // a different spell: no penalty
+    expect(env.step(castOf('Phlegm', 2)).reward).toBeCloseTo(-REPEAT_PENALTY.penalty, 9); // again, elsewhere
   });
 
   it('ignore illegal actions', () => {
