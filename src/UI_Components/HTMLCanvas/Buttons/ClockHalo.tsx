@@ -27,7 +27,7 @@ export const CLOCK_HALO = {
   shortRay: { length: 0.8, width: 0.12, style: 'wavy' as RayStyle, waves: 1.5, wave: 0.035, ribbon: true },
   // Ribbons: how many half-turns along a ray, how long one twist takes to travel along it, how dark
   // the ribbon's back face is (1: as bright as the front), and the sheen where it faces you
-  ribbon: { twists: 2, flowSeconds: 3, backShade: 0.55, sheen: 0.35 },
+  ribbon: { twists: 2, flowSeconds: 3, backShade: 1, sheen: 0.35 },
   // A satin sheen: a band of light sliding along each ribbon from base to tip, every `seconds` (each
   // ribbon at its own moment), `strength` toward white where it faces you, `width` (fraction of its length)
   ribbonSheen: { seconds: 2.6, strength: 0.55, width: 0.12 },
