@@ -5,7 +5,7 @@
 //              drifting stars, gold-leaf lettering
 //   verdigris: an aged bronze frame gone green in its recesses, on a dark green panel
 //   ruby:      a brass frame set with a faceted ruby, the lettering etched into it
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 
 export type PlayButtonLook = 'brass' | 'verdigris' | 'ruby';
@@ -86,9 +86,10 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
 /**
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
  * shadowed along the top and lit along the bottom, and a glint sweeping across every `glintSeconds`:
- *   glint 'orbit':  the light along the letters' edges swings once around them (and their shadow
- *                   opposite it), brightening to `litFlare` on the way, then settles below again
- *                   (`orbit`: how far the light sits from the letters, at rest and at its brightest)
+ *   glint 'orbit':  the light inside each letter's cut swings once around it (its shadow opposite),
+ *                   brightening to `litFlare`, as the sweeping glint passes over that letter, then
+ *                   settles on the lower walls again (`orbit`: how far the light reaches into the cut,
+ *                   at rest and at its brightest; `letterSwingSeconds`: how long each letter's swing takes)
  *   glint 'lit':    the light along the letters' bottom edges flares as it passes (`litFlare`)
  *   glint 'stroke': a band of light runs around the letters' outlines as it passes
  * `rim`: how much the outlines catch the light all the time.
@@ -96,20 +97,27 @@ const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
   rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 3.5, fontSize: 57, y: 63,
-  // the orbit: its reach at rest and at its brightest, its brightest opacity, and its timing (one swing, then a rest)
-  // (timed with the sweeping glint: swinging while it sweeps, resting while it waits)
-  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, swingSeconds: 3.5 * 0.55, restSeconds: 3.5 * 0.45 },
+  orbit: { rest: 1.6, peak: 1.8, shadowRest: 1.4, peakOpacity: 0.7, letterSwingSeconds: 0.7 },
   sweepToo: true, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
 };
 
 /**
- * (The light and shadow fall inside the letters, as in a real cut: the light on the walls facing it,
- * the shadow on the walls facing away.)
- * The 'orbit' glint's keyframes (swinging for orbit.swingSeconds, then resting for orbit.restSeconds): the light's offset around the circle (starting and ending straight below,
- * reaching further out mid-swing), the shadow's (opposite it), and the light's color and opacity.
+ * The sweeping glint's band: it crosses from `from` to `to` (a shift in the viewBox's x) over the first
+ * `moving` of each cycle, its middle at x = 145 + the shift (halfway up the word), then waits.
  */
-const ORBIT_KEYFRAMES = (() => {
-  const steps = 16, moving = ETCHING.orbit.swingSeconds / (ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds);
+const SWEEP = { from: -90, to: 190, moving: 0.55 };
+/** When (a fraction of the cycle) the sweeping band's middle passes x. */
+const getSweepTime = (x: number): number => SWEEP.moving * (x - 145 - SWEEP.from) / (SWEEP.to - SWEEP.from);
+
+/**
+ * One letter's 'orbit' keyframes, swinging during [start, start + length] of the cycle (fractions)
+ * and resting otherwise. The light and shadow fall inside the cut, as in a real one: the light on the
+ * walls facing it, the shadow on those facing away; each band is the letter minus a copy of itself
+ * shifted away from that band's side (`lightCut`, `shadowCut`). The light's offset goes once around
+ * the circle (starting and ending straight below, reaching further mid-swing), the shadow's opposite.
+ */
+const getOrbitKeyframes = (start: number, length: number) => {
+  const steps = 12;
   const { rest, peak, shadowRest } = ETCHING.orbit;
   const frames = Array.from({ length: steps + 1 }, (_, k) => {
     const u = k / steps; // 0..1 through the swing
@@ -118,31 +126,33 @@ const ORBIT_KEYFRAMES = (() => {
     const reach = rest + (peak - rest) * swell;
     const shadowReach = shadowRest + (peak - shadowRest) * 0.5 * swell;
     return {
-      time: u * moving,
-      light: `${(Math.cos(angle) * reach).toFixed(2)} ${(Math.sin(angle) * reach).toFixed(2)}`,
-      shadow: `${(-Math.cos(angle) * shadowReach).toFixed(2)} ${(-Math.sin(angle) * shadowReach).toFixed(2)}`,
+      time: start + u * length,
+      lightCut: `${(-Math.cos(angle) * reach).toFixed(2)} ${(-Math.sin(angle) * reach).toFixed(2)}`,
+      shadowCut: `${(Math.cos(angle) * shadowReach).toFixed(2)} ${(Math.sin(angle) * shadowReach).toFixed(2)}`,
       opacity: (ETCHING.litOpacity + (ETCHING.orbit.peakOpacity - ETCHING.litOpacity) * swell).toFixed(2),
       flare: swell,
     };
   });
-  const last = frames[frames.length - 1];
-  const all = [...frames, { ...last, time: 1 }];
-  const negate = (offset: string) => offset.split(' ').map(v => (-Number(v)).toFixed(2)).join(' ');
+  const atRest = frames[0];
+  const all = [
+    ...(start > 0.001 ? [{ ...atRest, time: 0 }] : []),
+    ...frames,
+    ...(start + length < 0.999 ? [{ ...atRest, time: 1 }] : []),
+  ];
+  all[0] = { ...all[0], time: 0 };
+  all[all.length - 1] = { ...all[all.length - 1], time: 1 };
   const mix = (t: number) => { // the light's color, toward litFlare by t
     const from = ETCHING.lit.match(/[0-9a-f]{2}/gi)!.map(h => parseInt(h, 16)), to = ETCHING.litFlare.match(/[0-9a-f]{2}/gi)!.map(h => parseInt(h, 16));
     return '#' + from.map((c, k) => Math.round(c + (to[k] - c) * t).toString(16).padStart(2, '0')).join('');
   };
   return {
-    keyTimes: all.map(f => f.time.toFixed(3)).join('; '),
-    light: all.map(f => f.light).join('; '),
-    shadow: all.map(f => f.shadow).join('; '),
-    // inside the letters: each band is the letter minus a copy of it shifted away from that band's side
-    lightCut: all.map(f => negate(f.light)).join('; '),
-    shadowCut: all.map(f => negate(f.shadow)).join('; '),
+    keyTimes: all.map(f => f.time.toFixed(4)).join('; '),
+    lightCut: all.map(f => f.lightCut).join('; '),
+    shadowCut: all.map(f => f.shadowCut).join('; '),
     opacity: all.map(f => f.opacity).join('; '),
     color: all.map(f => mix(f.flare)).join('; '),
   };
-})();
+};
 
 const twinkle = keyframes`
   0%, 100% { opacity: 0.3; }
@@ -201,6 +211,27 @@ const Label = styled.span<{ $text: 'gold' | 'ink' | 'etched' }>`
 export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: string }) => {
   const l = PLAY_BUTTON_LOOKS[look];
   const id = `play-${look}`;
+  // Where each letter is (once the font has loaded), so each can catch the light as the sweep reaches it
+  const measureRef = useRef<SVGTextElement | null>(null);
+  const [letters, setLetters] = useState<Array<{ char: string; x: number; orbit: ReturnType<typeof getOrbitKeyframes> }> | null>(null);
+  const isOrbit = l.text === 'etched' && ETCHING.glint === 'orbit';
+  useLayoutEffect(() => {
+    if (!isOrbit) return;
+    let isCancelled = false;
+    const measure = () => {
+      const text = measureRef.current;
+      if (isCancelled || !text) return;
+      const length = ETCHING.orbit.letterSwingSeconds / ETCHING.glintSeconds;
+      setLetters(Array.from(label).map((char, k) => {
+        const x = text.getStartPositionOfChar(k).x, end = text.getEndPositionOfChar(k).x;
+        const start = Math.min(1 - length, Math.max(0, getSweepTime((x + end) / 2) - length / 2));
+        return { char, x, orbit: getOrbitKeyframes(start, length) };
+      }));
+    };
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(measure);
+    return () => { isCancelled = true; };
+  }, [isOrbit, label]);
+  const cycle = `${ETCHING.glintSeconds}s`;
   return (
     <>
       <Frame viewBox="0 0 386 100" preserveAspectRatio="none" aria-hidden>
@@ -221,19 +252,19 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
             <stop offset="1" stopColor={l.panel[2]} />
           </radialGradient>
           <clipPath id={`${id}-clip`}><polygon points={PANEL} /></clipPath>
-          {l.text === 'etched' && ETCHING.glint === 'orbit' && (['light', 'shadow'] as const).map(band => (
-            <mask key={band} id={`${id}-${band}-band`} maskUnits="userSpaceOnUse" x={0} y={0} width={386} height={100}>
-              <g fontFamily="'EnchantedLand', sans-serif" fontSize={ETCHING.fontSize} textAnchor="middle">
-                <text x={193} y={ETCHING.y} fill="#fff">{label}</text>
-                <text x={193} y={ETCHING.y} fill="#000"
+          {isOrbit && letters?.flatMap((letter, k) => (['light', 'shadow'] as const).map(band => (
+            <mask key={`${band}-${k}`} id={`${id}-${band}-band-${k}`} maskUnits="userSpaceOnUse" x={0} y={0} width={386} height={100}>
+              <g fontFamily="'EnchantedLand', sans-serif" fontSize={ETCHING.fontSize} textAnchor="start">
+                <text x={letter.x} y={ETCHING.y} fill="#fff">{letter.char}</text>
+                <text x={letter.x} y={ETCHING.y} fill="#000"
                   transform={band === 'light' ? `translate(0 ${-ETCHING.orbit.rest})` : `translate(0 ${ETCHING.orbit.shadowRest})`}>
-                  {label}
-                  <animateTransform attributeName="transform" type="translate" values={band === 'light' ? ORBIT_KEYFRAMES.lightCut : ORBIT_KEYFRAMES.shadowCut}
-                    keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+                  {letter.char}
+                  <animateTransform attributeName="transform" type="translate" values={band === 'light' ? letter.orbit.lightCut : letter.orbit.shadowCut}
+                    keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
                 </text>
               </g>
             </mask>
-          ))}
+          )))}
           {l.text === 'etched' && (
             <linearGradient id={`${id}-lit`} gradientUnits="userSpaceOnUse" x1="120" y1="20" x2="170" y2="80">
               <stop offset="0" stopColor={ETCHING.lit} stopOpacity={ETCHING.litOpacity} />
@@ -241,8 +272,8 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
               <stop offset="0.5" stopColor={ETCHING.litFlare} stopOpacity={1} />
               <stop offset="0.62" stopColor={ETCHING.lit} stopOpacity={ETCHING.litOpacity} />
               <stop offset="1" stopColor={ETCHING.lit} stopOpacity={ETCHING.litOpacity} />
-              <animateTransform attributeName="gradientTransform" type="translate" values="-90 0; 190 0; 190 0"
-                keyTimes="0; 0.55; 1" dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+              <animateTransform attributeName="gradientTransform" type="translate" values={`${SWEEP.from} 0; ${SWEEP.to} 0; ${SWEEP.to} 0`}
+                keyTimes={`0; ${SWEEP.moving}; 1`} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
             </linearGradient>
           )}
           {l.text === 'etched' && (
@@ -253,8 +284,8 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
               <stop offset="0.6" stopColor="#ffd9dd" stopOpacity={0} />
               <stop offset="1" stopColor="#fff2f2" stopOpacity={0} />
               {/* sweeps from left of the word to past its right, then waits a moment off to the side */}
-              <animateTransform attributeName="gradientTransform" type="translate" values="-90 0; 190 0; 190 0"
-                keyTimes="0; 0.55; 1" dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
+              <animateTransform attributeName="gradientTransform" type="translate" values={`${SWEEP.from} 0; ${SWEEP.to} 0; ${SWEEP.to} 0`}
+                keyTimes={`0; ${SWEEP.moving}; 1`} dur={`${ETCHING.glintSeconds}s`} repeatCount="indefinite" />
             </linearGradient>
           )}
         </defs>
@@ -297,17 +328,19 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
               </>
             )}
             <text x={193} y={ETCHING.y} fill={ETCHING.fill}>{label}</text>
-            {ETCHING.glint === 'orbit' && (
-              <>
-                {/* the light inside the cut, swinging around and brightening, then resting on the lower walls */}
-                <rect x={0} y={0} width={386} height={100} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} mask={`url(#${id}-light-band)`}>
-                  <animate attributeName="fill-opacity" values={ORBIT_KEYFRAMES.opacity} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="fill" values={ORBIT_KEYFRAMES.color} keyTimes={ORBIT_KEYFRAMES.keyTimes} dur={`${ETCHING.orbit.swingSeconds + ETCHING.orbit.restSeconds}s`} repeatCount="indefinite" />
+            {/* (for measuring where each letter is) */}
+            {isOrbit && <text ref={measureRef} x={193} y={ETCHING.y} opacity={0}>{label}</text>}
+            {/* in each letter's cut: the light, swinging around and brightening as the sweep passes, then
+                resting on the lower walls; and the shadow, opposite it */}
+            {isOrbit && letters?.map((letter, k) => (
+              <g key={k}>
+                <rect x={0} y={0} width={386} height={100} fill={ETCHING.lit} fillOpacity={ETCHING.litOpacity} mask={`url(#${id}-light-band-${k})`}>
+                  <animate attributeName="fill-opacity" values={letter.orbit.opacity} keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
+                  <animate attributeName="fill" values={letter.orbit.color} keyTimes={letter.orbit.keyTimes} dur={cycle} repeatCount="indefinite" />
                 </rect>
-                {/* the shadow inside the cut, opposite the light */}
-                <rect x={0} y={0} width={386} height={100} fill={ETCHING.shadow} mask={`url(#${id}-shadow-band)`} />
-              </>
-            )}
+                <rect x={0} y={0} width={386} height={100} fill={ETCHING.shadow} mask={`url(#${id}-shadow-band-${k})`} />
+              </g>
+            ))}
             <text x={193} y={ETCHING.y} fill="none" stroke="#ffc2c8" strokeOpacity={ETCHING.rim} strokeWidth={0.9}>{label}</text>
             {(ETCHING.glint === 'stroke' || (ETCHING.glint === 'orbit' && ETCHING.sweepToo)) && <text x={193} y={ETCHING.y} fill="none" stroke={`url(#${id}-glint)`} strokeWidth={2.2}>{label}</text>}
           </g>
