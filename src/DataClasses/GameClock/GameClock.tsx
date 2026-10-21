@@ -1,30 +1,32 @@
-
+/**
+ * The turn clock: the clock's seconds hand counts down the player's turn. It ticks round once a turn,
+ * in TURN_CLOCK.ticksPerTurn ticks over TURN_CLOCK.turnSeconds (faster than real seconds); if the
+ * player hasn't ended the turn when it reaches the minute, the turn ends for them.
+ */
+export const TURN_CLOCK = {
+  isOn: true,
+  turnSeconds: 30, // how long the player has each turn (real seconds)
+  ticksPerTurn: 60, // the seconds hand's ticks round the face (one a "second")
+};
 
 export class GameClock {
     minuteAngleAcc: number = 0;
-    secondsHandAngle: number = 0;
-    angleIncrement: number = 0;
-    isPaused: boolean = false;
-    timeoutRef: number = 0;
+    secondTicks: number = 0; // this turn's ticks so far (0 to TURN_CLOCK.ticksPerTurn)
+    isTurnClockRunning: boolean = false;
     intervalRef: number = 0;
     endTurn = () => { };
+    /** Whether the turn clock should hold still for now (e.g. a tutorial page is open). */
+    getIsHeld: () => boolean = () => false;
 
     /*
       360 for callback to trigger every hour
         30 to trigger every 1/12th hour.
     */
     static readonly MINUTE_INCREMENT_ANGLE: number = 30;
-    static readonly SECONDS_INCREMENT_ANGLE: number = 24;
-    static readonly INTERVAL_DELAY: number = 1000;
-    static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 30 * 12 * 6; // 6 hours * 12 5-minute-interavals * 30 degrees 
+    static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 30 * 12 * 6; // 6 hours * 12 5-minute-interavals * 30 degrees
 
     constructor(endTurn: () => {}) {
         this.endTurn = endTurn;
-    }
-
-    // PRIVATE
-    incrementSecondsHandAngle = (): void => {
-        this.secondsHandAngle += GameClock.SECONDS_INCREMENT_ANGLE;
     }
 
     // PUBLIC
@@ -44,39 +46,41 @@ export class GameClock {
         this.minuteAngleAcc = 0;
     }
 
-    getSecondsHandAngle = (): number => {
-        return this.secondsHandAngle;
-    }
+    /** The seconds hand's angle (0 at 12, 360 once it has gone round: the turn's time is up). */
+    getSecondsHandAngle = (): number => (this.secondTicks / TURN_CLOCK.ticksPerTurn) * 360;
+
+    /** How far through the turn's time the seconds hand is (0 to 1). */
+    getTurnTimeFraction = (): number => this.secondTicks / TURN_CLOCK.ticksPerTurn;
+
+    getIsTurnClockRunning = (): boolean => this.isTurnClockRunning;
 
     resetClock = (): void => {
+        this.stopTurnClock();
         this.resetMinuteAngleAcc();
-        this.secondsHandAngle = 0;
     }
 
-    pauseClock = () => {
-        this.isPaused = true;
-    }
-
-    unpauseClock = () => {
-        this.isPaused = false;
-    }
-
-    startClock = (): void => {
-        clearInterval(this.intervalRef);
-        this.intervalRef = setInterval(() => {
-
-            if (this.isPaused) return;
-
-            this.incrementSecondsHandAngle();
-
-            if (this.secondsHandAngle >= 360 + GameClock.SECONDS_INCREMENT_ANGLE)
+    /** The player's turn begins: the seconds hand starts from 12, ticking round once over the turn. */
+    startTurnClock = (): void => {
+        this.stopTurnClock();
+        if (!TURN_CLOCK.isOn) return;
+        this.isTurnClockRunning = true;
+        const tickMilli = (TURN_CLOCK.turnSeconds / TURN_CLOCK.ticksPerTurn) * 1000;
+        this.intervalRef = window.setInterval(() => {
+            if (this.getIsHeld()) return;
+            this.secondTicks++;
+            if (this.secondTicks >= TURN_CLOCK.ticksPerTurn) {
+                // Time's up: the turn ends for the player
+                window.clearInterval(this.intervalRef);
+                this.isTurnClockRunning = false;
                 this.endTurn();
-
-        }, GameClock.INTERVAL_DELAY);
+            }
+        }, tickMilli);
     }
 
-    stopClock = (): void => {
-        clearInterval(this.intervalRef);
-        clearTimeout(this.timeoutRef);
+    /** The turn is over (ended, or the game is): the seconds hand stops and goes back to 12. */
+    stopTurnClock = (): void => {
+        window.clearInterval(this.intervalRef);
+        this.isTurnClockRunning = false;
+        this.secondTicks = 0;
     }
 }

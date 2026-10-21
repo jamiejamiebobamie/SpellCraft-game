@@ -6,6 +6,7 @@ import { useSnapshot } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
 import ClockHalo, { CLOCK_HALO } from './ClockHalo';
 import { LOGO_CONFIG } from '../../Logo/logoConfig';
+import { GameClock } from '../../../DataClasses/GameClock/GameClock';
 
 /** How much brighter the clock face gets while hovered (1 = no change; it multiplies the flashing's level). */
 const CLOCK_FACE_HOVER_BRIGHTNESS = 1.1; // (was 1.25)
@@ -141,27 +142,41 @@ const useClockChimesAnim = ({ rootGameStore, setIsResetChime }: UseClockChimesAn
   }, [snap.getIsGameBoardDisabled()]);
 }
 
-interface UseMinuteAngleAccProps {
-  rootGameStore: Game;
-  setAngles: (newClockHandAngles: { minute: number, hour: number }) => void;
-}
+type HandAngles = { second: number; minute: number; hour: number };
 
-const useMinuteAngleAcc = ({ rootGameStore, setAngles }: UseMinuteAngleAccProps): void => {
-  const snap = useSnapshot(rootGameStore);
-  const minuteAngleAcc = snap.getMinuteAngleAcc();
+/** How often the hands are checked (milliseconds): quicker than the quickest tick. */
+const HAND_CHECK_MILLI = 50;
+
+/**
+ * The hands' angles (degrees from 12), kept up to date:
+ *   on the landing page, a real clock from LOGO_CONFIG.clock.startTime, ticking once a second;
+ *   in play, the night's time (5 minutes a turn) with the seconds hand counting down the player's
+ *   turn (GameClock's turn clock), the minute and hour hands creeping on with it.
+ */
+const useHandAngles = (isLanding: boolean): HandAngles => {
+  const [angles, setAngles] = useState<HandAngles>({ second: 0, minute: 0, hour: 0 });
   useEffect(() => {
-    const hourAngle = minuteAngleAcc / 12;
-    setAngles({
-      minute: minuteAngleAcc,
-      hour: hourAngle
-    });
-  }, [minuteAngleAcc]);
-}
-
-type minuteHourAngles = {
-  minute: number;
-  hour: number;
-}
+    const start = performance.now();
+    const read = (): HandAngles => {
+      if (isLanding) {
+        const { hours, minutes, seconds } = LOGO_CONFIG.clock.startTime;
+        const total = hours * 3600 + minutes * 60 + seconds + Math.floor((performance.now() - start) / 1000);
+        return { second: (total % 60) * 6, minute: (total % 3600) / 10, hour: (total % 43200) / 120 };
+      }
+      // the minute hand: the turns so far, plus a minute's worth across this turn's time
+      const fraction = rootGameStore.getTurnTimeFraction();
+      const minute = rootGameStore.getMinuteAngleAcc() + fraction * (GameClock.MINUTE_INCREMENT_ANGLE / 5);
+      return { second: fraction * 360, minute, hour: minute / 12 };
+    };
+    setAngles(read());
+    const interval = window.setInterval(() => {
+      const next = read();
+      setAngles(current => current.second === next.second && current.minute === next.minute ? current : next);
+    }, HAND_CHECK_MILLI);
+    return () => window.clearInterval(interval);
+  }, [isLanding]);
+  return angles;
+};
 
 
 export default function ClockFaceComponent() {
@@ -176,9 +191,19 @@ export default function ClockFaceComponent() {
   const isAnyPlayerDead = !!snap.getHumanPlayer()?.getIsDead() || !!snap.getNpcPlayer()?.getIsDead();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
-  // Rotation angles (minute, hour)
-  const [angles, setAngles] = useState<minuteHourAngles>({ minute: 0, hour: 0 });
-  useMinuteAngleAcc({ rootGameStore, setAngles });
+  // The hands (second, minute, hour)
+  const angles = useHandAngles(isLanding);
+  // The seconds hand only ever goes forward: each tick a quick snap to its next place, and when it's
+  // reset to 12 (a turn ends, or a landing minute is up) it carries on round to 12 rather than back
+  const secondHand = useRef({ raw: angles.second, laps: 0, shown: angles.second, transition: 0.12 });
+  const hand = secondHand.current;
+  if (angles.second !== hand.raw) {
+    if (angles.second < hand.raw) hand.laps++; // round past 12 again
+    const shown = hand.laps * 360 + angles.second;
+    hand.transition = shown - hand.shown > 12 ? 0.6 : 0.12; // (the run on to 12 at a turn's end takes a moment)
+    hand.shown = shown;
+    hand.raw = angles.second;
+  }
 
   // Plays the anim once and resets it for next play.    
   const [isResetChime, setIsResetChime] = useState<boolean>(true);
@@ -276,6 +301,13 @@ export default function ClockFaceComponent() {
             x1="50" y1="50" x2="50" y2="16"
             stroke="#917d41" strokeWidth="3.5" strokeLinecap="round"
             transform={`rotate(${angles.minute} 50 50)`}
+          />
+          {/* Seconds Hand (thin, red: on the landing page a real clock's; in play, counting down the turn) */}
+          <ClockHands
+            x1="50" y1="58" x2="50" y2="12"
+            stroke="#a33a2a" strokeWidth="1.5" strokeLinecap="round"
+            $transitionTime={hand.transition}
+            style={{ transform: `rotate(${hand.shown}deg)`, transformOrigin: '50px 50px' }}
           />
           {/* Center Pin */}
           <circle cx="50" cy="50" r="4" fill="#917d41" />

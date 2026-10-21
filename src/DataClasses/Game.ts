@@ -79,6 +79,8 @@ export class Game {
     this.model.init(this.assetLoader);
     this.spellCanvas = proxy(new SpellCanvas());
     this.gameClock = proxy(new GameClock(this.endTurn));
+    // (the turn clock holds still while a tutorial page is open, or once the game is over)
+    this.gameClock.getIsHeld = () => this.tooltipManager.active || this.gameOver !== null;
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
     this.npcBrain = new NpcBrain(this.assetLoader);
@@ -120,6 +122,8 @@ export class Game {
 
   /** The NPC's turn begins: it casts after `delayMilli`, or waits for the player to cast first. */
   startNpcTurn = (delayMilli: number): void => {
+    // (the player's turn begins with the NPC's: the clock's seconds hand starts counting it down)
+    this.gameClock.startTurnClock();
     if (!this.getIsNpcWaitingThisMatch()) {
       setTimeout(() => this.doNpcMove(), delayMilli);
       return;
@@ -185,6 +189,7 @@ export class Game {
 
     const isGameOver = this.gameOver !== null;
     if (this.gameOver !== null) {
+      this.gameClock.stopTurnClock();
       this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
       this.forceUpdate();
@@ -195,6 +200,8 @@ export class Game {
   endTurn = async (): Promise<void> => {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
+    // The turn is ending: the seconds hand stops (and goes back to 12)
+    if (!this.getIsGameBoardDisabled()) this.gameClock.stopTurnClock();
     // The NPC was waiting for the player to cast first: it plays its turn now, then the turn ends
     if (this.isNpcWaitingForPlayer && !this.getIsGameBoardDisabled() && this.gameOver === null && !isAnyPlayerDead) {
       this.releaseNpc(0);
@@ -486,10 +493,7 @@ export class Game {
   resetMinuteAngleAcc = (): void => this.gameClock.resetMinuteAngleAcc();
   getSecondsHandAngle = (): number => this.gameClock.getSecondsHandAngle();
   resetClock = (): void => this.gameClock.resetClock();
-  pauseClock = (): void => this.gameClock.pauseClock();
-  unpauseClock = (): void => this.gameClock.unpauseClock();
-  startClock = (): void => this.gameClock.startClock();
-  stopClock = (): void => this.gameClock.stopClock();
+  getTurnTimeFraction = (): number => this.gameClock.getTurnTimeFraction();
   getClockChimeSeconds = (): number => {
     const numTotalMoves = this.placedSpells.spells.reduce((acc, item) => acc + Math.abs(item.speedDirection), 0);
     return Math.max(4, Math.floor(numTotalMoves * PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 1000));
