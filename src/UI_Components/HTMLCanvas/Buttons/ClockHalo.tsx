@@ -71,7 +71,9 @@ export const CLOCK_HALO = {
     { rgb: '82, 132, 204', toWhite: 0 }, // blue
     { rgb: '104, 172, 98', toWhite: 0 }, // green
   ] as Array<{ rgb: string; toWhite: number }>,
-  rayColorsToWhite: 0, // slides all the ray colors toward white, on top of each one's own toWhite
+  // slides all the ray colors (ribbons too) toward white, on top of each one's own toWhite: on the landing
+  // page, and in play
+  rayColorsToWhite: { landing: 0.4, play: 0 },
   rayOpacity: 0.75, // at the rays' base, fading to nothing at their tips (was 0.55)
   glowOpacity: 0.42, // a soft glow right around the face (lifts the dark carving there)
   rotationSeconds: 90, // one full turn (0: still)
@@ -271,10 +273,14 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !CLOCK_HALO.enabled) return;
     const { rays, color, rayOpacity, glowOpacity, rayStart, rotationSeconds, breathe, ribbon } = CLOCK_HALO;
-    const toColors = (list: Array<{ rgb: string; toWhite: number }>) =>
-      list.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - CLOCK_HALO.rayColorsToWhite)));
-    const rayColors = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [color];
-    const ribbonColors = CLOCK_HALO.ribbonColors.length ? toColors(CLOCK_HALO.ribbonColors) : rayColors;
+    // (the colors on the landing page, and in play: rayColorsToWhite)
+    const colorsFor = (toWhiteAll: number) => {
+      const toColors = (list: Array<{ rgb: string; toWhite: number }>) =>
+        list.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - toWhiteAll)));
+      const rays = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [color];
+      return { rays, ribbons: CLOCK_HALO.ribbonColors.length ? toColors(CLOCK_HALO.ribbonColors) : rays };
+    };
+    const landingColors = colorsFor(CLOCK_HALO.rayColorsToWhite.landing), playColors = colorsFor(CLOCK_HALO.rayColorsToWhite.play);
 
     let frameId = 0, lastNow = performance.now();
     let seconds = 0; // the halo's own time: it stops while time is frozen
@@ -353,6 +359,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           // (the ribbons: their own opacity, tip fade and brightness, on the landing page or in play)
           const { ribbonLook } = CLOCK_HALO;
           const ribbonBrightness = rootGameStore.getIsPlaying() ? ribbonLook.brightness.play : ribbonLook.brightness.landing;
+          const { rays: rayColors, ribbons: ribbonColors } = rootGameStore.getIsPlaying() ? playColors : landingColors;
           const rayColor = ray.ribbon ? shade(ribbonColors[k % ribbonColors.length], ribbonBrightness) : rayColors[k % rayColors.length];
           drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? ribbonLook.opacity : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
             ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1,

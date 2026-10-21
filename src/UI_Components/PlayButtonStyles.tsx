@@ -63,7 +63,7 @@ const FACET_NORMALS = PANEL_POINTS.map((p, k) => {
  * The glint's timing (while the button is hovered): one glint takes `sweepSeconds` (the band of light
  * crossing the word, the letters' and the ruby's light turning), then it rests `restSeconds` before the next.
  */
-export const GLINT = { sweepSeconds: 1.925, restSeconds: 1.575 };
+export const GLINT = { sweepSeconds: 3, restSeconds: 3 };
 
 /**
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
