@@ -18,7 +18,7 @@ You're a member of a masked wizard fight club. After curfew, you sneak out of be
 - **Spend focus.** Every cell of a spell costs focus. You get 2 focus back each turn and can store up to 8.
 - **Or pay in blood.** Cast beyond your focus, and the difference comes out of your health instead.
 - **End the turn** by clicking the clock. All spells then move and interact.
-- **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway.
+- **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway. Opening the Spell Book pauses it, so if you'd rather not be timed, keep it open while you think.
 - **Survive until sunrise.** Each turn is five minutes of game time from midnight to 6 AM, and the closer it gets to dawn, the likelier a teacher catches you.
 
 Mouse, keyboard or a mix of both all work; the keyboard controls are in the game's settings.
