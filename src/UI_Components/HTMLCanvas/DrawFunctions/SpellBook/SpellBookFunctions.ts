@@ -487,7 +487,7 @@ export const drawModalDetails = (
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
         },
         'Quicken': {
-            desc: "A crackling lightning bolt,\n   Electrocutes those it strikes.\nDestroys weaker spells on collision.\nGives +1 move, right away, to any\n   spell that destroys it.",
+            desc: "A crackling lightning bolt (a single\n   cell of it travels fast),\nDestroys weaker spells on collision.\nGives any spell that destroys it a move\n   right away for each cell of its width.",
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
         },
         'Phlegm': {

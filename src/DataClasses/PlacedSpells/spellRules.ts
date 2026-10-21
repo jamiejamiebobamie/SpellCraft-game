@@ -36,10 +36,13 @@ export const GYRE_RULES = {
 };
 
 export const QUICKEN_RULES = {
-  // A Quicken's speed bonus: 'instant', a spell that consumes one gets +1 move right away, this turn only
-  // (like a Gyre's exit bonus: nothing lasting; a Quicken itself moves at the usual speed); 'none', no
-  // bonus; 'permanent', the earlier rule (+1 speed for a Quicken, and for a spell electrified by one)
+  // A Quicken's speed bonus: 'instant', a spell that consumes one gets extra moves right away, this turn
+  // only, as many as the Quicken is wide (as if moving through it: like a Gyre's exit bonus, nothing
+  // lasting), unless it's a Quicken itself; 'none', no bonus; 'permanent', the earlier rule (+1 speed for
+  // a Quicken, and for a spell electrified by one)
   speedMode: 'instant' as 'instant' | 'none' | 'permanent',
+  // ('instant' and 'none') a 1x1 Quicken's own extra speed, kept (a sized one has none)
+  singleCellSpeed: 1,
   bonusMode: 'flat' as 'flat' | 'perConsumption',
   bonusMovesPerConsumption: 2,
 };

@@ -562,13 +562,28 @@ describe('11. bonuses', () => {
     expect(ether.getPropertyValue('speedDirection')).toBe(2);
   });
 
-  it("'instant': a spell that eats a Quicken gets +1 move that turn, but no lasting speed (nor the Quicken itself)", () => {
+  it("'instant': a spell that eats a Quicken gets +1 move that turn, but no lasting speed; a 1x1 Quicken moves 1 faster", () => {
     QUICKEN_RULES.speedMode = 'instant';
     const ether = place(Ether, player, 0, 0);
-    const quicken = place(Quicken, npc, 0, 2);
-    expect(quicken.getPropertyValue('speedDirection')).toBe(-1);
+    const quicken = place(Quicken, npc, 0, 3);
+    expect(quicken.getPropertyValue('speedDirection')).toBe(-1 - QUICKEN_RULES.singleCellSpeed);
     expect(finalColumn([ether, quicken], ether)).toBe(2); // +1 move after eating the Quicken
     expect(ether.getPropertyValue('speedDirection')).toBe(1); // its speed is unchanged
+  });
+
+  it("'instant': a sized Quicken gives as many moves as it is wide, and has no extra speed itself; a Quicken eating one gets none", () => {
+    QUICKEN_RULES.speedMode = 'instant';
+    const wide = place(Quicken, npc, 0, 3, 2); // 2 wide
+    expect(wide.getPropertyValue('speedDirection')).toBe(-2); // just its width
+    const ether = place(Ether, player, 0, 0, 3); // a 3x3, strong enough to eat it
+    const target = new Quicken(npc); target.widthCells = 2; target.heightCells = 1;
+    const before = ether.remainingMoves;
+    target.conferModifierTo(ether);
+    expect(ether.remainingMoves - before).toBe(2);
+    const quickenEater = place(Quicken, player, 1, 0);
+    const movesBefore = quickenEater.remainingMoves;
+    new Quicken(npc).conferModifierTo(quickenEater);
+    expect(quickenEater.remainingMoves).toBe(movesBefore); // a Quicken gains no moves from another
   });
 
   it("'none': a spell that eats a Quicken gets no extra move", () => {
