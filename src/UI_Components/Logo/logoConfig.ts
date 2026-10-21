@@ -124,7 +124,7 @@ export const LOGO_CONFIG = {
     wrist: { x: -2.9, y: 6.9 }, // the player's wand hand at rest, from the center line (the opponent's is mirrored)
     wandTilt: 25, // degrees from upright, leaning in toward the other wand
     // Below the waist, the avatars fade out behind the title (fractions of the logo's height)
-    fadeOut: { start: 0.665, end: 0.725 }, // (was 0.595 to 0.655: down 5 units, with the avatars)
+    fadeOut: { start: 0.73, end: 0.77 }, // (was 0.595 to 0.655: down 5 units, with the avatars)
     aura: { rgb: '255, 244, 214', opacity: 0.55, size: 0.2, layers: 4, growth: 2, falloff: 0.5 } as Aura, // a cream outline, glowing outward // (was 0.72 to 0.9 at height 66) mostly gone above the title, so the two read separately
   },
 
