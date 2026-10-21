@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
+import { rootGameStore } from '../../../DataClasses/store';
 
 type RayStyle = 'straight' | 'wavy';
 type Ray = { length: number; width: number; style: RayStyle; waves: number; wave: number; ribbon: boolean };
@@ -27,6 +28,9 @@ export const CLOCK_HALO = {
   // Ribbons: how many half-turns along a ray, how long one twist takes to travel along it, how dark
   // the ribbon's back face is (1: as bright as the front), and the sheen where it faces you
   ribbon: { twists: 2, flowSeconds: 3, backShade: 0.55, sheen: 0.35 },
+  // A satin sheen: a band of light sliding along each ribbon from base to tip, every `seconds` (each
+  // ribbon at its own moment), `strength` toward white where it faces you, `width` (fraction of its length)
+  ribbonSheen: { seconds: 2.6, strength: 0.55, width: 0.12 },
   // The ribbons slide in and out: the halo shows with plain rays, which twist into ribbons
   // `delaySeconds` after it appears (over `blendSeconds`); before hiding, they untwist back to
   // plain rays (over `unwindSeconds`), and then the halo shrinks away
@@ -52,8 +56,8 @@ export const CLOCK_HALO = {
     { rgb: '104, 172, 98', toWhite: 0 }, // green
   ] as Array<{ rgb: string; toWhite: number }>,
   rayColorsToWhite: 0, // slides all the ray colors toward white, on top of each one's own toWhite
-  rayOpacity: 0.55, // at the rays' base, fading to nothing at their tips
-  glowOpacity: 0.35, // a soft glow right around the face (lifts the dark carving there)
+  rayOpacity: 0.75, // at the rays' base, fading to nothing at their tips (was 0.55)
+  glowOpacity: 0.42, // a soft glow right around the face (lifts the dark carving there)
   rotationSeconds: 90, // one full turn (0: still)
   pulseSeconds: 6, // a slow brighten and dim (0: none)
   pulseLow: 0.7, // the dimmest point of the pulse (1: no pulse)
@@ -85,7 +89,7 @@ const pulse = keyframes`
   50% { opacity: ${CLOCK_HALO.pulseLow}; }
 `;
 
-const HaloWrapper = styled.div<{ $brightness: number }>`
+const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean }>`
   position: absolute;
   left: ${CLOCK_HALO.center.x - CANVAS_REACH}cqw;
   top: ${CLOCK_HALO.center.y - CANVAS_REACH}cqw;
@@ -97,6 +101,7 @@ const HaloWrapper = styled.div<{ $brightness: number }>`
   filter: brightness(${props => props.$brightness});
   transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
   ${CLOCK_HALO.pulseSeconds > 0 && css`animation: ${pulse} ${CLOCK_HALO.pulseSeconds}s ease-in-out infinite;`}
+  animation-play-state: ${props => props.$isFrozen ? 'paused' : 'running'};
 `;
 
 const HaloCanvas = styled.canvas`
@@ -153,7 +158,7 @@ const getReachFactor = (angle: number): number => {
  * at `tip` (in pixels), fading from `opacity` to nothing at the tip. A ribbon twists as it goes, its
  * width narrowing where it turns edge-on and its back face darker; `flow` moves the twist along it.
  */
-const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number) => {
+const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1) => {
   const isRibbon = ray.ribbon && ribbonAmount > 0;
   const steps = ray.style === 'wavy' || isRibbon ? 32 : 1;
   const swingOf = (u: number) => ray.style === 'wavy'
@@ -174,7 +179,11 @@ const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: num
     // The face toward you is lit (with a sheen where it faces you squarely); the back is in shadow
     // (a ray turning into a ribbon gains its sheen as it does; the plain rays keep theirs)
     const sheenAmount = sheen * (ray.ribbon ? ribbonAmount : 1);
-    const faceRgb = isFront ? (sheenAmount > 0 ? towardWhite(rgb, sheenAmount * twist * twist) : rgb) : shade(rgb, backShade);
+    // (and the satin sheen sliding along a ribbon: brightest where it faces you)
+    const u = (a.u + b.u) / 2, band = sheenAt < 0 || !isRibbon ? 0 : Math.exp(-((u - sheenAt) ** 2) / (2 * CLOCK_HALO.ribbonSheen.width ** 2));
+    const satin = band * CLOCK_HALO.ribbonSheen.strength * ribbonAmount * Math.abs(twist);
+    const litRgb = isFront ? (sheenAmount > 0 ? towardWhite(rgb, sheenAmount * twist * twist) : rgb) : shade(rgb, backShade);
+    const faceRgb = satin > 0 ? towardWhite(litRgb, satin) : litRgb;
     const alpha = opacity * (1 - (a.u + b.u) / 2);
     ctx.fillStyle = `rgba(${faceRgb}, ${alpha})`;
     ctx.beginPath();
@@ -200,6 +209,13 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
 
   // The iris (CLOCK_HALO.appear): `amount` 0 (closed) to 1 (open), heading for `target`
   const irisRef = useRef({ amount: 0, target: 0 });
+  // Frozen time (the turn clock held): the pulse pauses with the drawing (checked each frame)
+  const frozenRef = useRef(false);
+  const [isFrozen, setIsFrozen] = useState(false);
+  useEffect(() => {
+    const interval = window.setInterval(() => setIsFrozen(frozenRef.current), 100);
+    return () => window.clearInterval(interval);
+  }, []);
 
   // The ribbons sliding in and out (CLOCK_HALO.ribbonBlend): `amount` 0 (plain rays) to 1 (ribbons),
   // heading for `target` from `startAt` (performance.now() milliseconds)
@@ -235,13 +251,16 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     const rayColors = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [color];
     const ribbonColors = CLOCK_HALO.ribbonColors.length ? toColors(CLOCK_HALO.ribbonColors) : rayColors;
 
-    const start = performance.now();
-    let frameId = 0, lastNow = start;
+    let frameId = 0, lastNow = performance.now();
+    let seconds = 0; // the halo's own time: it stops while time is frozen
     const draw = (now: number) => {
-      const seconds = (now - start) / 1000;
       // The ribbons slide toward their target (twisting in slowly, untwisting quickly)
       const blend = ribbonRef.current, dt = Math.max(0, (now - lastNow) / 1000);
       lastNow = now;
+      // Frozen time: while the turn clock's seconds hand is held, the halo holds still too
+      const isFrozen = rootGameStore.getIsTurnClockHeld();
+      if (!isFrozen) seconds += Math.min(dt, 0.1);
+      frozenRef.current = isFrozen;
       if (now >= blend.startAt && blend.amount !== blend.target) {
         const { blendSeconds, unwindSeconds } = CLOCK_HALO.ribbonBlend;
         const rate = blend.target > blend.amount ? 1 / Math.max(0.01, blendSeconds) : 1 / Math.max(0.01, unwindSeconds);
@@ -299,7 +318,8 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           ctx.rotate(lean);
           ctx.translate(0, base);
           const rayColor = ray.ribbon ? ribbonColors[k % ribbonColors.length] : rayColors[k % rayColors.length];
-          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, rayOpacity * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount);
+          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, rayOpacity * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
+            ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1);
           ctx.restore();
         });
       }
@@ -311,7 +331,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
 
   if (!CLOCK_HALO.enabled) return null;
   return (
-    <HaloWrapper $brightness={brightness}>
+    <HaloWrapper $brightness={brightness} $isFrozen={isFrozen}>
       <HaloCanvas ref={canvasRef} />
     </HaloWrapper>
   );

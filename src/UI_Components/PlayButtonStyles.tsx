@@ -2,7 +2,7 @@
 // The ruby button (the landing screen's Play, the game over modal's Yes and No): a long hexagon, drawn
 // as one SVG so its frame is an even, beveled band of brass all the way round, set with a faceted
 // ruby, its lettering etched into it. (Looks are kept as data, so another could be added beside it.)
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 export type PlayButtonLook = 'ruby';
@@ -218,8 +218,12 @@ const Label = styled.span`
   color: transparent;
 `;
 
-/** The button's face: the frame, panel and lettering (the button itself, and its hover, are the caller's). */
-export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: string }) => {
+/**
+ * The button's face: the frame, panel and lettering (the button itself, and its hover, are the caller's).
+ * `isGlinting`: the glint (the sweep, the letters' light and the ruby's facets) plays while true, e.g.
+ * while hovered; otherwise it rests (finishing the pass it's in first).
+ */
+export const PlayButtonFace = ({ look, label, isGlinting = true }: { look: PlayButtonLook; label: string; isGlinting?: boolean }) => {
   const l = PLAY_BUTTON_LOOKS[look];
   // (unique per button: several can be on screen at once, e.g. the game over modal's Yes and No)
   const id = `play-${look}-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -257,9 +261,28 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
     return () => { isCancelled = true; };
   }, [isOrbit, label]);
   const cycle = `${ETCHING.glintSeconds}s`;
+
+  // The glint plays only while `isGlinting`: its animations (all SVG, on this SVG's own clock) wait
+  // at their start, the resting look; when it stops, the pass in progress finishes first
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const hasStarted = useRef(false);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    if (isGlinting) {
+      if (svg.animationsPaused()) { svg.setCurrentTime(0); svg.unpauseAnimations(); }
+      hasStarted.current = true;
+      return;
+    }
+    const rest = () => { svg.pauseAnimations(); svg.setCurrentTime(0); };
+    if (!hasStarted.current || svg.animationsPaused()) { rest(); return; }
+    const into = svg.getCurrentTime() % ETCHING.glintSeconds, passEnds = SWEEP.moving * ETCHING.glintSeconds;
+    const timeout = window.setTimeout(rest, Math.max(0, passEnds - into) * 1000);
+    return () => window.clearTimeout(timeout);
+  }, [isGlinting]);
   return (
     <>
-      <Frame viewBox="0 0 386 100" preserveAspectRatio="none" aria-hidden>
+      <Frame ref={svgRef} viewBox="0 0 386 100" preserveAspectRatio="none" aria-hidden>
         <defs>
           <linearGradient id={`${id}-frame`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={l.frame[0]} />

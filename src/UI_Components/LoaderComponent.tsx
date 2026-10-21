@@ -6,6 +6,7 @@ import LogoComponent from './Logo/LogoComponent';
 import { LOGO_CONFIG } from './Logo/logoConfig';
 import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
 import HoverSymbols from './HoverSymbols';
+import PixieDust, { PIXIE_DUST_SECONDS } from './PixieDust';
 import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
 
 /** How wide one sweep of "Loading..."'s sheen is (cqw): about the word's width. */
@@ -41,10 +42,23 @@ const LoadingOverlay = styled.div<{ $isSceneImgsLoaded: boolean }>`
   transition: background 5s;  
 `;
 
-const LoadingContent = styled.div`
-  padding: 3cqw;
+/** The landing content and its pixie dust (the content dissolving into it as Play is pressed). */
+const DissolveArea = styled.div`
+  position: relative;
   width: 80%;
   max-width: 800px;
+  display: flex;
+  justify-content: center;
+`;
+
+const LoadingContent = styled.div<{ $isDissolving: boolean }>`
+  /* dissolving: fading, blurring and lifting away as the pixie dust rises from it */
+  opacity: ${props => props.$isDissolving ? 0 : 1};
+  filter: ${props => props.$isDissolving ? 'blur(0.5cqw)' : 'blur(0)'};
+  transform: ${props => props.$isDissolving ? 'translateY(-1.5cqw) scale(1.03)' : 'none'};
+  transition: opacity ${PIXIE_DUST_SECONDS * 0.75}s ease-in, filter ${PIXIE_DUST_SECONDS * 0.75}s ease-in, transform ${PIXIE_DUST_SECONDS}s ease-out;
+  padding: 3cqw;
+  width: 100%;
   position: relative;
   align-items: center;
   justify-content: center;
@@ -162,6 +176,14 @@ const LoaderComponent = () => {
     return () => clearTimeout(removeTimeout);
   }, [isPriorityAssetsLoaded]);
 
+  // Play: the landing page dissolves into pixie dust, then the game begins
+  const [isDissolving, setIsDissolving] = useState<boolean>(false);
+  const dissolveAndPlay = () => {
+    if (isDissolving) return;
+    setIsDissolving(true);
+    window.setTimeout(rootGameStore.startGame, PIXIE_DUST_SECONDS * 1000);
+  };
+
   // Hovering: the symbols around the button
   const [hoverKey, setHoverKey] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
@@ -177,7 +199,8 @@ const LoaderComponent = () => {
 
   return (
     isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
-      <LoadingContent>
+      <DissolveArea>
+      <LoadingContent $isDissolving={isDissolving}>
         <Logo>{isPriorityAssetsLoaded && <LogoComponent />}</Logo>
         <ActionSlot>
           {isLoading ? (
@@ -195,17 +218,19 @@ const LoaderComponent = () => {
           ) : (
             <FramedPlayButton
               $glow={getPlayButtonGlow('ruby')}
-              onClick={rootGameStore.startGame}
+              onClick={dissolveAndPlay}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
-              <PlayButtonFace look="ruby" label="Play" />
+              <PlayButtonFace look="ruby" label="Play" isGlinting={isHovered} />
               <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
             </FramedPlayButton>
           )}
         </ActionSlot>
         
       </LoadingContent>
+      <PixieDust isActive={isDissolving} />
+      </DissolveArea>
     </LoadingOverlay>
   )
 };

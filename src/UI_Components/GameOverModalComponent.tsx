@@ -195,7 +195,7 @@ const ModalButtonWithSymbols: React.FC<ActionButtonProps> = ({ label, onClick })
       onMouseEnter={() => { setHoverKey(prev => prev + 1); setIsHovered(true); }}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <PlayButtonFace look="ruby" label={label} />
+      <PlayButtonFace look="ruby" label={label} isGlinting={isHovered} />
       <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
     </RubyModalButton>
   );

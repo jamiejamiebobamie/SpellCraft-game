@@ -511,6 +511,8 @@ export class Game {
   getSecondsHandAngle = (): number => this.gameClock.getSecondsHandAngle();
   resetClock = (): void => this.gameClock.resetClock();
   getTurnTimeFraction = (): number => this.gameClock.getTurnTimeFraction();
+  /** Whether the turn clock's seconds hand is held still right now (a tip showing, the Spell Book open...). */
+  getIsTurnClockHeld = (): boolean => this.gameClock.getIsTurnClockRunning() && this.gameClock.getIsHeld();
   getClockChimeSeconds = (): number => {
     const numTotalMoves = this.placedSpells.spells.reduce((acc, item) => acc + Math.abs(item.speedDirection), 0);
     return Math.max(4, Math.floor(numTotalMoves * PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 1000));
