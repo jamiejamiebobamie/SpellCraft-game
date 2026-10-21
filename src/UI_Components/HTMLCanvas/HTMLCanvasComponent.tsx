@@ -17,7 +17,7 @@ import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
 import { drawClockAdvanceSymbols } from './DrawFunctions/ClockSymbols/ClockSymbolFunctions';
 import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
 import { useSnapshot } from 'valtio';
-import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails } from './DrawFunctions/SpellBook/SpellBookFunctions';
+import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails, prewarmSpellBookPage } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
 import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
 
@@ -166,6 +166,20 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const handleMouseLeave = useCallback(() => {
     scrollUIRef.current.currentMousePos = { x: -1000, y: -1000 };
     scrollUIRef.current.hoveredSpellName = null; setIsHovered(false);
+  }, []);
+
+  // The Spell Book's page built ahead of time, once the browser is idle after loading (so opening it
+  // the first time doesn't pause the canvas while it's built)
+  useEffect(() => {
+    const prewarm = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || !canvas.width) return;
+      const dpr = window.devicePixelRatio || 1;
+      prewarmSpellBookPage(canvas.width / dpr, canvas.height / dpr, dpr);
+    };
+    const whenIdle = (window as any).requestIdleCallback as ((run: () => void, options: { timeout: number }) => number) | undefined;
+    const timeout = window.setTimeout(() => whenIdle ? whenIdle(prewarm, { timeout: 3000 }) : prewarm(), 2500);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {

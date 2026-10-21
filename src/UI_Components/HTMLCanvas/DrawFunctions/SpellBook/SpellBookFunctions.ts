@@ -7,7 +7,7 @@ import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
-import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote } from './kellsOrnaments';
+import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote, prewarmQuillFont } from './kellsOrnaments';
 
 /**
  * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
@@ -458,6 +458,22 @@ export const drawWidgetLineOverlay = (
     ctx.restore();
 };
 
+/**
+ * Builds the Spell Book page's frame (drawKellsPage caches it by size) and starts loading its quill font
+ * ahead of time, e.g. while the browser is idle after loading: so the first time the page opens, it
+ * needn't build them then (a noticeable pause). The sizes match drawModalDetails's.
+ */
+export const prewarmSpellBookPage = (viewW: number, viewH: number, dpr: number): void => {
+    const scratch = document.createElement('canvas');
+    scratch.width = scratch.height = 1;
+    const ctx = scratch.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const infoW = viewW * 0.76, infoH = viewH * 0.7;
+    drawKellsPage(ctx, (viewW - infoW) * 0.5, viewH * 0.22, infoW, infoH, viewW * 0.02, viewW * 0.006);
+    prewarmQuillFont();
+};
+
 export const drawModalDetails = (
     ctx: CanvasRenderingContext2D,
     ui: CanvasScrollUI,
@@ -487,7 +503,7 @@ export const drawModalDetails = (
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
         },
         'Quicken': {
-            desc: "A crackling lightning bolt (a single\n   cell of it travels fast),\nDestroys weaker spells on collision.\nGives any spell that destroys it a move\n   right away for each cell of its width;\n   a single cell, +1 speed for good.",
+            desc: "A crackling lightning bolt.\nDestroys weaker spells.\nIts destroyer: +1 move per cell\n   of its width, that turn.\nA 1x1 is fast, and gives +1 speed.",
             stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
         },
         'Phlegm': {
@@ -495,11 +511,11 @@ export const drawModalDetails = (
             stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
         },
         'GyreUp': {
-            desc: "An upward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells upward.\n   Note: Spells pushed off the board are destroyed.",
+            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per\n   cell of its height, that turn.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
         },
         'GyreDown': {
-            desc: "A downward-flowing tornado,\n   Eviscerates those in its path.\nDestroys weaker spells on collision.\nPushes stronger spells downward.\n   Note: Spells pushed off the board are destroyed.",
+            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per\n   cell of its height, that turn.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
         }
     };

@@ -315,3 +315,6 @@ export const drawKellsPage = (ctx: CanvasRenderingContext2D, x: number, y: numbe
   const { canvas, pad } = pageCache;
   ctx.drawImage(canvas, x - pad, y - pad, w + pad * 2, h + pad * 2);
 };
+
+/** Starts loading the quill font ahead of time (so the first notes don't wait for it). */
+export const prewarmQuillFont = (): void => { getIsQuillFontReady(); };
