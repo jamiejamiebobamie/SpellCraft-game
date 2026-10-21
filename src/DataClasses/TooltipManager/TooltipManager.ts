@@ -68,7 +68,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     endTurn: {
         title: "Ending Your Turn",
-        text: "Done casting? Click the Clock (or press Space) to end your turn. Every spell on the board then moves and interacts.",
+        text: "Done casting? Click the Clock (or press Space) to end your turn. Its red seconds hand counts down your turn: if it comes round to 12 first, your turn ends anyway. Every spell on the board then moves and interacts.",
         anchor: ANCHORS.clock,
     },
     spellsInMotion: {

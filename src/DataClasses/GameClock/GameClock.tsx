@@ -17,6 +17,8 @@ export class GameClock {
     endTurn = () => { };
     /** Whether the turn clock should hold still for now (e.g. a tutorial page is open). */
     getIsHeld: () => boolean = () => false;
+    /** Each tick of the turn clock: how far through the turn's time it is (0 to 1). */
+    onTick: (fraction: number) => void = () => { };
 
     /*
       360 for callback to trigger every hour
@@ -68,6 +70,7 @@ export class GameClock {
         this.intervalRef = window.setInterval(() => {
             if (this.getIsHeld()) return;
             this.secondTicks++;
+            this.onTick(this.getTurnTimeFraction());
             if (this.secondTicks >= TURN_CLOCK.ticksPerTurn) {
                 // Time's up: the turn ends for the player
                 window.clearInterval(this.intervalRef);

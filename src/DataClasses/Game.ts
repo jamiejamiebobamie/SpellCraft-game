@@ -81,6 +81,13 @@ export class Game {
     this.gameClock = proxy(new GameClock(this.endTurn));
     // (the turn clock holds still while a tutorial page is open, or once the game is over)
     this.gameClock.getIsHeld = () => this.tooltipManager.active || this.gameOver !== null;
+    // Two thirds of the way through a turn's time, the first time: the tip on ending your turn (and the
+    // seconds hand), in case the player hasn't cast yet (which usually brings it up)
+    this.gameClock.onTick = (fraction: number) => {
+      if (fraction < Game.END_TURN_TIP_AT || !this.tooltipManager.getIsTooltips() || this.tooltipManager.seenTips.has('endTurn') || this.tooltipManager.lightTips.includes('endTurn')) return;
+      this.tooltipManager.triggerTip('endTurn');
+      this.forceUpdate();
+    };
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
     this.npcBrain = new NpcBrain(this.assetLoader);
@@ -253,6 +260,9 @@ export class Game {
       this.forceUpdate();
     }
   }
+
+  /** How far through a turn's time (0 to 1) the "Ending Your Turn" tip shows, if it hasn't yet. */
+  static readonly END_TURN_TIP_AT = 2 / 3;
 
   /** After this many turns (5 minutes each, from midnight), the "night is passing" tip. */
   static readonly NIGHT_PASSING_TIP_TURN = 6;

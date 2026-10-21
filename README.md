@@ -18,6 +18,7 @@ You're a member of a masked wizard fight club. After curfew, you sneak out of be
 - **Spend focus.** Every cell of a spell costs focus. You get 2 focus back each turn and can store up to 8.
 - **Or pay in blood.** Cast beyond your focus, and the difference comes out of your health instead.
 - **End the turn** by clicking the clock. All spells then move and interact.
+- **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway.
 - **Survive until sunrise.** Each turn is five minutes of game time from midnight to 6 AM, and the closer it gets to dawn, the likelier a teacher catches you.
 
 Mouse, keyboard or a mix of both all work; the keyboard controls are in the game's settings.
@@ -31,21 +32,30 @@ Every spell beats some situations and loses to others, so there's no single best
 | Spell | Name in code | Symbol | Cost per cell | What it does |
 |---|---|---|---|---|
 | **Fireball** | `Ether` | circle | 2 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
-| **Chain Lightning** | `Quicken` | line | 2 | Travels fast. Whatever destroys it inherits +1 speed. |
-| **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. |
+| **Chain Lightning** | `Quicken` | line | 1 | Travels fast. Whatever destroys it inherits +1 speed. |
+| **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
 | **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
 
 Because spells pass their power on, combos emerge naturally: a Chain Lightning fed into your own Fireball makes a faster fireball, and an Updraft or Downdraft can lift an incoming spell out of a threatened row or straight off the board.
+
+**Water Wheels.** A sized spell that runs into a Water Wheel breaks into single cells. Each cell swirls once around the wheel, and they reassemble as they leave it.
+
+**Updrafts and Downdrafts:**
+- **Lifting:** a draft lifts every stronger spell that reaches it during a turn, then dissipates at the turn's end.
+- **The boost:** a spell leaving a draft gets a one-time boost of +1 move for each cell of the draft's height, used right away.
+- **Drafts meeting:** the bigger draft consumes the smaller, and the smaller pushes it one row past its own tip, in the smaller's direction. Two drafts of equal size destroy each other.
+
+**Collisions.** Pieces of the same spell never destroy each other. A spell caught in a Water Wheel or a draft can still be hit and destroyed by other spells.
 
 ### Economy and balance
 
 - **Per-cell costs** (focus × cells), so a spell costs the same whether you draw it at full size or place its cells one by one with the keyboard.
 - **No cost cap.** The biggest casts deliberately cost more focus than you can hold, so they always involve blood magic, which keeps a fully charged 3×3 Fireball a real decision.
-- **Blood magic at 3 health per missing focus point**, tuned against two scenarios:
-  - a 3×3 Fireball cast after saving up focus costs 30 health for up to 50 damage, a fair gamble;
-  - casting the same spell every turn costs about 48 health for 50 damage, so it stops paying off.
+- **Blood magic at 5 health per missing focus point** (3 and 7 were tried), tuned against two scenarios:
+  - a 3×3 Fireball (18 focus) cast with a full 8 focus costs 50 health for up to 50 damage, a gamble that only pays when it lands;
+  - casting the same spell every turn, on 2 regained focus, costs 80 health each time, so it never pays off.
 
-  Saving up for a big turn is rewarded, but spamming isn't.
+  Saving up for a big turn is possible, but spamming isn't.
 
 ### Fairness
 
@@ -54,9 +64,10 @@ The movement rules are defined from one player's side and mirrored for the other
 ### The opponent
 
 - **A trained AI:** the NPC is a reinforcement-learning agent (see below) that wins 98–100% of games against scripted and random opponents.
-- **Variety:** rather than always playing its top-rated move, it samples among its good moves, with a penalty for repeating a recent one, so it doesn't fall into the same opening every game.
-- **Difficulty:** Normal, Hard and Brutal mix in more or fewer random turns, whose drawings are deliberately imperfect, like a human's.
-- **No self-destruction:** a guard stops the NPC from killing itself with blood magic on its random turns.
+- **Variety:** rather than always playing its top-rated move, it samples among its good moves, with a penalty for repeating a recent move (the same spell at the same size), so it doesn't fall into the same opening every game.
+- **Difficulty:** Normal, Hard and Brutal mix in more or fewer random turns. Their drawings are deliberately imperfect, like a human's, but always true to the size of the spell cast, and never stretched too far out of shape.
+- **No self-destruction:** casts whose blood magic would kill the NPC are removed from its legal moves, both in training and in play.
+- **Turn order:** every other match, the NPC waits for you to cast first, then answers. If it's waiting too long, a tip reminds you it's your move.
 
 ## Technical highlights
 
