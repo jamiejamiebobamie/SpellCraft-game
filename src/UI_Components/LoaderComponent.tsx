@@ -4,6 +4,14 @@ import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import LogoComponent from './Logo/LogoComponent';
 import { LOGO_CONFIG } from './Logo/logoConfig';
+import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, getPlayButtonGlow } from './PlayButtonStyles';
+
+/**
+ * Trying out the Play button's looks (PlayButtonStyles): while on, clicking it switches look and
+ * Shift+click plays (a caption below says which look it is). Off: the first look in the list, and a
+ * click plays. 'original' is the button as it was.
+ */
+const PLAY_BUTTON_TRYOUT = { isOn: true, looks: ['brass', 'verdigris', 'vellum', 'original'] as Array<PlayButtonLook | 'original'> };
 
 const specularReflection = keyframes`
   0% { background-position: -200% center; }
@@ -252,6 +260,49 @@ const MagicalPlayButton = styled.button`
   }
 `;
 
+/** The Play button in one of PlayButtonStyles' looks: the same size and place as MagicalPlayButton. */
+const FramedPlayButton = styled.button<{ $glow: string }>`
+  position: relative;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: transparent;
+  width: ${playSize(34)};
+  height: 80%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: ${playSize(5)};
+  line-height: 1;
+  user-select: none;
+  z-index: 10;
+  transition: filter 0.2s ease;
+
+  &:hover {
+    filter: drop-shadow(0 0 ${playSize(1.2)} ${props => props.$glow});
+    .panel { filter: brightness(1.25); }
+  }
+  &:active {
+    .inner { transform: translateY(2px); }
+    .label { transform: translateY(${playSize(0.15)}); }
+  }
+`;
+
+/** Under the button while trying out looks: which one it is, and how to switch or play. */
+const TryoutCaption = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 1.3cqw;
+  color: #f0d98a;
+  text-shadow: 0 0 0.3cqw #000, 0 0 0.6cqw #000;
+  pointer-events: none;
+`;
+
 // --- Component Wrapper Pipeline ---
 
 const LoaderComponent = () => {
@@ -285,6 +336,28 @@ const LoaderComponent = () => {
     setIsHovered(false);
   };
 
+  // Trying out the button's looks (PLAY_BUTTON_TRYOUT)
+  const [lookIndex, setLookIndex] = useState<number>(0);
+  const look = PLAY_BUTTON_TRYOUT.looks[lookIndex % PLAY_BUTTON_TRYOUT.looks.length];
+  const onPlayClick = (event: React.MouseEvent) => {
+    if (PLAY_BUTTON_TRYOUT.isOn && !event.shiftKey) { setLookIndex(k => k + 1); return; }
+    rootGameStore.startGame();
+  };
+  const wisps = isHovered && (
+    <WispContainer key={hoverKey}>
+      <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
+      <SingleBurstWisp $left="38%" $anim={scatterWispCenter} />
+      <SingleBurstWisp $left="52%" $anim={scatterWispLeft} />
+      <SingleBurstWisp $left="66%" $anim={scatterWispRight} />
+      <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
+    </WispContainer>
+  );
+  const caption = PLAY_BUTTON_TRYOUT.isOn && (
+    <TryoutCaption>
+      {look === 'original' ? 'Original' : PLAY_BUTTON_LOOKS[look].name} ({lookIndex % PLAY_BUTTON_TRYOUT.looks.length + 1}/{PLAY_BUTTON_TRYOUT.looks.length}): click to switch, Shift+click to play
+    </TryoutCaption>
+  );
+
   return (
     isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
       <LoadingContent>
@@ -303,23 +376,29 @@ const LoaderComponent = () => {
               {isFontLoaded? 'Loading...' : ''}
             </Loader>
           ) : (
-            <MagicalPlayButton 
-              onClick={rootGameStore.startGame}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
-              <VineUnderlay />
-              {isHovered && (
-                <WispContainer key={hoverKey}>
-                  <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
-                  <SingleBurstWisp $left="38%" $anim={scatterWispCenter} />
-                  <SingleBurstWisp $left="52%" $anim={scatterWispLeft} />
-                  <SingleBurstWisp $left="66%" $anim={scatterWispRight} />
-                  <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
-                </WispContainer>
-              )}
-              Play
-            </MagicalPlayButton>
+            look === 'original' ? (
+              <MagicalPlayButton
+                onClick={onPlayClick}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <VineUnderlay />
+                {wisps}
+                Play
+                {caption}
+              </MagicalPlayButton>
+            ) : (
+              <FramedPlayButton
+                $glow={getPlayButtonGlow(look)}
+                onClick={onPlayClick}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <PlayButtonFace look={look} label="Play" />
+                {wisps}
+                {caption}
+              </FramedPlayButton>
+            )
           )}
         </ActionSlot>
         
