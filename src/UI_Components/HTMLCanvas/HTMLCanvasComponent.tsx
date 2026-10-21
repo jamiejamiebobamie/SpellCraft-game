@@ -371,8 +371,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         // =======================================================
         // DIRECT COGNITIVE PATH FOR NPC ABSOLUTE INFERENCE STRINGS
         // =======================================================
-        const maxNpcIndexCount = 4;
-        for (let idx = 0; idx < maxNpcIndexCount; idx++) {
+        // (every drawing the NPC makes this turn: each one casts its spell as it finishes, and the NPC's turn
+        // goes on from there, so none may be skipped; it was the first 4, which left a 5th never cast and
+        // the NPC's turn never ending)
+        const npcMoveCount = rootGameStore.getNPCMoveData().length;
+        for (let idx = 0; idx < npcMoveCount; idx++) {
           const npcDatum = rootGameStore.getNPCMoveDatum(idx);
           if (!npcDatum) continue;
           const { inferenceString, storedSpell, speed, scale } = npcDatum;
