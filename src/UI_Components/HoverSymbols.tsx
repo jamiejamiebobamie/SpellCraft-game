@@ -4,7 +4,9 @@
 // While hovered, symbols appear here and there around (and behind) the button, each spot shifting
 // through the symbols: a golden symbol is deciphered (flickering through a few glyphs before it
 // settles), holds for a moment, then turns a red glow and blurs away as the next is deciphered in its
-// place. Each spot shifts a few times, then its last symbol burns out. Quick, like a half-read cipher.
+// place. Each spot shifts a few times, then its last symbol burns out; the whole spot falls all the
+// while, its afterburns with it. Quick, like a half-read cipher. The spots keep to their own slices of the ring around the button (so they're all
+// around it, never bunched), and a slice that empties fills again right away.
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 
@@ -14,20 +16,31 @@ export const HOVER_SYMBOLS = {
   glow: '#ffcf5a',
   burnColor: '#ff6a55', // the red a symbol turns as it gives way to the next
   burnGlow: '#e0281e',
-  everySeconds: 1.1, // a new spot this often while hovered
-  maxSpots: 5, // at most this many at once
+  firstSeconds: 0.4, // on hovering: one spot at once, then two more together this much later
+  everySeconds: 1.1, // then, while hovered, a new spot this often (and right away when one burns out)
+  maxSpots: 5, // at most this many at once: the ring around the button is cut into this many slices, one spot each
   size: [2.4, 3.6], // smallest, largest
-  opacity: [0.6, 0.9], // at their brightest
-  holdSeconds: [0.4, 0.7], // how long a golden symbol holds (once deciphered) before turning red
-  shifts: [3, 5], // how many symbols a spot shows before it burns out
-  decipherSeconds: 0.25, // a new symbol flickering through glyphs before it settles
-  flickerSeconds: 0.05, // each glyph in that flicker
-  appearSeconds: 0.15, // a new symbol fading in
-  burnSeconds: 0.6, // a red symbol blurring away
-  burnBlur: 0.4, // how blurred it is by then
+  opacity: [0.3, 0.45], // at their brightest (faint, so they don't compete with the button)
+  // Quick cuts (like the Batman Beyond intro): symbols snap in, flicker as they're deciphered, hold
+  // only a moment, and flash red as the next cuts in
+  holdSeconds: [0.15, 0.3], // how long a golden symbol holds (once deciphered) before turning red
+  shifts: [4, 7], // how many symbols a spot shows before it burns out
+  decipherSeconds: 0.15, // a new symbol flickering through glyphs before it settles
+  flickerSeconds: 0.04, // each glyph in that flicker
+  appearSeconds: 0.04, // a new symbol cutting in
+  redSeconds: 0.06, // a symbol flashing red
+  // Then it blurs and fades: slowly near the button's middle, quicker out at its sides (by how far
+  // out it is, left or right of the middle)
+  burnSeconds: { middle: 3, sides: 1 },
+  burnBlur: 0.4, // how blurred it is by the end
+  // Each spot falls from the moment it appears, its symbols and their red afterburns together,
+  // gathering speed: this far (cqw) per second of the spot's life
+  fallPerSecond: 1.6,
   // where they appear: around the button, this far out from its middle (fractions of its width and
   // height from the middle to the edge: 1 is the edge)
-  reach: { x: [1, 1.3], y: [1.4, 2.4] },
+  // (x reaches no further than the button's own sides, so symbols keep clear of a button beside it;
+  // and they never sit closer above or below it than nearY, so none hide behind it)
+  reach: { x: [0.75, 1], y: [1.4, 2.4], nearY: 1.3 },
 };
 
 type Shape = 'diamond' | 'circleDot' | 'hourglass' | 'rhombus' | 'lopsidedX' | 'dot';
@@ -66,14 +79,29 @@ const Layer = styled.div`
 const SymbolAt = styled.svg<{ $isBurning: boolean }>`
   position: absolute;
   overflow: visible;
+  left: 0;
+  top: 0;
   transform: translate(-50%, -50%) scale(1);
   color: ${props => props.$isBurning ? H.burnColor : H.color};
   filter: ${props => props.$isBurning ? glowOf(H.burnGlow, H.burnBlur) : glowOf(H.glow, 0)};
   opacity: ${props => props.$isBurning ? 0 : 'var(--peak)'};
   animation: ${appear} ${H.appearSeconds}s ease-out;
   transition: ${props => props.$isBurning
-    ? `color ${H.burnSeconds * 0.3}s ease-out, filter ${H.burnSeconds}s ease-in, opacity ${H.burnSeconds}s ease-in`
+    ? `color ${H.redSeconds}s linear, filter var(--burn) ease-in, opacity var(--burn) ease-in`
     : 'none'};
+`;
+
+const fall = keyframes`
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--fall)); }
+`;
+
+/** A spot: where its symbols are, falling from the moment it appears (gathering speed). */
+const Falling = styled.div`
+  position: absolute;
+  width: 0;
+  height: 0;
+  animation: ${fall} var(--life) cubic-bezier(0.45, 0, 0.85, 0.55) forwards;
 `;
 
 /** A symbol being deciphered: flickering through other glyphs, then settling on `shape`. */
@@ -98,11 +126,11 @@ const pick = <T,>(list: Array<T>, not?: T): T => {
   return choices[Math.floor(Math.random() * choices.length)];
 };
 
-type SpotInfo = { id: number; left: number; top: number; size: number; peak: number; shifts: number };
+type SpotInfo = { id: number; slice: number; left: number; top: number; size: number; peak: number; shifts: number; burnSeconds: number; isLeaving?: boolean };
 type Showing = { id: number; shape: Shape; isBurning: boolean };
 
 /** One spot: shifting through symbols (each holding, then burning as the next appears), then burning out. */
-const Spot = ({ spot, isHovered, onDone }: { spot: SpotInfo; isHovered: boolean; onDone: (id: number) => void }) => {
+const Spot = ({ spot, isHovered, onLeaving, onDone }: { spot: SpotInfo; isHovered: boolean; onLeaving: (id: number) => void; onDone: (id: number) => void }) => {
   const [showing, setShowing] = useState<Array<Showing>>(() => [{ id: 0, shape: pick(SHAPES), isBurning: false }]);
   const nextId = useRef(1);
   const shiftsLeft = useRef(spot.shifts - 1);
@@ -115,10 +143,13 @@ const Spot = ({ spot, isHovered, onDone }: { spot: SpotInfo; isHovered: boolean;
     const step = () => {
       // The golden symbol turns red and blurs away...
       setShowing(current => current.map(s => s.isBurning ? s : { ...s, isBurning: true }));
-      later(H.burnSeconds + 0.05, () => setShowing(current => current.filter(s => !s.isBurning)));
+      const burning = new Set<number>();
+      setShowing(current => { current.forEach(s => burning.add(s.id)); return current; });
+      later(spot.burnSeconds + 0.05, () => setShowing(current => current.filter(s => !burning.has(s.id))));
       // ...and the next appears in its place (unless this spot is done, or the hover has ended)
       if (shiftsLeft.current <= 0 || !isHoveredRef.current) {
-        later(H.burnSeconds + 0.1, () => onDone(spot.id));
+        onLeaving(spot.id); // (its slice is free for a new spot while this last one falls)
+        later(spot.burnSeconds + 0.1, () => onDone(spot.id));
         return;
       }
       shiftsLeft.current--;
@@ -132,15 +163,17 @@ const Spot = ({ spot, isHovered, onDone }: { spot: SpotInfo; isHovered: boolean;
     return () => timeouts.forEach(window.clearTimeout);
   }, []);
 
+  // (its whole life, at the longest: every symbol held as long as they may be, then the last one burning out)
+  const life = spot.shifts * (H.decipherSeconds + H.holdSeconds[1]) + spot.burnSeconds;
   return (
-    <>
+    <Falling style={{ left: `${spot.left}%`, top: `${spot.top}%`, '--life': `${life}s`, '--fall': `${life * H.fallPerSecond}cqw` } as React.CSSProperties}>
       {showing.map(s => (
         <SymbolAt key={s.id} viewBox="0 0 24 24" $isBurning={s.isBurning}
-          style={{ left: `${spot.left}%`, top: `${spot.top}%`, width: `${spot.size}cqw`, height: `${spot.size}cqw`, '--peak': spot.peak } as React.CSSProperties}>
+          style={{ width: `${spot.size}cqw`, height: `${spot.size}cqw`, '--peak': spot.peak, '--burn': `${spot.burnSeconds}s` } as React.CSSProperties}>
           <Deciphering shape={s.shape} />
         </SymbolAt>
       ))}
-    </>
+    </Falling>
   );
 };
 
@@ -148,28 +181,49 @@ const Spot = ({ spot, isHovered, onDone }: { spot: SpotInfo; isHovered: boolean;
 export default function HoverSymbols({ isHovered }: { isHovered: boolean; hoverKey?: number }) {
   const [spots, setSpots] = useState<Array<SpotInfo>>([]);
   const nextId = useRef(0);
+  const isHoveredRef = useRef(isHovered);
+  isHoveredRef.current = isHovered;
+  // A new spot, in a free slice of the ring (somewhere inside it, not at its very edges)
+  const add = () => setSpots(current => {
+    const staying = current.filter(spot => !spot.isLeaving);
+    if (staying.length >= H.maxSpots) return current;
+    const free = Array.from({ length: H.maxSpots }, (_, k) => k).filter(k => !staying.some(spot => spot.slice === k));
+    if (!free.length) return current;
+    const slice = pick(free);
+    const angle = ((slice + 0.15 + Math.random() * 0.7) / H.maxSpots) * Math.PI * 2;
+    const left = 50 + Math.cos(angle) * 50 * between(H.reach.x);
+    // how far out to the side it is (0 at the middle, 1 as far as they go)
+    const sideways = Math.min(1, Math.abs(left - 50) / (50 * H.reach.x[1]));
+    return [...current, {
+      id: nextId.current++, slice,
+      left,
+      burnSeconds: H.burnSeconds.middle + (H.burnSeconds.sides - H.burnSeconds.middle) * sideways,
+      top: 50 + (Math.sin(angle) < 0 ? -1 : 1) * 50 * Math.max(H.reach.nearY, Math.abs(Math.sin(angle)) * between(H.reach.y)),
+      size: between(H.size), peak: between(H.opacity),
+      shifts: Math.round(between(H.shifts)),
+    }];
+  });
   useEffect(() => {
     if (!isHovered) return;
-    const add = () => setSpots(current => {
-      if (current.length >= H.maxSpots) return current;
-      const angle = Math.random() * Math.PI * 2;
-      return [...current, {
-        id: nextId.current++,
-        left: 50 + Math.cos(angle) * 50 * between(H.reach.x),
-        top: 50 + Math.sin(angle) * 50 * between(H.reach.y),
-        size: between(H.size), peak: between(H.opacity),
-        shifts: Math.round(between(H.shifts)),
-      }];
-    });
+    // one at once, then two together, then more as they're needed
     add();
-    const interval = window.setInterval(add, H.everySeconds * 1000);
-    return () => window.clearInterval(interval);
+    let interval = 0;
+    const start = window.setTimeout(() => {
+      add(); add();
+      interval = window.setInterval(add, H.everySeconds * 1000);
+    }, H.firstSeconds * 1000);
+    return () => { window.clearTimeout(start); window.clearInterval(interval); };
   }, [isHovered]);
+  // A spot's last symbol is falling: its slice fills again right away (while hovered)
+  const onLeaving = (id: number) => {
+    setSpots(current => current.map(spot => spot.id === id ? { ...spot, isLeaving: true } : spot));
+    if (isHoveredRef.current) window.setTimeout(() => { if (isHoveredRef.current) add(); }, 60);
+  };
   const onDone = (id: number) => setSpots(current => current.filter(spot => spot.id !== id));
 
   return (
     <Layer aria-hidden>
-      {spots.map(spot => <Spot key={spot.id} spot={spot} isHovered={isHovered} onDone={onDone} />)}
+      {spots.map(spot => <Spot key={spot.id} spot={spot} isHovered={isHovered} onLeaving={onLeaving} onDone={onDone} />)}
     </Layer>
   );
 }
