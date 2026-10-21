@@ -1,6 +1,19 @@
 import { PALETTE } from "./ColorPalette";
 import { GameParticle } from "../../../../DataClasses/types";
 
+/**
+ * Chain Lightning's effects, kept light (canvas glow, shadowBlur, is costly: drawn per stroke, it
+ * made the game stutter when many Quickens appeared or broke at once). The bolt's glow is one soft,
+ * wide stroke under each branch instead.
+ *   burstSparks: sparks when one is destroyed; burstBudget: at most this many sparks from all bursts
+ *   together each burstBudgetSeconds (many breaking at once share it)
+ *   liveArcChance: the chance per cell, each frame, of a small arc crackling off a live one (and at most)
+ */
+export const QUICKEN_FX = { burstSparks: 28, burstBudget: 90, burstBudgetSeconds: 0.25, liveArcChance: 0.08, liveArcMax: 0.4, glowWidth: 2.6, glowAlpha: 0.22 };
+
+// The sparks spent from the shared burst budget, this window
+let burstWindow = { start: 0, spent: 0 };
+
 export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number, cellCols: number, time: number) {
     ctx.save();
 
@@ -13,9 +26,7 @@ export function drawQuicken(ctx: CanvasRenderingContext2D, w: number, h: number,
     const seed2 = Math.floor(time * 2 / 60);
     const seed3 = Math.floor(time * 3 / 60);
 
-    // Set glow state profile
-    ctx.shadowColor = PALETTE.lightningMain;
-    ctx.shadowBlur = 15;
+    // (its glow: a soft wide stroke under each branch, drawn in drawLightningBranch, not shadowBlur)
 
     const coreThickness = w * .15 / cellCols;
     const x1: number = 0, y: number = h / 2, x2: number = w, crests: number = 4, amplitude: number = h / 5;
@@ -82,6 +93,13 @@ function drawLightningBranch(
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    // The glow: the whole branch once, wide and faint (in place of a shadow on every segment)
+    ctx.beginPath();
+    points.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.globalAlpha = inheritedAlpha * QUICKEN_FX.glowAlpha;
+    ctx.lineWidth = Math.max(1, thickness * QUICKEN_FX.glowWidth);
+    ctx.stroke();
+
     // DRAW SEGMENT-BY-SEGMENT WITH CLAMPED EDGE PINCHING
     for (let i = 0; i < points.length - 1; i++) {
         const pStart = points[i];
@@ -113,7 +131,10 @@ function drawLightningBranch(
 export function spawnQuickenParticles(particles: GameParticle[], w: number, h: number) {
     const centerX = w / 2;
     const centerY = h / 2;
-    const sparkCount = 100;
+    const now = performance.now();
+    if (now - burstWindow.start > QUICKEN_FX.burstBudgetSeconds * 1000) burstWindow = { start: now, spent: 0 };
+    const sparkCount = Math.max(0, Math.min(QUICKEN_FX.burstSparks, QUICKEN_FX.burstBudget - burstWindow.spent));
+    burstWindow.spent += sparkCount;
 
     for (let i = 0; i < sparkCount; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -125,9 +146,8 @@ export function spawnQuickenParticles(particles: GameParticle[], w: number, h: n
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             alpha: 1.0,
-            size: Math.random() * 3 + 1.5,
-            color: '#b3f2ff',
-            shadowColor: '#00d0ff',
+            size: Math.random() * 3 + 2,
+            color: '#b3f2ff', // (no shadowColor: a glow per spark is too costly)
             life: 2.0,
             decay: Math.random() * 1.5 + 2.0
         });
@@ -146,8 +166,6 @@ export function drawQuickenSpawn(ctx: CanvasRenderingContext2D, w: number, h: nu
     const baseInheritedAlpha = ctx.globalAlpha;
 
     if (progress < 0.7) {
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 30;
         const seed = Math.floor(time / 30);
 
         // Pass inherited alpha through to the branch drawing stage
