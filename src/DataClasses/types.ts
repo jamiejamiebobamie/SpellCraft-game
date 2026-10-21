@@ -85,6 +85,10 @@ export interface SpellAnimTracker {
   deathProgress: number;
   hasSpawnedParticles: boolean;
   particles: GameParticle[]; // Handles ANY style of destruction particles
+  // Where it's drawn (easing toward its place on the board), once placed
+  visualX: number;
+  visualY: number;
+  initialized: boolean;
 }
 
 export type CollisionResult = {
@@ -141,7 +145,7 @@ export class CanvasScrollUI {
 
   // Local storage array tracking blinking pixie dust highlights
   floatingTextSparkles: { x: number; y: number; size: number; alpha: number; maxAlpha: number; rate: number; color: string }[] = [];
-  clockGeometricSparkles: { x: number; y: number; size: number; alpha: number; rate: number; phase: number; maxAlpha: number; color: string }[] = [];
+  clockGeometricSparkles: { x: number; y: number; size: number; alpha: number; rate: number; phase: number; maxAlpha: number; color: string; isStar?: boolean }[] = [];
   config = {
     startXOffset: 0.1,
     startYOffset: 0.04,

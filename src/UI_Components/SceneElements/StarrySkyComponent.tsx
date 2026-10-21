@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { GameClock } from '../../DataClasses/GameClock/GameClock';
 import { rootGameStore } from '../../DataClasses/store';
 import { useSnapshot } from 'valtio';

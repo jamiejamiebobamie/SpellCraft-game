@@ -77,7 +77,7 @@ export const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasS
     }
 };
 
-export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, viewH: number, deltaTime: number, currentTime: number, setIsHovered: Function, animStates: Map<string, SpellAnimTracker>) => {
+export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, _viewH: number, deltaTime: number, currentTime: number, setIsHovered: Function, animStates: Map<string, SpellAnimTracker>) => {
     const isTrayOpen = rootGameStore.getIsSpellBookOpen();
     const targetProgress = isTrayOpen ? 1.0 : 0.0;
     ui.trayProgress += (targetProgress - ui.trayProgress) * 5.5 * deltaTime;

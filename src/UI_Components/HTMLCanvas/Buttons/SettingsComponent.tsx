@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { rootGameStore } from '../../../DataClasses/store';
 import { UIFadeIn } from '../../UIFadeIn';

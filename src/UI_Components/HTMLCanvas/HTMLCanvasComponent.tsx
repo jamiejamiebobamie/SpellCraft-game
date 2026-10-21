@@ -12,7 +12,7 @@ import { spawnEtherParticles, spawnEtherHitParticles } from './DrawFunctions/Ren
 import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './DrawFunctions/RenderSpells/drawPhlegm';
 import { spawnGyreParticles, spawnGyreHitParticles } from './DrawFunctions/RenderSpells/drawGyre';
 import { spawnBloodMagicHitParticles } from './DrawFunctions/RenderSpells/drawBloodMagicHit';
-import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI, Point } from '../../DataClasses/types';
+import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI } from '../../DataClasses/types';
 import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
 import { drawClockAdvanceSymbols } from './DrawFunctions/ClockSymbols/ClockSymbolFunctions';
 import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
@@ -364,7 +364,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         }
         const currentRawPoints = rootGameStore.getPlayerRawPoints() || [];
         if (currentRawPoints.length > 0 && rootGameStore.spellCanvas.getIsDrawing()) {
-          ctx.save(); ctx.lineWidth = boardWidth * 0.0075; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#e6c56386'; ctx.shadowBlur = boardWidth * 0.05; ctx.shadowColor = '#fffadd'; ctx.beginPath(); ctx.moveTo(currentRawPoints.x - rect.left, currentRawPoints.y - rect.top);
+          ctx.save(); ctx.lineWidth = boardWidth * 0.0075; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#e6c56386'; ctx.shadowBlur = boardWidth * 0.05; ctx.shadowColor = '#fffadd'; ctx.beginPath(); ctx.moveTo(currentRawPoints[0].x - rect.left, currentRawPoints[0].y - rect.top);
           for (let i = 1; i < currentRawPoints.length; i++) { ctx.lineTo(currentRawPoints[i].x - rect.left, currentRawPoints[i].y - rect.top); }
           ctx.stroke(); ctx.restore();
         }
@@ -536,7 +536,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        touchAction="none"
+        style={{ touchAction: 'none' }}
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
         $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? 32 : 29}

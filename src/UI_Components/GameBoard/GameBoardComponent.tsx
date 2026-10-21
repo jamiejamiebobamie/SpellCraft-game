@@ -1,5 +1,5 @@
 
-import React, { RefObject } from 'react';
+import { RefObject } from 'react';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { HumanPlacementTilesComponent } from './HumanPlacementTilesComponent'
 import styled from 'styled-components';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { Game } from '../../../DataClasses/Game';
 import { rootGameStore } from '../../../DataClasses/store';

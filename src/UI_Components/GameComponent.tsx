@@ -130,7 +130,7 @@ export const GameComponent = () => {
     mousePos.current = mouseCoords;
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
     if (rootGameStore.tooltipManager.active) return;
 
@@ -170,7 +170,7 @@ export const GameComponent = () => {
       }
   }, []);
 
-  const handleTouchDown = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchDown = useCallback((e: TouchEvent) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
     if (rootGameStore.tooltipManager.active) return;
 
@@ -198,7 +198,7 @@ export const GameComponent = () => {
     rootGameStore.runInference({ x: e.clientX, y: e.clientY });
   }, []);
 
-  const handleTouchUp = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchUp = useCallback((e: TouchEvent) => {
     if (!rootGameStore.getIsDoneWithIntroWalk()) return;
     if (rootGameStore.tooltipManager.active) return;
 

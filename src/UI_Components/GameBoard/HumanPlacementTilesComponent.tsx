@@ -1,5 +1,4 @@
 
-import React from 'react';
 import styled from 'styled-components';
 import { rootGameStore } from '../../DataClasses/store';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';

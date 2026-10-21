@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { UIFadeIn } from '../../UIFadeIn';

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, RefObject } from 'react';
+import { useState, useEffect, useRef, RefObject } from 'react';
 import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
@@ -222,7 +222,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           <AvatarRobe $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
             <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
             <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
-            <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap} direction={direction} />
+            <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap ?? undefined} direction={direction} />
           </AvatarRobe>
           <FloorShadow $isHide={isDead} />
         </Damageable>

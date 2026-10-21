@@ -28,4 +28,5 @@ export const FX_PALETTE = {
   healCrossShadow: '#2ecc71',
   bloodDroplets: '#570a0a',
   bloodDropletsShadow: '#200404',
+  windLine: 'rgba(225, 235, 245, 0.85)', // a draft's gust lines
 };

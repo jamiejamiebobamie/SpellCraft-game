@@ -1,4 +1,3 @@
-import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { INTRO_WALK_ANIM_TIME } from '../Player/CharacterParts';
 
