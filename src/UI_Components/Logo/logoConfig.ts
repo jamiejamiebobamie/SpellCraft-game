@@ -60,7 +60,7 @@ export const LOGO_CONFIG = {
    */
   landingClock: {
     bodyBrightness: 0.4, // the clock's case
-    faceBrightness: 1, // its face
+    faceBrightness: .7, // its face
     haloBrightness: 1, // its halo
     showBody: true, // false: just the face and halo (no case, chimes or back)
   },
@@ -95,7 +95,7 @@ export const LOGO_CONFIG = {
     symbolOpacity: 0.5, // the symbols' maximum opacity: dimmer than the duel and the title (was 0.85)
     symbolGlow: 0.05, // the symbols' glow, as a fraction of their box's smaller side (was 0.08)
     symbolLineWidth: 0.03, // the symbols' stroke, as a fraction of their box's smaller side (was 0.05)
-    spellOpacity: 0.85,
+    spellOpacity: 0.75,
     // Where each symbol turns into its spell, as fractions of the way from the outside (0) to the
     // inside (1): the symbol fades out, then the spell fades in (overlapping if the ranges do)
     fade: {
@@ -112,7 +112,7 @@ export const LOGO_CONFIG = {
       { spellName: 'Phlegm', symbol: 'star', x: 50, y: 47, rotation: 0, w: 30, h: 30, cells: { w: 3, h: 3 }, cellSize: 13, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -5 }, fadeRanges: { symbolOut: { start: 0.9, end: .99 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.5 },
       { spellName: 'Ether', symbol: 'circle', x: 70, y: 10.25, rotation: -10, w: 18, h: 18, cells: { w: 3, h: 3 }, cellSize: 11, direction: -1, fade: 'towardWands', flipX: true, spellOffset: { x: 3, y: 1 }, fadeRanges: { symbolOut: { start: 0.7, end: 0.99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false },
       { spellName: 'GyreDown', symbol: 'triangle', x: 16, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: 1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: .8, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }  },
-      { spellName: 'GyreUp', symbol: 'diamond', x: 84, y: 28, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 1 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.0, end: 0.1 } }  },
+      { spellName: 'GyreUp', symbol: 'diamond', x: 84, y: 25, rotation: 0, w: 15, h: 33, cells: { w: 1, h: 3 }, cellSize: 13, direction: -1, fade: 'vertical', spellOffset: { x: 0, y: 3 }, symbolOpacity: 0.5, spellOpacity: 1, spellBoost: 2, fadeRanges: { symbolOut: { start: 0.1, end: 0.9 }, spellIn: { start: 0.0, end: 0.1 } }  },
     ] as Array<LogoSpell>,
   },
 
