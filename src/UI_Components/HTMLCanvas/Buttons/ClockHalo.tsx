@@ -30,7 +30,16 @@ export const CLOCK_HALO = {
   ribbon: { twists: 2, flowSeconds: 3, backShade: 1, sheen: 0.35 },
   // A satin sheen: a band of light sliding along each ribbon from base to tip, every `seconds` (each
   // ribbon at its own moment), `strength` toward white where it faces you, `width` (fraction of its length)
-  ribbonSheen: { seconds: 2.6, strength: 0.55, width: 0.12 },
+  // brightness: the sheen's own brightness (scales strength), apart from the ribbon's
+  ribbonSheen: { seconds: 2.6, strength: 0.55, width: 0.12, brightness: 1 },
+  // The ribbons' own look, apart from the long rays: opacity (1: completely opaque), how much they fade
+  // toward their tips (0: not at all, 1: to nothing), and brightness (multiplying their colors): on the
+  // landing page, and in play (where the scene starts dark, so they're brightened to stay vivid)
+  ribbonLook: { opacity: 1, tipFade: 0, brightness: { landing: 1, play: 1.6 } },
+  // How far the ribbons reach (cqw from the face's center), by direction, blending smoothly between:
+  // up (a little out of the frame: the face is 9.8 from its top), to the sides (over the walls and
+  // windows, ending before the doorways, about 32 out) and down. Each keeps its taper, stretched to its length
+  ribbonReach: { up: 13, side: 28, down: 28 },
   // The ribbons slide in and out: the halo shows with plain rays, which twist into ribbons
   // `delaySeconds` after it appears (over `blendSeconds`); before hiding, they untwist back to
   // plain rays (over `unwindSeconds`), and then the halo shrinks away
@@ -82,7 +91,14 @@ export const CLOCK_HALO = {
 };
 
 /** How far the halo's canvas reaches from the face's center (cqw): its longest rays, plus room. */
-const CANVAS_REACH = Math.max(CLOCK_HALO.radius, CLOCK_HALO.bottomReach) * 1.05;
+const CANVAS_REACH = Math.max(CLOCK_HALO.radius, CLOCK_HALO.bottomReach, CLOCK_HALO.ribbonReach.up, CLOCK_HALO.ribbonReach.side, CLOCK_HALO.ribbonReach.down) * 1.05;
+
+/** How far a ribbon pointing at `angle` (radians, 0 = up, clockwise) reaches (cqw): CLOCK_HALO.ribbonReach, blended. */
+const getRibbonReach = (angle: number): number => {
+  const { up, side, down } = CLOCK_HALO.ribbonReach;
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return up * Math.max(0, c) ** 2 + side * s * s + down * Math.max(0, -c) ** 2;
+};
 
 const pulse = keyframes`
   0%, 100% { opacity: 1; }
@@ -158,7 +174,7 @@ const getReachFactor = (angle: number): number => {
  * at `tip` (in pixels), fading from `opacity` to nothing at the tip. A ribbon twists as it goes, its
  * width narrowing where it turns edge-on and its back face darker; `flow` moves the twist along it.
  */
-const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1) => {
+const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1, tipFade: number = 1) => {
   const isRibbon = ray.ribbon && ribbonAmount > 0;
   const steps = ray.style === 'wavy' || isRibbon ? 32 : 1;
   const swingOf = (u: number) => ray.style === 'wavy'
@@ -181,10 +197,10 @@ const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: num
     const sheenAmount = sheen * (ray.ribbon ? ribbonAmount : 1);
     // (and the satin sheen sliding along a ribbon: brightest where it faces you)
     const u = (a.u + b.u) / 2, band = sheenAt < 0 || !isRibbon ? 0 : Math.exp(-((u - sheenAt) ** 2) / (2 * CLOCK_HALO.ribbonSheen.width ** 2));
-    const satin = band * CLOCK_HALO.ribbonSheen.strength * ribbonAmount * Math.abs(twist);
+    const satin = Math.min(1, band * CLOCK_HALO.ribbonSheen.strength * CLOCK_HALO.ribbonSheen.brightness * ribbonAmount * Math.abs(twist));
     const litRgb = isFront ? (sheenAmount > 0 ? towardWhite(rgb, sheenAmount * twist * twist) : rgb) : shade(rgb, backShade);
     const faceRgb = satin > 0 ? towardWhite(litRgb, satin) : litRgb;
-    const alpha = opacity * (1 - (a.u + b.u) / 2);
+    const alpha = opacity * (1 - tipFade * (a.u + b.u) / 2);
     ctx.fillStyle = `rgba(${faceRgb}, ${alpha})`;
     ctx.beginPath();
     ctx.moveTo(a.x - a.half * Math.abs(a.twist), a.y);
@@ -309,7 +325,9 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
             ? 1 - breathe.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / breathe.seconds + phase)))
             : 1;
           const base = radiusPx * rayStart;
-          const fullTip = radiusPx * ray.length * breath * getReachFactor(angle);
+          const fullTip = ray.ribbon
+            ? getRibbonReach(angle) * pxPerCqw * breath // (the ribbons: by direction, CLOCK_HALO.ribbonReach)
+            : radiusPx * ray.length * breath * getReachFactor(angle);
           const tip = base + (fullTip - base) * open; // growing out from its base as the iris opens
           ctx.save();
           ctx.rotate(angle);
@@ -317,9 +335,13 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           ctx.translate(0, -base);
           ctx.rotate(lean);
           ctx.translate(0, base);
-          const rayColor = ray.ribbon ? ribbonColors[k % ribbonColors.length] : rayColors[k % rayColors.length];
-          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, rayOpacity * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
-            ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1);
+          // (the ribbons: their own opacity, tip fade and brightness, on the landing page or in play)
+          const { ribbonLook } = CLOCK_HALO;
+          const ribbonBrightness = rootGameStore.getIsPlaying() ? ribbonLook.brightness.play : ribbonLook.brightness.landing;
+          const rayColor = ray.ribbon ? shade(ribbonColors[k % ribbonColors.length], ribbonBrightness) : rayColors[k % rayColors.length];
+          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? ribbonLook.opacity : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
+            ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1,
+            ray.ribbon ? ribbonLook.tipFade : 1);
           ctx.restore();
         });
       }
