@@ -9,13 +9,17 @@ import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/Game
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
 import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote } from './kellsOrnaments';
 
-/** Notes scribbled in each page's margin (below the preview) by some earlier owner of the book. */
-const MARGIN_NOTES: Record<string, string> = {
-    Ether: 'hurts a lot!',
-    Quicken: 'fast!!',
-    Phlegm: 'patches you up',
-    GyreUp: 'gives breathing room',
-    GyreDown: 'gives breathing room',
+/**
+ * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
+ * description and the preview ('gap'); longer ones below the preview ('below'). tilt: degrees, as in
+ * CSS (negative: rising to the right).
+ */
+const MARGIN_NOTES: Record<string, { text: string; place: 'gap' | 'below'; tilt: number }> = {
+    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15 },
+    Quicken: { text: 'fast!!', place: 'gap', tilt: -15 },
+    Phlegm: { text: 'patches you up', place: 'below', tilt: -3 },
+    GyreUp: { text: 'gives breathing room', place: 'below', tilt: -3 },
+    GyreDown: { text: 'gives breathing room', place: 'below', tilt: -3 },
 };
 
 const displayNameLookup = new Map<string, string>([
@@ -659,6 +663,14 @@ export const drawModalDetails = (
     }
     // A note in the margin, below the preview
     const marginNote = MARGIN_NOTES[currentTargetKey];
-    if (marginNote) drawMarginNote(ctx, marginNote, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, -0.05);
+    if (marginNote?.place === 'gap') {
+        // between the description and the preview, level with the description's second-to-last line
+        // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
+        const lineCount = targetData.desc.split('\n').length;
+        const noteY = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
+        drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535, noteY, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+    } else if (marginNote) {
+        drawMarginNote(ctx, marginNote.text, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+    }
     ctx.restore();
 }  
