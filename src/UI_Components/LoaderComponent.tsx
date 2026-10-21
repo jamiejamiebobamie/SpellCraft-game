@@ -11,7 +11,7 @@ import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, getPlayButtonGlow } 
  * Shift+click plays (a caption below says which look it is). Off: the first look in the list, and a
  * click plays. 'original' is the button as it was.
  */
-const PLAY_BUTTON_TRYOUT = { isOn: true, looks: ['brass', 'verdigris', 'vellum', 'original'] as Array<PlayButtonLook | 'original'> };
+const PLAY_BUTTON_TRYOUT = { isOn: true, looks: ['ruby', 'brass', 'verdigris', 'original'] as Array<PlayButtonLook | 'original'> };
 
 const specularReflection = keyframes`
   0% { background-position: -200% center; }

@@ -1,12 +1,14 @@
 // PlayButtonStyles.tsx
 // The landing screen's Play button, in candidate looks (to compare, then keep one): the same long
 // hexagon, drawn as one SVG so its frame is an even, beveled band of metal all the way round.
-//   brass:     a beveled brass frame on a midnight-indigo panel (the window skies), gold-leaf lettering
+//   brass:     a beveled brass frame on a midnight-indigo panel (the window skies) of twinkling,
+//              drifting stars, gold-leaf lettering
 //   verdigris: an aged bronze frame gone green in its recesses, on a dark green panel
-//   vellum:    a thin brass frame on a parchment panel, inked lettering
+//   ruby:      a brass frame set with a faceted ruby, gold-leaf lettering
+import React from 'react';
 import styled, { css, keyframes } from 'styled-components';
 
-export type PlayButtonLook = 'brass' | 'verdigris' | 'vellum';
+export type PlayButtonLook = 'brass' | 'verdigris' | 'ruby';
 
 type Look = {
   name: string;
@@ -14,7 +16,8 @@ type Look = {
   frame: [string, string, string, string]; // the frame's bevel, top to bottom: highlight, body, shade, deep shade
   hairline: string; // the fine line just inside the frame
   panel: [string, string, string]; // the panel, center to edge
-  stars: boolean;
+  stars: boolean; // a night sky: stars twinkling and slowly drifting by
+  jewel: boolean; // cut like a gem: a flat table in the middle, beveled facets around it, and a glint
   studs: [string, string]; // the diamond studs at the side points: face, edge
   text: 'gold' | 'ink';
   glow: string; // on hover
@@ -26,8 +29,9 @@ export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
     outline: '#1e1202',
     frame: ['#fdeaa7', '#d6a84b', '#8f6722', '#4a3208'],
     hairline: '#f0cf78',
-    panel: ['#3d3788', '#1e1b4c', '#0e0c29'],
+    panel: ['#221d55', '#100d2e', '#060518'],
     stars: true,
+    jewel: false,
     studs: ['#ffe58a', '#7a5414'],
     text: 'gold',
     glow: 'rgba(255, 196, 84, 0.65)',
@@ -39,20 +43,22 @@ export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
     hairline: '#86c7a6',
     panel: ['#2e5b46', '#173428', '#0a1a12'],
     stars: false,
+    jewel: false,
     studs: ['#a9dcc0', '#2c4a38'],
     text: 'gold',
     glow: 'rgba(120, 220, 160, 0.55)',
   },
-  vellum: {
-    name: 'Vellum Plaque',
+  ruby: {
+    name: 'Ruby',
     outline: '#3a2410',
     frame: ['#f6dd8e', '#c99f48', '#8a6224', '#4f360f'],
     hairline: '#9a7432',
-    panel: ['#f3e6c2', '#e3cd97', '#c8ab6c'],
+    panel: ['#e8394a', '#9c1024', '#3d030c'],
     stars: false,
+    jewel: true,
     studs: ['#f6dd8e', '#6b4a16'],
-    text: 'ink',
-    glow: 'rgba(255, 220, 140, 0.6)',
+    text: 'gold',
+    glow: 'rgba(255, 90, 90, 0.55)',
   },
 };
 
@@ -60,8 +66,35 @@ export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
 const FRAME = '9,50 52,9 334,9 377,50 334,91 52,91';
 const HAIRLINE = '21,50 58,18 328,18 365,50 328,82 58,82';
 const PANEL = '15,50 55,14 331,14 371,50 331,86 55,86';
-// A few stars on the night panel (x, y, r)
-const STARS: Array<[number, number, number]> = [[78, 30, 1.2], [104, 70, 0.9], [136, 24, 0.8], [252, 27, 1], [284, 72, 1.1], [312, 34, 0.8], [96, 48, 0.6], [296, 52, 0.7]];
+// The night panel's stars, across one panel's width (x, y, radius, twinkle seconds, twinkle delay):
+// the field is drawn twice, side by side, and drifts left one width per STAR_DRIFT_SECONDS, looping
+const STAR_DRIFT_SECONDS = 70;
+const STARS: Array<[number, number, number, number, number]> = (() => {
+  let seed = 11;
+  const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  return Array.from({ length: 30 }, () => [
+    random() * 386, 16 + random() * 68, 0.5 + random() * 0.9 * random() + (random() < 0.15 ? 0.6 : 0),
+    2 + random() * 3.5, -random() * 5,
+  ] as [number, number, number, number, number]);
+})();
+// The jewel's cut: its flat table, inside the panel; each facet runs from a panel edge to the table's,
+// lit from above (light on the upper facets, shade on the lower)
+const TABLE = [[62, 50], [88, 31], [298, 31], [324, 50], [298, 69], [88, 69]];
+const PANEL_POINTS = [[15, 50], [55, 14], [331, 14], [371, 50], [331, 86], [55, 86]];
+const FACET_LIGHT = [['#ffffff', 0.16], ['#ffffff', 0.26], ['#ffffff', 0.1], ['#000000', 0.22], ['#000000', 0.34], ['#000000', 0.16]] as const;
+
+const twinkle = keyframes`
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.95; }
+`;
+const drift = keyframes`
+  from { transform: translateX(0); }
+  to { transform: translateX(-386px); }
+`;
+const glint = keyframes`
+  0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
+  80% { opacity: 1; transform: scale(1); }
+`;
 
 const shimmer = keyframes`
   0% { background-position: 0% center; }
@@ -77,6 +110,9 @@ const Frame = styled.svg`
   z-index: -1;
   .panel { transition: filter 0.2s ease; }
   .inner { transition: transform 0.15s ease; }
+  .starfield { animation: ${drift} ${STAR_DRIFT_SECONDS}s linear infinite; }
+  .star { animation: ${twinkle} var(--twinkle) ease-in-out infinite; animation-delay: var(--delay); }
+  .glint { transform-box: fill-box; transform-origin: center; animation: ${glint} 4.5s ease-in-out infinite; }
 `;
 
 const Label = styled.span<{ $text: 'gold' | 'ink' }>`
@@ -120,11 +156,34 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
             <stop offset="0.6" stopColor={l.panel[1]} />
             <stop offset="1" stopColor={l.panel[2]} />
           </radialGradient>
+          <clipPath id={`${id}-clip`}><polygon points={PANEL} /></clipPath>
         </defs>
         {/* The panel (sinks a little when pressed) */}
         <g className="inner">
           <polygon className="panel" points={PANEL} fill={`url(#${id}-panel)`} />
-          {l.stars && STARS.map(([x, y, r], k) => <circle key={k} cx={x} cy={y} r={r} fill="#fff6d0" opacity={0.55} />)}
+          {l.stars && (
+            <g clipPath={`url(#${id}-clip)`}>
+              <g className="starfield">
+                {[0, 386].flatMap(dx => STARS.map(([x, y, r, seconds, delay], k) => (
+                  <circle key={`${dx}-${k}`} className="star" cx={x + dx} cy={y} r={r} fill="#fff6d0"
+                    style={{ '--twinkle': `${seconds}s`, '--delay': `${delay}s` } as React.CSSProperties} />
+                )))}
+              </g>
+            </g>
+          )}
+          {l.jewel && (
+            <g>
+              {PANEL_POINTS.map((p, k) => {
+                const q = PANEL_POINTS[(k + 1) % 6], tq = TABLE[(k + 1) % 6], tp = TABLE[k];
+                const [color, opacity] = FACET_LIGHT[k];
+                return <polygon key={k} points={`${p} ${q} ${tq} ${tp}`} fill={color} opacity={opacity} />;
+              })}
+              <polygon points={TABLE.join(' ')} fill="none" stroke="#ff9aa4" strokeOpacity={0.35} strokeWidth={0.8} />
+              {PANEL_POINTS.map((p, k) => <line key={k} x1={p[0]} y1={p[1]} x2={TABLE[k][0]} y2={TABLE[k][1]} stroke="#ffb3ba" strokeOpacity={0.3} strokeWidth={0.8} />)}
+              {/* a glint flashing on the upper left facet now and then */}
+              <path className="glint" d="M 92 26 L 94 33 L 101 35 L 94 37 L 92 44 L 90 37 L 83 35 L 90 33 Z" fill="#fff4f4" />
+            </g>
+          )}
           {/* a soft light from above, in place of a hard gloss line */}
           <polygon points={PANEL} fill={`url(#${id}-light)`} />
         </g>
