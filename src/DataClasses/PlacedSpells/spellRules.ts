@@ -35,6 +35,13 @@ export const GYRE_RULES = {
   collisionMode: 'power' as 'power' | 'alwaysLoses',
 };
 
+export const ETHER_RULES = {
+  // Two Ethers of equal power, moving the same way, meeting: 'oneSurvives', the one ahead consumes the
+  // one catching up (gaining its +5, as any consumer of an Ether); 'bothDestroyed', the earlier rule
+  // (as any tie). Ethers moving opposite ways, or any other tie, still destroy each other
+  sameDirectionTie: 'oneSurvives' as 'oneSurvives' | 'bothDestroyed',
+};
+
 export const QUICKEN_RULES = {
   // A Quicken's speed bonus: 'instant', a spell that consumes one gets extra moves right away, this turn
   // only, as many as the Quicken is wide (as if moving through it: like a Gyre's exit bonus, nothing

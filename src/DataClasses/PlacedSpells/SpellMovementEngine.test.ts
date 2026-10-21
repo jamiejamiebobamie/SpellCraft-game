@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Ether, Gyre, GyreDown, GyreUp, Phlegm, Quicken, Spell } from './Spell';
 import { Player } from '../Player/Player';
 import { SpellMovementEngine, SpellTurnFrame, combineSpellsMaximally } from './SpellMovementEngine';
-import { GYRE_RULES, PHLEGM_RULES, QUICKEN_RULES } from './spellRules';
+import { ETHER_RULES, GYRE_RULES, PHLEGM_RULES, QUICKEN_RULES } from './spellRules';
 
 const player = new Player(1, ''); // moves right
 const npc = new Player(-1, ''); // moves left
@@ -47,7 +47,9 @@ const statesOf = (turns: Array<Array<SpellTurnFrame>>, spell: Spell): Array<Spel
 const DEFAULT_PHLEGM_RULES = { ...PHLEGM_RULES };
 const DEFAULT_GYRE_RULES = { ...GYRE_RULES };
 const DEFAULT_QUICKEN_RULES = { ...QUICKEN_RULES };
+const DEFAULT_ETHER_RULES = { ...ETHER_RULES };
 afterEach(() => {
+  Object.assign(ETHER_RULES, DEFAULT_ETHER_RULES);
   Object.assign(PHLEGM_RULES, DEFAULT_PHLEGM_RULES);
   Object.assign(GYRE_RULES, DEFAULT_GYRE_RULES);
   Object.assign(QUICKEN_RULES, DEFAULT_QUICKEN_RULES);
@@ -597,6 +599,32 @@ describe('11. bonuses', () => {
     const ether = place(Ether, player, 0, 0);
     const quicken = place(Quicken, npc, 0, 2);
     expect(finalColumn([ether, quicken], ether)).toBe(1);
+  });
+});
+
+describe('Ethers of equal power moving the same way', () => {
+  // (the one behind is electrified under the earlier Quicken rule, so it's faster and catches up)
+  const setup = () => {
+    QUICKEN_RULES.speedMode = 'permanent';
+    const ahead = place(Ether, player, 0, 2);
+    const behind = place(Ether, player, 0, 1);
+    behind.consumedQuickens = 1; // speed 2 (the same power)
+    return { ahead, behind };
+  };
+
+  it("'oneSurvives': the one ahead consumes the one catching up", () => {
+    const { ahead, behind } = setup();
+    const board = finalBoard(runTurns([ahead, behind], 1));
+    expect(board.some(s => s.id === ahead.id)).toBe(true);
+    expect(board.some(s => s.id === behind.id)).toBe(false);
+    expect(board.find(s => s.id === ahead.id)!.consumedEthers).toBeGreaterThan(0); // its +5
+  });
+
+  it("'bothDestroyed': both are destroyed (the earlier rule)", () => {
+    ETHER_RULES.sameDirectionTie = 'bothDestroyed';
+    const { ahead, behind } = setup();
+    const board = finalBoard(runTurns([ahead, behind], 1));
+    expect(board.some(s => s.id === ahead.id || s.id === behind.id)).toBe(false);
   });
 });
 

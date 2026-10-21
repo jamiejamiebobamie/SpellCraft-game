@@ -8,7 +8,7 @@
 import { Spell, Phlegm, Ether, Gyre, GyreUp, Quicken } from './Spell';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { CellIndex } from '../types';
-import { PHLEGM_RULES, GYRE_RULES } from './spellRules';
+import { PHLEGM_RULES, GYRE_RULES, ETHER_RULES } from './spellRules';
 
 /**
  * 'step':    shown after each micro-step
@@ -726,7 +726,15 @@ export class SpellMovementEngine {
 
     const powerA = a.getPower();
     const powerB = b.getPower();
-    if (powerA === powerB) return { kind: 'tie' };
+    if (powerA === powerB) {
+      // Two Ethers moving the same way: the one ahead consumes the one catching up (ETHER_RULES)
+      const direction = Math.sign(a.speedDirection);
+      const isSameWayEthers = a instanceof Ether && b instanceof Ether && direction === Math.sign(b.speedDirection);
+      if (isSameWayEthers && ETHER_RULES.sameDirectionTie === 'oneSurvives') {
+        return a.cellIndex.j * direction >= b.cellIndex.j * direction ? win(a, b) : win(b, a);
+      }
+      return { kind: 'tie' };
+    }
 
     // In 'alwaysLoses' mode the smaller Phlegm consumes the larger (enables the self-heal combo)
     const isSmallerWinner = a instanceof Phlegm && b instanceof Phlegm && PHLEGM_RULES.collisionMode === 'alwaysLoses';

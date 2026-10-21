@@ -45,7 +45,7 @@ Because spells pass their power on, combos emerge naturally: a Fireball fed into
 - **The boost:** a spell leaving a draft gets a one-time boost of +1 move for each cell of the draft's height, used right away.
 - **Drafts meeting:** the bigger draft consumes the smaller, and the smaller pushes it one row past its own tip, in the smaller's direction. Two drafts of equal size destroy each other.
 
-**Collisions.** Pieces of the same spell never destroy each other. A spell caught in a Water Wheel or a draft can still be hit and destroyed by other spells.
+**Collisions.** Equal spells destroy each other, except two Fireballs moving the same way: the one ahead absorbs the one catching up. Pieces of the same spell never destroy each other. A spell caught in a Water Wheel or a draft can still be hit and destroyed by other spells.
 
 ### Economy and balance
 
