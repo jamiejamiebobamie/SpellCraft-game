@@ -14,6 +14,7 @@ import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
+import TurnCard from './TurnCard';
 // import { GameOverStatus } from '../DataClasses/types';
 
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
@@ -265,6 +266,7 @@ export const GameComponent = () => {
     <MainColumn $isDoneWithIntro={isDoneWithIntro}>
       <GameBoardComponent gridOverlayRef={gridOverlayRef} />
     </MainColumn>
+    <TurnCard />
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>;
 

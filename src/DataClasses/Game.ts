@@ -20,7 +20,7 @@ import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
-import { NPC_INDEX } from './GameRules/GameSimulation';
+import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
 
@@ -120,6 +120,20 @@ export class Game {
 
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   private matchNumber = 0; // rematches in this session
+  /** The card shown as each turn begins (TurnCard): a new id each turn. */
+  private turnCard: { id: number; isPlayerFirst: boolean } | null = null;
+  getTurnCard = (): { id: number; isPlayerFirst: boolean } | null => this.turnCard;
+
+  /**
+   * Whose move it is right now (their spotlight brightens): the NPC while it's casting (unless it's
+   * waiting for the player to cast first), otherwise the player; null between turns (spells moving),
+   * before the match begins, or once it's over.
+   */
+  getActiveSide = (): number | null => {
+    if (this.gameOver !== null || this.getIsGameBoardDisabled() || !this.getIsDoneWithIntroWalk()) return null;
+    const npc = this.players.getNpcPlayer();
+    return npc && !this.isNpcWaitingForPlayer && !npc.getIsDoneWithTurn() ? NPC_INDEX : PLAYER_INDEX;
+  };
   private isNpcWaitingForPlayer = false;
   private npcWaitingTipsShown = 0; // this session (each makes the next wait 5 seconds longer)
   private npcWaitingTipRef: number | undefined = undefined;
@@ -138,6 +152,9 @@ export class Game {
   startNpcTurn = (delayMilli: number): void => {
     // (the player's turn begins with the NPC's: the clock's seconds hand starts counting it down)
     this.gameClock.startTurnClock();
+    // The turn card: whose move it is first
+    this.turnCard = { id: (this.turnCard?.id ?? 0) + 1, isPlayerFirst: this.getIsNpcWaitingThisTurn() };
+    this.forceUpdate();
     if (!this.getIsNpcWaitingThisTurn()) {
       setTimeout(() => this.doNpcMove(), delayMilli);
       return;

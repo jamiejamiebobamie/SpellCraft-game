@@ -185,6 +185,7 @@ type PlayerComponentProps = {
 const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: PlayerComponentProps) => {
   const snap = useSnapshot(rootGameStore);
   const playerSnap = playerIndex == 0 ? snap.getHumanPlayer() : snap.getNpcPlayer();
+  const activeSide = snap.getActiveSide(); // (whose move it is: their spotlight brightens)
   const ANIM_TIME = 6;
   const healthAmt = playerSnap?.getHealth() || 0;
   const pct = playerSnap?.getHealthPrct() || 0;
@@ -249,7 +250,8 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   );
 
   return (<DuelistSideColumn>
-    <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead} />
+    <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead}
+      $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
     {avatar}
     {focusDots}
     {healthbar}

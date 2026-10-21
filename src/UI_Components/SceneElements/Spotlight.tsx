@@ -17,7 +17,13 @@ const fadeIn = keyframes`
   100% { opacity: ${rootGameStore.HIGH_BRIGHTNESS}; }
 `;
 
-export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean, $isDead: boolean }>`
+/**
+ * The spotlights show whose move it is: the active wizard's brightens, the other's dims (neither
+ * between turns). Brightness, as a multiplier.
+ */
+export const SPOTLIGHT_TURN = { active: 1.9, inactive: 0.55, seconds: 0.8 };
+
+export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean, $isDead: boolean, $turn?: 'active' | 'inactive' | 'none' }>`
   position: absolute;
   /* Hangs outside the top bounds so the origin source is invisible/out-of-shot */
   top: -15cqw; 
@@ -41,7 +47,7 @@ export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithInt
   );
   
   /* Softens the edges of the clip-path so it doesn't look like sharp vector lines */
-  filter: blur(1cqw);
+  filter: blur(1cqw) brightness(${props => props.$turn === 'active' ? SPOTLIGHT_TURN.active : props.$turn === 'inactive' ? SPOTLIGHT_TURN.inactive : 1});
   
   /* Stays under your text content but layers automatically above background elements */
   z-index: -1; 
@@ -54,6 +60,6 @@ export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithInt
 
   animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
 
-  transition: opacity: 3s;
+  transition: opacity 3s, filter ${SPOTLIGHT_TURN.seconds}s ease-in-out;
   opacity: ${props => props.$isDead ? 0 : 1};  
 `;
