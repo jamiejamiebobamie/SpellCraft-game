@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
 import { titleLetteringCss } from './Logo/titleLettering';
+import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
 
 // --- Inherited Animation Keyframes ---
 const scatterWispLeft = keyframes`
@@ -32,28 +33,39 @@ interface ModalTextConfig {
 }
 
 // Assuming your 4th state "Caught by Teacher" maps to a status key or string fallback
+// (fontSize, cqw: each line on one line)
 const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   [GameOverStatus.BothDead]: {
     title: 'A Draw',
     text: "The match ends in a draw!",
-    fontSize: 4.5
+    fontSize: 2.8
   },
   [GameOverStatus.PlayerWon]: {
     title: 'You Won',
     text: 'You won ...this night.',
-    fontSize: 4.5
+    fontSize: 2.8
   },
   [GameOverStatus.NpcWon]: {
     title: 'You Lost',
     text: 'You lost...',
-    fontSize: 4.5
+    fontSize: 2.8
   },
   [GameOverStatus.TimesUp]: {
     title: 'Caught!',
     text: 'You have been caught out of bed after curfew and will surely be expelled.',
-    fontSize: 3.7
+    fontSize: 2.4
   },
 };
+
+/** "Play again?", under each ending's line (cqw). */
+const PLAY_AGAIN_FONT_SIZE = 2.6;
+
+/**
+ * Reviewing the endings: open the game with ?gameOverPreview in the address to show this modal with a
+ * switcher (or the left and right arrow keys) going through each ending.
+ */
+const PREVIEW_ORDER = [GameOverStatus.PlayerWon, GameOverStatus.NpcWon, GameOverStatus.BothDead, GameOverStatus.TimesUp];
+const getIsPreview = (): boolean => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gameOverPreview');
 
 const MIN_OPACITY = 0, MAX_OPACITY = .65, TRANSITION_TIME_SEC = 1.5;
 
@@ -102,7 +114,7 @@ const ModalTitle = styled.h2`
   padding: 0;
   text-align: center;
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 11cqw;
+  font-size: 15cqw;
   line-height: 1.1;
 
   margin-bottom: 1cqw;
@@ -114,11 +126,11 @@ const ModalTitle = styled.h2`
 const ModalSubText = styled.p<{ $fontSize: number }>`
   font-family: 'EnchantedLand', sans-serif;
   font-size: ${props => props.$fontSize}cqw;
-  color: rgb(187 36 36);
-  max-width: 90%;
-  margin: 0 auto; 
-  text-shadow: 0cqw 0.3cqw 0.5cqw rgba(0, 0, 0, 0.9);
-  line-height: 1.3;
+  color: #efe0b9; /* vellum */
+  white-space: nowrap; /* one line */
+  margin: 0 auto;
+  text-shadow: 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.9), 0 0 0.8cqw rgba(0, 0, 0, 0.7);
+  line-height: 1.4;
   text-align: center;
 `;
 
@@ -164,83 +176,56 @@ const SingleBurstWisp = styled.div<{ $left: string; $anim: any }>`
   animation-iteration-count: 1;
 `;
 
-const VineUnderlay = styled.div`
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(0deg, #513f13 0%, #bda251 70%, #8d7331 100%);
-  clip-path: polygon(0% 50%, 14% 100%, 86% 100%, 100% 50%, 85% 94%, 15% 94%);
-  z-index: -2;
-`;
-
-// Reused Magical Play Button Core shape configurations
-const MagicalModalButton = styled.button`
+/** The ruby button (PlayButtonStyles), as on the landing screen. */
+const RubyModalButton = styled.button<{ $glow: string }>`
   position: relative;
   cursor: pointer;
   border: none;
   outline: none;
   background: transparent;
-  width: 26cqw;
-  height: 8cqw;
+  width: 24cqw;
+  height: ${24 * 100 / 386}cqw; /* the button's shape (386 x 100) */
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 4.5cqw;
+  font-size: 4cqw;
   line-height: 1;
-
-  color: rgb(197 250 255);
-  text-shadow: rgba(255, 255, 255, 0.8) 0px 0cqw 1cqw;
   user-select: none;
   z-index: 10;
+  filter: brightness(${PLAY_BUTTON_BRIGHTNESS.rest});
   transition: filter 0.2s ease;
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(180deg, #745c22 0%, rgb(255 226 141) 70%, #513f13 100%);
-    clip-path: polygon(0% 50%, 14% 0%, 86% 0%, 100% 50%, 85% 6cqw, 15% 6cqw);
-    box-shadow: 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.5);
-    z-index: -2;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0.3cqw; left: 0.7cqw; right: 0.7cqw; bottom: 0.3cqw;
-    
-    background-color: rgb(1 52 72);
-    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 50%);
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    
-    clip-path: polygon(0% 50%, 13% 0%, 87% 0%, 100% 50%, 87% 100%, 13% 100%);
-    box-shadow: 
-      inset 0 0.3cqw 0.5cqw rgba(255, 255, 255, 0.6), 
-      inset 0 -0.4cqw 0.8cqw #003554,
-      0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.5);
-    z-index: -1;
-    transform: translateY(0);
-    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-  }
-
   &:hover {
-    color: #fffdf0;
-    filter: drop-shadow(0 0 1cqw rgba(0, 164, 228, 0.7));
-    
-    &::after {
-      background-color: #00b4f0;
-      transform: translateY(0.18cqw) scale(0.985);
-      box-shadow: 
-        inset 0 0.5cqw 0.8cqw rgba(0, 0, 0, 0.85),
-        inset 0 -0.2cqw 0.4cqw rgba(255, 255, 255, 0.2);
-    }
+    filter: brightness(${PLAY_BUTTON_BRIGHTNESS.hover}) drop-shadow(0 0 1.2cqw ${props => props.$glow});
+    .panel { filter: brightness(1.25); }
   }
-
   &:active {
-    &::after {
-      transform: translateY(0.3cqw) scale(0.96);
-    }
+    .inner { transform: translateY(2px); }
+  }
+`;
+
+/** Steps through the endings while reviewing them (?gameOverPreview). */
+const PreviewSwitcher = styled.div`
+  position: absolute;
+  top: 1.5cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1cqw;
+  align-items: center;
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 1.6cqw;
+  color: #efe0b9;
+  z-index: 1;
+  button {
+    font: inherit;
+    color: inherit;
+    background: rgba(0, 0, 0, 0.5);
+    border: 0.1cqw solid #9a7432;
+    border-radius: 0.4cqw;
+    padding: 0.2cqw 0.9cqw;
+    cursor: pointer;
   }
 `;
 
@@ -255,12 +240,13 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   return (
-    <MagicalModalButton
+    <RubyModalButton
+      $glow={getPlayButtonGlow('ruby')}
       onClick={onClick}
       onMouseEnter={() => { setHoverKey(prev => prev + 1); setIsHovered(true); }}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <VineUnderlay />
+      <PlayButtonFace look="ruby" label={label} />
       {isHovered && (
         <WispContainer key={hoverKey}>
           <SingleBurstWisp $left="15%" $anim={scatterWispLeft} />
@@ -270,25 +256,41 @@ const ModalButtonWithWisps: React.FC<ActionButtonProps> = ({ label, onClick }) =
           <SingleBurstWisp $left="82%" $anim={scatterWispCenter} />
         </WispContainer>
       )}
-      {label}
-    </MagicalModalButton>
+    </RubyModalButton>
   );
 };
 
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
-  const currentGameOverState = snap.getGameOver();
+  // Reviewing the endings (?gameOverPreview): one at a time, by the switcher or the arrow keys
+  const [isPreview] = useState(getIsPreview);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const step = (by: number) => setPreviewIndex(k => (k + by + PREVIEW_ORDER.length) % PREVIEW_ORDER.length);
+  useEffect(() => {
+    if (!isPreview) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'ArrowRight') step(1); if (event.key === 'ArrowLeft') step(-1); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isPreview]);
+  const currentGameOverState = isPreview ? PREVIEW_ORDER[previewIndex] : snap.getGameOver();
   // (compared with null: a draw, GameOverStatus.BothDead, is 0)
   const isGameOver = currentGameOverState !== null;
   const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
 
   return (
     <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
+      {isPreview && (
+        <PreviewSwitcher>
+          <button onClick={() => step(-1)}>&lt;</button>
+          {contentConfig.title} ({previewIndex + 1}/{PREVIEW_ORDER.length})
+          <button onClick={() => step(1)}>&gt;</button>
+        </PreviewSwitcher>
+      )}
       <ModalCardContent>
         <ModalTitle>{contentConfig.title}</ModalTitle>
         <ModalSubTextContainer>
           <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
-          <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
+          <ModalSubText $fontSize={PLAY_AGAIN_FONT_SIZE}>Play again?</ModalSubText>
         </ModalSubTextContainer>
         {isGameOver && <ButtonRow>
           <ModalButtonWithWisps label="Yes" onClick={rootGameStore.resetGame} />

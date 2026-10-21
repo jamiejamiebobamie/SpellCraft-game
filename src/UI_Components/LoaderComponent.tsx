@@ -8,7 +8,7 @@ import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
 
 /** How wide one sweep of "Loading..."'s sheen is (cqw): about the word's width. */
 const LOADING_SHEEN_TILE = 16;
-import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, getPlayButtonGlow } from './PlayButtonStyles';
+import { PlayButtonFace, PlayButtonLook, PLAY_BUTTON_LOOKS, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
 
 /**
  * Trying out the Play button's looks (PlayButtonStyles): while on, clicking it switches look and
@@ -244,8 +244,6 @@ const MagicalPlayButton = styled.button`
   }
 `;
 
-/** How bright the Play button is (1: as drawn): dimmed so it doesn't compete with the title; a little brighter on hover. */
-const PLAY_BUTTON_BRIGHTNESS = { rest: 0.75, hover: 0.88 };
 
 /** The Play button in one of PlayButtonStyles' looks: the same size and place as MagicalPlayButton. */
 const FramedPlayButton = styled.button<{ $glow: string }>`

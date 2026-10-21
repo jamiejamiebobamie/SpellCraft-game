@@ -5,7 +5,7 @@
 //              drifting stars, gold-leaf lettering
 //   verdigris: an aged bronze frame gone green in its recesses, on a dark green panel
 //   ruby:      a brass frame set with a faceted ruby, the lettering etched into it
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useId, useLayoutEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 
 export type PlayButtonLook = 'brass' | 'verdigris' | 'ruby';
@@ -102,25 +102,23 @@ const FACET_NORMALS = PANEL_POINTS.map((p, k) => {
 /**
  * The etched lettering (drawn in the SVG, over the panel): the deep red of the stone's depths, its cut
  * shadowed along the top and lit along the bottom, and a glint sweeping across every `glintSeconds`:
- *   glint 'orbit':  the light inside each letter's cut swings once around it (its shadow opposite),
- *                   brightening to `litFlare`, while the sweeping glint crosses that letter, then
- *                   settles on the lower walls again (see `orbit`)
+ *   glint 'orbit':  the light inside the letters' cuts turns once around with the ruby's light
+ *                   (clockwise; its shadow opposite), brightening to `litFlare` mid-turn, then settles
+ *                   on the lower walls again (see `orbit`)
  *   glint 'lit':    the light along the letters' bottom edges flares as it passes (`litFlare`)
  *   glint 'stroke': a band of light runs around the letters' outlines as it passes
  * `rim`: how much the outlines catch the light all the time.
  */
 const ETCHING = {
   fill: '#4d0510', shadow: 'rgba(0, 0, 0, 0.75)', lit: '#ff96a0', litOpacity: 0.6, litFlare: '#ffb4bc',
-  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 4.5, fontSize: 57, y: 63,
+  rim: 0.22, glint: 'orbit' as 'orbit' | 'lit' | 'stroke', glintSeconds: 7.5, fontSize: 57, y: 63,
   // steady: as the light swings, each letter's dark core would seem to slide away from it (and the
   // letter with it), so the letter shifts toward the light by this much of the light's move (0: off)
   // rest: how far the light reaches into the cut (its width): at rest on the bottom walls, and never more;
   // top: its width on the top walls, as a fraction of rest (thinner than the bottom's);
-  // byHeight: mid-swing, shorter letters' light is thinner, in proportion to their height (0: all alike);
-  // swingSpan: how much of the sweep's crossing of a letter its swing lasts (1: from the band's
-  // reaching it to its leaving it)
-  orbit: { rest: 1.6, top: 0.6, byHeight: 1, shadowRest: 1.4, peakOpacity: 0.7, swingSpan: 1, steady: 0.5 },
-  sweepToo: true, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
+  // byHeight: mid-turn, shorter letters' light is thinner, in proportion to their height (0: all alike)
+  orbit: { rest: 1.6, top: 0.6, byHeight: 1, shadowRest: 1.4, peakOpacity: 0.7, steady: 0.5 },
+  sweepToo: false, // with 'orbit': the 'stroke' glint's band of light sweeping across the outlines too
 };
 
 /**
@@ -134,26 +132,28 @@ const getSweepTime = (x: number): number => SWEEP.moving * (x - 145 - SWEEP.from
 const SWEEP_BAND = 12;
 
 /**
- * One letter's 'orbit' keyframes, swinging during [start, start + length] of the cycle (fractions)
- * and resting otherwise. The light and shadow fall inside the cut, as in a real one: the light on the
+ * One letter's 'orbit' keyframes. Its light follows the ruby's: turning once around, clockwise, over
+ * [turnStart, turnStart + turnLength] of the cycle (fractions; see getFacetKeyframes), brightening
+ * toward the middle of the turn, and resting otherwise. The light and shadow fall inside the cut, as in a real one: the light on the
  * walls facing it, the shadow on those facing away; each band is the letter minus a copy of itself
- * shifted away from that band's side (`lightCut`, `shadowCut`). The light's offset goes once around
- * the circle (starting and ending straight below), the shadow's opposite. The light is never wider than
+ * shifted away from that band's side (`lightCut`, `shadowCut`). The light falls on the walls facing
+ * away from the ruby's light (on the lower walls at rest, the light being above), the shadow opposite. The light is never wider than
  * at rest: thinner on the top walls (orbit.top), and mid-swing thinner on shorter letters
  * (`heightFactor`: the letter's height relative to the tallest, 0 to 1).
  */
-const getOrbitKeyframes = (start: number, length: number, heightFactor: number) => {
-  const steps = 16;
+const getOrbitKeyframes = (heightFactor: number, turnStart: number, turnLength: number) => {
+  const steps = 24;
   const { rest, top, byHeight, shadowRest } = ETCHING.orbit;
   const frames = Array.from({ length: steps + 1 }, (_, k) => {
-    const u = k / steps; // 0..1 through the swing
-    const swell = Math.sin(Math.PI * u); // 0 at rest, 1 mid-swing
-    const angle = Math.PI / 2 + u * Math.PI * 2; // straight below (SVG y is down), once around
+    const u = k / steps; // 0..1 through the turn
+    const swell = Math.sin(Math.PI * u); // 0 at rest, 1 mid-turn
+    // the lit walls: straight below (SVG y is down), once around clockwise, opposite the ruby's light
+    const angle = Math.PI / 2 + u * Math.PI * 2;
     const upness = Math.max(0, -Math.sin(angle)); // 0 below or to the side, 1 on the top walls
     const reach = rest * (1 - (1 - top) * upness) * (1 + (heightFactor - 1) * byHeight * swell);
     const shadowReach = shadowRest;
     return {
-      time: start + u * length,
+      time: turnStart + u * turnLength,
       lightCut: `${(-Math.cos(angle) * reach).toFixed(2)} ${(-Math.sin(angle) * reach).toFixed(2)}`,
       // the counter-shift keeping the letter's dark core in place: toward the light, from where it rests
       steady: `${(ETCHING.orbit.steady * Math.cos(angle) * reach).toFixed(2)} ${(ETCHING.orbit.steady * (Math.sin(angle) * reach - rest)).toFixed(2)}`,
@@ -164,9 +164,9 @@ const getOrbitKeyframes = (start: number, length: number, heightFactor: number) 
   });
   const atRest = frames[0];
   const all = [
-    ...(start > 0.001 ? [{ ...atRest, time: 0 }] : []),
+    ...(turnStart > 0.001 ? [{ ...atRest, time: 0 }] : []),
     ...frames,
-    ...(start + length < 0.999 ? [{ ...atRest, time: 1 }] : []),
+    ...(turnStart + turnLength < 0.999 ? [{ ...atRest, time: 1 }] : []),
   ];
   all[0] = { ...all[0], time: 0 };
   all[all.length - 1] = { ...all[all.length - 1], time: 1 };
@@ -278,7 +278,8 @@ const Label = styled.span<{ $text: 'gold' | 'ink' | 'etched' }>`
 /** The button's face: the frame, panel and lettering (the button itself, and its hover, are the caller's). */
 export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: string }) => {
   const l = PLAY_BUTTON_LOOKS[look];
-  const id = `play-${look}`;
+  // (unique per button: several can be on screen at once, e.g. the game over modal's Yes and No)
+  const id = `play-${look}-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   // Where each letter is (once the font has loaded), so each can catch the light as the sweep reaches it
   const measureRef = useRef<SVGTextElement | null>(null);
   const [letters, setLetters] = useState<Array<{ char: string; x: number; orbit: ReturnType<typeof getOrbitKeyframes> }> | null>(null);
@@ -305,12 +306,8 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
       const turnLength = Math.min(1 - turnStart, Math.max(0.01, getSweepTime(wordEnd + SWEEP_BAND / 2) - turnStart));
       if (l.jewel && RUBY_LIGHT.isTurning) setFacetLight(getFacetKeyframes(turnStart, turnLength));
       setLetters(Array.from(label).map((char, k) => {
-        const x = text.getStartPositionOfChar(k).x, end = text.getEndPositionOfChar(k).x;
-        // swinging while the sweep's band crosses the letter (from its reaching the letter to its leaving it)
-        const center = getSweepTime((x + end) / 2);
-        const length = Math.min(0.9, Math.max(0.01, ETCHING.orbit.swingSpan * (getSweepTime(end + SWEEP_BAND / 2) - getSweepTime(x - SWEEP_BAND / 2))));
-        const start = Math.min(1 - length, Math.max(0, center - length / 2));
-        return { char, x, orbit: getOrbitKeyframes(start, length, heights[k] / tallest) };
+        const x = text.getStartPositionOfChar(k).x;
+        return { char, x, orbit: getOrbitKeyframes(heights[k] / tallest, turnStart, turnLength) };
       }));
     };
     (document.fonts ? document.fonts.ready : Promise.resolve()).then(measure);
@@ -463,3 +460,6 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
 
 /** The glow on hover, per look (for the caller's button). */
 export const getPlayButtonGlow = (look: PlayButtonLook): string => PLAY_BUTTON_LOOKS[look].glow;
+
+/** How bright the buttons are (1: as drawn): dimmed so they don't compete with the titles; a little brighter on hover. */
+export const PLAY_BUTTON_BRIGHTNESS = { rest: 0.75, hover: 0.88 };
