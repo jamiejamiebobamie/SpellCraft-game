@@ -37,30 +37,35 @@ export const CLOCK_HALO = {
   ribbonBlend: { delaySeconds: 1.2, blendSeconds: 1.6, unwindSeconds: 0.5 },
   rayStart: 0.36, // where the rays start (fraction of the radius: just inside the face's rim)
   color: '255, 232, 170', // rgb: the glow around the face (and the rays, if rayColors is empty)
-  // The rays' colors, in turn around the circle (long, short, long, ...): the wand sparkles' colors
-  // (pixieColors), muted to about the cream's saturation. [] : every ray in `color`.
-  // toWhite slides a color toward white: 0 = as written, 1 = white
+  // The long rays' colors, in turn around the circle: cream and soft gold (framing the ribbons).
+  // [] : every ray in `color`. toWhite slides a color toward white: 0 = as written, 1 = white
   rayColors: [
-    // (in this order, the long rays alternate pale yellow and pink, the short ones mint and golden)
-    { rgb: '255, 246, 196', toWhite: 0 }, // pale yellow (#FFF7C2)
-    { rgb: '178, 255, 236', toWhite: 0 }, // mint (#A6FFEA)
-    { rgb: '255, 186, 224', toWhite: 0 }, // pink (#FFBBE1)
-    { rgb: '255, 229, 160', toWhite: 0 }, // golden yellow (#FFE53B)
+    { rgb: '255, 240, 204', toWhite: 0 }, // cream
+    { rgb: '255, 214, 128', toWhite: 0 }, // soft gold
   ] as Array<{ rgb: string; toWhite: number }>,
-  rayColorsToWhite: .2, // slides all the ray colors toward white, on top of each one's own toWhite
+  // The ribbons' colors (the short rays), in turn around the circle: storybook primaries, warm and a
+  // little softened ([] : as the long rays)
+  ribbonColors: [
+    { rgb: '226, 88, 74', toWhite: 0 }, // red
+    { rgb: '244, 196, 82', toWhite: 0 }, // yellow
+    { rgb: '82, 132, 204', toWhite: 0 }, // blue
+    { rgb: '104, 172, 98', toWhite: 0 }, // green
+  ] as Array<{ rgb: string; toWhite: number }>,
+  rayColorsToWhite: 0, // slides all the ray colors toward white, on top of each one's own toWhite
   rayOpacity: 0.55, // at the rays' base, fading to nothing at their tips
   glowOpacity: 0.35, // a soft glow right around the face (lifts the dark carving there)
   rotationSeconds: 90, // one full turn (0: still)
   pulseSeconds: 6, // a slow brighten and dim (0: none)
   pulseLow: 0.7, // the dimmest point of the pulse (1: no pulse)
   // Showing and hiding (shown on the loading screen, and in play while the clock can end the turn):
-  // storybook-style, it grows from nothing past full size and settles, twisting into place; it hides
-  // by drawing back a little, then shrinking away
+  // like a camera's iris, the rays swirl open and closed: each grows out from its base leaning over
+  // like an aperture blade (`bladeLean` degrees, straightening as it opens), while the whole halo
+  // turns `swirl` degrees
   appear: {
-    growSeconds: 0.9,
-    shrinkSeconds: 0.6,
-    twist: 40, // degrees it turns while growing (and back while shrinking)
-    overshoot: 1.56, // how far past full size it springs (1: none; 1.56 is a lively storybook bounce)
+    openSeconds: 1.1,
+    closeSeconds: 0.7,
+    bladeLean: 70,
+    swirl: 80,
   },
   // Breathing: each ray grows and shrinks (long and short rays out of step), the timing rippling
   // around the circle so it shimmers rather than pumping all at once
@@ -92,18 +97,6 @@ const HaloWrapper = styled.div<{ $brightness: number }>`
   filter: brightness(${props => props.$brightness});
   transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
   ${CLOCK_HALO.pulseSeconds > 0 && css`animation: ${pulse} ${CLOCK_HALO.pulseSeconds}s ease-in-out infinite;`}
-`;
-
-/** Grows the halo in and shrinks it away (CLOCK_HALO.appear). */
-const Appear = styled.div<{ $isShown: boolean }>`
-  width: 100%;
-  height: 100%;
-  transform: ${props => props.$isShown ? 'scale(1) rotate(0deg)' : `scale(0) rotate(${-CLOCK_HALO.appear.twist}deg)`};
-  opacity: ${props => props.$isShown ? 1 : 0};
-  /* growing: springs past full size and settles; shrinking: draws back a little, then away */
-  transition: ${props => props.$isShown
-    ? `transform ${CLOCK_HALO.appear.growSeconds}s cubic-bezier(0.34, ${CLOCK_HALO.appear.overshoot}, 0.64, 1), opacity ${CLOCK_HALO.appear.growSeconds * 0.5}s ease-out`
-    : `transform ${CLOCK_HALO.appear.shrinkSeconds}s cubic-bezier(0.36, 0, 0.66, -0.56), opacity ${CLOCK_HALO.appear.shrinkSeconds}s ease-in`};
 `;
 
 const HaloCanvas = styled.canvas`
@@ -205,6 +198,9 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  // The iris (CLOCK_HALO.appear): `amount` 0 (closed) to 1 (open), heading for `target`
+  const irisRef = useRef({ amount: 0, target: 0 });
+
   // The ribbons sliding in and out (CLOCK_HALO.ribbonBlend): `amount` 0 (plain rays) to 1 (ribbons),
   // heading for `target` from `startAt` (performance.now() milliseconds)
   const ribbonRef = useRef({ amount: 0, target: 0, startAt: 0 });
@@ -227,13 +223,17 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     return () => clearTimeout(timeout);
   }, [isShown]);
 
+  // The iris opens as the halo shows (and closes once its ribbons have untwisted)
+  useEffect(() => { irisRef.current.target = isAppearShown && hasAppeared ? 1 : 0; }, [isAppearShown, hasAppeared]);
+
   useEffect(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !CLOCK_HALO.enabled) return;
     const { rays, color, rayOpacity, glowOpacity, rayStart, rotationSeconds, breathe, ribbon } = CLOCK_HALO;
-    const rayColors = CLOCK_HALO.rayColors.length
-      ? CLOCK_HALO.rayColors.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - CLOCK_HALO.rayColorsToWhite)))
-      : [color];
+    const toColors = (list: Array<{ rgb: string; toWhite: number }>) =>
+      list.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - CLOCK_HALO.rayColorsToWhite)));
+    const rayColors = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [color];
+    const ribbonColors = CLOCK_HALO.ribbonColors.length ? toColors(CLOCK_HALO.ribbonColors) : rayColors;
 
     const start = performance.now();
     let frameId = 0, lastNow = start;
@@ -248,6 +248,15 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
         blend.amount = blend.target > blend.amount ? Math.min(blend.target, blend.amount + rate * dt) : Math.max(blend.target, blend.amount - rate * dt);
       }
       const ribbonAmount = blend.amount * blend.amount * (3 - 2 * blend.amount); // eased
+      // The iris opens or closes toward its target (smoothly, like a lens's blades)
+      const iris = irisRef.current;
+      if (iris.amount !== iris.target) {
+        const { openSeconds, closeSeconds } = CLOCK_HALO.appear;
+        iris.amount = iris.target > iris.amount
+          ? Math.min(iris.target, iris.amount + dt / Math.max(0.01, openSeconds))
+          : Math.max(iris.target, iris.amount - dt / Math.max(0.01, closeSeconds));
+      }
+      const open = iris.amount * iris.amount * (3 - 2 * iris.amount); // eased
       const dpr = window.devicePixelRatio || 1;
       const size = Math.round(canvas.clientWidth * dpr);
       if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
@@ -255,32 +264,42 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       const radiusPx = CLOCK_HALO.radius * pxPerCqw;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, size, size);
+      if (open <= 0.001) { frameId = requestAnimationFrame(draw); return; } // closed
       ctx.translate(size / 2, size / 2);
 
       // The soft glow around the face
       const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, radiusPx * 0.62);
-      glow.addColorStop(Math.min(1, rayStart * 0.9 / 0.62), `rgba(${color}, ${glowOpacity})`);
+      glow.addColorStop(Math.min(1, rayStart * 0.9 / 0.62), `rgba(${color}, ${glowOpacity * open})`);
       glow.addColorStop(1, `rgba(${color}, 0)`);
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(0, 0, radiusPx * 0.62, 0, Math.PI * 2);
       ctx.fill();
 
-      const rotation = rotationSeconds > 0 ? (seconds / rotationSeconds) * Math.PI * 2 : 0;
+      // (closed or opening, the whole halo is turned back by the iris's swirl)
+      const rotation = (rotationSeconds > 0 ? (seconds / rotationSeconds) * Math.PI * 2 : 0) - (1 - open) * CLOCK_HALO.appear.swirl * Math.PI / 180;
+      const lean = (1 - open) * CLOCK_HALO.appear.bladeLean * Math.PI / 180;
       const step = (Math.PI * 2) / rays;
       const flow = ribbon.flowSeconds > 0 ? seconds / ribbon.flowSeconds : 0;
       for (let k = 0; k < rays; k++) {
-        ([[CLOCK_HALO.longRay, 0, 2 * k], [CLOCK_HALO.shortRay, 0.5, 2 * k + 1]] as Array<[Ray, number, number]>).forEach(([ray, offset, colorIndex]) => {
+        ([[CLOCK_HALO.longRay, 0], [CLOCK_HALO.shortRay, 0.5]] as Array<[Ray, number]>).forEach(([ray, offset]) => {
           const angle = spreadAngle(rotation + (k + offset) * step);
           // Breathing: long and short rays half a cycle apart, the timing rippling around the circle
           const phase = (k / rays) * breathe.ripple + offset;
           const breath = breathe.seconds > 0
             ? 1 - breathe.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / breathe.seconds + phase)))
             : 1;
-          const tip = radiusPx * ray.length * breath * getReachFactor(angle);
+          const base = radiusPx * rayStart;
+          const fullTip = radiusPx * ray.length * breath * getReachFactor(angle);
+          const tip = base + (fullTip - base) * open; // growing out from its base as the iris opens
           ctx.save();
           ctx.rotate(angle);
-          drawRay(ctx, ray, radiusPx * rayStart, tip, (radiusPx * ray.width) / 2, rayColors[colorIndex % rayColors.length], rayOpacity, flow + k * 0.37, ribbonAmount);
+          // leaning over at its base like an aperture blade, straightening as the iris opens
+          ctx.translate(0, -base);
+          ctx.rotate(lean);
+          ctx.translate(0, base);
+          const rayColor = ray.ribbon ? ribbonColors[k % ribbonColors.length] : rayColors[k % rayColors.length];
+          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, rayOpacity * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount);
           ctx.restore();
         });
       }
@@ -293,9 +312,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
   if (!CLOCK_HALO.enabled) return null;
   return (
     <HaloWrapper $brightness={brightness}>
-      <Appear $isShown={isAppearShown && hasAppeared}>
-        <HaloCanvas ref={canvasRef} />
-      </Appear>
+      <HaloCanvas ref={canvasRef} />
     </HaloWrapper>
   );
 }
