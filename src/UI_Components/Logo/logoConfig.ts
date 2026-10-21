@@ -60,7 +60,7 @@ export const LOGO_CONFIG = {
    */
   landingClock: {
     bodyBrightness: 0.4, // the clock's case
-    faceBrightness: .7, // its face
+    faceBrightness: .75, // its face
     haloBrightness: 1, // its halo
     showBody: true, // false: just the face and halo (no case, chimes or back)
   },

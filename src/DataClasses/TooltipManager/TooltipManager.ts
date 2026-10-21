@@ -78,7 +78,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     collisions: {
         title: "When Spells Collide",
-        text: "The stronger spell consumes the weaker; equal spells destroy each other. Water Wheels and drafts bend the rules: see your Spell Book.",
+        text: "The stronger spell consumes the weaker; equal spells destroy each other. Water Wheels and Drafts bend the rules: see your Spell Book.",
         anchor: ANCHORS.board,
     },
     nightPassing: {
