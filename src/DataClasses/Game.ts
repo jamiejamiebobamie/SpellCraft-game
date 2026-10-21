@@ -113,6 +113,7 @@ export class Game {
     this.spellCanvas.setIsDrawing(false);
     this.spellCanvas.clearDrawing();
     this.matchNumber++;
+    this.turnToken++; // (anything the NPC had pending from the last match does nothing)
     this.stopNpcWaiting();
     this.startNpcTurn(3000);
     this.forceUpdate();
@@ -120,6 +121,13 @@ export class Game {
 
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   private matchNumber = 0; // rematches in this session
+  /**
+   * Which turn the NPC's pending actions belong to (a new one each turn, and each match): a delayed move,
+   * its chain of casts, or the wait for it to finish, does nothing once its turn is over, so nothing
+   * from an earlier turn (or a finished match) can act in, or end, a later one.
+   */
+  private turnToken = 0;
+  private getIsTurnStill = (token: number): boolean => token === this.turnToken && this.gameOver === null;
   /** The card shown as each turn begins (TurnCard): a new id each turn. */
   private turnCard: { id: number; isPlayerFirst: boolean } | null = null;
   getTurnCard = (): { id: number; isPlayerFirst: boolean } | null => this.turnCard;
@@ -154,9 +162,10 @@ export class Game {
     this.gameClock.startTurnClock();
     // The turn card: whose move it is first
     this.turnCard = { id: (this.turnCard?.id ?? 0) + 1, isPlayerFirst: this.getIsNpcWaitingThisTurn() };
+    const token = ++this.turnToken;
     this.forceUpdate();
     if (!this.getIsNpcWaitingThisTurn()) {
-      setTimeout(() => this.doNpcMove(), delayMilli);
+      setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
       return;
     }
     this.isNpcWaitingForPlayer = true;
@@ -184,7 +193,8 @@ export class Game {
   private releaseNpc = (delayMilli: number): void => {
     if (!this.isNpcWaitingForPlayer) return;
     this.stopNpcWaiting();
-    setTimeout(() => this.doNpcMove(), delayMilli);
+    const token = this.turnToken;
+    setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
     this.forceUpdate();
   };
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -237,7 +247,9 @@ export class Game {
     if (this.isNpcWaitingForPlayer && !this.getIsGameBoardDisabled() && this.gameOver === null && !isAnyPlayerDead) {
       this.releaseNpc(0);
       const npc = this.players.getNpcPlayer();
+      const token = this.turnToken;
       const endOnceNpcIsDone = () => {
+        if (!this.getIsTurnStill(token)) return; // (the turn, or the match, is already over)
         if (!npc || npc.getIsDoneWithTurn() || npc.getFocus() <= 0 || npc.getIsDead()) this.endTurn();
         else setTimeout(endOnceNpcIsDone, 200);
       };
@@ -917,7 +929,8 @@ export class Game {
   }
 
   /** The trained NPC casts spell after spell (each drawn as usual) until it chooses to end its turn. */
-  private doTrainedNpcMove = async (npc: NPCPlayer): Promise<void> => {
+  private doTrainedNpcMove = async (npc: NPCPlayer, token: number = this.turnToken): Promise<void> => {
+    if (!this.getIsTurnStill(token)) return; // (its turn is over)
     const endNpcTurn = () => { npc.setIsDoneWithTurn(true); this.forceUpdate(); };
     if (this.gameOver !== null || npc.getIsDead()) return endNpcTurn();
     let cast;
@@ -931,7 +944,7 @@ export class Game {
     }
     if (!cast) return endNpcTurn();
     npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
-      { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc), 300) });
+      { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc, token), 300) });
   }
   getNPCMoveData = (): Array<NPCMoveData> => {
     const npc = this.players.getNpcPlayer();
