@@ -7,6 +7,7 @@ import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
+import { KELLS, drawDotContour, drawIlluminatedCapital, drawKnotworkBorder, drawTriskele, drawVellum } from './kellsOrnaments';
 
 const displayNameLookup = new Map<string, string>([
     ['GyreDown', 'Downdraft'],
@@ -495,105 +496,47 @@ export const drawModalDetails = (
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.fillRect(0, 0, viewW, viewH);
-    const cardRadius = viewW * 0.012;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 16;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(infoX, infoY, infoW, infoH, cardRadius);
-    else ctx.rect(infoX, infoY, infoW, infoH);
-    const infoGrad = ctx.createLinearGradient(infoX, infoY, infoX + infoW, infoY + infoH);
-    infoGrad.addColorStop(0, '#ebdca5');
-    infoGrad.addColorStop(1, '#c5b375');
-    ctx.fillStyle = infoGrad;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(74, 50, 24, 0.6)';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.strokeStyle = '#4a2d0f';
-    ctx.lineWidth = 1.5;
-    const bPadding = viewW * 0.008;
-    const bx = infoX + bPadding;
-    const by = infoY + bPadding;
-    const bw = infoW - bPadding * 2;
-    const bh = infoH - bPadding * 2;
-    ctx.strokeRect(bx, by, bw, bh);
-    const cSize = viewW * 0.016;
-    const drawCornerKnot = (cx: number, cy: number) => {
-        ctx.beginPath();
-        ctx.arc(cx, cy, cSize, 0, Math.PI * 2);
-        ctx.moveTo(cx - cSize * 0.5, cy);
-        ctx.lineTo(cx + cSize * 0.5, cy);
-        ctx.moveTo(cx, cy - cSize * 0.5);
-        ctx.lineTo(cx, cy + cSize * 0.5);
-        ctx.stroke();
-    };
-    drawCornerKnot(bx, by);
-    drawCornerKnot(bx + bw, by);
-    drawCornerKnot(bx, by + bh);
-    drawCornerKnot(bx + bw, by + bh);
-    ctx.restore();
+    // The page (Book of Kells): mottled vellum in a band of interlaced knotwork, triskeles at the corners
+    const cardRadius = viewW * 0.006;
+    drawVellum(ctx, infoX, infoY, infoW, infoH, cardRadius);
+    const band = viewW * 0.02;
+    const bPadding = viewW * 0.006;
+    drawKnotworkBorder(ctx, infoX + bPadding, infoY + bPadding, infoW - bPadding * 2, infoH - bPadding * 2, band);
+    const knotR = band * 0.95;
+    const kx0 = infoX + bPadding + band / 2, kx1 = infoX + infoW - bPadding - band / 2;
+    const ky0 = infoY + bPadding + band / 2, ky1 = infoY + infoH - bPadding - band / 2;
+    drawTriskele(ctx, kx0, ky0, knotR, 0);
+    drawTriskele(ctx, kx1, ky0, knotR, Math.PI / 2);
+    drawTriskele(ctx, kx1, ky1, knotR, Math.PI);
+    drawTriskele(ctx, kx0, ky1, knotR, Math.PI * 1.5);
     const firstLetter = displayTitle.charAt(0);
     const restOfTitle = displayTitle.slice(1);
     const padLeft = infoW * 0.07;
     const padTop = infoH * 0.12;
     const titleX = infoX + padLeft;
     const titleY = infoY + padTop;
+    // The title: an illuminated capital (Book of Kells), then the rest of the name in ink
+    const accentColors: Record<string, string> = { Ether: '#e65c00', Quicken: '#00b3ff', Phlegm: '#1a936f', GyreUp: '#9a9a9a', GyreDown: '#9a9a9a' };
+    const capitalPanelW = drawIlluminatedCapital(ctx, firstLetter, titleX, titleY - viewW * 0.012, viewW * 0.068, accentColors[currentTargetKey] || KELLS.vermilion, "'EnchantedLand', sans-serif");
     ctx.save();
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    ctx.font = `bold ${viewW * 0.075}px 'EnchantedLand', sans-serif`;
-    if (currentTargetKey === 'Ether') {
-        ctx.strokeStyle = '#e65c00';
-        ctx.lineWidth = 6;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-        ctx.strokeStyle = '#ffb366';
-        ctx.lineWidth = 2;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-    } else if (currentTargetKey === 'Quicken') {
-        ctx.strokeStyle = '#00b3ff';
-        ctx.lineWidth = 6;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-        ctx.strokeStyle = '#b3f0ff';
-        ctx.lineWidth = 2;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-    } else if (currentTargetKey === 'Phlegm') {
-        ctx.strokeStyle = '#1a936f';
-        ctx.lineWidth = 6;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-        ctx.strokeStyle = '#a2e3c4';
-        ctx.lineWidth = 2;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-    } else if (currentTargetKey === 'GyreUp') {
-        const uGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
-        uGrad.addColorStop(0, '#1a1a1a');
-        uGrad.addColorStop(0.5, '#737373');
-        uGrad.addColorStop(1, '#e6e6e6');
-        ctx.strokeStyle = uGrad;
-        ctx.lineWidth = 5;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-    } else if (currentTargetKey === 'GyreDown') {
-        const dGrad = ctx.createLinearGradient(titleX, titleY + viewW * 0.05, titleX, titleY - viewW * 0.012);
-        dGrad.addColorStop(0, '#e6e6e6');
-        dGrad.addColorStop(0.5, '#737373');
-        dGrad.addColorStop(1, '#1a1a1a');
-        ctx.strokeStyle = dGrad;
-        ctx.lineWidth = 5;
-        ctx.strokeText(firstLetter, titleX, titleY - viewW * 0.012);
-    }
-    ctx.fillStyle = '#501a1a';
-    ctx.fillText(firstLetter, titleX, titleY - viewW * 0.012);
-    const dropCapW = ctx.measureText(firstLetter).width;
-    ctx.fillStyle = '#2d1010';
+    ctx.fillStyle = KELLS.ink;
     ctx.font = `bold ${viewW * 0.046}px 'EnchantedLand', sans-serif`;
-    ctx.fillText(restOfTitle, titleX + dropCapW + (viewW * 0.003), titleY + viewW * 0.012);
+    ctx.fillText(restOfTitle, titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.012);
+    // A vermilion rule under the name
+    const restW = ctx.measureText(restOfTitle).width;
+    ctx.strokeStyle = KELLS.vermilion;
+    ctx.lineWidth = viewW * 0.002;
+    ctx.beginPath();
+    ctx.moveTo(titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.062);
+    ctx.lineTo(titleX + capitalPanelW + viewW * 0.012 + restW, titleY + viewW * 0.062);
+    ctx.stroke();
     ctx.restore();
     ctx.save();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#3a220e';
+    ctx.fillStyle = KELLS.ink;
     let currentTextY = titleY + (viewW * 0.095);
     const lineHeight = viewW * 0.037;
     const linesArray = targetData.desc.split('\n');
@@ -623,6 +566,11 @@ export const drawModalDetails = (
     // ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     ctx.fillStyle = '#443b1c67';//'rgba(0, 0, 0, 0.37)';
     ctx.fillRect(0, 0, gridBoxW, gridBoxW);
+    // Framed like a miniature: an ink rule ringed with red dots
+    ctx.strokeStyle = KELLS.ink;
+    ctx.lineWidth = viewW * 0.002;
+    ctx.strokeRect(0, 0, gridBoxW, gridBoxW);
+    drawDotContour(ctx, -viewW * 0.006, -viewW * 0.006, gridBoxW + viewW * 0.012, gridBoxW + viewW * 0.012, viewW * 0.006, viewW * 0.0016);
     const gridCellsCount = 3;
     const cellSz = gridBoxW / gridCellsCount;
     ctx.strokeStyle = 'rgba(74, 50, 24, 0.15)';
