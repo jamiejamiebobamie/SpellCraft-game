@@ -178,6 +178,16 @@ describe('interactions (combos)', () => {
 });
 
 describe('episodes', () => {
+  it('alternate who moves first each turn: the agent moves second on odd turns (turnsElapsed 0, 2, ...)', () => {
+    const env = new NpcTrainingEnv();
+    let result = env.reset({ seed: 5, opponent: 'none' });
+    const isMovingSecond = () => result.observation[OBSERVATION_SIZE - 1];
+    for (let turn = 0; turn < 6 && !result.terminated; turn++) {
+      expect(isMovingSecond(), `turnsElapsed ${result.info.turnsElapsed}`).toBe(result.info.turnsElapsed % 2 === 0 ? 1 : 0);
+      result = env.step(END_TURN_ACTION);
+    }
+  });
+
   it('reward damage dealt minus damage taken, and +1 / -1 once for a win or loss', () => {
     for (let seed = 1; seed <= 100; seed++) {
       const env = new NpcTrainingEnv();

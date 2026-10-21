@@ -892,6 +892,8 @@ export class Game {
       turnsElapsed: this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle(),
       gameOver: this.gameOver,
       getIsOccupied: this.getIsCellOccupied,
+      // (on turns the NPC waits for the player, it moves second, having seen their casts)
+      isMovingSecond: this.getIsNpcWaitingThisTurn(),
     };
   }
 

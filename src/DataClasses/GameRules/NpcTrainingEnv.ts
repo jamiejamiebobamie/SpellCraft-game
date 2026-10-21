@@ -23,7 +23,17 @@ const ZONE = GameBoard.NUM_PLACEMENT_CELLS;
  * What the NPC needs to see of a game: a GameSimulation (training), or the live game (Game.getNpcGameView)
  * so a trained model sees the real game exactly as it saw games in training.
  */
-export type GameView = Pick<GameSimulation, 'spells' | 'players' | 'turnsElapsed' | 'gameOver' | 'getIsOccupied'>;
+export type GameView = Pick<GameSimulation, 'spells' | 'players' | 'turnsElapsed' | 'gameOver' | 'getIsOccupied'> & {
+  /** Whether the side choosing moves second this turn (its opponent has already cast): see getIsMovingSecond. */
+  isMovingSecond?: boolean;
+};
+
+/**
+ * Who moves first each turn, as in the game (NPC_TURN_ORDER 'alternateTurns'): the player (the
+ * agent's opponent) on odd turns (turnsElapsed 0, 2, ...), so the NPC (the agent) moves second,
+ * having seen the player's casts; the NPC first on even turns.
+ */
+export const getIsMovingSecond = (turnsElapsed: number): boolean => turnsElapsed % 2 === 0;
 
 // --- Actions -----------------------------------------------------------------------------------
 
@@ -112,7 +122,7 @@ const CHANNELS = [
   'Phlegm<', 'Ether<', 'Quicken<', 'GyreUp<', 'GyreDown<',
   'power', 'onFire', 'electrified', 'empowered', 'width', 'height',
 ] as const;
-const SCALARS = ['ownHealth', 'opponentHealth', 'ownFocus', 'opponentFocus', 'turnsElapsed'] as const;
+const SCALARS = ['ownHealth', 'opponentHealth', 'ownFocus', 'opponentFocus', 'turnsElapsed', 'isMovingSecond'] as const;
 
 export const OBSERVATION_SIZE = ROWS * COLS * CHANNELS.length + SCALARS.length;
 
@@ -120,7 +130,8 @@ const SPELL_TYPES = [Phlegm, Ether, Quicken, GyreUp, GyreDown];
 
 /**
  * What `side` sees, as numbers in [0, 1]: for each board cell (from its own side: its zone on the
- * left), the spell covering it, then health, focus, and the clock.
+ * left), the spell covering it, then health, focus, the clock, and whether it moves second this turn
+ * (its opponent has already cast).
  */
 export const encodeObservation = (sim: GameView, side: number): Array<number> => {
   const obs = new Array<number>(OBSERVATION_SIZE).fill(0);
@@ -148,7 +159,7 @@ export const encodeObservation = (sim: GameView, side: number): Array<number> =>
 
   const own = sim.players[side], opponent = sim.players[1 - side];
   const maxFocus = own.getMaxFocus() + own.getMaxExcessFocus();
-  [own.getHealth() / 100, opponent.getHealth() / 100, own.getFocus() / maxFocus, opponent.getFocus() / maxFocus, sim.turnsElapsed / 72]
+  [own.getHealth() / 100, opponent.getHealth() / 100, own.getFocus() / maxFocus, opponent.getFocus() / maxFocus, sim.turnsElapsed / 72, sim.isMovingSecond ? 1 : 0]
     .forEach((value, k) => { obs[ROWS * COLS * CHANNELS.length + k] = value; });
   return obs;
 };
@@ -287,8 +298,10 @@ const mulberry32 = (seed: number) => () => {
 };
 
 /**
- * One game, from the agent's side (the left). Each step the agent casts a spell or ends its turn;
- * ending the turn lets the opponent cast, then moves the spells.
+ * One game, from the agent's side (the left). Each step the agent casts a spell or ends its turn.
+ * Who moves first alternates each turn (getIsMovingSecond): on the agent's second-mover turns the
+ * opponent casts as the turn begins, and the agent sees it; otherwise the opponent casts once the agent
+ * ends its turn. Then the spells move.
  *
  * Reward: (damage dealt - damage taken) / 100 each turn (healing counts the other way), plus +1 for
  * a win and -1 for a loss, plus any interaction rewards (INTERACTION_REWARDS, off by default).
@@ -304,6 +317,9 @@ export class NpcTrainingEnv {
   private interactionRewardScale: number = 1;
   private interactionRewardGiven: number = 0;
   private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
+  private hasOpponentPlayedThisTurn = false;
+  /** Health changes before the agent's first step (the opponent casting first on turn 1): given with that step. */
+  private pendingReward = 0;
 
   reset = ({ seed, opponent, interactionRewardScale }: EnvOptions = {}): EnvStepResult => {
     this.random = seed === undefined ? Math.random : mulberry32(seed);
@@ -313,29 +329,44 @@ export class NpcTrainingEnv {
     this.interactionRewardGiven = 0;
     this.interactions = { agent: emptyCounts(), opponent: emptyCounts() };
     this.sim = new GameSimulation({ random: this.random });
+    this.hasOpponentPlayedThisTurn = false;
+    const before = this.healths();
+    this.beginTurn();
+    this.pendingReward = this.healthReward(before);
     return this.result(0, false);
+  };
+
+  /** A turn begins: if the agent moves second this turn, the opponent casts first. */
+  private beginTurn = (): void => {
+    this.hasOpponentPlayedThisTurn = false;
+    if (this.sim.gameOver !== null || !getIsMovingSecond(this.sim.turnsElapsed)) return;
+    playOpponent(this.sim, NpcTrainingEnv.OPPONENT, this.gameOpponent, this.random);
+    this.hasOpponentPlayedThisTurn = true;
   };
 
   step = (action: number): EnvStepResult => {
     const { AGENT, OPPONENT } = NpcTrainingEnv;
     if (this.sim.gameOver !== null) return this.result(0, false); // already over
+    const pending = this.pendingReward;
+    this.pendingReward = 0;
 
     const decoded = decodeAction(action, AGENT);
     if (decoded.kind === 'cast') {
-      if (!getActionMask(this.sim, AGENT)[action]) return this.result(0, false); // illegal: ignored
+      if (!getActionMask(this.sim, AGENT)[action]) return this.result(pending, false); // illegal: ignored
       const before = this.healths();
       this.sim.cast(AGENT, decoded.spellName, decoded.cells);
-      return this.result(this.healthReward(before), true); // blood magic costs health
+      return this.result(pending + this.healthReward(before), true); // blood magic costs health
     }
 
     const before = this.healths();
-    playOpponent(this.sim, OPPONENT, this.gameOpponent, this.random);
+    if (!this.hasOpponentPlayedThisTurn) playOpponent(this.sim, OPPONENT, this.gameOpponent, this.random);
     const log = this.sim.endTurn();
+    this.beginTurn(); // (the next turn: the opponent may cast first, its blood magic counting in this step)
     const events = log ? log.frames.flatMap(f => f.interactionEvents) : [];
     const agentCounts = countInteractions(events, AGENT);
     countInteractions(events, AGENT, this.interactions.agent);
     countInteractions(events, OPPONENT, this.interactions.opponent);
-    return this.result(this.healthReward(before) + this.interactionReward(agentCounts), true);
+    return this.result(pending + this.healthReward(before) + this.interactionReward(agentCounts), true);
   };
 
   /** Interaction reward for this turn's combos, within the per-game cap. */
@@ -346,6 +377,12 @@ export class NpcTrainingEnv {
     this.interactionRewardGiven += reward;
     return reward;
   };
+
+  /** The game as the agent sees it. */
+  private simView = (): GameView => ({
+    spells: this.sim.spells, players: this.sim.players, turnsElapsed: this.sim.turnsElapsed,
+    gameOver: this.sim.gameOver, getIsOccupied: this.sim.getIsOccupied,
+  });
 
   private healths = (): [number, number] => [this.sim.players[NpcTrainingEnv.AGENT].getHealth(), this.sim.players[NpcTrainingEnv.OPPONENT].getHealth()];
 
@@ -371,7 +408,7 @@ export class NpcTrainingEnv {
     const terminalReward = !canEndGame ? 0 : outcome === 'win' ? 1 : outcome === 'loss' ? -1 : 0;
     const [ownHealth, opponentHealth] = this.healths();
     return {
-      observation: encodeObservation(this.sim, NpcTrainingEnv.AGENT),
+      observation: encodeObservation({ ...this.simView(), isMovingSecond: this.hasOpponentPlayedThisTurn }, NpcTrainingEnv.AGENT),
       actionMask: getActionMask(this.sim, NpcTrainingEnv.AGENT),
       reward: healthReward + terminalReward,
       terminated: outcome !== null,
