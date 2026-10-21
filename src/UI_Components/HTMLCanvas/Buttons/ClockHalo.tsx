@@ -27,7 +27,8 @@ export const CLOCK_HALO = {
   shortRay: { length: 0.8, width: 0.12, style: 'wavy' as RayStyle, waves: 1.5, wave: 0.035, ribbon: true },
   // Ribbons: how many half-turns along a ray, how long one twist takes to travel along it, how dark
   // the ribbon's back face is (1: as bright as the front), and the sheen where it faces you
-  ribbon: { twists: 2, flowSeconds: 3, backShade: 1, sheen: 0.35 },
+  // (twistsTop: the half-turns along a ribbon pointing up, rising smoothly to `twists` pointing down)
+  ribbon: { twists: 2, twistsTop: 1, flowSeconds: 3, backShade: 1, sheen: 0.35 },
   // A satin sheen: a band of light sliding along each ribbon from base to tip, every `seconds` (each
   // ribbon at its own moment), `strength` toward white where it faces you, `width` (fraction of its length)
   // brightness: the sheen's own brightness (scales strength), apart from the ribbon's
@@ -35,11 +36,17 @@ export const CLOCK_HALO = {
   // The ribbons' own look, apart from the long rays: opacity (1: completely opaque), how much they fade
   // toward their tips (0: not at all, 1: to nothing), and brightness (multiplying their colors): on the
   // landing page, and in play (where the scene starts dark, so they're brightened to stay vivid)
-  ribbonLook: { opacity: 1, tipFade: 0, brightness: { landing: 1, play: 1.6 } },
-  // How far the ribbons reach (cqw from the face's center), by direction, blending smoothly between:
-  // up (a little out of the frame: the face is 9.8 from its top), to the sides (over the walls and
-  // windows, ending before the doorways, about 32 out) and down. Each keeps its taper, stretched to its length
-  ribbonReach: { up: 13, side: 28, down: 28 },
+  ribbonLook: { opacity: 0.75, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
+  // How far the ribbons reach: the short rays' shape (short on top, longest straight down, as the long
+  // rays), stretched out to the sides along the walls by `sideStretch` (0: none; 1: twice as far at the
+  // sides), top and bottom as they were. (Keep the sides short of the doorways, about 32 cqw out.)
+  ribbonShape: { sideStretch: 0.8 },
+  // The ribbons flowing of their own accord, like a demon's hair: waves running along each from base to
+  // tip (`waves` along it, `waveSeconds` each), growing toward the tip (`whip`: its swing there, as a
+  // fraction of its length), each swaying side to side (`sway` degrees, every `swaySeconds`) and
+  // lengthening and shortening (`stretch`: by up to this fraction, every `stretchSeconds`), each ribbon at
+  // its own pace (`varied`: how much their timings differ)
+  ribbonFlow: { waves: 1.4, waveSeconds: 3, whip: 0.03, sway: 3, swaySeconds: 7, stretch: 0.06, stretchSeconds: 5, varied: 0.3 }, // (gentle; whip, sway and stretch 0: still)
   // The ribbons slide in and out: the halo shows with plain rays, which twist into ribbons
   // `delaySeconds` after it appears (over `blendSeconds`); before hiding, they untwist back to
   // plain rays (over `unwindSeconds`), and then the halo shrinks away
@@ -91,14 +98,11 @@ export const CLOCK_HALO = {
 };
 
 /** How far the halo's canvas reaches from the face's center (cqw): its longest rays, plus room. */
-const CANVAS_REACH = Math.max(CLOCK_HALO.radius, CLOCK_HALO.bottomReach, CLOCK_HALO.ribbonReach.up, CLOCK_HALO.ribbonReach.side, CLOCK_HALO.ribbonReach.down) * 1.05;
+const CANVAS_REACH = Math.max(CLOCK_HALO.radius, CLOCK_HALO.bottomReach) * (1 + CLOCK_HALO.ribbonShape.sideStretch) * 1.05;
 
-/** How far a ribbon pointing at `angle` (radians, 0 = up, clockwise) reaches (cqw): CLOCK_HALO.ribbonReach, blended. */
-const getRibbonReach = (angle: number): number => {
-  const { up, side, down } = CLOCK_HALO.ribbonReach;
-  const c = Math.cos(angle), s = Math.sin(angle);
-  return up * Math.max(0, c) ** 2 + side * s * s + down * Math.max(0, -c) ** 2;
-};
+/** How far a ribbon pointing at `angle` (radians, 0 = up, clockwise) reaches (cqw): see CLOCK_HALO.ribbonShape. */
+const getRibbonReach = (angle: number): number =>
+  CLOCK_HALO.radius * CLOCK_HALO.shortRay.length * getReachFactor(angle) * (1 + CLOCK_HALO.ribbonShape.sideStretch * Math.sin(angle) ** 2);
 
 const pulse = keyframes`
   0%, 100% { opacity: 1; }
@@ -174,17 +178,22 @@ const getReachFactor = (angle: number): number => {
  * at `tip` (in pixels), fading from `opacity` to nothing at the tip. A ribbon twists as it goes, its
  * width narrowing where it turns edge-on and its back face darker; `flow` moves the twist along it.
  */
-const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1, tipFade: number = 1) => {
+const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1, tipFade: number = 1,
+  flowing?: { seconds: number; phase: number; pace: number }, twistCount: number = CLOCK_HALO.ribbon.twists) => {
   const isRibbon = ray.ribbon && ribbonAmount > 0;
-  const steps = ray.style === 'wavy' || isRibbon ? 32 : 1;
-  const swingOf = (u: number) => ray.style === 'wavy'
-    ? Math.sin(u * ray.waves * 2 * Math.PI) * ray.wave * (tip / ray.length) * Math.sin(u * Math.PI)
-    : 0;
-  const { twists, backShade, sheen } = CLOCK_HALO.ribbon;
+  const steps = ray.style === 'wavy' || isRibbon || flowing ? 32 : 1;
+  // (a flowing ribbon: waves running from base to tip, swinging more toward the tip, like hair)
+  const { waves, waveSeconds, whip } = CLOCK_HALO.ribbonFlow;
+  const swingOf = (u: number) => flowing
+    ? Math.sin(2 * Math.PI * (u * waves - (flowing.seconds * flowing.pace) / waveSeconds) + flowing.phase) * whip * (tip - base) * Math.pow(u, 1.3)
+    : ray.style === 'wavy'
+      ? Math.sin(u * ray.waves * 2 * Math.PI) * ray.wave * (tip / ray.length) * Math.sin(u * Math.PI)
+      : 0;
+  const { backShade, sheen } = CLOCK_HALO.ribbon;
   const points = Array.from({ length: steps + 1 }, (_, k) => {
     const u = k / steps; // 0 at the base, 1 at the tip
     // -1..1: back..front (a ribbon partway in only partly twists: `ribbonAmount` of the way from flat)
-    const twist = isRibbon ? 1 + (Math.cos(Math.PI * (twists * u - flow)) - 1) * ribbonAmount : 1;
+    const twist = isRibbon ? 1 + (Math.cos(Math.PI * (twistCount * u - flow)) - 1) * ribbonAmount : 1;
     return { u, x: swingOf(u), y: -(base + (tip - base) * u), half: halfWidth * (1 - u), twist };
   });
 
@@ -326,11 +335,17 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
             : 1;
           const base = radiusPx * rayStart;
           const fullTip = ray.ribbon
-            ? getRibbonReach(angle) * pxPerCqw * breath // (the ribbons: by direction, CLOCK_HALO.ribbonReach)
+            ? getRibbonReach(angle) * pxPerCqw * breath // (the ribbons: stretched along the walls, CLOCK_HALO.ribbonShape)
             : radiusPx * ray.length * breath * getReachFactor(angle);
-          const tip = base + (fullTip - base) * open; // growing out from its base as the iris opens
+          // A ribbon flows of its own accord: its own pace and phase, swaying and stretching
+          const flowFx = CLOCK_HALO.ribbonFlow;
+          const seed = Math.sin(k * 12.9898) * 43758.5453, own = seed - Math.floor(seed); // (0..1, steady per ribbon)
+          const pace = 1 + (own - 0.5) * 2 * flowFx.varied, flowPhase = own * Math.PI * 2;
+          const swayAngle = ray.ribbon ? (flowFx.sway * Math.PI / 180) * Math.sin(2 * Math.PI * seconds * pace / flowFx.swaySeconds + flowPhase) : 0;
+          const stretched = ray.ribbon ? 1 - flowFx.stretch * (0.5 + 0.5 * Math.sin(2 * Math.PI * seconds * pace / flowFx.stretchSeconds + flowPhase * 1.7)) : 1;
+          const tip = base + (fullTip * stretched - base) * open; // growing out from its base as the iris opens
           ctx.save();
-          ctx.rotate(angle);
+          ctx.rotate(angle + swayAngle);
           // leaning over at its base like an aperture blade, straightening as the iris opens
           ctx.translate(0, -base);
           ctx.rotate(lean);
@@ -341,7 +356,9 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           const rayColor = ray.ribbon ? shade(ribbonColors[k % ribbonColors.length], ribbonBrightness) : rayColors[k % rayColors.length];
           drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? ribbonLook.opacity : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
             ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1,
-            ray.ribbon ? ribbonLook.tipFade : 1);
+            ray.ribbon ? ribbonLook.tipFade : 1,
+            ray.ribbon ? { seconds, phase: flowPhase, pace } : undefined,
+            CLOCK_HALO.ribbon.twistsTop + (CLOCK_HALO.ribbon.twists - CLOCK_HALO.ribbon.twistsTop) * (1 - Math.cos(angle)) / 2); // (fewer twists pointing up)
           ctx.restore();
         });
       }
