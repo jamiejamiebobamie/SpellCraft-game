@@ -15,7 +15,7 @@ You're a member of a masked wizard fight club. After curfew, you sneak out of be
 ## How to play
 
 - **Draw to cast.** Hold the mouse button and draw a spell's symbol (a circle, line, star or triangle) over your side of the board. A neural network running in your browser recognizes the drawing. The size of your drawing sets the spell's size, from one cell up to 3×3.
-- **Spend focus.** Every cell of a spell costs focus. You get 2 focus back each turn and can store up to 8.
+- **Spend focus.** Every cell of a spell costs focus. You get 3 focus back each turn and can store up to 8.
 - **Or pay in blood.** Cast beyond your focus, and the difference comes out of your health instead.
 - **End the turn** by clicking the clock. All spells then move and interact.
 - **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway. Opening the Spell Book pauses it, so if you'd rather not be timed, keep it open while you think. It also waits while a tip is showing.
@@ -32,7 +32,7 @@ Every spell beats some situations and loses to others, so there's no single best
 | Spell | Name in code | Symbol | Cost per cell | What it does |
 |---|---|---|---|---|
 | **Fireball** | `Ether` | circle | 1 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
-| **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells; a single cell of it travels fast (+1 speed). Whatever destroys it gets a move right away for each cell of its width (that turn only, not lasting speed; another Chain Lightning too, so they can chain). |
+| **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells; a single cell of it travels fast (+1 speed). Whatever destroys it gets a move right away for each cell of its width (that turn only; another Chain Lightning too). A single-cell one also gives a spell that destroys it +1 speed for good (once; not to a Chain Lightning). |
 | **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
 | **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
 
@@ -53,7 +53,7 @@ Because spells pass their power on, combos emerge naturally: a Fireball fed into
 - **No cost cap.** The biggest casts deliberately cost more focus than you can hold, so they always involve blood magic, which keeps a fully charged 3×3 Fireball a real decision.
 - **Blood magic at 5 health per missing focus point** (3 and 7 were tried), tuned against two scenarios:
   - a 3×3 Fireball (9 focus) cast with a full 8 focus costs 5 health for up to 50 damage;
-  - casting the same spell every turn, on 2 regained focus, costs 35 health each time.
+  - casting the same spell every turn, on 3 regained focus, costs 30 health each time.
 
   Saving up for a big turn is possible, but spamming isn't.
 

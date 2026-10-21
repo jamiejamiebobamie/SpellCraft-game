@@ -583,6 +583,7 @@ export class SpellMovementEngine {
         if (p === root) return;
         root.consumedEthers += p.consumedEthers;
         root.consumedQuickens += p.consumedQuickens;
+        root.quickenSpeedBonus = Math.max(root.quickenSpeedBonus, p.quickenSpeedBonus);
         root.consumedPhlegms += p.consumedPhlegms;
         p.markSpellForRemoval();
       });
@@ -754,6 +755,7 @@ export class SpellMovementEngine {
     // pass on their own type's bonus in conferModifierTo.
     if (!isCollisionWithTerrain) {
       if (!(loser instanceof Quicken)) winner.consumedQuickens += loser.consumedQuickens;
+      winner.quickenSpeedBonus = Math.max(winner.quickenSpeedBonus, loser.quickenSpeedBonus);
       if (!(loser instanceof Ether)) winner.consumedEthers += loser.consumedEthers;
     }
 
@@ -809,6 +811,7 @@ export class SpellMovementEngine {
       winner.consumedGyres = rows;
       winner.consumedEthers += loser.consumedEthers;
       winner.consumedQuickens += loser.consumedQuickens;
+      winner.quickenSpeedBonus = Math.max(winner.quickenSpeedBonus, loser.quickenSpeedBonus);
       if (rows !== 0) this.pendingInteractionEvents.push({ kind: 'lift', spellSide: getSpellSide(winner), gyreSide: getSpellSide(loser) });
       loser.markSpellForRemoval();
       return;
@@ -818,6 +821,7 @@ export class SpellMovementEngine {
     winner.capacityUsed += loser.capacityUsed; // spent capacity carries over (5d)
     winner.consumedEthers += loser.consumedEthers;
     winner.consumedQuickens += loser.consumedQuickens;
+    winner.quickenSpeedBonus = Math.max(winner.quickenSpeedBonus, loser.quickenSpeedBonus);
     loser.markSpellForRemoval();
   };
 
@@ -988,6 +992,7 @@ export class SpellMovementEngine {
     piece.speedDirection = parent.speedDirection;
     piece.consumedEthers = parent.consumedEthers;
     piece.consumedQuickens = parent.consumedQuickens;
+    piece.quickenSpeedBonus = parent.quickenSpeedBonus;
     piece.consumedPhlegms = parent.consumedPhlegms;
     piece.recordedMovesCount = parent.recordedMovesCount;
     piece.remainingMoves = remainingMoves;
@@ -1076,6 +1081,7 @@ const combineSpellsMovingIn = (spells: Array<Spell>, direction: number): void =>
           matchesToMerge.forEach(m => {
             processed.add(m.id);
             root.consumedQuickens += m.consumedQuickens;
+            root.quickenSpeedBonus = Math.max(root.quickenSpeedBonus, m.quickenSpeedBonus);
             root.consumedEthers += m.consumedEthers;
             root.consumedPhlegms += m.consumedPhlegms;
             m.markSpellForRemoval();
@@ -1122,6 +1128,7 @@ const combineSpellsMovingIn = (spells: Array<Spell>, direction: number): void =>
           matchesToMerge.forEach(m => {
             processed.add(m.id);
             root.consumedQuickens += m.consumedQuickens;
+            root.quickenSpeedBonus = Math.max(root.quickenSpeedBonus, m.quickenSpeedBonus);
             root.consumedEthers += m.consumedEthers;
             root.capacityUsed += m.capacityUsed;
             m.markSpellForRemoval();
@@ -1181,6 +1188,7 @@ const combineSpellsMovingIn = (spells: Array<Spell>, direction: number): void =>
     targetCluster.forEach(m => {
       processed.add(m.id);
       root.consumedQuickens += m.consumedQuickens;
+      root.quickenSpeedBonus = Math.max(root.quickenSpeedBonus, m.quickenSpeedBonus);
       root.consumedEthers += m.consumedEthers;
       root.consumedPhlegms += m.consumedPhlegms;
       m.markSpellForRemoval();

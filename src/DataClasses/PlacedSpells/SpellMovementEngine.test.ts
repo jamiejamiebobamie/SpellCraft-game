@@ -594,6 +594,20 @@ describe('11. bonuses', () => {
     expect(chainer.remainingMoves).toBe(chainBefore + 1); // a chain: +1 for a 1x1
   });
 
+  it("'instant': a 1x1 Quicken gives a spell (not a Quicken) that eats it a lasting +1 speed, once; a sized one gives none", () => {
+    QUICKEN_RULES.speedMode = 'instant';
+    const ether = place(Ether, player, 0, 0, 2);
+    expect(ether.getPropertyValue('speedDirection')).toBe(2);
+    new Quicken(npc).conferModifierTo(ether);
+    expect(ether.getPropertyValue('speedDirection')).toBe(2 + QUICKEN_RULES.singleCellConfersSpeed);
+    new Quicken(npc).conferModifierTo(ether);
+    expect(ether.getPropertyValue('speedDirection')).toBe(2 + QUICKEN_RULES.singleCellConfersSpeed); // not adding up
+    const other = place(Ether, player, 2, 0, 2);
+    const wide = new Quicken(npc); wide.widthCells = 2;
+    wide.conferModifierTo(other);
+    expect(other.getPropertyValue('speedDirection')).toBe(2); // a sized Quicken: no lasting speed
+  });
+
   it("'none': a spell that eats a Quicken gets no extra move", () => {
     QUICKEN_RULES.speedMode = 'none';
     const ether = place(Ether, player, 0, 0);

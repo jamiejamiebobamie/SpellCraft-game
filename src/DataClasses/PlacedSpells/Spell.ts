@@ -55,6 +55,7 @@ export abstract class Spell extends UniqueId {
   baseCellDmg: number = 5;
   powerModifier: number = 0; // e.g. power drained from a Phlegm when PHLEGM_RULES.absorbCostsPower is on
   speedDirection: number = 0;
+  quickenSpeedBonus: number = 0; // lasting extra speed from consuming a 1x1 Quicken (QUICKEN_RULES.singleCellConfersSpeed)
   dmgHealth: number = 0;
   rowShift: number = 0;
 
@@ -173,6 +174,7 @@ export abstract class Spell extends UniqueId {
       let baseSpeed = this.widthCells;
       if (QUICKEN_RULES.speedMode === 'permanent' && (this instanceof Quicken || this.consumedQuickens > 0)) baseSpeed += 1; // isElectrified
       else if (QUICKEN_RULES.speedMode !== 'permanent' && this instanceof Quicken && this.widthCells === 1 && this.heightCells === 1) baseSpeed += QUICKEN_RULES.singleCellSpeed; // (a 1x1 Quicken)
+      else if (QUICKEN_RULES.speedMode !== 'permanent' && !(this instanceof Quicken)) baseSpeed += this.quickenSpeedBonus; // (having consumed a 1x1 Quicken)
       return baseSpeed * Math.sign(this.speedDirection || 1);
     }
 
@@ -598,6 +600,10 @@ export class Quicken extends Spell {
       // extra moves right away, this turn only, as many as this Quicken is wide (for a Quicken too, if
       // QUICKEN_RULES.isBonusForQuickens)
       if (QUICKEN_RULES.isBonusForQuickens || !(consumer instanceof Quicken)) consumer.remainingMoves += this.widthCells;
+      // and a 1x1 Quicken gives a lasting +1 speed (to a spell other than a Quicken; once)
+      if (this.widthCells === 1 && this.heightCells === 1 && !(consumer instanceof Quicken)) {
+        consumer.quickenSpeedBonus = Math.max(consumer.quickenSpeedBonus, QUICKEN_RULES.singleCellConfersSpeed);
+      }
     } else if (QUICKEN_RULES.bonusMode === 'perConsumption') {
       consumer.remainingMoves += QUICKEN_RULES.bonusMovesPerConsumption;
     } else if (!isAlreadyElectrified) {

@@ -19,7 +19,7 @@ export class Player extends UniqueId {
   // Configuration Constants
   private static readonly MAX_HEALTH_AMT = 100;
   // - - FOCUS - - - - - - -
-  private static readonly FOCUS_REGEN_AMT = -2; // amt of focus restored between turns (negative for "focusDecrement" method)
+  private static readonly FOCUS_REGEN_AMT = -3; // amt of focus restored between turns (negative for "focusDecrement" method; 2 was tried)
   private static readonly MAX_FOCUS_AMT = 4; // normal max focus amt
   private static readonly MAX_EXCESS_FOCUS_AMT = 4; // max focus amt player can store above MAX_FOCUS_AMT
   private static readonly BLOOD_MAGIC_COST = PLAYER_RULES.bloodMagicHealthPerFocus; // health spent per missing focus point

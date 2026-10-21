@@ -81,10 +81,11 @@ describe('turns', () => {
     expect(sim.players[PLAYER_INDEX].getHealth()).toBe(90);
   });
 
-  it('focus regenerates by 2 per turn, up to 8', () => {
+  it('focus regenerates each turn (by the regen amount), up to 8', () => {
     const sim = new GameSimulation({ random: () => 0.99 });
+    const regen = -sim.players[PLAYER_INDEX].getFocusRegenAmt();
     sim.endTurn();
-    expect(sim.players[PLAYER_INDEX].getFocus()).toBe(6);
+    expect(sim.players[PLAYER_INDEX].getFocus()).toBe(Math.min(8, 4 + regen));
     sim.endTurn(); sim.endTurn();
     expect(sim.players[PLAYER_INDEX].getFocus()).toBe(8);
   });

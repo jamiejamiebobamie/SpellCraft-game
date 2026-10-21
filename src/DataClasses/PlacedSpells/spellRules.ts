@@ -52,6 +52,9 @@ export const QUICKEN_RULES = {
   singleCellSpeed: 1,
   // ('instant') whether a Quicken that consumes another gets its extra moves too (a chain of them)
   isBonusForQuickens: true,
+  // ('instant' and 'none') the lasting extra speed a 1x1 Quicken gives a spell (not a Quicken) that
+  // consumes it: once, not adding up (0: none)
+  singleCellConfersSpeed: 1,
   bonusMode: 'flat' as 'flat' | 'perConsumption',
   bonusMovesPerConsumption: 2,
 };
