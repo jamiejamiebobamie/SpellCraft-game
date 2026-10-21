@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { GameOverStatus, CellIndex } from '../types';
-import { SUNRISE_TURNS } from './gameRules';
+import { SUNRISE_TURNS, getFocusCost } from './gameRules';
 import { Ether } from '../PlacedSpells/Spell';
 import { CASTING_RULES, PLAYER_RULES } from '../PlacedSpells/spellRules';
 import { GameBoard } from '../GameBoard/GameBoard';
@@ -20,6 +20,16 @@ const mulberry32 = (seed: number) => () => {
 };
 
 describe('casting', () => {
+  it('rounds a fractional cast cost as CASTING_RULES.costRounding says, never below 1', () => {
+    const rounding = CASTING_RULES.costRounding;
+    const Fractional = { ...Ether, spellName: 'Ether', FOCUS_COST: 1.5 } as unknown as typeof Ether;
+    CASTING_RULES.costRounding = 'floor';
+    expect([1, 2, 3, 4, 6, 9].map(n => getFocusCost(Fractional, n))).toEqual([1, 3, 4, 6, 9, 13]);
+    CASTING_RULES.costRounding = 'ceil';
+    expect([1, 2, 3, 4, 6, 9].map(n => getFocusCost(Fractional, n))).toEqual([2, 3, 5, 6, 9, 14]);
+    CASTING_RULES.costRounding = rounding;
+  });
+
   it('a drawing becomes the largest allowed shapes, and costs focus', () => {
     const sim = new GameSimulation();
     const { placed, focusCost, bloodMagicCost } = sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2));
@@ -34,8 +44,8 @@ describe('casting', () => {
 
   it.runIf(CASTING_RULES.maxFocusCostPerCast === null)('costs focus per cell (cost x cells), with no cap', () => {
     const costOf = (spellName: SpellName, cells: Array<CellIndex>) => new GameSimulation().cast(PLAYER_INDEX, spellName, cells).focusCost;
-    expect(costOf('Ether', cellsOf(0, 0, 1, 1))).toBe(Ether.FOCUS_COST);
-    expect(costOf('Ether', cellsOf(0, 0, 3, 3))).toBe(9 * Ether.FOCUS_COST);
+    expect(costOf('Ether', cellsOf(0, 0, 1, 1))).toBe(getFocusCost(Ether, 1));
+    expect(costOf('Ether', cellsOf(0, 0, 3, 3))).toBe(getFocusCost(Ether, 9));
     expect(costOf('Phlegm', cellsOf(0, 0, 2, 2))).toBe(4);
     expect(costOf('Phlegm', cellsOf(0, 0, 3, 3))).toBe(9);
     expect(costOf('GyreUp', cellsOf(0, 0, 3, 3))).toBe(9); // three 3-tall Gyres
@@ -44,7 +54,7 @@ describe('casting', () => {
     // The same whether drawn as one shape or as pieces (e.g. a 2x2 next to a 1x1)
     const sim = new GameSimulation();
     sim.cast(PLAYER_INDEX, 'Phlegm', [{ i: 0, j: 0 }]);
-    expect(sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2)).focusCost).toBe(3 * Ether.FOCUS_COST); // three 1x1s
+    expect(sim.cast(PLAYER_INDEX, 'Ether', cellsOf(0, 0, 2, 2)).focusCost).toBe(getFocusCost(Ether, 3)); // three 1x1s
   });
 
   it("only cells in the caster's own 3x3 zone are used", () => {

@@ -50,6 +50,9 @@ export const CASTING_RULES = {
   // cap, so big casts can need blood magic, e.g. a 3x3 Ether costs 18), except for uncappedSpells.
   // (8, the most focus a player can hold, with Quickens uncapped, was tried)
   maxFocusCostPerCast: null as number | null,
+  // A cast's cost (FOCUS_COST x cells) when fractional: 'floor' rounds down (so a 1x1 Fireball at 1.5
+  // costs 1, as cheap as any spell, and a 3x3 13), 'ceil' up (2 and 14). Never less than 1
+  costRounding: 'floor' as 'floor' | 'ceil',
   uncappedSpells: [] as Array<string>,
   // Most cells one Quicken cast can fill (null: no limit). The cells the drawing touched are filled
   // first. Tried at 3; replaced by uncapped Quicken costs

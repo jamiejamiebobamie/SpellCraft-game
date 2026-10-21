@@ -163,7 +163,8 @@ const planSpellPlacementFromLeft = (
  * and at most CASTING_RULES.maxFocusCostPerCast, if set (except for CASTING_RULES.uncappedSpells).
  */
 export const getFocusCost = (SpellType: SpellClass, cellCount: number): number => {
-  const cost = Math.max(1, Math.ceil(SpellType.FOCUS_COST * cellCount));
+  const exact = SpellType.FOCUS_COST * cellCount;
+  const cost = Math.max(1, CASTING_RULES.costRounding === 'floor' ? Math.floor(exact + 1e-9) : Math.ceil(exact - 1e-9));
   const cap = CASTING_RULES.maxFocusCostPerCast;
   return cap === null || CASTING_RULES.uncappedSpells.includes(SpellType.spellName) ? cost : Math.min(cap, cost);
 };
