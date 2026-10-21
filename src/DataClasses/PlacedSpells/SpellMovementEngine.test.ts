@@ -540,7 +540,7 @@ describe('11. bonuses', () => {
   };
 
   it("'flat': consuming a Quicken gives +1 move this turn; 'perConsumption' gives bonusMovesPerConsumption", () => {
-    QUICKEN_RULES.hasSpeedBonus = true; // (the earlier rule)
+    QUICKEN_RULES.speedMode = 'permanent'; // (the earlier rule)
     const setup = () => {
       const ether = place(Ether, player, 0, 0); // speed 1: its one move is used on step 1
       return [ether, place(Quicken, npc, 0, 2)] as const;
@@ -554,7 +554,7 @@ describe('11. bonuses', () => {
   });
 
   it("'flat': an already electrified spell gains nothing more from another Quicken", () => {
-    QUICKEN_RULES.hasSpeedBonus = true; // (the earlier rule)
+    QUICKEN_RULES.speedMode = 'permanent'; // (the earlier rule)
     const ether = place(Ether, player, 0, 0);
     ether.consumedQuickens = 1; // speed 2
     const quicken = place(Quicken, npc, 0, 3);
@@ -562,13 +562,20 @@ describe('11. bonuses', () => {
     expect(ether.getPropertyValue('speedDirection')).toBe(2);
   });
 
-  it('without the speed bonus (hasSpeedBonus false), a Quicken, and a spell that eats one, keep their normal speed', () => {
-    QUICKEN_RULES.hasSpeedBonus = false;
+  it("'instant': a spell that eats a Quicken gets +1 move that turn, but no lasting speed (nor the Quicken itself)", () => {
+    QUICKEN_RULES.speedMode = 'instant';
     const ether = place(Ether, player, 0, 0);
     const quicken = place(Quicken, npc, 0, 2);
     expect(quicken.getPropertyValue('speedDirection')).toBe(-1);
-    expect(finalColumn([ether, quicken], ether)).toBe(1); // no extra move after eating the Quicken
-    expect(ether.getPropertyValue('speedDirection')).toBe(1);
+    expect(finalColumn([ether, quicken], ether)).toBe(2); // +1 move after eating the Quicken
+    expect(ether.getPropertyValue('speedDirection')).toBe(1); // its speed is unchanged
+  });
+
+  it("'none': a spell that eats a Quicken gets no extra move", () => {
+    QUICKEN_RULES.speedMode = 'none';
+    const ether = place(Ether, player, 0, 0);
+    const quicken = place(Quicken, npc, 0, 2);
+    expect(finalColumn([ether, quicken], ether)).toBe(1);
   });
 });
 

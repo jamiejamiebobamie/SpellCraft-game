@@ -171,7 +171,7 @@ export abstract class Spell extends UniqueId {
 
     if (propertyName === 'speedDirection') {
       let baseSpeed = this.widthCells;
-      if (QUICKEN_RULES.hasSpeedBonus && (this instanceof Quicken || this.consumedQuickens > 0)) baseSpeed += 1; // isElectrified
+      if (QUICKEN_RULES.speedMode === 'permanent' && (this instanceof Quicken || this.consumedQuickens > 0)) baseSpeed += 1; // isElectrified
       return baseSpeed * Math.sign(this.speedDirection || 1);
     }
 
@@ -591,8 +591,10 @@ export class Quicken extends Spell {
     const isAlreadyElectrified = consumer instanceof Quicken || consumer.consumedQuickens > 0;
     this.consumedQuickens++;
     consumer.accumulateProperty(this, 'consumedQuickens');
-    if (!QUICKEN_RULES.hasSpeedBonus) {
-      // (no extra moves: QUICKEN_RULES.hasSpeedBonus)
+    if (QUICKEN_RULES.speedMode === 'none') {
+      // (no bonus)
+    } else if (QUICKEN_RULES.speedMode === 'instant') {
+      consumer.remainingMoves += 1; // +1 move right away, this turn only
     } else if (QUICKEN_RULES.bonusMode === 'perConsumption') {
       consumer.remainingMoves += QUICKEN_RULES.bonusMovesPerConsumption;
     } else if (!isAlreadyElectrified) {
