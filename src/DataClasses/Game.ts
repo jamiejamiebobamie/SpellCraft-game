@@ -901,7 +901,15 @@ export class Game {
   private doTrainedNpcMove = async (npc: NPCPlayer): Promise<void> => {
     const endNpcTurn = () => { npc.setIsDoneWithTurn(true); this.forceUpdate(); };
     if (this.gameOver !== null || npc.getIsDead()) return endNpcTurn();
-    const cast = await this.npcBrain.planCast(this.getNpcGameView(), NPC_INDEX);
+    let cast;
+    try {
+      cast = await this.npcBrain.planCast(this.getNpcGameView(), NPC_INDEX);
+    } catch (err) {
+      // The model failed (it shouldn't): a random move instead, so the NPC's turn always ends
+      console.error('The NPC model failed; playing a random move', err);
+      npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
+      return;
+    }
     if (!cast) return endNpcTurn();
     npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
       { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc), 300) });

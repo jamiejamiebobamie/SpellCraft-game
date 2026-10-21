@@ -46,6 +46,8 @@ const getMoveKey = (action: number, side: number): string => {
 export class NpcBrain {
   private session: InferenceSession | null = null;
   private recentMoves: Array<string> = []; // e.g. 'Ether 2x2'
+  /** The model predates the observation's last input ('isMovingSecond'), so it's given the rest. */
+  private isLegacyInput = false;
 
   /** Loads the model; the game waits for it on the loading screen (AssetLoader isNpcModelLoaded). */
   constructor(assetLoader: AssetLoader) {
@@ -68,10 +70,21 @@ export class NpcBrain {
   /** The model's choice for `side`: a cast, or null to end its turn. */
   planCast = async (view: GameView, side: number): Promise<PlannedNpcCast | null> => {
     if (!this.session) return null;
-    const observation = Float32Array.from(encodeObservation(view, side));
+    const session = this.session;
+    const fullObservation = encodeObservation(view, side);
     const mask = getActionMask(view, side);
     const ort = await loadOnnxRuntime();
-    const { logits } = await this.session.run({ observation: new ort.Tensor('float32', observation, [1, observation.length]) });
+    const run = (values: Array<number>) => session.run({ observation: new ort.Tensor('float32', Float32Array.from(values), [1, values.length]) });
+    let output;
+    try {
+      output = await run(this.isLegacyInput ? fullObservation.slice(0, -1) : fullObservation);
+    } catch (err) {
+      // An older model (trained before the 'isMovingSecond' input): it's given everything but that
+      if (this.isLegacyInput) throw err;
+      this.isLegacyInput = true;
+      output = await run(fullObservation.slice(0, -1));
+    }
+    const { logits } = output;
     const action = this.chooseAction(logits.data as Float32Array, mask, side);
 
     const decoded = decodeAction(action, side);
