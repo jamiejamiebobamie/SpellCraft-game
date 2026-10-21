@@ -40,7 +40,9 @@ export const HOVER_SYMBOLS = {
   // height from the middle to the edge: 1 is the edge)
   // (x reaches no further than the button's own sides, so symbols keep clear of a button beside it;
   // and they never sit closer above or below it than nearY, so none hide behind it)
-  reach: { x: [0.75, 1], y: [1.4, 2.4], nearY: 1.3 },
+  // shiftY: the whole area shifted down by this much (so they don't rise far above the button), though
+  // those above it still keep just clear of it (aboveY at the closest)
+  reach: { x: [0.75, 1], y: [1.4, 2.4], nearY: 1.3, shiftY: 0.7, aboveY: 1.15 },
 };
 
 type Shape = 'diamond' | 'circleDot' | 'hourglass' | 'rhombus' | 'lopsidedX' | 'dot';
@@ -192,13 +194,16 @@ export default function HoverSymbols({ isHovered }: { isHovered: boolean; hoverK
     const slice = pick(free);
     const angle = ((slice + 0.15 + Math.random() * 0.7) / H.maxSpots) * Math.PI * 2;
     const left = 50 + Math.cos(angle) * 50 * between(H.reach.x);
+    // how far above (-) or below (+) the middle, in half-heights: out from the button, shifted down
+    const outward = (Math.sin(angle) < 0 ? -1 : 1) * Math.max(H.reach.nearY, Math.abs(Math.sin(angle)) * between(H.reach.y));
+    const shifted = outward < 0 ? Math.min(-H.reach.aboveY, outward + H.reach.shiftY) : outward + H.reach.shiftY;
     // how far out to the side it is (0 at the middle, 1 as far as they go)
     const sideways = Math.min(1, Math.abs(left - 50) / (50 * H.reach.x[1]));
     return [...current, {
       id: nextId.current++, slice,
       left,
       burnSeconds: H.burnSeconds.middle + (H.burnSeconds.sides - H.burnSeconds.middle) * sideways,
-      top: 50 + (Math.sin(angle) < 0 ? -1 : 1) * 50 * Math.max(H.reach.nearY, Math.abs(Math.sin(angle)) * between(H.reach.y)),
+      top: 50 + 50 * shifted,
       size: between(H.size), peak: between(H.opacity),
       shifts: Math.round(between(H.shifts)),
     }];

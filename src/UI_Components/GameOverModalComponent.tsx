@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
@@ -40,14 +40,6 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
     isPlayAgainOwnLine: true,
   },
 };
-
-
-/**
- * Reviewing the endings: open the game with ?gameOverPreview in the address to show this modal; click
- * anywhere on it (or press the left and right arrow keys) to go through each ending.
- */
-const PREVIEW_ORDER = [GameOverStatus.PlayerWon, GameOverStatus.NpcWon, GameOverStatus.BothDead, GameOverStatus.TimesUp];
-const getIsPreview = (): boolean => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gameOverPreview');
 
 const MIN_OPACITY = 0, MAX_OPACITY = .85, TRANSITION_TIME_SEC = 1.5;
 
@@ -211,25 +203,13 @@ const ModalButtonWithSymbols: React.FC<ActionButtonProps> = ({ label, onClick })
 
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
-  // Reviewing the endings (?gameOverPreview): one at a time, by clicking or the arrow keys
-  const [isPreview] = useState(getIsPreview);
-  const [previewIndex, setPreviewIndex] = useState(0);
-  const step = (by: number) => setPreviewIndex(k => (k + by + PREVIEW_ORDER.length) % PREVIEW_ORDER.length);
-  useEffect(() => {
-    if (!isPreview) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'ArrowRight') step(1); if (event.key === 'ArrowLeft') step(-1); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isPreview]);
-  const currentGameOverState = isPreview ? PREVIEW_ORDER[previewIndex] : snap.getGameOver();
+  const currentGameOverState = snap.getGameOver();
   // (compared with null: a draw, GameOverStatus.BothDead, is 0)
   const isGameOver = currentGameOverState !== null;
   const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
 
   return (
-    <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}
-      // reviewing: a click anywhere (the buttons included, which then do nothing) shows the next ending
-      onClickCapture={isPreview ? (event => { event.stopPropagation(); step(1); }) : undefined}>
+    <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
       <ModalCardContent>
         <RaisedText>
           <ModalTitle>{contentConfig.title}</ModalTitle>

@@ -1,14 +1,11 @@
 // PlayButtonStyles.tsx
-// The landing screen's Play button, in candidate looks (to compare, then keep one): the same long
-// hexagon, drawn as one SVG so its frame is an even, beveled band of metal all the way round.
-//   brass:     a beveled brass frame on a midnight-indigo panel (the window skies) of twinkling,
-//              drifting stars, gold-leaf lettering
-//   verdigris: an aged bronze frame gone green in its recesses, on a dark green panel
-//   ruby:      a brass frame set with a faceted ruby, the lettering etched into it
-import React, { useId, useLayoutEffect, useRef, useState } from 'react';
-import styled, { css, keyframes } from 'styled-components';
+// The ruby button (the landing screen's Play, the game over modal's Yes and No): a long hexagon, drawn
+// as one SVG so its frame is an even, beveled band of brass all the way round, set with a faceted
+// ruby, its lettering etched into it. (Looks are kept as data, so another could be added beside it.)
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 
-export type PlayButtonLook = 'brass' | 'verdigris' | 'ruby';
+export type PlayButtonLook = 'ruby';
 
 type Look = {
   name: string;
@@ -16,45 +13,19 @@ type Look = {
   frame: [string, string, string, string]; // the frame's bevel, top to bottom: highlight, body, shade, deep shade
   hairline: string; // the fine line just inside the frame
   panel: [string, string, string]; // the panel, center to edge
-  stars: boolean; // a night sky: stars twinkling and slowly drifting by
   jewel: boolean; // cut like a gem: a flat table in the middle, beveled facets around it, and a glint
   studs: [string, string]; // the diamond studs at the side points: face, edge
-  text: 'gold' | 'ink' | 'etched'; // etched: cut into the panel (dark, its upper edge in shadow and its lower edge catching the light)
+  text: 'etched'; // etched: cut into the panel (see ETCHING)
   glow: string; // on hover
 };
 
 export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
-  brass: {
-    name: 'Brass & Midnight',
-    outline: '#1e1202',
-    frame: ['#fdeaa7', '#d6a84b', '#8f6722', '#4a3208'],
-    hairline: '#f0cf78',
-    panel: ['#221d55', '#100d2e', '#060518'],
-    stars: true,
-    jewel: false,
-    studs: ['#ffe58a', '#7a5414'],
-    text: 'gold',
-    glow: 'rgba(255, 196, 84, 0.65)',
-  },
-  verdigris: {
-    name: 'Verdigris Bronze',
-    outline: '#0d1710',
-    frame: ['#d9bb7c', '#94713a', '#4f6e55', '#26382b'],
-    hairline: '#86c7a6',
-    panel: ['#2e5b46', '#173428', '#0a1a12'],
-    stars: false,
-    jewel: false,
-    studs: ['#a9dcc0', '#2c4a38'],
-    text: 'gold',
-    glow: 'rgba(120, 220, 160, 0.55)',
-  },
   ruby: {
     name: 'Ruby',
     outline: '#3a2410',
     frame: ['#f6dd8e', '#c99f48', '#8a6224', '#4f360f'],
     hairline: '#9a7432',
     panel: ['#e8394a', '#9c1024', '#3d030c'],
-    stars: false,
     jewel: true,
     studs: ['#f6dd8e', '#6b4a16'],
     text: 'etched',
@@ -66,17 +37,6 @@ export const PLAY_BUTTON_LOOKS: Record<PlayButtonLook, Look> = {
 const FRAME = '9,50 52,9 334,9 377,50 334,91 52,91';
 const HAIRLINE = '21,50 58,18 328,18 365,50 328,82 58,82';
 const PANEL = '15,50 55,14 331,14 371,50 331,86 55,86';
-// The night panel's stars, across one panel's width (x, y, radius, twinkle seconds, twinkle delay):
-// the field is drawn twice, side by side, and drifts left one width per STAR_DRIFT_SECONDS, looping
-const STAR_DRIFT_SECONDS = 70;
-const STARS: Array<[number, number, number, number, number]> = (() => {
-  let seed = 11;
-  const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  return Array.from({ length: 30 }, () => [
-    random() * 386, 16 + random() * 68, 0.5 + random() * 0.9 * random() + (random() < 0.15 ? 0.6 : 0),
-    2 + random() * 3.5, -random() * 5,
-  ] as [number, number, number, number, number]);
-})();
 // The jewel's cut: its flat table, inside the panel; each facet runs from a panel edge to the table's,
 // lit from above (light on the upper facets, shade on the lower)
 const TABLE = [[62, 50], [88, 31], [298, 31], [324, 50], [298, 69], [88, 69]];
@@ -235,22 +195,9 @@ const seedOf = (text: string, salt: number): number => {
   return ((hash >>> 0) % 10000) / 10000;
 };
 
-const twinkle = keyframes`
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.95; }
-`;
-const drift = keyframes`
-  from { transform: translateX(0); }
-  to { transform: translateX(-386px); }
-`;
 const glint = keyframes`
   0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
   80% { opacity: 1; transform: scale(1); }
-`;
-
-const shimmer = keyframes`
-  0% { background-position: 0% center; }
-  100% { background-position: 200% center; }
 `;
 
 const Frame = styled.svg`
@@ -262,30 +209,13 @@ const Frame = styled.svg`
   z-index: -1;
   .panel { transition: filter 0.2s ease; }
   .inner { transition: transform 0.15s ease; }
-  .starfield { animation: ${drift} ${STAR_DRIFT_SECONDS}s linear infinite; }
-  .star { animation: ${twinkle} var(--twinkle) ease-in-out infinite; animation-delay: var(--delay); }
   .glint { transform-box: fill-box; transform-origin: center; animation: ${glint} 4.5s ease-in-out infinite; }
 `;
 
-const Label = styled.span<{ $text: 'gold' | 'ink' | 'etched' }>`
+/** The label, for its size and for screen readers: unseen (the SVG draws the etched lettering: see ETCHING). */
+const Label = styled.span`
   position: relative;
-  ${props => props.$text === 'gold' ? css`
-    background: linear-gradient(90deg, #ffd700 0%, #ffe875 25%, #ffffff 45%, #ffffff 55%, #ffe875 75%, #ffa500 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: ${shimmer} 3.5s linear infinite;
-    filter: drop-shadow(0.15cqw 0.15cqw 0 #1e1202) drop-shadow(-0.15cqw -0.15cqw 0 #1e1202)
-            drop-shadow(0.15cqw -0.15cqw 0 #1e1202) drop-shadow(-0.15cqw 0.15cqw 0 #1e1202);
-  ` : props.$text === 'etched' ? css`
-    /* (drawn in the SVG instead, with its glinting edges: see ETCHING) */
-    color: transparent;
-  ` : css`
-    color: #2b1a0c;
-    text-shadow: 0 0.1cqw 0 rgba(255, 245, 215, 0.6);
-  `}
-  transition: transform 0.15s ease;
+  color: transparent;
 `;
 
 /** The button's face: the frame, panel and lettering (the button itself, and its hover, are the caller's). */
@@ -387,16 +317,6 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
         {/* The panel (sinks a little when pressed) */}
         <g className="inner">
           <polygon className="panel" points={PANEL} fill={`url(#${id}-panel)`} />
-          {l.stars && (
-            <g clipPath={`url(#${id}-clip)`}>
-              <g className="starfield">
-                {[0, 386].flatMap(dx => STARS.map(([x, y, r, seconds, delay], k) => (
-                  <circle key={`${dx}-${k}`} className="star" cx={x + dx} cy={y} r={r} fill="#fff6d0"
-                    style={{ '--twinkle': `${seconds}s`, '--delay': `${delay}s` } as React.CSSProperties} />
-                )))}
-              </g>
-            </g>
-          )}
           {l.jewel && (
             <g>
               {PANEL_POINTS.map((p, k) => {
@@ -469,7 +389,7 @@ export const PlayButtonFace = ({ look, label }: { look: PlayButtonLook; label: s
           <polygon key={x} points={`${x},38 ${x + 9},50 ${x},62 ${x - 9},50`} fill={l.studs[0]} stroke={l.studs[1]} strokeWidth={2} />
         ))}
       </Frame>
-      <Label className="label" $text={l.text}>{label}</Label>
+      <Label className="label">{label}</Label>
     </>
   );
 };
