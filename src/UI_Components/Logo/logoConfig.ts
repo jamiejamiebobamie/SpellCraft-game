@@ -48,14 +48,14 @@ export type Aura = { rgb: string; opacity: number; size: number; layers: number;
 export type SpellMotion = {
   pivot: 'center' | 'base'; seconds: number; scale: number; squash: number; squashAngle: number; skew: number; rotate: number;
   jitterPerSecond: number; spinSeconds: number;
-  orbit: { radius: number; depth: number; seconds: number; lean: number; wobble: number; wobbleSeconds: number };
+  orbit: { radiusX: number; radiusY: number; seconds: number; lean: number; wobble: number; wobbleSeconds: number };
   flipbook: { frames: number; seconds: number; startSeconds?: number; blendFrames: number; resolution: number; cropMargin: number };
 };
 
 /** A still spell that doesn't move (each spell's motion starts from this). */
 const NO_MOTION: SpellMotion = {
   pivot: 'center', seconds: 1, scale: 0, squash: 0, squashAngle: 0, skew: 0, rotate: 0, jitterPerSecond: 0, spinSeconds: 0,
-  orbit: { radius: 0, depth: 0, seconds: 1, lean: 0, wobble: 0, wobbleSeconds: 1 },
+  orbit: { radiusX: 0, radiusY: 0, seconds: 1, lean: 0, wobble: 0, wobbleSeconds: 1 },
   flipbook: { frames: 1, seconds: 1, blendFrames: 0, resolution: 1, cropMargin: 0.12 },
 };
 
@@ -132,8 +132,8 @@ export const LOGO_CONFIG = {
     //   0 is sideways, -45 from top right to bottom left); skew and rotate: in degrees;
     //   jitterPerSecond: a new random pose this many times a second, mixed in (a crackle; 0: none);
     //   spinSeconds: one full turn in its own plane (a ring seen at an angle; 0: none);
-    //   orbit: whirling in place (a Tasmanian devil): its base going round a small circle on the ground
-    //   (radius: logo units, 0: none; depth: how flattened, seen from the side; seconds: one circle;
+    //   orbit: whirling in place (a Tasmanian devil): its base going round a small ellipse on the ground
+    //   (radiusX: side to side, radiusY: up and down, in logo units, both 0: none; seconds: once round;
     //   lean: degrees its far end trails; wobble: its width wobbling, as if spinning, every wobbleSeconds);
     //   flipbook: the real spell, drawn this many times (frames) over its seconds and shown in turn,
     //   looping (frames 1: one still). startSeconds: the first frame's moment (else atSeconds);
@@ -155,9 +155,9 @@ export const LOGO_CONFIG = {
         // its 4 crests and its ripples repeat exactly every 1.047 s (pi/3 s); its bubbles, blended
         Phlegm: { ...NO_MOTION, flipbook: { ...NO_MOTION.flipbook, frames: 26, seconds: 1.0472, blendFrames: 4, resolution: 0.6 } },
         // its sway repeats every 2.094 s (2pi/3 s), the rest not quite (blended); whirling in place too
-        GyreUp: { ...NO_MOTION, pivot: 'base', orbit: { radius: 0.8, depth: 0.35, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
+        GyreUp: { ...NO_MOTION, pivot: 'base', orbit: { radiusX: 0.3, radiusY: 0.28, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
           flipbook: { ...NO_MOTION.flipbook, frames: 42, seconds: 2.0944, blendFrames: 6, resolution: 0.6 } },
-        GyreDown: { ...NO_MOTION, pivot: 'base', orbit: { radius: 0.8, depth: 0.35, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
+        GyreDown: { ...NO_MOTION, pivot: 'base', orbit: { radiusX: 0.3, radiusY: 0.28, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
           flipbook: { ...NO_MOTION.flipbook, frames: 42, seconds: 2.0944, blendFrames: 6, resolution: 0.6 } },
       } as Record<LogoSpell['spellName'], SpellMotion>,
     },

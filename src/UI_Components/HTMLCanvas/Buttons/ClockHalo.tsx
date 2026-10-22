@@ -284,6 +284,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
 
     let frameId = 0, lastNow = performance.now();
     let seconds = 0; // the halo's own time: it stops while time is frozen
+    let isPlayLook = rootGameStore.getIsPlaying(); // (its colors: rayColorsToWhite.play, else .landing)
     const draw = (now: number) => {
       // The ribbons slide toward their target (twisting in slowly, untwisting quickly)
       const blend = ribbonRef.current, dt = Math.max(0, (now - lastNow) / 1000);
@@ -307,6 +308,10 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           : Math.max(iris.target, iris.amount - dt / Math.max(0.01, closeSeconds));
       }
       const open = iris.amount * iris.amount * (3 - 2 * iris.amount); // eased
+      // The landing page's look (whiter) or the game's: kept until the halo has closed after Play is
+      // pressed, so it doesn't change while the ribbons recede
+      if (!rootGameStore.getIsPlaying()) isPlayLook = false;
+      else if (iris.amount <= 0.001) isPlayLook = true;
       const dpr = window.devicePixelRatio || 1;
       const size = Math.round(canvas.clientWidth * dpr);
       if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
@@ -358,8 +363,8 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           ctx.translate(0, base);
           // (the ribbons: their own opacity, tip fade and brightness, on the landing page or in play)
           const { ribbonLook } = CLOCK_HALO;
-          const ribbonBrightness = rootGameStore.getIsPlaying() ? ribbonLook.brightness.play : ribbonLook.brightness.landing;
-          const { rays: rayColors, ribbons: ribbonColors } = rootGameStore.getIsPlaying() ? playColors : landingColors;
+          const ribbonBrightness = isPlayLook ? ribbonLook.brightness.play : ribbonLook.brightness.landing;
+          const { rays: rayColors, ribbons: ribbonColors } = isPlayLook ? playColors : landingColors;
           const rayColor = ray.ribbon ? shade(ribbonColors[k % ribbonColors.length], ribbonBrightness) : rayColors[k % rayColors.length];
           drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? ribbonLook.opacity : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
             ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1,

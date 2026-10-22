@@ -24,7 +24,7 @@ const FLAME_FX = {
   flickerSeconds: 1.3,
   // the flames' brightness on the landing page (the scene dark), and in play (the scene lit); it
   // eases from one to the other with the scene as the intro brightens it (was 0.26 and 1.05)
-  brightness: { landing: 0.15, play: 1.3 },
+  brightness: { landing: 0.5, play: 1.3 },
 };
 
 // the hue first (so it doesn't shift the glow's colour), then the glow, then the brightness (dimming the glow too)

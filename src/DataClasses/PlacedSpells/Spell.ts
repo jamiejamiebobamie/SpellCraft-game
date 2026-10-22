@@ -514,6 +514,9 @@ export abstract class Gyre extends Spell {
   baseCellDmg = GYRE_RULES.powerPerCell;
   // Spells this Gyre has lifted this turn: it lifts each at most once (no endless lifts or ping-pong)
   liftedThisTurn: Set<string> = new Set();
+  // Its capacity in all (GYRE_RULES), fixed once first needed (from its size as cast); raised only by
+  // Gyres joining it (addRemainingCapacity)
+  capacity: number | null = null;
   static readonly FOCUS_COST: number = 1;
 
   constructor(caster: Player) {
@@ -538,17 +541,32 @@ export abstract class Gyre extends Spell {
     this.liftedThisTurn.add(consumer.id);
   }
 
-  /** How many spells ('count') or how much power ('power') this Gyre can lift (4c). A 1x1 Gyre lifts one. */
+  /** How many spell cells ('count') or how much power ('power') this Gyre can lift in all (4c). */
   getCapacity = (): number => {
-    if (GYRE_RULES.lifetime === 'turn') return Infinity;
-    if (this.heightCells === 1) return 1;
-    if (GYRE_RULES.capacityMode === 'unlimited') return Infinity;
-    return this.heightCells * (GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell);
+    if (GYRE_RULES.lifetime === 'turn' || GYRE_RULES.capacityMode === 'unlimited') return Infinity;
+    this.capacity ??= Math.min(GYRE_RULES.maxCapacity, this.heightCells * Gyre.getCapacityPerCell());
+    return this.capacity;
   };
 
-  /** Capacity used when a 1x1 spell (or piece) enters: one, or its power in 'power' mode. */
+  /** Capacity per cell of a Gyre's height (its mode's units). */
+  static getCapacityPerCell = (): number => GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell;
+
+  /** Whether it can lift another spell cell: it has any capacity left (a stronger cell uses up the rest). */
+  getCanLift = (): boolean => this.getRemainingCapacity() > 1e-9;
+
+  /** How much it can still lift. */
+  getRemainingCapacity = (): number => Math.max(0, this.getCapacity() - this.capacityUsed);
+
+  /** A Gyre joining this one: what it had left is added to what this one has left (at most maxCapacity). */
+  addRemainingCapacity = (joining: Gyre): void => {
+    if (GYRE_RULES.lifetime === 'turn' || GYRE_RULES.capacityMode === 'unlimited') return;
+    const remaining = Math.min(GYRE_RULES.maxCapacity, this.getRemainingCapacity() + joining.getRemainingCapacity());
+    this.capacity = this.capacityUsed + remaining;
+  };
+
+  /** Capacity used by each cell of a spell entering: one, or (in 'power' mode) its power per cell. */
   getCapacityUse = (entering: Spell): number =>
-    GYRE_RULES.capacityMode === 'power' && this.heightCells > 1 ? entering.getPower() : 1;
+    GYRE_RULES.capacityMode === 'power' ? entering.getPower() / Math.max(1, entering.widthCells * entering.heightCells) : 1;
 
   /** At capacity: other spells pass through it. */
   getIsFull = (): boolean => this.capacityUsed >= this.getCapacity();

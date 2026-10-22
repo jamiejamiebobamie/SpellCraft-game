@@ -46,6 +46,8 @@ export class LogoSpellsRenderer {
 
   private stills = new Map<string, Still>(); // by spell and layer
   private stillsKey = ''; // what they were drawn for (the canvas's size and the frame)
+  private stillsFrame: LogoFrame | null = null; // (the frame the shown stills were drawn for)
+  private nextStills: { stills: Map<string, Still>; frame: LogoFrame } | null = null; // (being drawn)
   private drawingStills: Generator<void> | null = null; // (drawing them, a step at a time)
   private isReadyTold = false;
   private onReady?: () => void;
@@ -142,27 +144,39 @@ export class LogoSpellsRenderer {
     const { canvas } = ctx;
     const key = [canvas.width, canvas.height, frame.pxPerUnit, frame.origin.x, frame.origin.y, frame.wandCrossing.x, frame.wandCrossing.y, frame.radialCenter.x, frame.radialCenter.y].join();
     if (key !== this.stillsKey) {
-      this.stills.clear();
-      this.drawingStills = this.drawStills(scratchCtx, frame);
+      // New stills (e.g. the logo resized): the current ones stay shown until they're all drawn
+      const next = new Map<string, Still>();
+      this.drawingStills = this.drawStills(scratchCtx, frame, next);
+      this.nextStills = { stills: next, frame };
       this.stillsKey = key;
     }
-    // Drawn a little at a time (each spell shows once all its frames are drawn), so the page never pauses
+    // Drawn a little at a time, so the page never pauses
     const { drawMilliPerFrame, hiddenDrawMilliPerFrame } = LOGO_CONFIG.spells.still;
     const until = performance.now() + (this.isShown ? drawMilliPerFrame : hiddenDrawMilliPerFrame);
     while (this.drawingStills && performance.now() < until) {
       if (this.drawingStills.next().done) {
         this.drawingStills = null;
+        if (this.nextStills) {
+          this.stills = this.nextStills.stills;
+          this.stillsFrame = this.nextStills.frame;
+          this.nextStills = null;
+        }
         this.tellReady();
       }
     }
     const { pulse, motion } = LOGO_CONFIG.spells.still;
     const spellNames = LOGO_CONFIG.spells.list.map(s => s.spellName);
     const seconds = time / 1000;
+    // Stills drawn for an earlier size are scaled to this one (about the logo's origin) until replaced
+    const drawnFor = this.stillsFrame ?? frame;
+    const resize = frame.pxPerUnit / drawnFor.pxPerUnit;
 
     this.getDrawOrder().forEach(({ spell, layer }) => {
       const still = this.stills.get(`${spell.spellName}:${layer}`);
       // (a flipbook: its frames in turn, looping)
       const shown = still && still.frames[Math.floor(seconds / still.frameSeconds) % still.frames.length];
+      ctx.save();
+      ctx.setTransform(resize, 0, 0, resize, frame.origin.x - drawnFor.origin.x * resize, frame.origin.y - drawnFor.origin.y * resize);
       if (shown && layer === 'symbol') ctx.drawImage(shown.image, shown.rect.x, shown.rect.y, shown.rect.w, shown.rect.h);
       if (still && shown && layer === 'spell') {
         const phase = spellNames.indexOf(spell.spellName) / spellNames.length; // (the spells take turns)
@@ -182,12 +196,12 @@ export class LogoSpellsRenderer {
         ctx.save();
         ctx.translate(still.pivot.x, still.pivot.y);
         const { orbit } = move;
-        if (orbit.radius > 0) {
-          // Whirling in place (a Tasmanian devil): its base going round a small circle on the ground (seen
-          // from the side, so flattened by depth), upright, its far end trailing a little, and a fast
+        if (orbit.radiusX > 0 || orbit.radiusY > 0) {
+          // Whirling in place (a Tasmanian devil): its base going round a small ellipse on the ground
+          // (radiusX by radiusY), upright, its far end trailing a little, and a fast
           // wobble in its width, as if spinning
           const orbitAngle = 2 * Math.PI * (seconds / orbit.seconds + phase);
-          ctx.translate(orbit.radius * frame.pxPerUnit * Math.cos(orbitAngle), orbit.radius * orbit.depth * frame.pxPerUnit * Math.sin(orbitAngle));
+          ctx.translate(orbit.radiusX * drawnFor.pxPerUnit * Math.cos(orbitAngle), orbit.radiusY * drawnFor.pxPerUnit * Math.sin(orbitAngle));
           const sidewaysSpeed = -Math.sin(orbitAngle);
           ctx.transform(1, 0, -still.bodySign * Math.tan(orbit.lean * toRadians * sidewaysSpeed), 1, 0, 0);
           ctx.scale(1 + orbit.wobble * Math.sin(2 * Math.PI * seconds / orbit.wobbleSeconds), 1);
@@ -214,6 +228,7 @@ export class LogoSpellsRenderer {
         }
         ctx.restore();
       }
+      ctx.restore();
       if (layer !== 'symbol') return;
 
       // The symbol's dust: live, faded as the symbol is, drawn over just the area it covers
@@ -244,7 +259,7 @@ export class LogoSpellsRenderer {
    * its last frames blended into its first (blendFrames) so the loop joins smoothly. A step at a time:
    * it pauses after each frame (as the caller's time allows).
    */
-  private *drawStills(scratchCtx: CanvasRenderingContext2D, frame: LogoFrame): Generator<void> {
+  private *drawStills(scratchCtx: CanvasRenderingContext2D, frame: LogoFrame, into: Map<string, Still>): Generator<void> {
     const { canvas } = scratchCtx;
     const { atSeconds, warmUpSeconds, motion } = LOGO_CONFIG.spells.still;
     const stepSeconds = 1 / 60;
@@ -343,7 +358,7 @@ export class LogoSpellsRenderer {
           frames.push(captured[f]);
         }
       }
-      if (frames.length) this.stills.set(`${spell.spellName}:${layer}`, { frames, frameSeconds, pivot, flatten, bodySign });
+      if (frames.length) into.set(`${spell.spellName}:${layer}`, { frames, frameSeconds, pivot, flatten, bodySign });
       yield;
     }
   }

@@ -10,7 +10,8 @@ import { drawProceduralSpell, updateAndDrawParticles } from './DrawFunctions/Ren
 import { spawnQuickenParticles, spawnQuickenHitParticles } from './DrawFunctions/RenderSpells/drawQuicken';
 import { spawnEtherParticles, spawnEtherHitParticles } from './DrawFunctions/RenderSpells/drawEther';
 import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './DrawFunctions/RenderSpells/drawPhlegm';
-import { spawnGyreParticles, spawnGyreHitParticles } from './DrawFunctions/RenderSpells/drawGyre';
+import { spawnGyreParticles, spawnGyreHitParticles, getGyreSputterAlpha } from './DrawFunctions/RenderSpells/drawGyre';
+import { GYRE_RULES } from '../../DataClasses/PlacedSpells/spellRules';
 import { spawnBloodMagicHitParticles } from './DrawFunctions/RenderSpells/drawBloodMagicHit';
 import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI } from '../../DataClasses/types';
 import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
@@ -168,14 +169,16 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
     scrollUIRef.current.hoveredSpellName = null; setIsHovered(false);
   }, []);
 
-  // The Spell Book's page built ahead of time, once the browser is idle after loading (so opening it
-  // the first time doesn't pause the canvas while it's built)
+  // The Spell Book's pages drawn ahead of time, once the browser is idle after loading (so opening it
+  // the first time doesn't pause the canvas), then one drawn on this canvas too, at the start of a frame
+  // (cleared at once, so never seen): a canvas' first page costs a little more, wherever the rest was
+  const isPageWarmUpDueRef = useRef(false);
   useEffect(() => {
     const prewarm = () => {
       const canvas = canvasRef.current;
       if (!canvas || !canvas.width) return;
       const dpr = window.devicePixelRatio || 1;
-      prewarmSpellBookPage(canvas.width / dpr, canvas.height / dpr, dpr);
+      prewarmSpellBookPage(canvas.width / dpr, canvas.height / dpr, dpr, () => { isPageWarmUpDueRef.current = true; });
     };
     const whenIdle = (window as any).requestIdleCallback as ((run: () => void, options: { timeout: number }) => number) | undefined;
     const timeout = window.setTimeout(() => whenIdle ? whenIdle(prewarm, { timeout: 3000 }) : prewarm(), 2500);
@@ -191,6 +194,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       const deltaTime = (currentTime - lastTime) / 1000; lastTime = currentTime;
       const viewW = canvas.width / (window.devicePixelRatio || 1);
       const viewH = canvas.height / (window.devicePixelRatio || 1);
+      if (isPageWarmUpDueRef.current) {
+        isPageWarmUpDueRef.current = false;
+        const ui = { hoveredSpellName: 'Ether', sizeCycleTime: 2, currentSizeIdx: 0 } as unknown as CanvasScrollUI;
+        drawModalDetails(ctx, ui, 0, viewW, viewH, new Map(), currentTime); // (cleared just below)
+      }
       ctx.clearRect(0, 0, viewW, viewH);
 
       const rect = canvas.getBoundingClientRect();
@@ -309,6 +317,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
               anim.particles.push({ x: w / 2 + Math.cos(ang) * offset, y: h / 2 + Math.sin(ang) * (offset * ((h * 0.34) / (w * 0.44))), vx: (Math.random() * 40 - 20), vy: -(90 + Math.random() * 70), alpha: 1.0, size: Math.min(w, h) * (0.05 + Math.random() * 0.03) * (GameBoard.NUM_ROWS + 1 - cellRows), color: '#ffffff', shadowColor: '#a8ff69', rotation: Math.random() * Math.PI / 4, vRotation: Math.random() * 1.0 - 0.5, life: 1.0, decay: 0.4 + Math.random() * 0.4, type: 'healCross' });
             }
             ctx.save(); ctx.translate(anim.visualX + w / 2, anim.visualY + h / 2); applySpellFacing(ctx, (anim as any).facingAngle, dir); ctx.translate(-w / 2, -h / 2);
+            // A Gyre whose top cell is partly used up sputters (GYRE_SPUTTER; never with 1 capacity per cell)
+            const remaining = (spellClass === 'GyreUp' || spellClass === 'GyreDown') ? spell.getRemainingCapacity?.() : undefined;
+            const perCell = GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell;
+            const isTopCellPartlyUsed = remaining !== undefined && remaining > 1e-9 && Math.abs(remaining / perCell - Math.round(remaining / perCell)) > 1e-6;
+            if (isTopCellPartlyUsed) ctx.globalAlpha *= getGyreSputterAlpha(currentTime);
             drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress); ctx.restore();
           }
           if (anim.particles.length > 0) { ctx.save(); ctx.translate(anim.visualX, anim.visualY); updateAndDrawParticles(ctx, anim.particles, deltaTime); ctx.restore(); }

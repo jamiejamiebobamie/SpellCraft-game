@@ -39,21 +39,6 @@ const buttonImgSrcs = [
     'spell-icons/spellbook-icon.png',
 ];
 
-const tooltipImgs = [
-    'tooltip-imgs/out-of-bed.png',
-    'tooltip-imgs/how-to-play.gif',
-    'tooltip-imgs/casting-area.gif',
-    'tooltip-imgs/spell-book.gif',
-    'tooltip-imgs/ticking-clock.png',
-    'tooltip-imgs/sunrise.png',
-    'tooltip-imgs/many-ways-to-play.png',
-    'tooltip-imgs/out-of-focus.gif',
-    'tooltip-imgs/regaining-focus.gif',
-    'tooltip-imgs/blood-magic.gif',
-    'tooltip-imgs/speed-and-damage.gif',
-    'tooltip-imgs/winners-and-losers.gif'
-];
-
 export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded' | 'isPriorityAssetsLoaded' | 'isMinLoadingTimeElapsed' | 'isLogoSpellsReady';
 
 /**
@@ -167,7 +152,6 @@ export class AssetLoader {
                     this.setIsLoading(loaderObj);
                 }),
                 this.loadImages(buttonImgSrcs),
-                this.loadImages(tooltipImgs)
             ]);
         } catch (error) {
             console.error("Asset loading error context: ", error);

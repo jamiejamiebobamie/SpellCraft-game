@@ -24,7 +24,7 @@ import TurnCard from './TurnCard';
  * The background image's brightness, on top of the scene's lighting: dark (the landing page, and the
  * intro walk until the lights come up; scene lighting 0.1) and lit (once they're up; 0.4). 1 = as is.
  */
-const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 2, lit: 1.25 };
+const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
 
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   /* Vertical placement comes from the spacers around #root (index.css) */

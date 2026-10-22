@@ -3,6 +3,23 @@ import { GameParticle } from "../../../../DataClasses/types";
 import { getAsymmetricTaper } from './drawQuicken'
 
 /**
+ * A Gyre whose top cell is partly used up (GYRE_RULES.shrinksWithCapacity, with capacityPerCell over 1:
+ * its height can't show it) sputters like a dying candle: every `seconds`, it flickers dimmer for
+ * `flickerSeconds` (by up to `depth`), otherwise as usual.
+ */
+export const GYRE_SPUTTER = { isOn: true, seconds: 1.2, flickerSeconds: 0.3, depth: 0.55 };
+
+/** The opacity a Gyre down to its last lift is drawn at, at `time` (ms): 1 between flickers. */
+export const getGyreSputterAlpha = (time: number): number => {
+  const { isOn, seconds, flickerSeconds, depth } = GYRE_SPUTTER;
+  const phase = (time / 1000) % seconds;
+  if (!isOn || phase >= flickerSeconds) return 1;
+  // (a dip with a stutter in it)
+  const dip = Math.sin(Math.PI * phase / flickerSeconds) * (0.6 + 0.4 * Math.abs(Math.sin(phase * 55)));
+  return 1 - depth * dip;
+};
+
+/**
  * 3 & 4. GYRE (Updraft / Downdraft Tornadoes)
  * Funnel cloud architecture shifting side to side.
  * Blurry texturing shifting right-to-left across the internal clipping bounds.

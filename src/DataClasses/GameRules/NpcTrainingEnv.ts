@@ -7,7 +7,8 @@
 // (see the fairness tests), so an agent trained on the left plays the right side (the NPC) by
 // mirroring the board.
 import { CellIndex, GameOverStatus } from '../types';
-import { Spell, Phlegm, Ether, Quicken, GyreUp, GyreDown } from '../PlacedSpells/Spell';
+import { Spell, Phlegm, Ether, Quicken, Gyre, GyreUp, GyreDown } from '../PlacedSpells/Spell';
+import { GYRE_RULES } from '../PlacedSpells/spellRules';
 import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
@@ -120,6 +121,7 @@ const CHANNELS = [
   // spell type, moving toward the opponent (5), then toward the agent (5)
   'Phlegm>', 'Ether>', 'Quicken>', 'GyreUp>', 'GyreDown>',
   'Phlegm<', 'Ether<', 'Quicken<', 'GyreUp<', 'GyreDown<',
+  // ('empowered': a Phlegm that took in another; for a Gyre (never empowered), the capacity it has left)
   'power', 'onFire', 'electrified', 'empowered', 'width', 'height',
 ] as const;
 const SCALARS = ['ownHealth', 'opponentHealth', 'ownFocus', 'opponentFocus', 'turnsElapsed', 'isMovingSecond'] as const;
@@ -146,7 +148,7 @@ export const encodeObservation = (sim: GameView, side: number): Array<number> =>
       [10, Math.min(1, spell.getPower() / 50)],
       [11, spell instanceof Ether || spell.consumedEthers > 0 ? 1 : 0],
       [12, spell instanceof Quicken || spell.consumedQuickens > 0 ? 1 : 0],
-      [13, spell.consumedPhlegms > 0 ? 1 : 0],
+      [13, spell instanceof Gyre ? Math.min(1, spell.getRemainingCapacity() / Math.max(1, GYRE_RULES.maxCapacity)) : spell.consumedPhlegms > 0 ? 1 : 0],
       [14, spell.widthCells / COLS],
       [15, spell.heightCells / ROWS],
     ];
@@ -281,17 +283,24 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
  */
 export const REPEAT_PENALTY = { window: 2, penalty: 0.03 }; // (window 3 was tried: with the drafts as one spell, only 4 kinds, it left as few as one cast free of it)
 
-/** The spell a cast counts as for REPEAT_PENALTY: an Updraft and a Downdraft are one. */
+/** The spell a cast counts as for REPEAT_PENALTY and BALANCE_REWARD: an Updraft and a Downdraft are one. */
 const getRepeatKind = (spellName: SpellName): string => spellName === 'GyreDown' ? 'GyreUp' : spellName;
 
+/** The kinds of spell BALANCE_REWARD evens out: Water Wheel, Fireball, Chain Lightning and the drafts (as one). */
+const BALANCE_KINDS = ['Phlegm', 'Ether', 'Quicken', 'GyreUp'];
+
 /**
- * A small nudge toward casting every spell about equally (a fifth each): each cast earns
- * scale x (1/5 - that spell's share of its casts so far this game), so an underused spell earns a
- * little and an overused one costs a little (0: off). The shares start even (as if it had cast each
- * once), so its first cast earns nothing. E.g. a spell that is 40% of its casts: -0.02; one never cast
- * in its last 9 casts: about +0.014.
+ * Rewards casting the kinds of spell (BALANCE_KINDS) about equally, a quarter each; never a cost (a cost
+ * made passing the turn a way to avoid it). 0: off.
+ * - perCastScale: each cast of an underused kind earns perCastScale x (1/4 - its share of the casts so
+ *   far this game); an overused one earns nothing. The shares start even (as if it had cast each once),
+ *   so its first cast earns nothing. E.g. a kind never cast in its last 8 casts: about +0.033.
+ * - gameEndBonus: at the game's end (won or lost), up to this much for how even its casts were: all of
+ *   it for a quarter each, none for one kind only (by how far its shares are from a quarter each, as a
+ *   fraction of the furthest they can be). For scale: a win is 1. (The per-cast reward was 0.1 a fifth,
+ *   counting the drafts apart, with no game-end bonus: the Fireball rose to 19%, Chain Lightning stayed 34%)
  */
-export const BALANCE_REWARD = { scale: 0.1 };
+export const BALANCE_REWARD = { perCastScale: 0.2, gameEndBonus: 0.25 };
 
 export type EnvStepResult = {
   observation: Array<number>;
@@ -329,7 +338,8 @@ const mulberry32 = (seed: number) => () => {
  * ends its turn. Then the spells move.
  *
  * Reward: (damage dealt - damage taken) / 100 each turn (healing counts the other way), plus +1 for
- * a win and -1 for a loss, plus any interaction rewards (INTERACTION_REWARDS, off by default).
+ * a win and -1 for a loss, plus any interaction rewards (INTERACTION_REWARDS), BALANCE_REWARD, and less
+ * REPEAT_PENALTY.
  */
 export class NpcTrainingEnv {
   static readonly AGENT = PLAYER_INDEX;
@@ -344,15 +354,26 @@ export class NpcTrainingEnv {
   private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
   private hasOpponentPlayedThisTurn = false;
   private recentCasts: Array<string> = []; // the agent's last casts (REPEAT_PENALTY; getRepeatKind)
-  private castCounts = new Map<SpellName, number>(); // the agent's casts this game, by spell (BALANCE_REWARD)
+  private castCounts = new Map<string, number>(); // the agent's casts this game, by kind (BALANCE_REWARD)
 
-  /** BALANCE_REWARD for casting `spellName` now (then counted). */
+  /** BALANCE_REWARD's per-cast reward for casting `spellName` now (then counted). */
   private getBalanceReward = (spellName: SpellName): number => {
+    const kind = getRepeatKind(spellName);
     const total = [...this.castCounts.values()].reduce((sum, n) => sum + n, 0);
-    // (its share so far, as if it had cast each spell once to begin with)
-    const share = ((this.castCounts.get(spellName) ?? 0) + 1) / (total + SPELL_ORDER.length);
-    this.castCounts.set(spellName, (this.castCounts.get(spellName) ?? 0) + 1);
-    return BALANCE_REWARD.scale * (1 / SPELL_ORDER.length - share);
+    // (its share so far, as if it had cast each kind once to begin with)
+    const share = ((this.castCounts.get(kind) ?? 0) + 1) / (total + BALANCE_KINDS.length);
+    this.castCounts.set(kind, (this.castCounts.get(kind) ?? 0) + 1);
+    return BALANCE_REWARD.perCastScale * Math.max(0, 1 / BALANCE_KINDS.length - share);
+  };
+
+  /** BALANCE_REWARD's game-end bonus: how evenly it cast the kinds of spell this game. */
+  private getEvennessBonus = (): number => {
+    const total = [...this.castCounts.values()].reduce((sum, n) => sum + n, 0);
+    if (!total) return 0;
+    const even = 1 / BALANCE_KINDS.length;
+    const distance = BALANCE_KINDS.reduce((sum, kind) => sum + Math.abs((this.castCounts.get(kind) ?? 0) / total - even), 0) / 2;
+    const furthest = 1 - even; // (one kind only)
+    return BALANCE_REWARD.gameEndBonus * (1 - distance / furthest);
   };
   /** Health changes before the agent's first step (the opponent casting first on turn 1): given with that step. */
   private pendingReward = 0;
@@ -447,7 +468,7 @@ export class NpcTrainingEnv {
   /** `canEndGame`: whether this step could have ended the game (the win/loss reward is given once). */
   private result = (healthReward: number, canEndGame: boolean): EnvStepResult => {
     const outcome = this.getOutcome();
-    const terminalReward = !canEndGame ? 0 : outcome === 'win' ? 1 : outcome === 'loss' ? -1 : 0;
+    const terminalReward = !canEndGame ? 0 : (outcome === 'win' ? 1 : outcome === 'loss' ? -1 : 0) + (outcome !== null ? this.getEvennessBonus() : 0);
     const [ownHealth, opponentHealth] = this.healths();
     return {
       observation: encodeObservation({ ...this.simView(), isMovingSecond: this.hasOpponentPlayedThisTurn }, NpcTrainingEnv.AGENT),

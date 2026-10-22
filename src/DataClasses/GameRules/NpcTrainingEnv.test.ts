@@ -130,7 +130,7 @@ describe('interactions (combos)', () => {
   it("counts the agent's Phlegm reflecting an enemy spell (for both sides)", () => {
     const { agent, opponent } = playOut(sim => {
       sim.cast(AGENT, 'Phlegm', [{ i: 0, j: 1 }, { i: 1, j: 2 }]); // 2x2
-      sim.cast(OPPONENT, 'Ether', [{ i: 0, j: 4 }]);
+      sim.cast(OPPONENT, 'Quicken', [{ i: 0, j: 4 }]); // (power 5: within a 1x1 Gyre's capacity)
     });
     expect(agent.reflectedEnemySpells).toBe(1);
     expect(opponent.reflectedByEnemy).toBe(1);
@@ -149,7 +149,7 @@ describe('interactions (combos)', () => {
   it("counts the agent's Gyre pushing an enemy spell off the board", () => {
     const { agent } = playOut(sim => {
       sim.cast(AGENT, 'GyreUp', [{ i: 0, j: 2 }]); // on the top row: lifts to row -1
-      sim.cast(OPPONENT, 'Ether', [{ i: 0, j: 4 }]);
+      sim.cast(OPPONENT, 'Quicken', [{ i: 0, j: 4 }]); // (power 5: within a 1x1 Gyre's capacity)
     });
     expect(agent.liftsByOwnGyres).toBe(1);
     expect(agent.enemySpellsLiftedOffBoard).toBe(1);
@@ -192,9 +192,9 @@ describe('episodes', () => {
 
   it('reward damage dealt minus damage taken, and +1 / -1 once for a win or loss', () => {
     // (just the health and win rewards: the combo rewards, repeat penalty and balance reward off)
-    const repeatPenalty = REPEAT_PENALTY.penalty, balanceScale = BALANCE_REWARD.scale;
+    const repeatPenalty = REPEAT_PENALTY.penalty, balance = { ...BALANCE_REWARD };
     REPEAT_PENALTY.penalty = 0;
-    BALANCE_REWARD.scale = 0;
+    Object.assign(BALANCE_REWARD, { perCastScale: 0, gameEndBonus: 0 });
     for (let seed = 1; seed <= 100; seed++) {
       const env = new NpcTrainingEnv();
       let result = env.reset({ seed, opponent: 'random', interactionRewardScale: 0 });
@@ -213,15 +213,15 @@ describe('episodes', () => {
       expect(env.step(END_TURN_ACTION).reward).toBe(0); // nothing more once the game is over
     }
     REPEAT_PENALTY.penalty = repeatPenalty;
-    BALANCE_REWARD.scale = balanceScale;
+    Object.assign(BALANCE_REWARD, balance);
   });
 
-  const castOf = (spellName: SpellName, row: number) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)
-    .find(a => { const d = decodeAction(a, PLAYER_INDEX); return d.kind === 'cast' && d.spellName === spellName && d.cells.length === 1 && d.cells[0].i === row; })!;
+  const castOf = (spellName: SpellName, row: number, column: number = 0) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)
+    .find(a => { const d = decodeAction(a, PLAYER_INDEX); return d.kind === 'cast' && d.spellName === spellName && d.cells.length === 1 && d.cells[0].i === row && d.cells[0].j === column; })!;
 
   it('penalize casting the same spell as one of the last few casts, whatever its size or place (an Updraft and a Downdraft as one)', () => {
-    const balanceScale = BALANCE_REWARD.scale;
-    BALANCE_REWARD.scale = 0;
+    const balanceScale = BALANCE_REWARD.perCastScale;
+    BALANCE_REWARD.perCastScale = 0;
     const env = new NpcTrainingEnv();
     env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
     expect(env.step(castOf('Phlegm', 0)).reward).toBeCloseTo(0, 9);
@@ -232,18 +232,20 @@ describe('episodes', () => {
     gyres.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
     expect(gyres.step(castOf('GyreUp', 0)).reward).toBeCloseTo(0, 9);
     expect(gyres.step(castOf('GyreDown', 1)).reward).toBeCloseTo(-REPEAT_PENALTY.penalty, 9);
-    BALANCE_REWARD.scale = balanceScale;
+    BALANCE_REWARD.perCastScale = balanceScale;
   });
 
-  it('reward casting an underused spell a little, and an overused one costs a little (BALANCE_REWARD)', () => {
+  it('reward casting an underused spell a little; an overused one earns nothing (BALANCE_REWARD)', () => {
     const repeatPenalty = REPEAT_PENALTY.penalty;
     REPEAT_PENALTY.penalty = 0;
     const env = new NpcTrainingEnv();
     env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
-    const k = BALANCE_REWARD.scale;
+    const k = BALANCE_REWARD.perCastScale;
     expect(env.step(castOf('Phlegm', 0)).reward).toBeCloseTo(0, 9); // (shares start even)
-    expect(env.step(castOf('Phlegm', 1)).reward).toBeCloseTo(k * (1 / 5 - 2 / 6), 9); // overused
-    expect(env.step(castOf('Ether', 2)).reward).toBeCloseTo(k * (1 / 5 - 1 / 7), 9); // underused
+    expect(env.step(castOf('Phlegm', 1)).reward).toBeCloseTo(0, 9); // overused: nothing (never a cost)
+    expect(env.step(castOf('Ether', 2)).reward).toBeCloseTo(k * (1 / 4 - 1 / 6), 9); // underused
+    expect(env.step(castOf('GyreUp', 0, 1)).reward).toBeCloseTo(k * (1 / 4 - 1 / 7), 9);
+    expect(env.step(castOf('GyreDown', 1, 1)).reward).toBeCloseTo(k * Math.max(0, 1 / 4 - 2 / 8), 9); // (the drafts: one kind)
     REPEAT_PENALTY.penalty = repeatPenalty;
   });
 

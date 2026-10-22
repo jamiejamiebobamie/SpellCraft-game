@@ -18,14 +18,28 @@ export const PHLEGM_RULES = {
 export const GYRE_RULES = {
   powerPerCell: 4,
   offBoardMode: 'destroy' as 'destroy' | 'clamp',
-  capacityMode: 'count' as 'count' | 'power' | 'unlimited',
-  capacityPerCell: 1,
-  powerCapacityPerCell: 4,
-  capacityResetsEachTurn: true,
-  // 'turn': a Gyre lifts every spell that reaches it this turn, then dissipates at the turn's end if
-  // it lifted any (capacity is ignored). 'capacity': the earlier rule (capacity, persistsAfterUse)
-  lifetime: 'turn' as 'turn' | 'capacity',
-  persistsAfterUse: false, // (lifetime 'capacity') false: a Gyre disappears once its last carried spell exits. true: it stays until its capacity is used up
+  // Capacity (lifetime 'capacity'): 'power', the damage a Gyre can absorb in all (each spell cell entering
+  // uses its power: a Chain Lightning cell 5, a 1x1 Fireball 10), powerCapacityPerCell per cell of its
+  // height; 'count' (tried), how many spell cells it can lift, capacityPerCell per cell. At most
+  // maxCapacity (in the mode's units), fixed when it's cast, and never restored; Gyres joining
+  // (stacking, or one consuming another) add up what each has left (at most maxCapacity). A full Gyre
+  // is passed through, and dissipates once what it carries is out
+  capacityMode: 'power' as 'count' | 'power' | 'unlimited',
+  capacityPerCell: 1, // ('count': 2 per cell, at most 6, was tried: too strong; then 1)
+  powerCapacityPerCell: 5,
+  maxCapacity: 15,
+  // A Gyre with any capacity left lifts the next spell cell, even one stronger than what it has left
+  // (which uses up the rest: e.g. a 1x1 Fireball, 10, lifted by a 1x1 Gyre, 5, which is then spent). (A 1x3 Gyre, power 12, destroys a 1x1 Fireball instead)
+
+  // Its height follows the capacity it has left (left / capacity per cell, rounded up), shrinking from its
+  // tip (its base fixed) at the turn's end: a used Gyre is weaker, reaches fewer rows, lifts less far
+  // and gives a smaller exit bonus. (A partly used top cell sputters: GYRE_SPUTTER)
+  shrinksWithCapacity: true,
+  capacityResetsEachTurn: false,
+  // 'capacity': a Gyre lasts until its capacity is used up. 'turn' (tried): it lifts every spell that
+  // reaches it this turn, then dissipates at the turn's end if it lifted any (capacity is ignored)
+  lifetime: 'capacity' as 'turn' | 'capacity',
+  persistsAfterUse: true, // (lifetime 'capacity') true: it stays until its capacity is used up. false: it disappears once its last carried spell exits
   maxHeight: 3,
   // 'height': a spell leaving a Gyre gets +1 move per cell of its height, once, used right away
   exitBonusMode: 'height' as 'height' | 'none' | 'legacy',

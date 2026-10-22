@@ -396,6 +396,13 @@ export class SpellMovementEngine {
       if (!(s instanceof Gyre) || s.capacityUsed <= 0 || s.getIsRemove()) return;
       if (GYRE_RULES.lifetime === 'turn' || s.getIsUsedUp()) s.markSpellForRemoval();
     });
+    // A Gyre shrinks to the capacity it has left (GYRE_RULES.shrinksWithCapacity), its base fixed: once
+    // the turn's lifts are done, so no lift changes course midway
+    if (GYRE_RULES.shrinksWithCapacity && GYRE_RULES.lifetime === 'capacity') this.spells.forEach(s => {
+      if (!(s instanceof Gyre) || s.getIsRemove() || s.capacityUsed <= 0) return;
+      const height = Math.ceil(s.getRemainingCapacity() / Gyre.getCapacityPerCell() - 1e-9);
+      if (height < s.heightCells) this.resizeGyre(s, height);
+    });
   };
 
   private removeInvalidSpells = (): void => {
@@ -700,6 +707,7 @@ export class SpellMovementEngine {
     // (sized spells use capacity per cell, in breakUpAtPhlegm / breakUpAtGyre)
     const isWinnerSized = winner.widthCells > 1 || winner.heightCells > 1;
     if (loser instanceof Phlegm && !isWinnerSized) loser.capacityUsed += getPhlegmCapacityUse(loser, winner);
+    // (a Gyre with any capacity left lifts it, a stronger spell using up the rest)
     if (loser instanceof Gyre && !isWinnerSized) loser.capacityUsed += loser.getCapacityUse(winner);
     // Spells that swapped places meet in the loser's cell, so the winner ends up inside it
     if (isSwap && !loser.getIsBeingConsumed()) this.revertMove(loser, positionCache);
@@ -808,6 +816,7 @@ export class SpellMovementEngine {
       // (only in the weaker's direction: a base already past its tip stays put)
       const rows = isLoserUp ? Math.min(0, targetBase - winnerBase) : Math.max(0, targetBase - winnerBase);
       winner.consumedGyres = rows;
+      winner.addRemainingCapacity(loser); // (what each had left, added up)
       winner.consumedEthers += loser.consumedEthers;
       winner.consumedQuickens += loser.consumedQuickens;
       winner.quickenSpeedBonus = Math.max(winner.quickenSpeedBonus, loser.quickenSpeedBonus);
@@ -854,10 +863,12 @@ export class SpellMovementEngine {
     const cells = getFootprintCells(parent);
     const groupId = parent.fragmentGroupId || parent.id;
 
-    const cellCost = gyre.getCapacityUse(parent) === 1 ? 1 : parent.baseCellDmg;
-    const capacityLeft = Math.floor((gyre.getCapacity() - gyre.capacityUsed) / cellCost);
+    // (each cell costs the spell's power per cell, in 'power' mode, else 1)
+    const cellCost = gyre.getCapacityUse(parent);
+    // (it lifts cells while it has any capacity left: the last may use up more than it has)
+    const cellsItCanLift = Math.ceil(gyre.getRemainingCapacity() / cellCost - 1e-9);
     const byLeadingColumn = (a: CellIndex, b: CellIndex) => (b.j - a.j) * dir || a.i - b.i;
-    const lifted = cells.filter(isInsideGyre).sort(byLeadingColumn).slice(0, Math.max(0, capacityLeft));
+    const lifted = cells.filter(isInsideGyre).sort(byLeadingColumn).slice(0, Math.max(0, cellsItCanLift));
     if (!lifted.length) return; // nothing inside, or no capacity left: the spell passes through
 
     gyre.capacityUsed += lifted.length * cellCost;
@@ -1143,7 +1154,8 @@ const combineSpellsMovingIn = (spells: Array<Spell>, direction: number): void =>
             root.consumedQuickens += m.consumedQuickens;
             root.quickenSpeedBonus = Math.max(root.quickenSpeedBonus, m.quickenSpeedBonus);
             root.consumedEthers += m.consumedEthers;
-            root.capacityUsed += m.capacityUsed;
+            // (what each had left, added up: capacity is fixed by size as cast, so the stack's isn't remeasured)
+            if (root instanceof Gyre && m instanceof Gyre) root.addRemainingCapacity(m);
             m.markSpellForRemoval();
           });
           root.widthCells = 1;

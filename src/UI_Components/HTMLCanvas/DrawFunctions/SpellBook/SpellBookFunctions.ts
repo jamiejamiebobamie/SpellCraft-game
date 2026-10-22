@@ -463,15 +463,34 @@ export const drawWidgetLineOverlay = (
  * ahead of time, e.g. while the browser is idle after loading: so the first time the page opens, it
  * needn't build them then (a noticeable pause). The sizes match drawModalDetails's.
  */
-export const prewarmSpellBookPage = (viewW: number, viewH: number, dpr: number): void => {
+export const prewarmSpellBookPage = (viewW: number, viewH: number, dpr: number, onDone?: () => void): void => {
     const scratch = document.createElement('canvas');
-    scratch.width = scratch.height = 1;
+    scratch.width = Math.ceil(viewW * dpr);
+    scratch.height = Math.ceil(viewH * dpr);
     const ctx = scratch.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const infoW = viewW * 0.76, infoH = viewH * 0.7;
     drawKellsPage(ctx, (viewW - infoW) * 0.5, viewH * 0.22, infoW, infoH, viewW * 0.02, viewW * 0.006);
     prewarmQuillFont();
+    // Then each spell's page, drawn once out of sight, one at a time as the browser is idle: the first
+    // drawing of a page is slow mostly for its lettering (each letter of its title, capital and text,
+    // drawn the first time at its size, in an ornate font), which the browser then keeps
+    const spellNames = availableSymbols.map(s => s.spellName);
+    const whenIdle = (window as any).requestIdleCallback as ((run: () => void, options: { timeout: number }) => number) | undefined;
+    const drawNext = (k: number) => {
+        if (k >= spellNames.length) {
+            scratch.width = scratch.height = 1; // (its memory, freed)
+            onDone?.();
+            return;
+        }
+        const ui = { hoveredSpellName: spellNames[k], sizeCycleTime: 2, currentSizeIdx: 0 } as unknown as CanvasScrollUI;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawModalDetails(ctx, ui, 0, viewW, viewH, new Map(), performance.now());
+        if (whenIdle) whenIdle(() => drawNext(k + 1), { timeout: 2000 });
+        else window.setTimeout(() => drawNext(k + 1), 50);
+    };
+    drawNext(0);
 };
 
 export const drawModalDetails = (

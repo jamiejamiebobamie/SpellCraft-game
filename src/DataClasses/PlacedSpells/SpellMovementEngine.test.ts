@@ -329,12 +329,12 @@ describe('4-5. Gyres', () => {
 
   it("'destroy': a spell pushed off the board is destroyed; 'clamp': it stops at the edge", () => {
     // A 1x1 GyreUp on the top row lifts anything that enters it to row -1
-    const destroyed = place(Ether, npc, 0, 4);
+    const destroyed = place(Quicken, npc, 0, 4); // (power 5: within a 1x1 Gyre's capacity)
     const destroyRun = runTurns([place(GyreUp, player, 0, 1), destroyed], 3);
     expect(statesOf(destroyRun, destroyed).some(s => s.isRemove && s.cellIndex.i < 0)).toBe(true);
 
     GYRE_RULES.offBoardMode = 'clamp';
-    const clamped = place(Ether, npc, 0, 4);
+    const clamped = place(Quicken, npc, 0, 4);
     const clampRun = runTurns([place(GyreUp, player, 0, 1), clamped], 3);
     const clampedStates = statesOf(clampRun, clamped);
     expect(clampedStates.every(s => s.cellIndex.i >= 0)).toBe(true);
@@ -354,6 +354,7 @@ describe('4-5. Gyres', () => {
   });
 
   it("lifetime 'turn': a 1x1 Gyre lifts every spell that reaches it this turn, then dissipates at the turn's end", () => {
+    GYRE_RULES.lifetime = 'turn';
     const gyre = place(GyreDown, player, 1, 1);
     const first = place(Quicken, npc, 1, 3); // speed 2: reaches the Gyre in turn 1
     const second = place(Quicken, npc, 1, 4, 2); // a 2-cell chain right behind it
@@ -363,8 +364,8 @@ describe('4-5. Gyres', () => {
     expect(turn[turn.length - 1].spells.some(x => x.id === gyre.id)).toBe(false); // gone after the turn
   });
 
-  it("lifetime 'capacity' (earlier rule): a 1x1 Gyre lifts one spell, then is used up and removed", () => {
-    GYRE_RULES.lifetime = 'capacity';
+  it("lifetime 'capacity' with 1 per cell (earlier rule): a 1x1 Gyre lifts one spell, then is used up and removed", () => {
+    Object.assign(GYRE_RULES, { lifetime: 'capacity', capacityMode: 'count', capacityPerCell: 1, maxCapacity: 3, shrinksWithCapacity: false, persistsAfterUse: false, capacityResetsEachTurn: true });
     const gyre = place(GyreDown, player, 1, 1);
     const first = place(Ether, npc, 1, 4);
     const second = place(Ether, npc, 1, 5);
@@ -374,7 +375,8 @@ describe('4-5. Gyres', () => {
     expect(finalBoard(turns).some(s => s.id === gyre.id)).toBe(false);
   });
 
-  it('a Gyre disappears once the spells it lifted have left it (10b)', () => {
+  it('persistsAfterUse false (earlier rule): a Gyre disappears once the spells it lifted have left it (10b)', () => {
+    Object.assign(GYRE_RULES, { lifetime: 'capacity', capacityMode: 'count', capacityPerCell: 1, maxCapacity: 3, shrinksWithCapacity: false, persistsAfterUse: false, capacityResetsEachTurn: true });
     const gyre = place(GyreDown, player, 0, 1, 2); // power 8, capacity 2; lifts one spell
     const ether = place(Ether, npc, 1, 4); // power 10, so it enters the Gyre
     const turns = runTurns([gyre, ether], 3);
@@ -383,13 +385,56 @@ describe('4-5. Gyres', () => {
   });
 
   it("persistsAfterUse (lifetime 'capacity'): a sized Gyre with capacity left survives into the next turn", () => {
-    GYRE_RULES.lifetime = 'capacity';
-    GYRE_RULES.persistsAfterUse = true;
+    Object.assign(GYRE_RULES, { lifetime: 'capacity', capacityMode: 'count', capacityPerCell: 1, maxCapacity: 3, shrinksWithCapacity: false, persistsAfterUse: true });
     const gyre = place(GyreDown, player, 0, 1, 2);
     const ether = place(Ether, npc, 1, 4);
     const turns = runTurns([gyre, ether], 3);
     const survivor = finalBoard([turns[1]]).find(s => s.id === gyre.id);
     expect(survivor?.isRemove).toBe(false);
+  });
+
+  it('capacity: the damage it can absorb, 5 per cell (at most 15), never restored; once full, passed through, then gone', () => {
+    const gyre = place(GyreDown, player, 1, 1, 2) as Gyre; // capacity 10
+    expect(gyre.getCapacity()).toBe(10);
+    expect((place(GyreUp, player, 0, 1, 3) as Gyre).getCapacity()).toBe(15);
+    // Three single Ethers (power 10), one a turn: the first is lifted (all 10), the others pass (the Gyre gone)
+    const ethers = [place(Ether, npc, 1, 3), place(Ether, npc, 1, 5), place(Ether, npc, 1, 7)];
+    const turns = runTurns([gyre, ...ethers], 6);
+    const wasLifted = (ether: Spell) => statesOf(turns, ether).some(s => s.consumedGyres !== 0);
+    expect(ethers.map(wasLifted)).toEqual([true, false, false]);
+    expect(finalBoard(turns).some(s => s.id === gyre.id && !s.isRemove)).toBe(false);
+  });
+
+  it('capacity: a used Gyre shrinks to what it has left at the end of the turn, from its tip (its base fixed)', () => {
+    const down = place(GyreDown, player, 0, 1, 3) as Gyre; // base: row 0
+    const up = place(GyreUp, player, 0, 2, 3) as Gyre; // base: row 2
+    const unused = place(GyreUp, player, 0, 0, 3) as Gyre;
+    down.capacityUsed = 5; // 10 left: 2 tall
+    up.capacityUsed = 12; // 3 left: 1 tall
+    const board = finalBoard(runTurns([down, up, unused], 1));
+    const after = (gyre: Gyre) => board.find(s => s.id === gyre.id)!;
+    expect([after(down).heightCells, after(down).cellIndex.i]).toEqual([2, 0]);
+    expect([after(up).heightCells, after(up).cellIndex.i]).toEqual([1, 2]);
+    expect(after(unused).heightCells).toBe(3);
+  });
+
+  it('capacity: a spell stronger than what a Gyre has left is still lifted, using up the rest', () => {
+    const gyre = place(GyreDown, player, 1, 1) as Gyre; // capacity 5
+    const ether = place(Ether, npc, 1, 3); // power 10
+    const turns = runTurns([gyre, ether], 3);
+    expect(statesOf(turns, ether).some(s => s.consumedGyres !== 0)).toBe(true); // lifted
+    expect(finalBoard(turns).some(s => s.id === gyre.id && !s.isRemove)).toBe(false); // then spent
+
+  });
+
+  it('capacity: Gyres joining add up what each has left (at most 15)', () => {
+    const top = place(GyreUp, player, 0, 1, 2) as Gyre, below = place(GyreUp, player, 2, 1) as Gyre;
+    top.capacityUsed = 5; // 5 left, and 5
+    const spells: Array<Spell> = [top, below];
+    combineSpellsMaximally(spells);
+    const stack = spells.find(s => !s.isRemove) as Gyre;
+    expect(stack.heightCells).toBe(3);
+    expect(stack.getRemainingCapacity()).toBe(10);
   });
 
   it('equally matched Gyres destroy each other, whatever their direction', () => {
