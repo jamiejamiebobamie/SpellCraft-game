@@ -5,6 +5,7 @@ import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
+import { NpcPassCard } from '../TurnCard';
 import styled, { keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -227,6 +228,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           <FloorShadow $isHide={isDead} />
         </Damageable>
       </AvatarFrame>
+      {direction === -1 && <NpcPassCard />}
     </AvatarPlacementWrapper>
   );
 

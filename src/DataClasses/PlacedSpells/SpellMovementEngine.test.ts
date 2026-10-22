@@ -181,11 +181,18 @@ describe('2. Phlegm power and collision modes', () => {
     expect(orbitStarts).toHaveLength(1);
   });
 
-  it('blood magic only affects casting: it is cleared when spell movement starts', () => {
+  it("blood magic only affects casting: its flag isn't taken for a hit once spells move, and a real hit replaces it", () => {
+    // (kept while moving, so a cast the canvas first sees mid-movement shows its blood magic, not a strike)
     const ether = place(Ether, npc, 0, 4);
     ether.flagHitImpact(false, 5, true);
     const [frames] = runTurns([ether]);
-    expect(frames.every(f => f.spells.every(s => !s.isBloodMagic))).toBe(true);
+    expect(frames.every(f => f.spells.every(s => s.isBloodMagic && s.hitImpactCount === 1))).toBe(true);
+
+    const striker = place(Ether, npc, 0, 0); // moves off the board on the player's side
+    striker.flagHitImpact(false, 5, true);
+    const hit = runTurns([striker])[0].flatMap(f => f.spells).find(s => s.hitImpactCount === 2);
+    expect(hit?.isBloodMagic).toBe(false);
+    expect(hit?.isPlayerHitImpact).toBe(true);
   });
 
   it("7b: a reflected spell gets bonus moves (powerDiff, at least 1)", () => {
@@ -662,5 +669,20 @@ describe('regressions', () => {
     const describeRun = (spells: Array<Spell>) => runTurns(spells, 3).flat()
       .map(f => f.spells.map(s => `${s.getSpellName()}${s.widthCells}x${s.heightCells}@${s.cellIndex.i},${s.cellIndex.j}${s.isRemove ? 'x' : ''}`).join(' '));
     expect(describeRun(setup())).toEqual(describeRun(setup()));
+  });
+
+  // A sized spell and a Gyre or Phlegm stepping into each other: no cell of the sized spell gets past it
+  const isAnyCellPast = (turns: Array<Array<SpellTurnFrame>>, row: number, dir: number) => turns.flat().some(f => {
+    const terrain = f.spells.find(s => (s instanceof Gyre || s instanceof Phlegm) && !s.isRemove);
+    if (!terrain) return false;
+    return f.spells.some(s => s instanceof Quicken && !s.isRemove && s.consumedGyres === 0 && !s.isInPhlegmField &&
+      s.cellIndex.i === row && (s.cellIndex.j + (dir > 0 ? s.widthCells - 1 : 0) - terrain.cellIndex.j) * dir > 0);
+  });
+  it('a Quicken chain meeting a Gyre head-on has no cell slip past it', () => {
+    expect(isAnyCellPast(runTurns([place(Quicken, player, 2, 1, 3), place(GyreUp, npc, 2, 4)]), 2, 1)).toBe(false);
+    expect(isAnyCellPast(runTurns([place(Quicken, npc, 2, 3, 3), place(GyreUp, player, 1, 2, 2)]), 2, -1)).toBe(false);
+  });
+  it('a Quicken chain meeting a Phlegm head-on has no cell slip past it', () => {
+    expect(isAnyCellPast(runTurns([place(Quicken, player, 2, 1, 3), place(Phlegm, npc, 2, 4)]), 2, 1)).toBe(false);
   });
 });

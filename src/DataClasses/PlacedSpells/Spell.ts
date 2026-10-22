@@ -62,7 +62,7 @@ export abstract class Spell extends UniqueId {
   // PlacedSpellComponent.tsx properties
   isPlayerHitImpact: boolean = false;
   isOpponentHitImpact: boolean = false;
-  isBloodMagic: boolean = false;
+  isBloodMagic: boolean = false; // (its last flagged hit was its blood magic cost; kept until a real hit, so a cast the canvas only sees once the spells are moving isn't taken for one)
   hitDamageAmount: number = 0;
   hitImpactCount: number = 0; // incremented per hit, so the canvas plays each hit's effects once
 

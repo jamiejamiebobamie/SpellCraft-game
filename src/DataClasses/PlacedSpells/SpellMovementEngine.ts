@@ -282,7 +282,6 @@ export class SpellMovementEngine {
     this.frames = [];
 
     this.spells.forEach(s => {
-      s.isBloodMagic = false; // a casting effect, already shown; otherwise it hides the spell's destruction effect
       if (s instanceof Phlegm && PHLEGM_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
       if (s instanceof Gyre && GYRE_RULES.capacityResetsEachTurn) s.capacityUsed = 0;
       if (s instanceof Gyre) s.liftedThisTurn.clear();
@@ -850,12 +849,13 @@ export class SpellMovementEngine {
    */
   private breakUpAtGyre = (parent: Spell, gyre: Gyre, parentRemainingMoves: number): void => {
     const isInsideGyre = (cell: CellIndex) => overlapsBoundingBox(cell, 1, 1, gyre.cellIndex, gyre.widthCells, gyre.heightCells);
+    const dir = Math.sign(parent.speedDirection) || 1;
+    this.pullBackPastSpell(parent, gyre, dir);
     const cells = getFootprintCells(parent);
     const groupId = parent.fragmentGroupId || parent.id;
 
     const cellCost = gyre.getCapacityUse(parent) === 1 ? 1 : parent.baseCellDmg;
     const capacityLeft = Math.floor((gyre.getCapacity() - gyre.capacityUsed) / cellCost);
-    const dir = Math.sign(parent.speedDirection) || 1;
     const byLeadingColumn = (a: CellIndex, b: CellIndex) => (b.j - a.j) * dir || a.i - b.i;
     const lifted = cells.filter(isInsideGyre).sort(byLeadingColumn).slice(0, Math.max(0, capacityLeft));
     if (!lifted.length) return; // nothing inside, or no capacity left: the spell passes through
@@ -870,6 +870,18 @@ export class SpellMovementEngine {
     splitIntoAllowedShapes(parent, cells.filter(c => !isLifted(c)))
       .forEach(rect => this.createPiece(parent, gyre, rect, parentRemainingMoves, groupId));
     this.removeShatteredParent(parent, gyre);
+  };
+
+  /**
+   * A sized spell and a moving spell (a Gyre or Phlegm) that met by stepping into each other can leave the
+   * sized spell's leading cells past it, in its rows. Those cells never got by it, so the sized spell
+   * is moved back until its leading cell in those rows is the one inside it.
+   */
+  private pullBackPastSpell = (parent: Spell, hit: Spell, dir: number): void => {
+    const isInHitRows = (cell: CellIndex) => cell.i >= hit.cellIndex.i && cell.i < hit.cellIndex.i + hit.heightCells;
+    const hitLeadingEdge = dir > 0 ? hit.cellIndex.j + hit.widthCells - 1 : hit.cellIndex.j;
+    const overshoot = Math.max(0, ...getFootprintCells(parent).filter(isInHitRows).map(cell => (cell.j - hitLeadingEdge) * dir));
+    if (overshoot > 0) parent.setCellIndex({ i: parent.cellIndex.i, j: parent.cellIndex.j - overshoot * dir });
   };
 
   /**
@@ -890,6 +902,7 @@ export class SpellMovementEngine {
    *   place, then reverse); the other rows keep going. If every row touches, the whole spell bounces.
    */
   private breakUpAtPhlegm = (parent: Spell, phlegm: Phlegm, parentRemainingMoves: number): void => {
+    this.pullBackPastSpell(parent, phlegm, Math.sign(parent.speedDirection) || 1);
     // Pieces get the reflection bonus of the whole spell (13b)
     const reflectBonusMoves = getReflectBonusMoves(parent.getPower(), phlegm);
     const isInsidePhlegm = (cell: CellIndex) => overlapsBoundingBox(cell, 1, 1, phlegm.cellIndex, phlegm.widthCells, phlegm.heightCells);

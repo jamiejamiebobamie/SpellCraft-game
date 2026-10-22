@@ -131,6 +131,9 @@ export class Game {
   /** The card shown as each turn begins (TurnCard): a new id each turn. */
   private turnCard: { id: number; isPlayerFirst: boolean } | null = null;
   getTurnCard = (): { id: number; isPlayerFirst: boolean } | null => this.turnCard;
+  // The card over the NPC's avatar when it passes its turn (casts nothing)
+  private npcPassCard: { id: number } | null = null;
+  getNpcPassCard = (): { id: number } | null => this.npcPassCard;
 
   /**
    * Whose move it is right now (their spotlight brightens): the NPC while it's casting (unless it's
@@ -910,6 +913,10 @@ export class Game {
     const npc = this.players.getNpcPlayer();
     if (!npc) return;
     const token = this.turnToken;
+    npc.beginNpcTurn(isPassed => {
+      if (isPassed && this.getIsTurnStill(token) && this.gameOver === null) this.npcPassCard = { id: (this.npcPassCard?.id ?? 0) + 1 };
+      this.forceUpdate();
+    });
     setTimeout(() => {
       if (!this.getIsTurnStill(token) || npc.getIsDoneWithTurn()) return;
       console.warn('The NPC took too long to finish its turn; ending it');

@@ -270,13 +270,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           if (!isDisplay && !anim.hasSpawnedParticles) {
             anim.hasSpawnedParticles = true;
 
-            // Handled solely if the spell itself didn't use an initial blood magic component trigger above
-            if (!spell.isBloodMagic) {
-              if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
-              else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
-              else if (spellClass === 'Phlegm') spawnPhlegmParticles(anim.particles, w, h);
-              else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreParticles(anim.particles, w, h);
-            }
+            // (whether or not it was cast with blood magic: that effect plays at its caster)
+            if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
+            else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
+            else if (spellClass === 'Phlegm') spawnPhlegmParticles(anim.particles, w, h);
+            else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreParticles(anim.particles, w, h);
           }
 
           if (isDisplay && !(anim as any).isStriking) {

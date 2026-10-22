@@ -32,6 +32,9 @@ export const NPC_DRAWING_ASPECT = { min: 0.55, max: 1.45 };
  */
 export const NPC_TURN_ORDER: 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first' = 'alternateTurns' as 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first';
 
+/** The NPC's turn lasts at least this long (ms), even when it casts nothing, so it's seen to take its turn. */
+export const NPC_TURN_MIN_MILLI = 500;
+
 /** The "your move first" reminder: after this many seconds of waiting, then 5 seconds later each time it shows. */
 export const NPC_WAITING_TIP = { firstSeconds: 10, stepSeconds: 5, maxSeconds: 30 };
 
@@ -57,9 +60,49 @@ export class NPCPlayer extends Player {
 
     npcMoveData: Array<NPCMoveData> = [];
 
+    // This turn: when it began, how many spells it drew, and who to tell once it's done
+    private turnId = 0; // (bumped as each turn begins or is reset, so a turn finishing late can't end the next)
+    private turnStartedAt = 0;
+    private drawingsThisTurn = 0;
+    private isFinishingTurn = false;
+    private onTurnDone: ((isPassed: boolean) => void) | null = null;
+
     constructor(direction: -1 | 1, avatarUrl: string) {
         super(direction, avatarUrl);
     }
+
+    /** Its turn begins. `onTurnDone` is told when it's done, and whether it passed (drew nothing). */
+    beginNpcTurn = (onTurnDone: (isPassed: boolean) => void): void => {
+        this.turnId++;
+        this.isFinishingTurn = false;
+        this.turnStartedAt = performance.now();
+        this.drawingsThisTurn = 0;
+        this.onTurnDone = onTurnDone;
+    };
+
+    /** Done with its turn: not before NPC_TURN_MIN_MILLI from its start (however it ends). */
+    setIsDoneWithTurn = (isDoneWithTurn: boolean): void => {
+        if (!isDoneWithTurn) {
+            this.turnId++;
+            this.isFinishingTurn = false;
+            this.isDoneWithTurn = false;
+            return;
+        }
+        if (this.isDoneWithTurn || this.isFinishingTurn) return;
+        const turnId = this.turnId;
+        const finish = () => {
+            if (turnId !== this.turnId) return; // (the turn is already over)
+            this.isFinishingTurn = false;
+            this.isDoneWithTurn = true;
+            const onTurnDone = this.onTurnDone;
+            this.onTurnDone = null;
+            onTurnDone?.(this.drawingsThisTurn === 0);
+        };
+        const waitMilli = NPC_TURN_MIN_MILLI - (performance.now() - this.turnStartedAt);
+        this.isFinishingTurn = true;
+        if (waitMilli > 0) setTimeout(finish, waitMilli);
+        else finish();
+    };
 
     // GET
     getNpcDifficulty = (): NpcDifficulty => this.difficulty;
@@ -215,6 +258,9 @@ export class NPCPlayer extends Player {
 
     reset(): void {
         super.reset();
+        this.turnId++;
+        this.isFinishingTurn = false;
+        this.onTurnDone = null;
         this.resetNumRemainingMovesPerTurn();
         this.resetNpcMove();
     }
@@ -342,6 +388,7 @@ export class NPCPlayer extends Player {
         // set to get arm-wand movements while drawing
         this.setGameSymbol(new GameSymbol(inferenceString, this))
         this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
+        this.drawingsThisTurn++;
         forceUpdate();
     }
 
