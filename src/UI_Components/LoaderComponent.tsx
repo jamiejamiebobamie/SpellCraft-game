@@ -166,15 +166,18 @@ const LoaderComponent = () => {
   const isSceneImgsLoaded = snap.getIsSceneImgsLoaded();
   const isFontLoaded = snap.getIsFontLoaded();
   const isPriorityAssetsLoaded = snap.getIsPriorityAssetsLoaded();
+  // (the logo's spells are drawn behind the boot screen first: LogoComponent, AssetLoader)
+  const isLogoSpellsReady = snap.getIsLogoSpellsReady();
 
-  // The boot screen (index.html: the title and a spinner) fades out as the logo fades in
+  // The boot screen (index.html: the title and a spinner) fades out as the logo fades in, once the
+  // logo's spells are ready
   useEffect(() => {
     const bootScreen = document.getElementById('boot-screen');
-    if (!isPriorityAssetsLoaded || !bootScreen) return;
+    if (!isPriorityAssetsLoaded || !isLogoSpellsReady || !bootScreen) return;
     bootScreen.classList.add('boot-screen--done');
     const removeTimeout = setTimeout(() => bootScreen.remove(), 1000);
     return () => clearTimeout(removeTimeout);
-  }, [isPriorityAssetsLoaded]);
+  }, [isPriorityAssetsLoaded, isLogoSpellsReady]);
 
   // Play: the landing page dissolves into pixie dust, then the game begins
   const [isDissolving, setIsDissolving] = useState<boolean>(false);
@@ -201,7 +204,7 @@ const LoaderComponent = () => {
     isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
       <DissolveArea>
       <LoadingContent $isDissolving={isDissolving}>
-        <Logo>{isPriorityAssetsLoaded && <LogoComponent />}</Logo>
+        <Logo>{isPriorityAssetsLoaded && <LogoComponent isShown={isLogoSpellsReady} onSpellsReady={rootGameStore.setIsLogoSpellsReady} />}</Logo>
         <ActionSlot>
           {isLoading ? (
             <Loader>

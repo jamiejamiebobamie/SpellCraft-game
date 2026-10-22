@@ -54,7 +54,13 @@ const tooltipImgs = [
     'tooltip-imgs/winners-and-losers.gif'
 ];
 
-export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded' | 'isPriorityAssetsLoaded' | 'isMinLoadingTimeElapsed';
+export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded' | 'isPriorityAssetsLoaded' | 'isMinLoadingTimeElapsed' | 'isLogoSpellsReady';
+
+/**
+ * The logo's spells (their flipbooks) are drawn behind the boot screen, which waits for them; at most
+ * this long (ms, from the priority batch arriving), so the landing page always shows.
+ */
+const LOGO_SPELLS_WAIT_MILLI = 6000;
 
 /**
  * The least time "Loading..." shows before the Play button, even if everything loads sooner. 0: none
@@ -82,6 +88,7 @@ export class AssetLoader {
     isSceneImgsLoaded: boolean = false;
     isPriorityAssetsLoaded: boolean = false;
     isMinLoadingTimeElapsed: boolean = false;
+    isLogoSpellsReady: boolean = false; // (the logo's spells drawn: the boot screen can go)
 
     forceUpdate: Function | null = null;
 
@@ -92,6 +99,7 @@ export class AssetLoader {
         this.priorityAssets = ref(this.loadPriorityAssets());
         this.priorityAssets.then(() => {
             setTimeout(() => this.setIsLoading(new Map([['isMinLoadingTimeElapsed', true]])), MIN_LOADING_TIME_MILLI);
+            setTimeout(() => { if (!this.isLogoSpellsReady) this.setIsLoading(new Map([['isLogoSpellsReady', true]])); }, LOGO_SPELLS_WAIT_MILLI);
             this.loadFontsAndImgs();
         });
     }
@@ -109,6 +117,8 @@ export class AssetLoader {
 
     getIsFontLoaded = (): boolean => this.isFontsLoaded;
     getIsSceneImgsLoaded = (): boolean => this.isSceneImgsLoaded;
+    getIsLogoSpellsReady = (): boolean => this.isLogoSpellsReady;
+    setIsLogoSpellsReady = (): void => { if (!this.isLogoSpellsReady) this.setIsLoading(new Map([['isLogoSpellsReady', true]])); };
 
     getIsLoading = (): boolean => loaders.some(k => !this[k as LoaderProperties]);
     setIsLoading = (loaderObj: Map<LoaderProperties, boolean>): void => {
