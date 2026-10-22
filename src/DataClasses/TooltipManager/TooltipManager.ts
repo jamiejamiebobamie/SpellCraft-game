@@ -15,8 +15,8 @@ export const GAME_TUTORIALS = {
             title: "Welcome to SpellCraft",
             paragraphs: [
                 "You are a member of a secret wizard fight club.",
-                "Tonight, like every night, you've slipped out of bed after curfew to roam the school's halls, wand drawn, in search of a truer education in magic.",
-                "You wear a mask, to hide your identity, even from the others... if a teacher catches one of you, the rest stay safe.",
+                "Tonight, like every night, you walk around the school after hours, your wand drawn, in search of a truer education in magic.",
+                "You wear a mask to hide your identity, even from the others... if a teacher catches one of you, the rest stay safe.",
             ],
             mediaUrl: './icon-512.png', // the mask
         },
@@ -68,7 +68,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     endTurn: {
         title: "Ending Your Turn",
-        text: "Done casting? Click the Clock (or press Space bar) to end your turn. The red seconds clockhand counts down your turn (opening your Spell Book pauses it). Once your turn ends, every spell on the board will move and interact.",
+        text: "Done casting? Click the Clock (or press Space bar) to end your turn. The red seconds hand counts down your turn (opening your Spell Book pauses it). Once your turn ends, every spell on the board will move and interact.",
         anchor: ANCHORS.clock,
     },
     spellsInMotion: {
