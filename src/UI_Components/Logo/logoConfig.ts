@@ -44,6 +44,21 @@ export type LogoSpell = {
  */
 export type Aura = { rgb: string; opacity: number; size: number; layers: number; growth: number; falloff: number } | null;
 
+/** How a still spell moves (LOGO_CONFIG.spells.still.motion). */
+export type SpellMotion = {
+  pivot: 'center' | 'base'; seconds: number; scale: number; squash: number; squashAngle: number; skew: number; rotate: number;
+  jitterPerSecond: number; spinSeconds: number;
+  orbit: { radius: number; depth: number; seconds: number; lean: number; wobble: number; wobbleSeconds: number };
+  flipbook: { frames: number; seconds: number; startSeconds?: number; blendFrames: number; resolution: number; cropMargin: number };
+};
+
+/** A still spell that doesn't move (each spell's motion starts from this). */
+const NO_MOTION: SpellMotion = {
+  pivot: 'center', seconds: 1, scale: 0, squash: 0, squashAngle: 0, skew: 0, rotate: 0, jitterPerSecond: 0, spinSeconds: 0,
+  orbit: { radius: 0, depth: 0, seconds: 1, lean: 0, wobble: 0, wobbleSeconds: 1 },
+  flipbook: { frames: 1, seconds: 1, blendFrames: 0, resolution: 1, cropMargin: 0.12 },
+};
+
 /** Fractions of the way from the outside (0) to the inside (1). */
 export type FadeRange = { start: number; end: number };
 
@@ -107,6 +122,45 @@ export const LOGO_CONFIG = {
     // freely). Speeds and sizes in logo units
     pixieDustPerSecond: 14, // per symbol
     show: { symbols: true, spells: true }, // turn all the symbols, or all the spells, off (for testing)
+    // Still spells (lighter on the page): each spell, and each symbol's outline, is drawn once (with its
+    // fade) and reused every frame; only the pixie dust stays live. isOn false: everything live, as before.
+    // atSeconds: the moment each spell is caught at (after warmUpSeconds of its particles building up).
+    // pulse: each spell brightening, so it still feels alive (amount: up to this much brighter; seconds:
+    // one pulse; the spells take turns). motion: each spell moving, per spell:
+    //   pivot: what it moves about ('center', or 'base': a Gyre's narrow end); seconds: one cycle;
+    //   scale: growing and shrinking; squash: wider while shorter, and back, along squashAngle (degrees:
+    //   0 is sideways, -45 from top right to bottom left); skew and rotate: in degrees;
+    //   jitterPerSecond: a new random pose this many times a second, mixed in (a crackle; 0: none);
+    //   spinSeconds: one full turn in its own plane (a ring seen at an angle; 0: none);
+    //   orbit: whirling in place (a Tasmanian devil): its base going round a small circle on the ground
+    //   (radius: logo units, 0: none; depth: how flattened, seen from the side; seconds: one circle;
+    //   lean: degrees its far end trails; wobble: its width wobbling, as if spinning, every wobbleSeconds);
+    //   flipbook: the real spell, drawn this many times (frames) over its seconds and shown in turn,
+    //   looping (frames 1: one still). startSeconds: the first frame's moment (else atSeconds);
+    //   blendFrames: how many of its first frames fade in from what follows its last, so a loop that
+    //   doesn't quite repeat joins smoothly; resolution: kept at this fraction of full size (less memory;
+    //   fine for soft shapes); cropMargin: room kept around its first frame, for its particles
+    // drawMilliPerFrame: how long each frame may spend drawing the stills (they're drawn a little at a
+    // time, so the page never pauses); hiddenDrawMilliPerFrame: the same while the logo is still hidden
+    // behind the boot screen, which waits for them (its spinner turns smoothly regardless)
+    still: {
+      isOn: true, atSeconds: 2, warmUpSeconds: 1, drawMilliPerFrame: 8, hiddenDrawMilliPerFrame: 40,
+      pulse: { amount: 0.5, seconds: 1.6 },
+      motion: {
+        // two whips of its flames (251 ms each: it repeats exactly), centered on its core's glow peaking
+        // (at pi/2 s, so the glow matches where the loop joins); its embers, blended
+        Ether: { ...NO_MOTION, flipbook: { ...NO_MOTION.flipbook, frames: 13, seconds: 0.50265, startSeconds: 1.3195, blendFrames: 2 } },
+        // its bolt changes shape at random, so any stretch loops (unblended: two bolts would show)
+        Quicken: { ...NO_MOTION, flipbook: { ...NO_MOTION.flipbook, frames: 12, seconds: 0.48 } },
+        // its 4 crests and its ripples repeat exactly every 1.047 s (pi/3 s); its bubbles, blended
+        Phlegm: { ...NO_MOTION, flipbook: { ...NO_MOTION.flipbook, frames: 26, seconds: 1.0472, blendFrames: 4, resolution: 0.6 } },
+        // its sway repeats every 2.094 s (2pi/3 s), the rest not quite (blended); whirling in place too
+        GyreUp: { ...NO_MOTION, pivot: 'base', orbit: { radius: 0.8, depth: 0.35, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
+          flipbook: { ...NO_MOTION.flipbook, frames: 42, seconds: 2.0944, blendFrames: 6, resolution: 0.6 } },
+        GyreDown: { ...NO_MOTION, pivot: 'base', orbit: { radius: 0.8, depth: 0.35, seconds: 0.8, lean: 3, wobble: 0.06, wobbleSeconds: 0.22 },
+          flipbook: { ...NO_MOTION.flipbook, frames: 42, seconds: 2.0944, blendFrames: 6, resolution: 0.6 } },
+      } as Record<LogoSpell['spellName'], SpellMotion>,
+    },
     list: [
       { spellName: 'Quicken', symbol: 'line', x: 27, y: 5.25, rotation: 15, w: 25, h: 15, cells: { w: 3, h: 1 }, cellSize: 14, direction: 1, fade: 'towardWands', spellOffset: { x: -1.13, y: 1.93 }, fadeRanges: { symbolOut: { start: 0.5, end: .99 }, spellIn: { start: 0.0, end: 0.1 } }, fadeSpell: false }, // mirrors the Ether (its offset: the Ether's, mirrored, in the line's 33-degree frame)
       { spellName: 'Phlegm', symbol: 'star', x: 50, y: 47, rotation: 0, w: 30, h: 30, cells: { w: 3, h: 3 }, cellSize: 13, direction: 1, fade: 'towardWands', spellOffset: { x: 0, y: -5 }, fadeRanges: { symbolOut: { start: 0.9, end: .99 }, spellIn: { start: 0.2, end: 0.5 } }, symbolOpacity: 0.5 },

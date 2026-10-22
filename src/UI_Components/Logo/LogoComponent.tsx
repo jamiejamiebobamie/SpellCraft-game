@@ -3,7 +3,7 @@
 // fading into its spell), in front of the clock, with "SpellCraft" across the front. Adjust it all
 // in logoConfig.ts. Inside the logo, 1cqw = 1 logo unit (100 units = its width).
 import { useEffect, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { LOGO_CONFIG, GroupTransform, Aura } from './logoConfig';
 import { FRAME_SIZE, LEAN_PIVOT, Vec, getDuelPose, getRestCrossing } from './duelMath';
 import { CrossingSparks, LogoSpellsRenderer } from './drawLogoSpells';
@@ -13,14 +13,16 @@ const fadeIn = keyframes`
   to { opacity: 1; }
 `;
 
-const LogoRoot = styled.div`
+// (hidden until shown, then fading in)
+const LogoRoot = styled.div<{ $isShown: boolean }>`
   position: relative;
   width: 100%;
   aspect-ratio: 100 / ${LOGO_CONFIG.height};
   container-type: inline-size;
   pointer-events: none;
   user-select: none;
-  animation: ${fadeIn} 1.5s ease-out;
+  opacity: ${props => props.$isShown ? 1 : 0};
+  ${props => props.$isShown && css`animation: ${fadeIn} 1.5s ease-out;`}
 `;
 
 const Layer = styled.div<{ $z: number }>`
@@ -234,8 +236,14 @@ const Title = styled.div`
 
 // --- The logo ------------------------------------------------------------------------------------
 
-export default function LogoComponent() {
+/**
+ * `isShown`: false while it's still hidden (behind the boot screen), its spells being drawn;
+ * `onSpellsReady`: told once they are.
+ */
+export default function LogoComponent({ isShown = true, onSpellsReady }: { isShown?: boolean; onSpellsReady?: () => void }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const spellsRef = useRef<LogoSpellsRenderer | null>(null);
+  useEffect(() => { if (spellsRef.current) spellsRef.current.isShown = isShown; }, [isShown]);
   const spellsCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sparksCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sideRefs = useRef<Array<HTMLDivElement | null>>([null, null]);
@@ -262,7 +270,8 @@ export default function LogoComponent() {
     const avatarsTransform = LOGO_CONFIG.avatars.transform;
     const wandCrossing = fromGroup(getRestCrossing(), avatarsTransform);
     const radialCenter = LOGO_CONFIG.spells.fade.radialCenter ?? fromGroup({ x: 0, y: LEAN_PIVOT.y }, avatarsTransform);
-    const spells = new LogoSpellsRenderer();
+    const spells = new LogoSpellsRenderer(onSpellsReady, isShown);
+    spellsRef.current = spells;
     const sparks = new CrossingSparks();
 
     const start = performance.now();
@@ -302,7 +311,7 @@ export default function LogoComponent() {
   }, []);
 
   return (
-    <LogoRoot ref={rootRef}>
+    <LogoRoot ref={rootRef} $isShown={isShown}>
       <Layer $z={1}><LogoClock handRefs={handRefs} clockRef={clockRef} /></Layer>
       <CanvasLayer $z={2} ref={spellsCanvasRef} />
       <DuelLayer $z={3}>
