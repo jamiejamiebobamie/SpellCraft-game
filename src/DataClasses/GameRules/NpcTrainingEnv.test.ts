@@ -1,7 +1,7 @@
 // NpcTrainingEnv.test.ts
 // The NPC's view of the game for training: observations, actions, legal-move masks, rewards.
 import { describe, expect, it } from 'vitest';
-import { END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, REPEAT_PENALTY, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
+import { BALANCE_REWARD, END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, REPEAT_PENALTY, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { CellIndex } from '../types';
 import { Ether } from '../PlacedSpells/Spell';
@@ -191,9 +191,10 @@ describe('episodes', () => {
   });
 
   it('reward damage dealt minus damage taken, and +1 / -1 once for a win or loss', () => {
-    // (just the health and win rewards: the combo rewards and repeat penalty off)
-    const repeatPenalty = REPEAT_PENALTY.penalty;
+    // (just the health and win rewards: the combo rewards, repeat penalty and balance reward off)
+    const repeatPenalty = REPEAT_PENALTY.penalty, balanceScale = BALANCE_REWARD.scale;
     REPEAT_PENALTY.penalty = 0;
+    BALANCE_REWARD.scale = 0;
     for (let seed = 1; seed <= 100; seed++) {
       const env = new NpcTrainingEnv();
       let result = env.reset({ seed, opponent: 'random', interactionRewardScale: 0 });
@@ -212,16 +213,38 @@ describe('episodes', () => {
       expect(env.step(END_TURN_ACTION).reward).toBe(0); // nothing more once the game is over
     }
     REPEAT_PENALTY.penalty = repeatPenalty;
+    BALANCE_REWARD.scale = balanceScale;
   });
 
-  it('penalize casting the same spell as one of the last few casts, whatever its size or place', () => {
+  const castOf = (spellName: SpellName, row: number) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)
+    .find(a => { const d = decodeAction(a, PLAYER_INDEX); return d.kind === 'cast' && d.spellName === spellName && d.cells.length === 1 && d.cells[0].i === row; })!;
+
+  it('penalize casting the same spell as one of the last few casts, whatever its size or place (an Updraft and a Downdraft as one)', () => {
+    const balanceScale = BALANCE_REWARD.scale;
+    BALANCE_REWARD.scale = 0;
     const env = new NpcTrainingEnv();
     env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
-    const castOf = (spellName: SpellName, row: number) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)
-      .find(a => { const d = decodeAction(a, PLAYER_INDEX); return d.kind === 'cast' && d.spellName === spellName && d.cells.length === 1 && d.cells[0].i === row; })!;
     expect(env.step(castOf('Phlegm', 0)).reward).toBeCloseTo(0, 9);
     expect(env.step(castOf('Quicken', 1)).reward).toBeCloseTo(0, 9); // a different spell: no penalty
     expect(env.step(castOf('Phlegm', 2)).reward).toBeCloseTo(-REPEAT_PENALTY.penalty, 9); // again, elsewhere
+
+    const gyres = new NpcTrainingEnv();
+    gyres.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
+    expect(gyres.step(castOf('GyreUp', 0)).reward).toBeCloseTo(0, 9);
+    expect(gyres.step(castOf('GyreDown', 1)).reward).toBeCloseTo(-REPEAT_PENALTY.penalty, 9);
+    BALANCE_REWARD.scale = balanceScale;
+  });
+
+  it('reward casting an underused spell a little, and an overused one costs a little (BALANCE_REWARD)', () => {
+    const repeatPenalty = REPEAT_PENALTY.penalty;
+    REPEAT_PENALTY.penalty = 0;
+    const env = new NpcTrainingEnv();
+    env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
+    const k = BALANCE_REWARD.scale;
+    expect(env.step(castOf('Phlegm', 0)).reward).toBeCloseTo(0, 9); // (shares start even)
+    expect(env.step(castOf('Phlegm', 1)).reward).toBeCloseTo(k * (1 / 5 - 2 / 6), 9); // overused
+    expect(env.step(castOf('Ether', 2)).reward).toBeCloseTo(k * (1 / 5 - 1 / 7), 9); // underused
+    REPEAT_PENALTY.penalty = repeatPenalty;
   });
 
   it('ignore illegal actions', () => {

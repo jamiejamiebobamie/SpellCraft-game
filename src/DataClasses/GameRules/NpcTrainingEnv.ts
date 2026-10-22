@@ -265,7 +265,7 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
   ownSpellsLiftedByEnemyGyres: 0,
   ownSpellsLiftedSafely: 0, // e.g. sending a Quicken through a Gyre to change rows
   ownSpellsThroughOwnGyres: 0.15, // a "bounce": its own spell sent through its own Gyre (moving it on, with the exit bonus)
-  enemySpellsLiftedOffBoard: 0.05, // a "push": its Gyre pushing an enemy spell off the board
+  enemySpellsLiftedOffBoard: 0, // a "push": its Gyre pushing an enemy spell off the board (0.05 was tried)
   buffsFromEnemySpells: 0,
   buffsFromOwnSpells: 0,
   empoweredByEther: 0.1, // its spell empowered by an Ether's damage
@@ -276,9 +276,22 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
 
 /**
  * Casting the same spell (whatever its size or place) as one of its last `window` casts costs `penalty`
- * (0: off): a nudge toward using all its spells. (For scale: a point of damage is 0.01, a win 1.)
+ * (0: off): a nudge toward using all its spells. Updraft and Downdraft count as the same spell here
+ * (only here). (For scale: a point of damage is 0.01, a win 1.)
  */
 export const REPEAT_PENALTY = { window: 3, penalty: 0.03 };
+
+/** The spell a cast counts as for REPEAT_PENALTY: an Updraft and a Downdraft are one. */
+const getRepeatKind = (spellName: SpellName): string => spellName === 'GyreDown' ? 'GyreUp' : spellName;
+
+/**
+ * A small nudge toward casting every spell about equally (a fifth each): each cast earns
+ * scale x (1/5 - that spell's share of its casts so far this game), so an underused spell earns a
+ * little and an overused one costs a little (0: off). The shares start even (as if it had cast each
+ * once), so its first cast earns nothing. E.g. a spell that is 40% of its casts: -0.02; one never cast
+ * in its last 9 casts: about +0.014.
+ */
+export const BALANCE_REWARD = { scale: 0.1 };
 
 export type EnvStepResult = {
   observation: Array<number>;
@@ -330,7 +343,17 @@ export class NpcTrainingEnv {
   private interactionRewardGiven: number = 0;
   private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
   private hasOpponentPlayedThisTurn = false;
-  private recentCasts: Array<SpellName> = []; // the agent's last casts (REPEAT_PENALTY)
+  private recentCasts: Array<string> = []; // the agent's last casts (REPEAT_PENALTY; getRepeatKind)
+  private castCounts = new Map<SpellName, number>(); // the agent's casts this game, by spell (BALANCE_REWARD)
+
+  /** BALANCE_REWARD for casting `spellName` now (then counted). */
+  private getBalanceReward = (spellName: SpellName): number => {
+    const total = [...this.castCounts.values()].reduce((sum, n) => sum + n, 0);
+    // (its share so far, as if it had cast each spell once to begin with)
+    const share = ((this.castCounts.get(spellName) ?? 0) + 1) / (total + SPELL_ORDER.length);
+    this.castCounts.set(spellName, (this.castCounts.get(spellName) ?? 0) + 1);
+    return BALANCE_REWARD.scale * (1 / SPELL_ORDER.length - share);
+  };
   /** Health changes before the agent's first step (the opponent casting first on turn 1): given with that step. */
   private pendingReward = 0;
 
@@ -344,6 +367,7 @@ export class NpcTrainingEnv {
     this.sim = new GameSimulation({ random: this.random });
     this.hasOpponentPlayedThisTurn = false;
     this.recentCasts = [];
+    this.castCounts = new Map();
     const before = this.healths();
     this.beginTurn();
     this.pendingReward = this.healthReward(before);
@@ -369,9 +393,11 @@ export class NpcTrainingEnv {
       if (!getActionMask(this.sim, AGENT)[action]) return this.result(pending, false); // illegal: ignored
       const before = this.healths();
       this.sim.cast(AGENT, decoded.spellName, decoded.cells);
-      const repeatPenalty = this.recentCasts.includes(decoded.spellName) ? REPEAT_PENALTY.penalty : 0;
-      this.recentCasts = [...this.recentCasts, decoded.spellName].slice(-REPEAT_PENALTY.window);
-      return this.result(pending + this.healthReward(before) - repeatPenalty, true); // blood magic costs health
+      const repeatKind = getRepeatKind(decoded.spellName);
+      const repeatPenalty = this.recentCasts.includes(repeatKind) ? REPEAT_PENALTY.penalty : 0;
+      this.recentCasts = [...this.recentCasts, repeatKind].slice(-REPEAT_PENALTY.window);
+      const balanceReward = this.getBalanceReward(decoded.spellName);
+      return this.result(pending + this.healthReward(before) - repeatPenalty + balanceReward, true); // blood magic costs health
     }
 
     const before = this.healths();
