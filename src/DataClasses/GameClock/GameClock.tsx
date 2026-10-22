@@ -24,8 +24,8 @@ export class GameClock {
       360 for callback to trigger every hour
         30 to trigger every 1/12th hour.
     */
-    static readonly MINUTE_INCREMENT_ANGLE: number = 30;
-    static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 30 * 12 * 6; // 6 hours * 12 5-minute-interavals * 30 degrees
+    static readonly MINUTE_INCREMENT_ANGLE: number = 120; // a turn: 20 minutes (30, 5 minutes, was tried)
+    static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 360 * 6; // 6 hours (midnight to 6 AM), 360 degrees each
 
     constructor(endTurn: () => {}) {
         this.endTurn = endTurn;

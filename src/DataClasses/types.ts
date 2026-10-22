@@ -220,7 +220,9 @@ export const GameOverStatus = {
   BothDead: 0,
   PlayerWon: 1,
   NpcWon: 2,
-  TimesUp: 3,
+  TimesUp: 3, // caught by a teacher: both of them (equal health)
+  CaughtPlayer: 4, // caught by a teacher: the player, the weaker (the NPC wins)
+  CaughtNpc: 5, // caught by a teacher: the NPC, the weaker (the player wins)
 } as const;
 
 // Create a type out of the object if needed

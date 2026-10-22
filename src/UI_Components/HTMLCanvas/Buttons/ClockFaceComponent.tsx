@@ -6,7 +6,6 @@ import { useSnapshot } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
 import ClockHalo, { CLOCK_HALO } from './ClockHalo';
 import { LOGO_CONFIG } from '../../Logo/logoConfig';
-import { GameClock } from '../../../DataClasses/GameClock/GameClock';
 
 /** How much brighter the clock face gets while hovered (1 = no change; it multiplies the flashing's level). */
 const CLOCK_FACE_HOVER_BRIGHTNESS = 1.1; // (was 1.25)
@@ -165,7 +164,7 @@ const useHandAngles = (isLanding: boolean): HandAngles => {
       }
       // the minute hand: the turns so far, plus a minute's worth across this turn's time
       const fraction = rootGameStore.getTurnTimeFraction();
-      const minute = rootGameStore.getMinuteAngleAcc() + fraction * (GameClock.MINUTE_INCREMENT_ANGLE / 5);
+      const minute = rootGameStore.getMinuteAngleAcc() + fraction * 6; // (6 degrees: a minute)
       return { second: fraction * 360, minute, hour: minute / 12 };
     };
     setAngles(read());

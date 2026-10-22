@@ -19,10 +19,10 @@ export const NPC_POLICY: 'trained' | 'random' = 'trained';
 /** Variety in the trained NPC's play: it picks moves at random, weighted by how good the model rates them. */
 export const NPC_VARIETY = {
   temperature: 1, // how adventurous: 0 = always its top move, 1 = as in training, higher = tries weaker moves more often
-  repeatWindow: 6, // how many of its recent casts it remembers (was 4)
-  // How strongly it avoids repeating a remembered move, per repeat (in the model's scores; was 1.5). A
+  repeatWindow: 4, // how many of its recent casts it remembers (6 was tried: with training's own variety rewards, it passed more)
+  // How strongly it avoids repeating a remembered move, per repeat (in the model's scores; 3 was tried). A
   // move is a spell at a size (e.g. a 2x2 Fireball): the same anywhere on its side of the board
-  repeatPenalty: 3,
+  repeatPenalty: 1.5,
 };
 
 const MODEL_PATH = './models/npc-policy.onnx';

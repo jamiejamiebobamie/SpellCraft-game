@@ -22,6 +22,13 @@ import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDeta
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
 import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
 
+/**
+ * The damage and healing numbers: hits of the same kind on the same wizard within `joinSeconds` of the
+ * last join one number (a running total), which swells by `swell` with each; damage floats up
+ * `sideOffset` px to one side of the wizard, healing to the other.
+ */
+const FLOATING_NUMBERS = { joinSeconds: 0.5, size: 46, swell: 1.3, sideOffset: 30, sameWizardPx: 60 };
+
 const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
   top: 50%;
@@ -353,6 +360,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         const floatingNumbers = floatingNumbersRef.current;
         if (floatingNumbers.length > 0) {
           floatingNumbers.forEach(p => {
+            // (swelling with each hit, then settling)
+            if (p.baseSize) p.size += (p.baseSize - p.size) * Math.min(1, deltaTime * 8);
             const marginX = p.size * 0.9, marginY = p.size * 0.6;
             p.x = Math.min(viewW - marginX, Math.max(marginX, p.x));
             p.y = Math.min(viewH - marginY, Math.max(marginY, p.y));
@@ -518,12 +527,29 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   }
 
   /** Where a spell is drawn. A block swirling inside a Phlegm it fits in is drawn at the Phlegm's exact center. */
-  /** A damage (red) or healing (green) number floating up over a wizard. */
+  /**
+   * A damage (red) or healing (green) number floating up over a wizard. Hits of the same kind on the same
+   * wizard in quick succession join one number, a running total that swells with each (FLOATING_NUMBERS);
+   * damage floats up on one side of the wizard, healing on the other, so the two never overlap.
+   */
   function pushFloatingNumber(x: number, y: number, amount: number) {
+    const { joinSeconds, size, swell, sideOffset, sameWizardPx } = FLOATING_NUMBERS;
+    const isHeal = amount < 0, now = performance.now();
+    const joining = floatingNumbersRef.current.find(p => p.isHeal === isHeal && now - p.lastHitAt < joinSeconds * 1000 &&
+      Math.abs(p.wizardX - x) < sameWizardPx && Math.abs(p.wizardY - y) < sameWizardPx);
+    if (joining) {
+      joining.total += Math.abs(amount);
+      joining.text = `${isHeal ? '+' : '-'}${joining.total}`;
+      joining.lastHitAt = now;
+      joining.size = size * swell;
+      joining.life = joining.alpha = 1.0;
+      return;
+    }
     floatingNumbersRef.current.push({
-      x: x + (Math.random() * 60 - 30), y: y - 20, vx: (Math.random() * 20 - 10), vy: -130 - Math.random() * 30,
-      alpha: 1.0, size: 46, color: amount < 0 ? '#3bed8e' : '#ee3737', text: amount < 0 ? `+${Math.abs(amount)}` : `-${amount}`,
+      x: x + (isHeal ? sideOffset : -sideOffset) + (Math.random() * 16 - 8), y: y - 20, vx: (Math.random() * 12 - 6), vy: -130 - Math.random() * 30,
+      alpha: 1.0, size: size * swell, baseSize: size, color: isHeal ? '#3bed8e' : '#ee3737', text: `${isHeal ? '+' : '-'}${Math.abs(amount)}`,
       life: 1.0, decay: 0.75, type: 'floatingText',
+      isHeal, total: Math.abs(amount), lastHitAt: now, wizardX: x, wizardY: y,
     });
   }
 

@@ -73,7 +73,7 @@ export const CLOCK_HALO = {
   ] as Array<{ rgb: string; toWhite: number }>,
   // slides all the ray colors (ribbons too) toward white, on top of each one's own toWhite: on the landing
   // page, and in play
-  rayColorsToWhite: { landing: 0.4, play: 0 },
+  rayColorsToWhite: { landing: 0.2, play: 0 },
   rayOpacity: 0.75, // at the rays' base, fading to nothing at their tips (was 0.55)
   glowOpacity: 0.42, // a soft glow right around the face (lifts the dark carving there)
   rotationSeconds: 90, // one full turn (0: still)

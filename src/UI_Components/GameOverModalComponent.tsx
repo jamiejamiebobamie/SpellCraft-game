@@ -33,9 +33,22 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
     text: 'You lost...',
     fontSize: 3.6
   },
+  // Caught by a teacher (the weaker wizard; both, if even)
   [GameOverStatus.TimesUp]: {
     title: 'Caught!',
-    text: 'You have been caught out of bed after curfew and will surely be expelled.',
+    text: 'A teacher caught you both out of bed after curfew. You will surely be expelled.',
+    fontSize: 3.2,
+    isPlayAgainOwnLine: true,
+  },
+  [GameOverStatus.CaughtPlayer]: {
+    title: 'Caught!',
+    text: 'Too weary to flee, you were caught by a teacher. Your rival slipped away into the dark.',
+    fontSize: 3.2,
+    isPlayAgainOwnLine: true,
+  },
+  [GameOverStatus.CaughtNpc]: {
+    title: 'You Got Away',
+    text: 'A teacher caught your rival, too weary to flee. You slipped away into the dark.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
   },

@@ -19,7 +19,7 @@ You're a member of a masked wizard fight club. After curfew, you sneak out of be
 - **Or pay in blood.** Cast beyond your focus, and the difference comes out of your health instead.
 - **End the turn** by clicking the clock. All spells then move and interact.
 - **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway. Opening the Spell Book pauses it, so if you'd rather not be timed, keep it open while you think. It also waits while a tip is showing.
-- **Survive until sunrise.** Each turn is five minutes of game time from midnight to 6 AM, and the closer it gets to dawn, the likelier a teacher catches you.
+- **Survive until sunrise.** Each turn is twenty minutes of game time, from midnight to 6 AM. From the end of the sixth turn, a teacher may catch you at the end of any turn (1% at first, 1% likelier each turn), and surely at 6 AM. The teacher catches the weaker wizard, the one with less health: the other gets away and wins.
 
 Mouse, keyboard or a mix of both all work; the keyboard controls are in the game's settings.
 
@@ -34,14 +34,16 @@ Every spell beats some situations and loses to others, so there's no single best
 | **Fireball** | `Ether` | circle | 1 | Damages on impact and destroys weaker spells. Whatever destroys it inherits +5 damage. |
 | **Chain Lightning** | `Quicken` | line | 1 | Strikes for damage and destroys weaker spells; a single cell of it travels fast (+1 speed). Whatever destroys it gets a move right away for each cell of its width (that turn only; another Chain Lightning too). A single-cell one also gives a spell that destroys it +1 speed for good (once; not to a Chain Lightning). |
 | **Water Wheel** | `Phlegm` | star | 1 | Heals what it touches, and reflects stronger spells back the way they came. A Water Wheel that takes in another heals +15 more. |
-| **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells a row up or down. Anything pushed off the board is destroyed. |
+| **Updraft / Downdraft** | `GyreUp` / `GyreDown` | diamond / triangle | 1 | Lifts stronger spells up or down, until it has absorbed 5 damage per cell. Anything pushed off the board is destroyed. |
 
 Because spells pass their power on, combos emerge naturally: a Fireball fed into your own spell makes it hit harder, and an Updraft or Downdraft can lift an incoming spell out of a threatened row, send your own spell on with extra moves, or push an enemy spell straight off the board.
 
 **Water Wheels.** A sized spell that runs into a Water Wheel breaks into single cells. Each cell swirls once around the wheel, and they reassemble as they leave it.
 
 **Updrafts and Downdrafts:**
-- **Lifting:** a draft lifts every stronger spell that reaches it during a turn, then dissipates at the turn's end.
+- **Lifting:** a draft lifts stronger spells that reach it, over as many turns as it lasts.
+- **Capacity:** a draft absorbs 5 damage per cell (a 1×3 draft, 15). Each spell cell it lifts uses up that cell's power, so a Fireball uses up a draft faster than a Chain Lightning. While a draft has anything left, it lifts the next spell, even one stronger than what's left. Used capacity is never restored.
+- **Shrinking:** at the end of each turn, a draft shrinks to the capacity it has left (5 per cell), from its tip, so a used draft is weaker, reaches fewer rows and gives a smaller boost. Once empty, it's gone. Drafts that join add up what each has left.
 - **The boost:** a spell leaving a draft gets a one-time boost of +1 move for each cell of the draft's height, used right away.
 - **Drafts meeting:** the bigger draft consumes the smaller, and the smaller pushes it one row past its own tip, in the smaller's direction. Two drafts of equal size destroy each other.
 

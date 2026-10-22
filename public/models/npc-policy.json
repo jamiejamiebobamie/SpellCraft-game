@@ -1,6 +1,6 @@
 {
-  "model": "quickcast-20261021-0819-9705be9.zip",
-  "rulesCommit": "9705be9",
+  "model": "quickcast-20261022-1700-035f548.zip",
+  "rulesCommit": "035f548",
   "observationSize": 342,
   "numActions": 181,
   "evaluation": {
@@ -8,35 +8,35 @@
     "loss": 0,
     "draw": 0,
     "winRate": 1.0,
-    "meanReward": 2.6842500000000005,
+    "meanReward": 2.9884991676425017,
     "combosPerGame": {
       "agent": {
-        "reflectedEnemySpells": 1.445,
-        "selfHeals": 2.54,
-        "reflectedOwnSpells": 0.56,
-        "reflectedByEnemy": 5.74,
-        "liftsByOwnGyres": 10.05,
-        "ownSpellsLiftedByEnemyGyres": 2.865,
-        "ownSpellsLiftedSafely": 1.775,
-        "ownSpellsThroughOwnGyres": 0.17,
-        "enemySpellsLiftedOffBoard": 8.665,
-        "buffsFromEnemySpells": 8.08,
-        "buffsFromOwnSpells": 3.99,
-        "empoweredByEther": 9.025
+        "reflectedEnemySpells": 3.54,
+        "selfHeals": 0.75,
+        "reflectedOwnSpells": 0.39,
+        "reflectedByEnemy": 6.385,
+        "liftsByOwnGyres": 3.935,
+        "ownSpellsLiftedByEnemyGyres": 2.385,
+        "ownSpellsLiftedSafely": 1.43,
+        "ownSpellsThroughOwnGyres": 0.08,
+        "enemySpellsLiftedOffBoard": 1.885,
+        "buffsFromEnemySpells": 10.84,
+        "buffsFromOwnSpells": 7.275,
+        "empoweredByEther": 13.285
       },
       "opponent": {
-        "reflectedEnemySpells": 5.74,
-        "selfHeals": 0.04,
-        "reflectedOwnSpells": 0.29,
-        "reflectedByEnemy": 1.445,
-        "liftsByOwnGyres": 3.37,
-        "ownSpellsLiftedByEnemyGyres": 9.51,
-        "ownSpellsLiftedSafely": 0.555,
-        "ownSpellsThroughOwnGyres": 0.235,
-        "enemySpellsLiftedOffBoard": 1.08,
-        "buffsFromEnemySpells": 0.495,
-        "buffsFromOwnSpells": 0.685,
-        "empoweredByEther": 0.58
+        "reflectedEnemySpells": 6.385,
+        "selfHeals": 0.03,
+        "reflectedOwnSpells": 0.8,
+        "reflectedByEnemy": 3.54,
+        "liftsByOwnGyres": 2.915,
+        "ownSpellsLiftedByEnemyGyres": 3.575,
+        "ownSpellsLiftedSafely": 1.625,
+        "ownSpellsThroughOwnGyres": 0.255,
+        "enemySpellsLiftedOffBoard": 0.91,
+        "buffsFromEnemySpells": 0.655,
+        "buffsFromOwnSpells": 1.145,
+        "empoweredByEther": 1.105
       }
     }
   }

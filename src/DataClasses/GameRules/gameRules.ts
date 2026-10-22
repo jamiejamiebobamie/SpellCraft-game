@@ -185,19 +185,32 @@ export const createPlacedSpells = (SpellType: SpellClass, rects: Array<CellRect>
 
 // --- Game over ---------------------------------------------------------------------------------
 
-/** Turns until sunrise: one 5-minute clock tick per turn, from midnight to 6 AM. */
-export const SUNRISE_TURNS = 12 * 6;
-const CAUGHT_WEIGHT = 0.5;
+/** Turns until sunrise: each turn is 20 minutes (GameClock), from midnight to 6 AM. (5 minutes, 72 turns, was tried) */
+export const SUNRISE_TURNS = 3 * 6;
 
 /**
- * Time's up when it's past sunrise, or (from about 5:30 AM) when the teacher randomly catches you.
+ * A teacher may catch them at the end of any turn from `firstTurn` (the "Night Is Passing" tip shows the
+ * turn before): `chanceStep` that turn, then `chanceStep` more each turn (1%, 2%, 3%...), and surely
+ * at sunrise. (At 1% a step: about 1 in 7 matches caught by turn 10, 1 in 3 by turn 14.)
+ */
+export const CAUGHT_RULES = { firstTurn: 6, chanceStep: 0.01 };
+
+/**
+ * Time's up (at the end of turn `turnsElapsed`): a teacher catches them (CAUGHT_RULES), or it's sunrise.
  * `random` returns a number in [0, 1).
  */
 export const getIsTimeUp = (turnsElapsed: number, random: () => number): boolean => {
-  const caughtChance = random() * (0.5 - 0.45) + 0.45 + CAUGHT_WEIGHT;
-  const isCaught = turnsElapsed / SUNRISE_TURNS > caughtChance;
-  const isPastSunrise = turnsElapsed >= SUNRISE_TURNS;
-  return isCaught || isPastSunrise;
+  if (turnsElapsed >= SUNRISE_TURNS) return true;
+  if (turnsElapsed < CAUGHT_RULES.firstTurn) return false;
+  const chance = CAUGHT_RULES.chanceStep * (turnsElapsed - CAUGHT_RULES.firstTurn + 1);
+  return random() < chance;
+};
+
+/** Who a teacher catches: the weaker wizard (less health), who can't get away; both, if they're even. */
+export const getCaughtGameOver = (player: Player, npc: Player): GameOver => {
+  if (player.getHealth() < npc.getHealth()) return GameOverStatus.CaughtPlayer;
+  if (npc.getHealth() < player.getHealth()) return GameOverStatus.CaughtNpc;
+  return GameOverStatus.TimesUp;
 };
 
 /** Game over from deaths: `player` is the player's wizard (left), `npc` the NPC's (right). */

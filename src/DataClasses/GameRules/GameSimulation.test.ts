@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { GameOverStatus, CellIndex } from '../types';
-import { SUNRISE_TURNS, getFocusCost } from './gameRules';
+import { CAUGHT_RULES, SUNRISE_TURNS, getCaughtGameOver, getFocusCost, getIsTimeUp } from './gameRules';
+import { Player } from '../Player/Player';
 import { Ether } from '../PlacedSpells/Spell';
 import { CASTING_RULES, PLAYER_RULES } from '../PlacedSpells/spellRules';
 import { GameBoard } from '../GameBoard/GameBoard';
@@ -95,6 +96,25 @@ describe('turns', () => {
     while (sim.gameOver === null) sim.endTurn();
     expect(sim.gameOver).toBe(GameOverStatus.TimesUp);
     expect(sim.turnsElapsed).toBe(SUNRISE_TURNS);
+  });
+
+  it('a teacher may catch them from CAUGHT_RULES.firstTurn, likelier each turn, and surely at sunrise', () => {
+    const { firstTurn, chanceStep } = CAUGHT_RULES;
+    expect(getIsTimeUp(firstTurn - 1, () => 0)).toBe(false); // (never before)
+    expect(getIsTimeUp(firstTurn, () => chanceStep - 1e-9)).toBe(true);
+    expect(getIsTimeUp(firstTurn, () => chanceStep)).toBe(false);
+    expect(getIsTimeUp(firstTurn + 4, () => chanceStep * 5 - 1e-9)).toBe(true); // 5% four turns on
+    expect(getIsTimeUp(SUNRISE_TURNS, () => 0.999)).toBe(true);
+  });
+
+  it('a teacher catches the weaker wizard (both, if even)', () => {
+    const player = new Player(1, ''), npc = new Player(-1, '');
+    player.reset(); npc.reset();
+    expect(getCaughtGameOver(player, npc)).toBe(GameOverStatus.TimesUp);
+    player.healthAmt -= 10;
+    expect(getCaughtGameOver(player, npc)).toBe(GameOverStatus.CaughtPlayer);
+    npc.healthAmt -= 20;
+    expect(getCaughtGameOver(player, npc)).toBe(GameOverStatus.CaughtNpc);
   });
 
   it('a player who dies ends the game', () => {

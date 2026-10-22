@@ -530,11 +530,11 @@ export const drawModalDetails = (
             stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
         },
         'GyreUp': {
-            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per\n   cell of its height, that turn.",
+            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
         },
         'GyreDown': {
-            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per\n   cell of its height, that turn.",
+            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up.",
             stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
         }
     };

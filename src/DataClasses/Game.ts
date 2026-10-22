@@ -15,11 +15,11 @@ import { GameClock } from './GameClock/GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer, NPC_TURN_ORDER, NPC_WAITING_TIP } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver } from './types';
 import { proxy } from 'valtio';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
-import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement } from './GameRules/gameRules';
+import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES } from './GameRules/gameRules';
 import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
@@ -216,10 +216,11 @@ export class Game {
   }
 
   checkIfIsGameOverFromTime = (): void => {
-    // One clock tick (5 minutes) per turn
+    // One clock tick (20 minutes) per turn; a teacher catches the weaker wizard (getCaughtGameOver)
     const turnsElapsed = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
-    if (getIsTimeUp(turnsElapsed, Math.random)) {
-      this.gameOver = GameOverStatus.TimesUp
+    const [humanPlayer, npcPlayer] = this.players.getPlayers();
+    if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, Math.random)) {
+      this.gameOver = getCaughtGameOver(humanPlayer, npcPlayer);
       this.forceUpdate();
     }
   }
@@ -304,7 +305,7 @@ export class Game {
   static readonly END_TURN_TIP_AT = 2 / 3;
 
   /** After this many turns (5 minutes each, from midnight), the "night is passing" tip. */
-  static readonly NIGHT_PASSING_TIP_TURN = 6;
+  static readonly NIGHT_PASSING_TIP_TURN = CAUGHT_RULES.firstTurn - 1; // (the turn before a teacher may catch them)
 
   /** Tips a cast closes (the player has done, or moved past, what they describe). */
   private static readonly TIPS_CLOSED_BY_CASTING: Array<TipId> = ['casting', 'spellBook', 'focus', 'spellSize', 'bloodMagic'];

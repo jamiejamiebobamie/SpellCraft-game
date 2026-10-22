@@ -83,7 +83,7 @@ export const LIGHT_TIPS: Record<TipId, { title: string; text: string; anchor: Ti
     },
     nightPassing: {
         title: "The Night Is Passing",
-        text: "Each turn brings sunrise five minutes closer. After 5:30, a teacher may catch you, and by 6 AM you'll surely be caught.",
+        text: "Each turn brings sunrise twenty minutes closer. From now on, a teacher may catch you at the end of any turn, which is more likely as dawn nears. By 6 AM, you'll surely be caught. Only the weaker wizard is caught: the other gets away.",
         anchor: ANCHORS.clock,
     },
     // A reminder (Game): shown when the opponent has waited a while for you to cast first
