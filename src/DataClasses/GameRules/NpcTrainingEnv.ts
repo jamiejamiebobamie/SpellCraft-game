@@ -279,7 +279,7 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
  * (0: off): a nudge toward using all its spells. Updraft and Downdraft count as the same spell here
  * (only here). (For scale: a point of damage is 0.01, a win 1.)
  */
-export const REPEAT_PENALTY = { window: 3, penalty: 0.03 };
+export const REPEAT_PENALTY = { window: 2, penalty: 0.03 }; // (window 3 was tried: with the drafts as one spell, only 4 kinds, it left as few as one cast free of it)
 
 /** The spell a cast counts as for REPEAT_PENALTY: an Updraft and a Downdraft are one. */
 const getRepeatKind = (spellName: SpellName): string => spellName === 'GyreDown' ? 'GyreUp' : spellName;
