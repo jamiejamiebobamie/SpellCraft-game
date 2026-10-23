@@ -188,7 +188,7 @@ const LoaderComponent = () => {
     const bootScreen = document.getElementById('boot-screen');
     if (!isPriorityAssetsLoaded || !isLogoSpellsReady || !bootScreen) return;
     bootScreen.classList.add('boot-screen--done');
-    const removeTimeout = setTimeout(() => bootScreen.remove(), 1000);
+    const removeTimeout = setTimeout(() => bootScreen.remove(), 1600); // (its fade through black: index.html)
     return () => clearTimeout(removeTimeout);
   }, [isPriorityAssetsLoaded, isLogoSpellsReady]);
 

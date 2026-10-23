@@ -133,6 +133,8 @@ flowchart LR
 
 ## How it was made
 
+SpellCraft grew out of an earlier attempt. I first built the drawing recognizer into a real-time wizard game in Unreal Engine 5, where you moved your character and drew spells at the same time. Play-testing the prototype showed the problem: steering a character while drawing a symbol was hard, and it wasn't satisfying. So SpellCraft takes the other route. It's turn-based and the wizards stay put, so drawing is the whole action and the challenge is choosing the right spell. ([The UE5 prototype](https://www.youtube.com/watch?v=8JAdOxDtx_I), unedited footage.)
+
 SpellCraft is my own project: I designed it, made its art and built it over about three months. Along the way I used AI coding assistants ([Claude Code](https://claude.com/claude-code) and Gemini) as part of my workflow, for implementation support, refactoring, testing and tooling. The game's design, art and direction are my own.
 
 ## Running locally

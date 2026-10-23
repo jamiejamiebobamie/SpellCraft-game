@@ -89,7 +89,13 @@ export const Damageable = styled.div<{
   width: 100%;
   height: 100%;
   transform-origin: bottom center;
-  ${props => !props.$isDoneWithIntroWalk ? css`
+  /* Before the walk begins: waiting offstage in the dark, with no animation yet (a paused one could
+     still run on Safari, so the wizards arrived before the walk) */
+  ${props => !props.$isDoneWithIntroWalk && !props.$isBeginIntroWalk ? css`
+    transform: translateX(calc(var(--walk-direction, 1) * -100vw));
+    filter: brightness(.1);
+  ` : !props.$isDoneWithIntroWalk ? css`
+    will-change: transform, filter;
     animation: ${walkIn} ${INTRO_WALK_ANIM_TIME}s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
   ` : props.$isDead ? css`
     animation: ${fallAndSquash} 3s cubic-bezier(0.32, 0, 0.67, 0) forwards;

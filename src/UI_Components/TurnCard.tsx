@@ -39,6 +39,8 @@ export default function TurnCard() {
   const snap = useSnapshot(rootGameStore);
   const card = snap.getTurnCard();
   if (!card || snap.getGameOver() !== null) return null;
+  // (not over the Spell Book or the keyboard controls)
+  if (snap.getIsSpellBookOpen() || snap.getIsKeyboardControlsShown()) return null;
   // (keyed by the turn, so each turn's card plays afresh)
   return <Card key={card.id}>{card.isPlayerFirst ? TURN_CARD.yourMove : TURN_CARD.theirMove}</Card>;
 }

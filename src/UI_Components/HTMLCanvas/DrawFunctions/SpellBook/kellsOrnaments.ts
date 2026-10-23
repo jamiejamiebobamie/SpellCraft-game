@@ -245,12 +245,21 @@ export const drawIlluminatedCapital = (ctx: CanvasRenderingContext2D, letter: st
 
 /** The quill hand of the notes scribbled in the margins (QuillHand, in index.css). */
 const QUILL_FONT = "'QuillHand', cursive";
-/** Loads the quill font ahead of time (a canvas only draws with a font once it's loaded). */
-let isQuillFontRequested = false;
+/**
+ * Loads the quill font ahead of time (a canvas only draws with a font once it's loaded). Ready once its
+ * load has finished, or once the browser says so: asked about the face alone, as Safari can go on
+ * answering no for a list ending in a generic family ('cursive'), and the notes never showed.
+ */
+let quillFontState: 'unrequested' | 'loading' | 'ready' = 'unrequested';
 export const getIsQuillFontReady = (): boolean => {
   if (typeof document === 'undefined' || !document.fonts) return false;
-  if (!isQuillFontRequested) { isQuillFontRequested = true; document.fonts.load(`20px ${QUILL_FONT}`).catch(() => { }); }
-  return document.fonts.check(`20px ${QUILL_FONT}`);
+  if (quillFontState === 'ready') return true;
+  if (quillFontState === 'unrequested') {
+    quillFontState = 'loading';
+    document.fonts.load("20px 'QuillHand'").then(faces => { if (faces.length > 0) quillFontState = 'ready'; }).catch(() => { });
+  }
+  if (document.fonts.check("20px 'QuillHand'")) quillFontState = 'ready';
+  return quillFontState === 'ready';
 };
 
 /**

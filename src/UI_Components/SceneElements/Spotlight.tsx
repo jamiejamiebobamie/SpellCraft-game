@@ -56,10 +56,9 @@ export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithInt
   pointer-events: none;
 
   /* Optional: gives it that 90s projection-booth breathing vibe */
-  ${props => props.$isDoneWithIntroWalk ? css`animation: ${lightShimmer} 6s ease-in-out infinite;` : css`animation: ${fadeIn} ${INTRO_WALK_ANIM_TIME}s ease-in forwards;`}
-
-  animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
+  /* (before the walk begins: off, with no animation yet, as a paused one could still run on Safari) */
+  ${props => props.$isDoneWithIntroWalk ? css`animation: ${lightShimmer} 6s ease-in-out infinite;` : props.$isBeginIntroWalk ? css`animation: ${fadeIn} ${INTRO_WALK_ANIM_TIME}s ease-in forwards;` : ''}
 
   transition: opacity 3s, filter ${SPOTLIGHT_TURN.seconds}s ease-in-out;
-  opacity: ${props => props.$isDead ? 0 : 1};  
+  opacity: ${props => props.$isDead || (!props.$isBeginIntroWalk && !props.$isDoneWithIntroWalk) ? 0 : 1};
 `;

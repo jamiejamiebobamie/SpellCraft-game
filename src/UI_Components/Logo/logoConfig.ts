@@ -142,9 +142,10 @@ export const LOGO_CONFIG = {
     //   fine for soft shapes); cropMargin: room kept around its first frame, for its particles
     // drawMilliPerFrame: how long each frame may spend drawing the stills (they're drawn a little at a
     // time, so the page never pauses); hiddenDrawMilliPerFrame: the same while the logo is still hidden
-    // behind the boot screen, which waits for them (its spinner turns smoothly regardless)
+    // behind the boot screen, which waits for them (its spinner turns smoothly regardless);
+    // fadeInSeconds: how long they take to fade in once first drawn (if after the logo shows: not a pop)
     still: {
-      isOn: true, atSeconds: 2, warmUpSeconds: 1, drawMilliPerFrame: 8, hiddenDrawMilliPerFrame: 40,
+      isOn: true, atSeconds: 2, warmUpSeconds: 1, drawMilliPerFrame: 8, hiddenDrawMilliPerFrame: 40, fadeInSeconds: 1,
       pulse: { amount: 0.5, seconds: 1.6 },
       motion: {
         // two whips of its flames (251 ms each: it repeats exactly), centered on its core's glow peaking

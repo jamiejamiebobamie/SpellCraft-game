@@ -327,7 +327,7 @@ const getHoverHintGlyphs = (ctx: CanvasRenderingContext2D, viewW: number): { gly
     const dpr = ctx.getTransform().a || 1; // the canvas' scale (device pixels per drawing unit)
     const fontSize = viewW * 0.03;
     const font = `bold ${fontSize}px 'EnchantedLand', sans-serif`;
-    const key = `${fontSize.toFixed(2)}@${dpr}:${document.fonts.check(font)}`;
+    const key = `${fontSize.toFixed(2)}@${dpr}:${document.fonts.check(`20px 'EnchantedLand'`)}`; // (the face alone: see getIsQuillFontReady)
     if (hoverHintGlyphs?.key === key) return hoverHintGlyphs;
     const lineWidth = viewW * HOVER_HINT_OUTLINE;
     const pad = Math.ceil(lineWidth);

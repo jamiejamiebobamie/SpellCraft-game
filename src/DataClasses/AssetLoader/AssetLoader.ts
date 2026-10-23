@@ -43,9 +43,10 @@ export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFon
 
 /**
  * The logo's spells (their flipbooks) are drawn behind the boot screen, which waits for them; at most
- * this long (ms, from the priority batch arriving), so the landing page always shows.
+ * this long (ms, from the priority batch arriving), so the landing page always shows. (6000 was too
+ * short for an iPad, where they then popped in; if they're still late, they fade in: drawLogoSpells.)
  */
-const LOGO_SPELLS_WAIT_MILLI = 6000;
+const LOGO_SPELLS_WAIT_MILLI = 15000;
 
 /**
  * The least time "Loading..." shows before the Play button, even if everything loads sooner. 0: none

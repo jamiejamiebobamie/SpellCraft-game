@@ -50,6 +50,7 @@ export class LogoSpellsRenderer {
   private nextStills: { stills: Map<string, Still>; frame: LogoFrame } | null = null; // (being drawn)
   private drawingStills: Generator<void> | null = null; // (drawing them, a step at a time)
   private isReadyTold = false;
+  private firstShownAt: number | null = null; // (when the stills were first there to show: they fade in from then)
   private onReady?: () => void;
   isShown: boolean;
 
@@ -164,7 +165,10 @@ export class LogoSpellsRenderer {
         this.tellReady();
       }
     }
-    const { pulse, motion } = LOGO_CONFIG.spells.still;
+    const { pulse, motion, fadeInSeconds } = LOGO_CONFIG.spells.still;
+    // The spells fade in once their stills are first there (late, on a slow device: rather than pop in)
+    if (this.stills.size > 0 && this.firstShownAt === null) this.firstShownAt = time;
+    const fadeIn = this.firstShownAt === null ? 0 : Math.min(1, (time - this.firstShownAt) / Math.max(1, fadeInSeconds * 1000));
     const spellNames = LOGO_CONFIG.spells.list.map(s => s.spellName);
     const seconds = time / 1000;
     // Stills drawn for an earlier size are scaled to this one (about the logo's origin) until replaced
@@ -176,6 +180,7 @@ export class LogoSpellsRenderer {
       // (a flipbook: its frames in turn, looping)
       const shown = still && still.frames[Math.floor(seconds / still.frameSeconds) % still.frames.length];
       ctx.save();
+      ctx.globalAlpha = fadeIn;
       ctx.setTransform(resize, 0, 0, resize, frame.origin.x - drawnFor.origin.x * resize, frame.origin.y - drawnFor.origin.y * resize);
       if (shown && layer === 'symbol') ctx.drawImage(shown.image, shown.rect.x, shown.rect.y, shown.rect.w, shown.rect.h);
       if (still && shown && layer === 'spell') {
@@ -223,7 +228,7 @@ export class LogoSpellsRenderer {
         if (pulse.amount > 0) {
           // The pulse: the spell drawn over itself, adding light
           ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = pulse.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / pulse.seconds + phase)));
+          ctx.globalAlpha = fadeIn * pulse.amount * (0.5 - 0.5 * Math.cos(2 * Math.PI * (seconds / pulse.seconds + phase)));
           ctx.drawImage(shown.image, shown.rect.x, shown.rect.y, shown.rect.w, shown.rect.h);
         }
         ctx.restore();
@@ -247,6 +252,7 @@ export class LogoSpellsRenderer {
       this.drawDust(scratchCtx, state, dt);
       this.applyFade(scratchCtx, spell, layer, corners, frame, rect);
       ctx.save();
+      ctx.globalAlpha = fadeIn;
       ctx.translate(rect.x, rect.y);
       this.composite(ctx, spell, layer, rect);
       ctx.restore();

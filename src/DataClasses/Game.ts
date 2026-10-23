@@ -26,6 +26,7 @@ import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOve
 import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
+import { trackEvent } from '../analytics';
 
 /*
 
@@ -82,9 +83,10 @@ export class Game {
     this.gameClock = proxy(new GameClock(this.endTurn.bind(this)));
     // The turn clock holds still while the welcome story is open; while a tip card is showing (so a
     // beginner has time to read it, and it isn't swept away by the turn ending); while the Spell Book
-    // is open (so a player who'd rather not be timed can take their time); and once the game is over
+    // is open or the keyboard controls are showing (so a player who'd rather not be timed can take their
+    // time); and once the game is over
     this.gameClock.getIsHeld = () => this.gameOver !== null || this.isRivalDisconnected || this.isRivalFleeing ||
-      (!this.getIsMultiplayer() && (this.tooltipManager.active || this.tooltipManager.lightTips.length > 0 || this.getIsSpellBookOpen()));
+      (!this.getIsMultiplayer() && (this.tooltipManager.active || this.tooltipManager.lightTips.length > 0 || this.getIsSpellBookOpen() || this.getIsKeyboardControlsShown()));
     // Two thirds of the way through a turn's time, the first time: the tip on ending your turn (and the
     // seconds hand), in case the player hasn't cast yet (which usually brings it up)
     this.gameClock.onTick = (fraction: number) => {
@@ -100,6 +102,25 @@ export class Game {
   startGame(): void {
     this.isPlaying = true;
     this.startBackgroundMusic();
+    trackEvent('duel-chosen', { mode: this.getAnalyticsMode() });
+  }
+
+  // SITE METRICS (analytics.ts): each game's length and result - - - - - - - - - - - - - - - - - - - - - - - -
+  private matchBegunAt: number | null = null;
+  private getAnalyticsMode(): string { return this.matchMode === 'single' ? '1 player' : this.matchMode === 'host' ? '2 players (host)' : '2 players (guest)'; }
+  /** A match begins (the intro walk over, or a rematch): its length is counted from now. */
+  noteMatchBegun(): void { this.matchBegunAt = performance.now(); }
+  /** The game is over: its length (from the match beginning), turns, result and mode. */
+  reportGameOver(): void {
+    if (this.gameOver === null || this.matchBegunAt === null) return;
+    const result = Object.entries(GameOverStatus).find(([, value]) => value === this.gameOver)?.[0] ?? 'unknown';
+    trackEvent('game-over', {
+      mode: this.getAnalyticsMode(),
+      seconds: Math.round((performance.now() - this.matchBegunAt) / 1000),
+      turns: this.getTurnIndex(),
+      result,
+    });
+    this.matchBegunAt = null; // (once per game)
   }
 
   // MULTIPLAYER (a 2-player match, over a MultiplayerSession) - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -540,6 +561,7 @@ export class Game {
     this.matchNumber++;
     this.turnToken++; // (anything the NPC had pending from the last match does nothing)
     this.stopNpcWaiting();
+    this.noteMatchBegun();
     if (this.getIsMultiplayer()) window.setTimeout(this.noteMatchReady.bind(this), 800); // (the first turn once both are ready)
     else this.startNpcTurn(3000);
   }

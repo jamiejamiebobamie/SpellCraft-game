@@ -6,10 +6,15 @@ import styled, { keyframes } from 'styled-components';
 /**
  * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
  * overlapping like 👥) or 'silhouettes' (wizards drawn in the game's gold, the same on every device).
+ * titlePlace: the title 'above' the choices, or 'below' them (clear of the clock's halo, behind the top).
+ * choiceScale: the choices' size (1: as first made, 21cqw wide); titleSize: the title's (cqw; was 4.4).
  */
 export const MODE_SELECT = {
   iconStyle: 'silhouettes' as 'users' | 'wizards' | 'silhouettes',
   title: 'Choose Your Duel',
+  titlePlace: 'below' as 'above' | 'below',
+  choiceScale: 1.25,
+  titleSize: 5.8,
   fadeInSeconds: 0.6,
 };
 
@@ -33,26 +38,26 @@ const Screen = styled.div`
 
 const Title = styled.div`
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 4.4cqw;
+  font-size: ${MODE_SELECT.titleSize}cqw;
   color: #e6c563;
   text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
 `;
 
 const Choices = styled.div`
   display: flex;
-  gap: 4cqw;
+  gap: ${4 * MODE_SELECT.choiceScale}cqw;
 `;
 
 const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8';
 
 const Choice = styled.button`
-  width: 21cqw;
+  width: ${21 * MODE_SELECT.choiceScale}cqw;
   aspect-ratio: 1 / 1.08;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.6cqw;
+  gap: ${1.6 * MODE_SELECT.choiceScale}cqw;
   background: rgba(20, 16, 10, 0.55);
   border: 0.22cqw solid rgba(230, 197, 99, 0.55);
   border-radius: 1.2cqw;
@@ -62,7 +67,7 @@ const Choice = styled.button`
   transition: border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s, background 0.2s;
 
   .icon {
-    height: 9cqw;
+    height: ${9 * MODE_SELECT.choiceScale}cqw;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -71,7 +76,7 @@ const Choice = styled.button`
   }
   .label {
     font-family: 'EnchantedLand', sans-serif;
-    font-size: 3.4cqw;
+    font-size: ${3.4 * MODE_SELECT.choiceScale}cqw;
     line-height: 1;
   }
 
@@ -122,7 +127,7 @@ const ModeIcon = ({ players }: { players: 1 | 2 }) => {
   }
   // (a second, smaller wizard behind and to the right, a little faded: one group, as in 👥)
   return (
-    <svg viewBox="0 0 80 66" style={{ height: '9cqw', overflow: 'visible' }} aria-hidden="true">
+    <svg viewBox="0 0 80 66" style={{ height: `${9 * MODE_SELECT.choiceScale}cqw`, overflow: 'visible' }} aria-hidden="true">
       {players === 1
         ? <WizardSilhouette x={7} />
         : <><WizardSilhouette x={24} y={2} scale={0.88} opacity={0.6} /><WizardSilhouette x={-2} y={2} /></>}
@@ -135,7 +140,7 @@ type ModeSelectProps = { onSinglePlayer: () => void; onTwoPlayers: () => void };
 export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: ModeSelectProps) {
   return (
     <Screen>
-      <Title>{MODE_SELECT.title}</Title>
+      {MODE_SELECT.titlePlace === 'above' && <Title>{MODE_SELECT.title}</Title>}
       <Choices>
         {/* (2 Players on the left, 1 Player on the right) */}
         <Choice onClick={onTwoPlayers}>
@@ -147,6 +152,7 @@ export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: Mo
           <span className="label">1 Player</span>
         </Choice>
       </Choices>
+      {MODE_SELECT.titlePlace === 'below' && <Title>{MODE_SELECT.title}</Title>}
     </Screen>
   );
 }

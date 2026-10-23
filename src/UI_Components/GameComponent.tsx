@@ -70,6 +70,7 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
     background-size: cover;
     background-position: center;
     transition: filter ${INTRO_WALK_ANIM_TIME}s;
+    will-change: filter; /* (its own layer from the start: made mid-intro, as its filter began to change, it could show black for a frame) */
     filter: brightness(${props => props.$backgroundSceneBrightness * (props.$backgroundSceneBrightness > rootGameStore.LOW_BRIGHTNESS ? BACKGROUND_IMAGE_BRIGHTNESS.lit : BACKGROUND_IMAGE_BRIGHTNESS.dark)});
     z-index: -1;
   }
@@ -96,6 +97,10 @@ export const GameComponent = () => {
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const isLoreDone = snap.getIsLoreDone();
+  const gameOver = snap.getGameOver();
+
+  // (the site metrics: each game's length and result, once it's over)
+  useEffect(() => { if (gameOver !== null) rootGameStore.reportGameOver(); }, [gameOver]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -107,6 +112,7 @@ export const GameComponent = () => {
         rootGameStore.beginIntro();
       } else {
         // BEGIN MATCH!
+        rootGameStore.noteMatchBegun();
         rootGameStore.triggerTips(['casting', 'spellBook']); // one after the other
         rootGameStore.doClickClockFlash();
         if (rootGameStore.getIsMultiplayer()) rootGameStore.noteMatchReady(); // (the first turn once both are ready)

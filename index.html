@@ -36,9 +36,13 @@
         padding-bottom: 8vh; /* a little above center, like the game */
         background: #000;
         pointer-events: none;
-        transition: opacity 0.8s ease-out;
+        /* Done: a fade through black (its title and spinner fade first, then the black, revealing the
+           landing page); LoaderComponent removes it once it's gone */
+        transition: opacity 1s ease-out 0.5s;
       }
       #boot-screen.boot-screen--done { opacity: 0; }
+      #boot-screen > * { transition: opacity 0.5s ease-in; }
+      #boot-screen.boot-screen--done > * { opacity: 0 !important; }
       #boot-screen .boot-title {
         font-family: 'SpellCraftTitle', serif;
         font-size: min(13vw, 20vh);

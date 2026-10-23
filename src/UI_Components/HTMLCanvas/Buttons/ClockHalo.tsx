@@ -122,6 +122,7 @@ const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean; $isClo
   pointer-events: none;
   mix-blend-mode: screen; /* lightens what's beneath instead of covering it */
   filter: brightness(${props => props.$brightness});
+  will-change: filter; /* (its own layer from the start: made mid-intro, as its filter began to change, it could show black for a frame) */
   transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
   ${CLOCK_HALO.pulseSeconds > 0 && css`animation: ${pulse} ${CLOCK_HALO.pulseSeconds}s ease-in-out infinite;`}
   animation-play-state: ${props => props.$isFrozen || props.$isClosed ? 'paused' : 'running'};
