@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+﻿import React, { useRef, useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { rootGameStore } from '../../DataClasses/store';
@@ -19,7 +19,7 @@ import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
 import { drawClockAdvanceSymbols } from './DrawFunctions/ClockSymbols/ClockSymbolFunctions';
 import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
 import { useSnapshot } from 'valtio';
-import { pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails, prewarmSpellBookPage } from './DrawFunctions/SpellBook/SpellBookFunctions';
+import { availableSymbols, pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails, prewarmSpellBookPage } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
 import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
 
@@ -56,6 +56,12 @@ interface NpcDrawTracker {
 
 /** A spell striking a wizard: how long its flight off the board takes (seconds). */
 const STRIKE = { seconds: 0.32 };
+
+/**
+ * The Spell Book's pages drawn once, out of sight, on this canvas after loading (see isPageWarmUpDueRef):
+ * each spell's, at each of its preview's three sizes, shown and fading (the preview's sizeCycleTime 2, 0.5).
+ */
+const WARM_UP_PAGES = availableSymbols.flatMap(symbol => [0, 1, 2].flatMap(sizeIdx => [2, 0.5].map(sizeCycleTime => ({ spellName: symbol.spellName, sizeIdx, sizeCycleTime }))));
 
 type Strike = {
   spell: any; spellClass: string; w: number; h: number; dir: number; side: 'left' | 'right';
@@ -179,9 +185,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   }, []);
 
   // The Spell Book's pages drawn ahead of time, once the browser is idle after loading (so opening it
-  // the first time doesn't pause the canvas), then one drawn on this canvas too, at the start of a frame
-  // (cleared at once, so never seen): a canvas' first page costs a little more, wherever the rest was
+  // the first time doesn't pause the canvas), then each drawn on this canvas too, one a frame at the start
+  // of a frame (cleared at once, so never seen): the first time a page is drawn on this canvas, the
+  // graphics card prepares for it (up to ~0.2 s), wherever it was drawn before
   const isPageWarmUpDueRef = useRef(false);
+  const pagesWarmedRef = useRef(0);
   useEffect(() => {
     const prewarm = () => {
       const canvas = canvasRef.current;
@@ -204,9 +212,14 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       const viewW = canvas.width / (window.devicePixelRatio || 1);
       const viewH = canvas.height / (window.devicePixelRatio || 1);
       if (isPageWarmUpDueRef.current) {
-        isPageWarmUpDueRef.current = false;
-        const ui = { hoveredSpellName: 'Ether', sizeCycleTime: 2, currentSizeIdx: 0 } as unknown as CanvasScrollUI;
+        // (each spell's page, one a frame)
+        const { spellName, sizeIdx, sizeCycleTime } = WARM_UP_PAGES[pagesWarmedRef.current++];
+        if (pagesWarmedRef.current >= WARM_UP_PAGES.length) isPageWarmUpDueRef.current = false;
+        const ui = { hoveredSpellName: spellName, sizeCycleTime, currentSizeIdx: sizeIdx } as unknown as CanvasScrollUI;
         drawModalDetails(ctx, ui, 0, viewW, viewH, new Map(), currentTime); // (cleared just below)
+        // (read back, so it's really drawn: the browser holds a canvas' drawing back until it's needed,
+        // and a clear before then drops it unseen, the graphics card never preparing for it)
+        ctx.getImageData(0, 0, 1, 1);
       }
       ctx.clearRect(0, 0, viewW, viewH);
 

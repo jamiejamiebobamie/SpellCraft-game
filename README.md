@@ -4,6 +4,8 @@
 
 You're a member of a masked wizard fight club. After curfew, you sneak out of bed for a duel in the school's halls. Draw spell symbols to cast them; your spells travel across the board, collide, combine and interact with your opponent's. Bring their health to zero before sunrise or the faculty are sure to catch you.
 
+Duel a trained AI, or send a friend a link and duel them, browser to browser.
+
 ### [▶ Play it: spellcraft-game.netlify.app](https://spellcraft-game.netlify.app/)
 
 <p align="center">
@@ -22,6 +24,15 @@ You're a member of a masked wizard fight club. After curfew, you sneak out of be
 - **Survive until sunrise.** Each turn is twenty minutes of game time, from midnight to 6 AM. From the end of the sixth turn, a teacher may catch you at the end of any turn (1% at first, 1% likelier each turn), and surely at 6 AM. The teacher catches the weaker wizard, the one with less health: the other gets away and wins.
 
 Mouse, keyboard or a mix of both all work; the keyboard controls are in the game's settings.
+
+### Playing a friend
+
+- **Invite:** after Play, choose **2 Players** and send the invite link (copy it or share it). Your friend opens it and presses **Join**; you press **Begin**. You can begin first and wait in the hall for them.
+- **The duel:** each of you sees your own wizard on the left. The first move alternates every turn, and each part of a turn lasts 15 seconds.
+- **Live drawings:** you see your rival's drawings as they cast. Only duel people you trust. A setting (✍️) hides them; their casts then appear as plain symbols.
+- **Reactions:** in place of the difficulty mask, **React** opens a tray of eight emoji. The one you pick shows over your wizard on both screens, one every two seconds at most.
+- **Rematches and drop-outs:** a rematch starts once you both agree. If a connection drops, the game waits up to a minute for your rival to come back; after that they've fled, and you win.
+- The **2 Players** choice only appears when the matchmaking service can be reached.
 
 ## Game design
 
@@ -63,6 +74,8 @@ Because spells pass their power on, combos emerge naturally: a Fireball fed into
 
 The movement rules are defined from one player's side and mirrored for the other. That covers the order spells resolve in, how sized spells break apart, and how rounding falls. The tests check that mirrored boards play out as exact mirror images: 1,000 random boards and 200 full games.
 
+Two-player duels rely on the same determinism. Each browser runs the engine itself, mirrored, and after every turn the two compare a fingerprint of their boards; a duel that falls out of step ends ("Out of Step"). The teacher's catch is rolled from a seed both share, so both see the same result.
+
 ### The opponent
 
 - **A trained AI:** the NPC is a reinforcement-learning agent (see below) that won all 200 of its evaluation games against scripted and random opponents. It learned with the turn order alternating, as in the game: on the turns it moves second, it sees your casts before answering.
@@ -79,6 +92,10 @@ The movement rules are defined from one player's side and mirrored for the other
   - the headless simulation is wrapped as a [Gymnasium](https://gymnasium.farama.org/) environment through a Node bridge;
   - it's trained with MaskablePPO ([Stable-Baselines3](https://sb3-contrib.readthedocs.io/)), which never picks illegal moves, against a mix of scripted and random opponents;
   - it's exported to ONNX and runs in the browser.
+- **Peer-to-peer multiplayer:**
+  - browsers connect directly over WebRTC data channels ([PeerJS](https://peerjs.com/)), with no game server of their own;
+  - only casts (and the strokes of live drawings) are sent; each browser plays them out with its own engine;
+  - heartbeats spot a dropped connection, the guest reconnects on its own, and messages are held until they're delivered.
 - **Procedural visuals:** spells, particles, the animated loading-screen logo (two duelists locked in a struggle, solved with two-bone inverse kinematics) and the clock's halo are all drawn in code on canvas, SVG and CSS.
 - **Fast first load:**
   - a boot screen embedded in the HTML, with a title font cut down to 5 KB, shows on the first paint;
@@ -94,6 +111,7 @@ flowchart LR
     Game --> Drawing[Drawing recognizer, ONNX]
     Game --> NPC[NPC brain, ONNX]
   end
+  Game <-->|"casts (PeerJS, WebRTC)"| Rival[A rival's browser]
   subgraph Training
     Sim[Headless simulation] --> Engine
     Bridge[Node bridge] --> Sim
@@ -108,6 +126,7 @@ flowchart LR
 | | |
 |---|---|
 | **Game** | React 19, TypeScript, Vite, styled-components, valtio |
+| **Multiplayer** | PeerJS (WebRTC) |
 | **Machine learning** | ONNX Runtime Web; Python, PyTorch, Gymnasium, Stable-Baselines3 (sb3-contrib) |
 | **Testing and tooling** | Vitest, Oxlint, Rolldown (the training bridge), Pillow (asset scripts) |
 | **Hosting** | Netlify |

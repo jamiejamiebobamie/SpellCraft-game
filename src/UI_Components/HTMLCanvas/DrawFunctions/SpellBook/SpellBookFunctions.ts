@@ -7,7 +7,7 @@ import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
-import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote, prewarmQuillFont } from './kellsOrnaments';
+import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote, getIsQuillFontReady, prewarmQuillFont } from './kellsOrnaments';
 
 /**
  * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
@@ -33,6 +33,20 @@ const displayNameLookup = new Map<string, string>([
 ]);
 
 export const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
+
+/** A '#rrggbb' color at `brightness` (as the CSS filter brightness() would make it), remembered. */
+const dimmedColors = new Map<string, string>();
+const dimColor = (hex: string, brightness: number): string => {
+    const key = hex + brightness;
+    let dimmed = dimmedColors.get(key);
+    if (!dimmed) {
+        const value = parseInt(hex.slice(1), 16);
+        const channel = (shift: number) => Math.round(((value >> shift) & 255) * brightness);
+        dimmed = `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+        dimmedColors.set(key, dimmed);
+    }
+    return dimmed;
+};
 
 export const availableSymbols = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => ({
     inferenceString,
@@ -190,7 +204,9 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
         ctx.save();
         ctx.translate(symbolX, symbolY);
         ctx.scale(hoverScale, hoverScale);
-        if (brightnessMod < 1.0) ctx.filter = `brightness(${brightnessMod})`;
+        // (dimmed by darkening its colors, not with a canvas filter: a filter costs the graphics card a pass
+        // per drawing, and a pause the first time)
+        const tint = (color: string) => brightnessMod < 1.0 ? dimColor(color, brightnessMod) : color;
         if (symbol.points.length > 0) {
             let pts = symbol.points; let segments: number[] = []; let totalLen = 0;
             for (let k = 0; k < pts.length - 1; k++) {
@@ -205,8 +221,8 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
             ctx.rotate((Math.random() - 0.5) * 0.01);
             ctx.lineWidth = glyphBoundsDiameter * 0.035;
             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#f7cb44';
-            ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = '#e8dfb9';
+            ctx.strokeStyle = tint('#f7cb44');
+            ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = tint('#e8dfb9');
             ctx.beginPath();
             if (pts.length > 0 && pts[0]) {
                 ctx.moveTo(pts[0].x * glyphBoundsDiameter, pts[0].y * glyphBoundsDiameter);
@@ -264,7 +280,7 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
                 if (!part) continue;
                 part.x += part.vx; part.y += part.vy; part.vy += 0.01; part.alpha -= part.decay;
                 if (part.alpha <= 0) { state.particles.splice(q, 1); continue; }
-                ctx.save(); ctx.globalAlpha = part.alpha; ctx.fillStyle = part.color;
+                ctx.save(); ctx.globalAlpha = part.alpha; ctx.fillStyle = tint(part.color);
                 if (part.isStar) draw4PointStar(ctx, part.x, part.y, part.size * 2, part.size * 0.5);
                 else { ctx.beginPath(); ctx.arc(part.x, part.y, part.size, 0, Math.PI * 2); ctx.fill(); }
                 ctx.restore();
@@ -493,6 +509,34 @@ export const prewarmSpellBookPage = (viewW: number, viewH: number, dpr: number, 
     drawNext(0);
 };
 
+/**
+ * The Spell Book pages' still parts, one image per spell (for the current size and pixel ratio): `draw`
+ * draws them, in the view's units, the first time (and again once the fonts they use have loaded).
+ */
+const stillPages = new Map<string, HTMLCanvasElement>();
+let stillPagesSize = '';
+
+/** Draws the page (x, y, w, h, with `pad` of room around it) from its cached image, `draw` drawing it the first time. */
+const drawStillPage = (ctx: CanvasRenderingContext2D, key: string, x: number, y: number, w: number, h: number, pad: number, draw: (page: CanvasRenderingContext2D) => void): void => {
+    const dpr = ctx.getTransform().a || 1; // the canvas' scale (device pixels per drawing unit)
+    const size = `${Math.round(w)}x${Math.round(h)}@${dpr}`;
+    if (size !== stillPagesSize) { stillPages.clear(); stillPagesSize = size; } // (resized: the old ones freed)
+    const isFontsReady = getIsQuillFontReady() && document.fonts.check(`20px 'EnchantedLand'`);
+    const fullKey = `${key}:${isFontsReady}`;
+    let canvas = stillPages.get(fullKey);
+    if (!canvas) {
+        stillPages.delete(`${key}:false`);
+        canvas = document.createElement('canvas');
+        canvas.width = Math.ceil((w + pad * 2) * dpr);
+        canvas.height = Math.ceil((h + pad * 2) * dpr);
+        const page = canvas.getContext('2d')!;
+        page.setTransform(dpr, 0, 0, dpr, (pad - x) * dpr, (pad - y) * dpr);
+        draw(page);
+        stillPages.set(fullKey, canvas);
+    }
+    ctx.drawImage(canvas, x - pad, y - pad, w + pad * 2, h + pad * 2);
+};
+
 export const drawModalDetails = (
     ctx: CanvasRenderingContext2D,
     ui: CanvasScrollUI,
@@ -546,79 +590,97 @@ export const drawModalDetails = (
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.fillRect(0, 0, viewW, viewH);
-    // The page (Book of Kells): mottled vellum in a band of interlaced knotwork, triskeles at the corners
-    // (drawn once per size, then reused: see drawKellsPage)
-    drawKellsPage(ctx, infoX, infoY, infoW, infoH, viewW * 0.02, viewW * 0.006);
-    const firstLetter = displayTitle.charAt(0);
-    const restOfTitle = displayTitle.slice(1);
     const padLeft = infoW * 0.07;
     const padTop = infoH * 0.12;
     const titleX = infoX + padLeft;
     const titleY = infoY + padTop;
-    // The title: an illuminated capital (Book of Kells), then the rest of the name in ink
-    const accentColors: Record<string, string> = { Ether: '#e65c00', Quicken: '#00b3ff', Phlegm: '#1a936f', GyreUp: '#9a9a9a', GyreDown: '#9a9a9a' };
-    const capitalPanelW = drawIlluminatedCapital(ctx, firstLetter, titleX, titleY - viewW * 0.012, viewW * 0.068, accentColors[currentTargetKey] || KELLS.vermilion, "'EnchantedLand', sans-serif");
-    ctx.save();
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = KELLS.ink;
-    ctx.font = `bold ${viewW * 0.046}px 'EnchantedLand', sans-serif`;
-    ctx.fillText(restOfTitle, titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.012);
-    // A vermilion rule under the name
-    const restW = ctx.measureText(restOfTitle).width;
-    ctx.strokeStyle = KELLS.vermilion;
-    ctx.lineWidth = viewW * 0.002;
-    ctx.beginPath();
-    ctx.moveTo(titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.062);
-    ctx.lineTo(titleX + capitalPanelW + viewW * 0.012 + restW, titleY + viewW * 0.062);
-    ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = KELLS.ink;
-    let currentTextY = titleY + (viewW * 0.095);
-    const lineHeight = viewW * 0.037;
-    const linesArray = targetData.desc.split('\n');
-    linesArray.forEach((lineText) => {
-        if (lineText.includes("Note: Spells pushed off the board are destroyed.")) {
-            ctx.font = `500 ${viewW * 0.023}px 'EnchantedLand', sans-serif`;
-        } else {
-            ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
-        }
-        ctx.fillText(lineText, titleX + (viewW * 0.02), currentTextY);
-        currentTextY += lineHeight;
-    });
-    ctx.restore();
-    // ctx.save();
-    // ctx.textAlign = 'right';
-    // ctx.textBaseline = 'bottom';
-    // ctx.fillStyle = '#5c3317';
-    // ctx.font = `bold ${viewW * 0.022}px 'EnchantedLand', sans-serif`;
-    // const statsY = (infoY + infoH) - padTop;
-    // ctx.fillText(targetData.stats, padRight, statsY);
-    // ctx.restore();
     const gridBoxW = infoW * 0.32;
     const rightGridX = infoX + infoW * 0.6;
     const rightGridY = titleY + (viewW * 0.03);
-    ctx.save();
-    ctx.translate(rightGridX, rightGridY);
-    // ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-    ctx.fillStyle = '#443b1c67';//'rgba(0, 0, 0, 0.37)';
-    ctx.fillRect(0, 0, gridBoxW, gridBoxW);
-    // Framed like a miniature: an ink rule ringed with red dots
-    ctx.strokeStyle = KELLS.ink;
-    ctx.lineWidth = viewW * 0.002;
-    ctx.strokeRect(0, 0, gridBoxW, gridBoxW);
-    drawDotContour(ctx, -viewW * 0.006, -viewW * 0.006, gridBoxW + viewW * 0.012, gridBoxW + viewW * 0.012, viewW * 0.006, viewW * 0.0016);
     const gridCellsCount = 3;
     const cellSz = gridBoxW / gridCellsCount;
-    ctx.strokeStyle = 'rgba(74, 50, 24, 0.15)';
-    ctx.lineWidth = 1;
-    for (let r = 0; r <= gridCellsCount; r++) {
-        ctx.beginPath(); ctx.moveTo(0, r * cellSz); ctx.lineTo(gridBoxW, r * cellSz); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(r * cellSz, 0); ctx.lineTo(r * cellSz, gridBoxW); ctx.stroke();
-    }
+    // Everything on the page that holds still (the page, its lettering, the preview's frame and the margin
+    // note) is drawn once per spell and reused: drawn afresh each frame, it cost most of the frame
+    drawStillPage(ctx, `${currentTargetKey}:${viewW}x${viewH}`, infoX, infoY, infoW, infoH, Math.max(viewW * 0.03, 30), ctx => {
+        // The page (Book of Kells): mottled vellum in a band of interlaced knotwork, triskeles at the corners
+        drawKellsPage(ctx, infoX, infoY, infoW, infoH, viewW * 0.02, viewW * 0.006);
+        const firstLetter = displayTitle.charAt(0);
+        const restOfTitle = displayTitle.slice(1);
+        // The title: an illuminated capital (Book of Kells), then the rest of the name in ink
+        const accentColors: Record<string, string> = { Ether: '#e65c00', Quicken: '#00b3ff', Phlegm: '#1a936f', GyreUp: '#9a9a9a', GyreDown: '#9a9a9a' };
+        const capitalPanelW = drawIlluminatedCapital(ctx, firstLetter, titleX, titleY - viewW * 0.012, viewW * 0.068, accentColors[currentTargetKey] || KELLS.vermilion, "'EnchantedLand', sans-serif");
+        ctx.save();
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = KELLS.ink;
+        ctx.font = `bold ${viewW * 0.046}px 'EnchantedLand', sans-serif`;
+        ctx.fillText(restOfTitle, titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.012);
+        // A vermilion rule under the name
+        const restW = ctx.measureText(restOfTitle).width;
+        ctx.strokeStyle = KELLS.vermilion;
+        ctx.lineWidth = viewW * 0.002;
+        ctx.beginPath();
+        ctx.moveTo(titleX + capitalPanelW + viewW * 0.012, titleY + viewW * 0.062);
+        ctx.lineTo(titleX + capitalPanelW + viewW * 0.012 + restW, titleY + viewW * 0.062);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = KELLS.ink;
+        let currentTextY = titleY + (viewW * 0.095);
+        const lineHeight = viewW * 0.037;
+        const linesArray = targetData.desc.split('\n');
+        linesArray.forEach((lineText) => {
+            if (lineText.includes("Note: Spells pushed off the board are destroyed.")) {
+                ctx.font = `500 ${viewW * 0.023}px 'EnchantedLand', sans-serif`;
+            } else {
+                ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
+            }
+            ctx.fillText(lineText, titleX + (viewW * 0.02), currentTextY);
+            currentTextY += lineHeight;
+        });
+        ctx.restore();
+        // ctx.save();
+        // ctx.textAlign = 'right';
+        // ctx.textBaseline = 'bottom';
+        // ctx.fillStyle = '#5c3317';
+        // ctx.font = `bold ${viewW * 0.022}px 'EnchantedLand', sans-serif`;
+        // const statsY = (infoY + infoH) - padTop;
+        // ctx.fillText(targetData.stats, padRight, statsY);
+        // ctx.restore();
+        ctx.save();
+        ctx.translate(rightGridX, rightGridY);
+        // ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillStyle = '#443b1c67';//'rgba(0, 0, 0, 0.37)';
+        ctx.fillRect(0, 0, gridBoxW, gridBoxW);
+        // Framed like a miniature: an ink rule ringed with red dots
+        ctx.strokeStyle = KELLS.ink;
+        ctx.lineWidth = viewW * 0.002;
+        ctx.strokeRect(0, 0, gridBoxW, gridBoxW);
+        drawDotContour(ctx, -viewW * 0.006, -viewW * 0.006, gridBoxW + viewW * 0.012, gridBoxW + viewW * 0.012, viewW * 0.006, viewW * 0.0016);
+        ctx.strokeStyle = 'rgba(74, 50, 24, 0.15)';
+        ctx.lineWidth = 1;
+        for (let r = 0; r <= gridCellsCount; r++) {
+            ctx.beginPath(); ctx.moveTo(0, r * cellSz); ctx.lineTo(gridBoxW, r * cellSz); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(r * cellSz, 0); ctx.lineTo(r * cellSz, gridBoxW); ctx.stroke();
+        }
+        ctx.restore();
+        // A note in the margin, below the preview
+        const marginNote = MARGIN_NOTES[currentTargetKey];
+        if (marginNote?.place === 'gap') {
+            // between the description and the preview, level with the description's second-to-last line
+            // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
+            const lineCount = targetData.desc.split('\n').length;
+            const noteY = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
+            const nudge = marginNote.nudge ?? { x: 0, y: 0 };
+            drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535 + viewW * nudge.x, noteY + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+        } else if (marginNote) {
+            drawMarginNote(ctx, marginNote.text, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+        }
+    });
+    ctx.save();
+    ctx.translate(rightGridX, rightGridY);
     let targetWidgetCenterX = 0;
     let targetWidgetCenterY = 0;
     let currentActiveGridCol = 0;
@@ -697,18 +759,6 @@ export const drawModalDetails = (
             currentActiveGridCol,
             activeFadeAlpha
         );
-    }
-    // A note in the margin, below the preview
-    const marginNote = MARGIN_NOTES[currentTargetKey];
-    if (marginNote?.place === 'gap') {
-        // between the description and the preview, level with the description's second-to-last line
-        // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
-        const lineCount = targetData.desc.split('\n').length;
-        const noteY = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
-        const nudge = marginNote.nudge ?? { x: 0, y: 0 };
-        drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535 + viewW * nudge.x, noteY + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
-    } else if (marginNote) {
-        drawMarginNote(ctx, marginNote.text, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, marginNote.tilt * Math.PI / 180);
     }
     ctx.restore();
 }  

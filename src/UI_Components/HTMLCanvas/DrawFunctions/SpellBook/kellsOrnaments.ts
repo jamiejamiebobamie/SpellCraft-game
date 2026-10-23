@@ -247,7 +247,7 @@ export const drawIlluminatedCapital = (ctx: CanvasRenderingContext2D, letter: st
 const QUILL_FONT = "'QuillHand', cursive";
 /** Loads the quill font ahead of time (a canvas only draws with a font once it's loaded). */
 let isQuillFontRequested = false;
-const getIsQuillFontReady = (): boolean => {
+export const getIsQuillFontReady = (): boolean => {
   if (typeof document === 'undefined' || !document.fonts) return false;
   if (!isQuillFontRequested) { isQuillFontRequested = true; document.fonts.load(`20px ${QUILL_FONT}`).catch(() => { }); }
   return document.fonts.check(`20px ${QUILL_FONT}`);

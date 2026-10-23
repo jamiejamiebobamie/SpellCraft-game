@@ -40,10 +40,6 @@ const ModalContent = styled.div`
   overflow: hidden; /* Hard guarantee that scrollbars never appear */
 `;
 
-// const StyledHeader = styled.h2`
-//   font-family: 'EnchantedLand', sans-serif;
-// `;
-
 const TextColumn = styled.div`
   flex: 1;
   display: flex;
@@ -62,7 +58,7 @@ const TextColumn = styled.div`
 
   p {
     margin: 0 0 1cqw 0;
-    font-size: 1.3cqw;
+    font-size: 1.4cqw;
     line-height: 1.5;
     color: #e0e0e0;
     font-family: sans-serif;
@@ -78,7 +74,7 @@ const MediaColumn = styled.div`
     max-width: 25cqw;
     max-height: 25cqw;
     border-radius: 0.4cqw;
-    border: 0.1cqw solid #333;
+    border: 0;//0.1cqw solid #333;
     object-fit: contain;
   }
 `;

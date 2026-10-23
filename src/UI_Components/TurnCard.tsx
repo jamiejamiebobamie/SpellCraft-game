@@ -98,11 +98,15 @@ const WaitingCard = styled.div`
   animation: ${waitPulse} 2.2s ease-in-out infinite;
 `;
 
-/** A 2-player match waiting for the rival: to join (the host), or to begin (getRivalWaitingText). */
+/**
+ * A 2-player match waiting for the rival: to join (the host), or to begin (getRivalWaitingText). Hidden
+ * while the Spell Book or the keyboard controls are open (it would sit over them).
+ */
 export function RivalWaitingCard() {
   const snap = useSnapshot(rootGameStore);
   const text = snap.getRivalWaitingText();
   if (!text || !snap.getHumanPlayer()?.getIsDoneWithIntroWalk()) return null;
+  if (snap.getIsSpellBookOpen() || snap.getIsKeyboardControlsShown()) return null;
   return <WaitingCard>{text}</WaitingCard>;
 }
 
