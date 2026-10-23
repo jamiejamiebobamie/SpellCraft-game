@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { GameClock } from '../../DataClasses/GameClock/GameClock';
+import { getDawnLight } from '../../DataClasses/GameRules/gameRules';
 import { rootGameStore } from '../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
@@ -26,6 +27,12 @@ const breathe = keyframes`
   }
 `;
 
+/**
+ * The windows' dawn: its light follows the chance of a teacher's catch (getDawnLight), easing in over
+ * `seconds` each turn; the stars fade out as it grows, from `starsFadeFrom` to `starsGoneAt` (its light).
+ */
+export const DAWN = { seconds: 4, starsFadeFrom: 0.12, starsGoneAt: 0.7 };
+
 const SkyContainer = styled.div<{ $interpAmt: number; $index: number }>`
   position: absolute;
   left: ${props => props.$index * 26.5 + 5.5}cqw;
@@ -38,36 +45,27 @@ const SkyContainer = styled.div<{ $interpAmt: number; $index: number }>`
     As $interpAmt approaches 1, the night colors blend seamlessly into 
     soft, glowing morning tones (soft warm cream horizon shifting up into deep sky blues).
   */
-  background: ${props => {
-        const t = props.$interpAmt;
-
-        // Smoothly blend the base deep center colors
-        // Midnight base: #2b1f4d  ->  Dawn base: #fff4d4 (bright horizon glow)
-        // Midnight mid:  #110d26  ->  Dawn mid:  #6ba4ff (vibrant blue)
-        // Midnight outer:#05040a  ->  Dawn outer:#3a62be (deep dawn sky top)
-
-        // We mix hex channels programmatically or leverage a dual composition layer using CSS variables:
-        return `
-      linear-gradient(
-        to top,
-        rgba(255, 244, 212, ${t}) 0%,
-        rgba(107, 164, 255, ${t}) 50%,
-        rgba(58, 98, 190, ${t}) 100%
-      ),
-      radial-gradient(
-        circle at 50% 100%, 
-        #2b1f4d 0%, 
-        #110d26 60%, 
-        #05040a 100%
-      )
-    `;
-    }};
-  
-  /* Use standard CSS background blend mode to layer dawn over your existing night gradient setup */
-  background-blend-mode: normal;
+  /* The night sky: midnight blue, darker toward the top */
+  background: radial-gradient(circle at 50% 100%, #2b1f4d 0%, #110d26 60%, #05040a 100%);
   overflow: hidden;
   z-index: -2;
+
+  /* The dawn over it (a warm cream horizon rising into blue), its own layer so each turn's brightening
+     eases in (a gradient's colors can't) */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, #fff4d4 0%, #6ba4ff 50%, #3a62be 100%);
+    opacity: ${props => props.$interpAmt};
+    transition: opacity ${DAWN.seconds}s ease-in-out;
+    pointer-events: none;
+  }
 `;
+
+/** A star's opacity as the dawn grows (DAWN). */
+const getStarOpacity = (dawnLight: number): number =>
+  Math.max(0, Math.min(1, 1 - (dawnLight - DAWN.starsFadeFrom) / (DAWN.starsGoneAt - DAWN.starsFadeFrom)));
 
 type StarProps = {
     $top: string;
@@ -86,8 +84,8 @@ const StyledFlareStar = styled.svg.attrs<StarProps>(props => ({
         height: props.$size,
         animationDelay: props.$delay,
         animationDuration: props.$duration,
-        // Stars begin fading past 4:30 AM (\(interpAmt = 0.75) and disappear by 5:30 AM (\)interpAmt = 0.92)
-        opacity: Math.max(0, 1 - Math.max(0, (props.$skyBrightness - 0.75) / 0.17)),
+        // Fading out as the dawn grows (DAWN.starsFadeFrom to starsGoneAt)
+        opacity: getStarOpacity(props.$skyBrightness),
     },
 })) <StarProps>`
   position: absolute;
@@ -107,7 +105,7 @@ const StyledGlowStar = styled.div.attrs<StarProps>(props => ({
         animationDelay: props.$delay,
         animationDuration: props.$duration,
         // Mirrors the flare star atmospheric fade properties
-        opacity: Math.max(0, 1 - Math.max(0, (props.$skyBrightness - 0.75) / 0.17)),
+        opacity: getStarOpacity(props.$skyBrightness),
     },
 })) <StarProps>`
   position: absolute;
@@ -119,18 +117,11 @@ const StyledGlowStar = styled.div.attrs<StarProps>(props => ({
   transition: opacity 0.3s ease;
 `;
 
-const getDawnBrightness = (x: number): number => {
-  // If it's before 4:30 AM, keep the sky completely dark (0% morning overlay)
-  if (x < 0.75) return 0;
-  
-  // From 4:30 AM (0.75) to 6:00 AM (1.00), scale linearly from 0.0 to 1.0
-  return (x - 0.75) / 0.25;
-};
 
 const StarrySkyComponent = ({ index }: { index: number }) => {
     const snap = useSnapshot(rootGameStore);
     const minuteAngleAcc = snap.getMinuteAngleAcc();
-    const interpAmt = getDawnBrightness(minuteAngleAcc / GameClock.MAX_MINUTE_INCREMENT_ANGLE);
+    const interpAmt = getDawnLight(Math.round(minuteAngleAcc / GameClock.MINUTE_INCREMENT_ANGLE));
 
     const starList = useMemo(() => {
         return Array.from({ length: 20 }).map((_, i) => ({

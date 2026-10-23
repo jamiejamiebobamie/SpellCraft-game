@@ -41,7 +41,7 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
     isPlayAgainOwnLine: true,
   },
   [GameOverStatus.CaughtPlayer]: {
-    title: 'Teacher!',
+    title: 'You Lost', // (caught: the rival got away, so they won)
     text: 'Too weary to flee, you were caught by a teacher. Your rival slipped away into the dark.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
@@ -59,7 +59,7 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
     isPlayAgainOwnLine: true,
   },
   [GameOverStatus.CaughtNpc]: {
-    title: 'Teacher!',
+    title: 'You Won', // (the rival was caught: you got away)
     text: 'A teacher caught your rival, too weary to flee. You slipped away into the dark.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,

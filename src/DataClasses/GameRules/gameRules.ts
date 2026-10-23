@@ -190,10 +190,27 @@ export const SUNRISE_TURNS = 3 * 6;
 
 /**
  * A teacher may catch them at the end of any turn from `firstTurn` (the "Night Is Passing" tip shows the
- * turn before): `chanceStep` that turn, then `chanceStep` more each turn (1%, 2%, 3%...), and surely
- * at sunrise. (At 1% a step: about 1 in 7 matches caught by turn 10, 1 in 3 by turn 14.)
+ * turn before): `chanceStep` that turn, then `chanceStep` more each turn (4%, 8%, 12%...), and surely
+ * at sunrise. From turn 12: from first light (the turn ending at 4 AM, as a summer dawn begins), so the
+ * sky's light tells of the danger (getDawnLight). (At 4% a step: about 1 in 3 matches still going at
+ * 4 AM caught by 5 AM, 3 in 5 before sunrise. Was from turn 6, at 1% a step.)
  */
-export const CAUGHT_RULES = { firstTurn: 6, chanceStep: 0.01 };
+export const CAUGHT_RULES = { firstTurn: 12, chanceStep: 0.04 };
+
+/** The chance a teacher catches them at the end of turn `turn` (1: sunrise). */
+export const getCaughtChance = (turn: number): number =>
+  turn >= SUNRISE_TURNS ? 1 : turn < CAUGHT_RULES.firstTurn ? 0 : Math.min(1, CAUGHT_RULES.chanceStep * (turn - CAUGHT_RULES.firstTurn + 1));
+
+/**
+ * The dawn's light during the turn after `turnsElapsed` (0: night, 1: full day): the chance a teacher
+ * has caught them by that turn's end, so the brightening sky tells of the danger. Dark until first light,
+ * faint then, brightening faster through the last hour; full for the last turn (sunrise is certain).
+ */
+export const getDawnLight = (turnsElapsed: number): number => {
+  let isFree = 1;
+  for (let turn = CAUGHT_RULES.firstTurn; turn <= turnsElapsed + 1; turn++) isFree *= 1 - getCaughtChance(turn);
+  return 1 - isFree;
+};
 
 /**
  * Time's up (at the end of turn `turnsElapsed`): a teacher catches them (CAUGHT_RULES), or it's sunrise.
@@ -202,8 +219,7 @@ export const CAUGHT_RULES = { firstTurn: 6, chanceStep: 0.01 };
 export const getIsTimeUp = (turnsElapsed: number, random: () => number): boolean => {
   if (turnsElapsed >= SUNRISE_TURNS) return true;
   if (turnsElapsed < CAUGHT_RULES.firstTurn) return false;
-  const chance = CAUGHT_RULES.chanceStep * (turnsElapsed - CAUGHT_RULES.firstTurn + 1);
-  return random() < chance;
+  return random() < getCaughtChance(turnsElapsed);
 };
 
 /**
