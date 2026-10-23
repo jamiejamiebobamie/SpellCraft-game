@@ -312,6 +312,51 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
 
 /** "Hover for more info": its outline's thickness, as a fraction of the game's width. */
 const HOVER_HINT_OUTLINE = 0.0035;
+const HOVER_HINT = "Hover for more info";
+
+/**
+ * "Hover for more info", one image per letter (a thin dark outline under solid gold, so it reads
+ * against the wall and the scroll), drawn once per size and reused: drawn as outlined text letter by
+ * letter each frame, it cost about a tenth of every second while the Spell Book was open. (Drawn
+ * again once the font has loaded, in case it hadn't the first time.)
+ */
+type HoverHintGlyph = { char: string; image: HTMLCanvasElement | null; width: number; height: number };
+let hoverHintGlyphs: { key: string; glyphs: Array<HoverHintGlyph>; pad: number } | null = null;
+
+const getHoverHintGlyphs = (ctx: CanvasRenderingContext2D, viewW: number): { glyphs: Array<HoverHintGlyph>; pad: number } => {
+    const dpr = ctx.getTransform().a || 1; // the canvas' scale (device pixels per drawing unit)
+    const fontSize = viewW * 0.03;
+    const font = `bold ${fontSize}px 'EnchantedLand', sans-serif`;
+    const key = `${fontSize.toFixed(2)}@${dpr}:${document.fonts.check(font)}`;
+    if (hoverHintGlyphs?.key === key) return hoverHintGlyphs;
+    const lineWidth = viewW * HOVER_HINT_OUTLINE;
+    const pad = Math.ceil(lineWidth);
+    const height = fontSize * 1.4;
+    ctx.save();
+    ctx.font = font;
+    const glyphs = [...HOVER_HINT].map(char => {
+        const width = ctx.measureText(char).width;
+        if (char === ' ') return { char, image: null, width, height };
+        const image = document.createElement('canvas');
+        image.width = Math.ceil((width + pad * 2) * dpr);
+        image.height = Math.ceil((height + pad * 2) * dpr);
+        const g = image.getContext('2d')!;
+        g.setTransform(dpr, 0, 0, dpr, pad * dpr, pad * dpr);
+        g.font = font;
+        g.textBaseline = 'top';
+        g.textAlign = 'left';
+        g.lineJoin = 'round';
+        g.lineWidth = lineWidth;
+        g.strokeStyle = 'rgba(45, 30, 10, 0.95)';
+        g.strokeText(char, 0, 0);
+        g.fillStyle = '#f7d774'; // (was #f0c24de2, slightly see-through)
+        g.fillText(char, 0, 0);
+        return { char, image, width, height };
+    });
+    ctx.restore();
+    hoverHintGlyphs = { key, glyphs, pad };
+    return hoverHintGlyphs;
+};
 
 const drawSinusoidalFloatingMessage = (
     ctx: CanvasRenderingContext2D,
@@ -322,27 +367,17 @@ const drawSinusoidalFloatingMessage = (
     currentTime: number,
     activeTrayAlpha: number
 ) => {
-    const message = "Hover for more info";
     ctx.save();
     ctx.globalAlpha = activeTrayAlpha;
-    ctx.font = `bold ${viewW * 0.03}px 'EnchantedLand', sans-serif`;
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
     const verticalSpacing = viewW * 0.005;
     let runningX = startX + viewW * 0.02;
     const textSparklePool = ui.floatingTextSparkles;
-    for (let i = 0; i < message.length; i++) {
-        const char = message[i];
-        const charW = ctx.measureText(char).width;
+    const { glyphs, pad } = getHoverHintGlyphs(ctx, viewW);
+    for (let i = 0; i < glyphs.length; i++) {
+        const { char, image, width: charW, height } = glyphs[i];
         const waveCharY = bottomY + (Math.cos(runningX * 0.04 + currentTime * 0.003) * 2.2);
         const targetCharY = waveCharY + verticalSpacing;
-        // A thin dark outline under solid gold, so it reads against the wall and the scroll
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = viewW * HOVER_HINT_OUTLINE;
-        ctx.strokeStyle = 'rgba(45, 30, 10, 0.95)';
-        ctx.strokeText(char, runningX, targetCharY);
-        ctx.fillStyle = '#f7d774'; // (was #f0c24de2, slightly see-through)
-        ctx.fillText(char, runningX, targetCharY);
+        if (image) ctx.drawImage(image, runningX - pad, targetCharY - pad, charW + pad * 2, height + pad * 2);
         if (char !== ' ' && Math.random() < 0.015 && textSparklePool.length < 60) {
             textSparklePool.push({
                 x: runningX + Math.random() * charW,
