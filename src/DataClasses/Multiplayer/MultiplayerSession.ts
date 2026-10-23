@@ -18,7 +18,11 @@ export type MatchMessage =
   | { type: 'rematch' } // the sender wants to play again (a new match starts once both do)
   | { type: 'leave' } // the sender has left the match
   // A cast, on the sender's side of the board (the receiver mirrors the columns)
-  | { type: 'cast'; turn: number; symbol: string; cells: Array<{ i: number; j: number }> }
+  | { type: 'cast'; turn: number; symbol: string; cells: Array<{ i: number; j: number }>; isDrawn?: boolean }
+  // The sender's drawing as it's drawn (points in board units: columns, rows; on the sender's side, as a
+  // cast's cells): isNew starts a new stroke. Only a picture: the casts are what count
+  | { type: 'stroke'; points: Array<[number, number]>; isNew: boolean }
+  | { type: 'strokeEnd' }
   | { type: 'endTurn'; turn: number } // the sender's part of the turn is over
   | { type: 'check'; turn: number; fingerprint: string }; // the board after the turn (both should match)
 

@@ -72,6 +72,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const drawingParticlesRef = useRef<DustParticle[]>([]);
   // The damage and healing numbers, in screen space: not tied to their spell (which may fly off the board or be removed)
   const floatingNumbersRef = useRef<any[]>([]);
+  const rivalStrokeLengthRef = useRef(0); // (the rival's drawing's length last frame: sparkles as it grows)
   // Spells striking a wizard: flying off the board into them, their hit effects on arrival (STRIKE).
   // Kept apart from the board's spells, so a flight finishes even once the spell is gone from the board
   const strikesRef = useRef<Array<Strike>>([]);
@@ -401,6 +402,27 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.save(); ctx.lineWidth = boardWidth * 0.0075; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#e6c56386'; ctx.shadowBlur = boardWidth * 0.05; ctx.shadowColor = '#fffadd'; ctx.beginPath(); ctx.moveTo(currentRawPoints[0].x - rect.left, currentRawPoints[0].y - rect.top);
           for (let i = 1; i < currentRawPoints.length; i++) { ctx.lineTo(currentRawPoints[i].x - rect.left, currentRawPoints[i].y - rect.top); }
           ctx.stroke(); ctx.restore();
+        }
+        // A 2-player rival's drawing, as it draws (mirrored onto its side), fading once it lets go
+        const rivalStroke = rootGameStore.getRivalStroke();
+        if (rivalStroke.points.length > 1) {
+          const pts = rivalStroke.points;
+          ctx.save(); ctx.globalAlpha = rivalStroke.alpha; ctx.lineWidth = boardWidth * 0.0075; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#e6c56386'; ctx.shadowBlur = boardWidth * 0.05; ctx.shadowColor = '#fffadd';
+          ctx.beginPath(); ctx.moveTo(pts[0].x - rect.left, pts[0].y - rect.top);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x - rect.left, pts[i].y - rect.top);
+          ctx.stroke(); ctx.restore();
+          // (sparkles at its tip while it grows)
+          if (rivalStroke.alpha >= 1 && pts.length !== rivalStrokeLengthRef.current) {
+            const tip = pts[pts.length - 1];
+            for (let i = 0; i < 4; i++) {
+              drawingParticlesRef.current.push({
+                x: tip.x - rect.left + (Math.random() - 0.5) * 12, y: tip.y - rect.top + (Math.random() - 0.5) * 12,
+                size: Math.random() * 2.5 + 0.5, vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.8) * 1,
+                alpha: 1, decay: Math.random() * 0.2 + 0.015, color: pixieColors[Math.floor(Math.random() * pixieColors.length)], isStar: Math.random() > 0.6
+              });
+            }
+          }
+          rivalStrokeLengthRef.current = pts.length;
         }
         // =======================================================
         // DIRECT COGNITIVE PATH FOR NPC ABSOLUTE INFERENCE STRINGS

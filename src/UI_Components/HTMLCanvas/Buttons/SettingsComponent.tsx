@@ -145,6 +145,7 @@ const SUB_ICONS = {
   'KEYBOARD_CONTROLS': '⌨️',
   'SEE_TOOLTIPS': '👁️',
   'CANVAS_WAND': '🪄',
+  'RIVAL_DRAWINGS': '✍️',
 }
 
 const localStorageKeys = [
@@ -161,6 +162,10 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   const isToolTips = snap.getIsTooltips();
   const isDoneWithIntro = snap.getIsDoneWithIntroWalk();
   const isCanvasWand = useSnapshot(cursorSettings).isCanvasWand;
+  // (2-player: a sixth button, showing or hiding the rival's drawings)
+  const isMultiplayer = snap.getIsMultiplayer();
+  const isShowingRivalDrawings = snap.getIsShowingRivalDrawings();
+  const buttonCount = isMultiplayer ? 6 : 5;
 
   // Shown while hovered: leaving closes them after a moment, and coming back (to the gear or any
   // button) in that moment keeps them open
@@ -175,7 +180,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   // The buttons, left to right (around the gear, each with its place and swing order; or in a row)
   const isRow = SETTINGS_LAYOUT === 'row';
   const isOpen = isRow || isClicked;
-  const at = (order: number) => ({ $angle: 270 + order * 45, $order: order, $isOpen: isOpen, $rowX: isRow ? (order - 2) * ROW.spacing : null });
+  const at = (order: number) => ({ $angle: 270 + order * 45, $order: order, $isOpen: isOpen, $rowX: isRow ? (order - (buttonCount - 1) / 2) * ROW.spacing : null });
 
   useEffect(() => {
     localStorageKeys.forEach((k, i) => {
@@ -249,6 +254,16 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
         >
           {isMusicMuted ? SUB_ICONS.MUSIC_OFF : SUB_ICONS.MUSIC_ON}
         </SubIcons>
+        {isMultiplayer && (
+          <SubIcons
+            {...at(5)}
+            onMouseUp={rootGameStore.toggleRivalDrawings}
+            title={isShowingRivalDrawings ? "Hide your rival's drawings" : "Show your rival's drawings"}
+            style={{ opacity: isOpen ? (isShowingRivalDrawings ? 1 : 0.45) : 0 }}
+          >
+            {SUB_ICONS.RIVAL_DRAWINGS}
+          </SubIcons>
+        )}
       </SubIconGroup>
     </MenuAnchor >
   );

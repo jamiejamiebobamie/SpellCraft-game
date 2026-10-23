@@ -90,6 +90,15 @@ const Button = styled.button<{ $isPrimary?: boolean }>`
   &:disabled { opacity: 0.45; cursor: default; }
 `;
 
+/** A note on the invite and joining screens (the rival's drawings are seen live). */
+const Notice = styled.div`
+  font-family: sans-serif;
+  font-size: 1.1cqw;
+  font-style: italic;
+  color: #b9b2a0;
+`;
+const DRAWINGS_NOTICE = "In 2-player duels, you'll see your rival's drawings as they cast. Only duel people you trust.";
+
 const BackLink = styled.button`
   font-family: 'EnchantedLand', sans-serif;
   font-size: 1.8cqw;
@@ -170,6 +179,7 @@ export function HostMatchScreen({ onBegin, onBack }: { onBegin: (session: Multip
             ? <Status $isGood>Your rival has arrived!</Status>
             : <Status $isWaiting>{inviteUrl ? 'Waiting for your rival to open the link…' : ''}</Status>}
         <Text>You can begin now: you'll wait in the hall until they join.</Text>
+        <Notice>{DRAWINGS_NOTICE}</Notice>
         <Button $isPrimary onClick={begin} disabled={!inviteUrl || !!error}>Begin</Button>
         <BackLink onClick={onBack}>Back</BackLink>
       </Panel>
@@ -210,6 +220,7 @@ export function JoinMatchScreen({ hostId, onJoined, onPlayAlone }: { hostId: str
         {error
           ? <><Status>{error}</Status><Button onClick={onPlayAlone}>Play alone instead</Button></>
           : <Status $isWaiting>Finding your rival's hall…</Status>}
+        <Notice>{DRAWINGS_NOTICE}</Notice>
       </Panel>
     </Screen>
   );

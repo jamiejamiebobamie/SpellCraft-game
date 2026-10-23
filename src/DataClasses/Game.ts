@@ -169,6 +169,8 @@ export class Game {
       this.rivalQueue.push(message);
       this.processRivalQueue();
     }
+    if (message.type === 'stroke') this.addRivalStroke(message.points, message.isNew);
+    if (message.type === 'strokeEnd') { this.rivalStrokeEndedAt = performance.now(); }
     if (message.type === 'check') {
       this.rivalFingerprints.set(message.turn, message.fingerprint);
       this.compareFingerprints(message.turn);
@@ -308,6 +310,76 @@ export class Game {
     this.resetGame();
   };
 
+  // Live drawings (2-player): this player's strokes sent as they're drawn (in board units, a few times a
+  // second); the rival's drawn on this screen, mirrored, its wand following, fading once it lets go.
+  // Only a picture: the casts are what count. The rival's can be hidden (isShowingRivalDrawings)
+  static readonly STROKE = { sendEveryMilli: 50, fadeMilli: 900, minStepUnits: 0.02 };
+  private isShowingRivalDrawings = (() => {
+    try { return window.localStorage.getItem('quickCast-rivalDrawingsOff') !== 'true'; } catch { return true; }
+  })();
+  getIsShowingRivalDrawings = (): boolean => this.isShowingRivalDrawings;
+  toggleRivalDrawings = (): void => {
+    this.isShowingRivalDrawings = !this.isShowingRivalDrawings;
+    try { window.localStorage.setItem('quickCast-rivalDrawingsOff', JSON.stringify(!this.isShowingRivalDrawings)); } catch { /* (not remembered) */ }
+    if (!this.isShowingRivalDrawings) this.rivalStroke = [];
+    this.forceUpdate();
+  };
+  private strokeOutbox: Array<[number, number]> = [];
+  private isNewStroke = false;
+  private strokeTimer: number | undefined;
+  private lastStrokeUnits: [number, number] | null = null;
+  private rivalStroke: Array<[number, number]> = []; // (board units, mirrored to the rival's side)
+  private rivalStrokeEndedAt: number | null = null;
+
+  /** A point of this player's drawing (screen coordinates): sent, in board units, while it's this player's part of the turn. */
+  private noteLocalStrokePoint = (x: number, y: number): void => {
+    if (!this.getIsMultiplayer() || this.matchPhase !== 'local' || !this.session) return;
+    const board = this.gameBoard.getBoardRefDimensions();
+    if (!board || !board.width) return;
+    const units: [number, number] = [(x - board.left) / board.width * GameBoard.NUM_COLS, (y - board.top) / board.height * GameBoard.NUM_ROWS];
+    const last = this.lastStrokeUnits;
+    if (last && Math.hypot(units[0] - last[0], units[1] - last[1]) < Game.STROKE.minStepUnits) return;
+    this.lastStrokeUnits = units;
+    this.strokeOutbox.push([Math.round(units[0] * 1000) / 1000, Math.round(units[1] * 1000) / 1000]);
+    if (this.strokeTimer === undefined) this.strokeTimer = window.setTimeout(this.sendStroke, Game.STROKE.sendEveryMilli);
+  };
+  private sendStroke = (): void => {
+    this.strokeTimer = undefined;
+    if (!this.strokeOutbox.length) return;
+    this.session?.send({ type: 'stroke', points: this.strokeOutbox, isNew: this.isNewStroke });
+    this.strokeOutbox = [];
+    this.isNewStroke = false;
+  };
+  private endLocalStroke = (): void => {
+    if (!this.getIsMultiplayer() || !this.session) return;
+    window.clearTimeout(this.strokeTimer);
+    this.sendStroke();
+    this.session.send({ type: 'strokeEnd' });
+    this.lastStrokeUnits = null;
+  };
+
+  /** Part of the rival's drawing (board units, its side): mirrored onto this board, its wand following. */
+  private addRivalStroke = (points: Array<[number, number]>, isNew: boolean): void => {
+    if (!this.isShowingRivalDrawings || this.matchPhase !== 'rival') return;
+    if (isNew || this.rivalStrokeEndedAt !== null) { this.rivalStroke = []; this.rivalStrokeEndedAt = null; }
+    points.forEach(([column, row]) => this.rivalStroke.push([GameBoard.NUM_COLS - column, row]));
+    const tip = this.getRivalStrokeTip();
+    if (tip) this.setNpcMousePos(tip);
+  };
+
+  /** The rival's drawing in screen coordinates, and how faded it is (1: drawing; 0: gone). */
+  getRivalStroke = (): { points: Array<Point>; alpha: number } => {
+    const board = this.gameBoard.getBoardRefDimensions();
+    if (!this.rivalStroke.length || !board || !board.width) return { points: [], alpha: 0 };
+    const alpha = this.rivalStrokeEndedAt === null ? 1 : Math.max(0, 1 - (performance.now() - this.rivalStrokeEndedAt) / Game.STROKE.fadeMilli);
+    if (alpha <= 0) { this.rivalStroke = []; return { points: [], alpha: 0 }; }
+    return {
+      points: this.rivalStroke.map(([column, row]) => ({ x: board.left + column / GameBoard.NUM_COLS * board.width, y: board.top + row / GameBoard.NUM_ROWS * board.height })),
+      alpha,
+    };
+  };
+  private getRivalStrokeTip = (): Point | null => { const { points } = this.getRivalStroke(); return points[points.length - 1] ?? null; };
+
   private getTurnIndex = (): number => Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle());
   /** Whether this player may cast now: always alone; in a 2-player match, in their part of the turn. */
   getCanLocalCast = (): boolean => !this.getIsMultiplayer() || this.matchPhase === 'local';
@@ -354,9 +426,9 @@ export class Game {
   };
 
   /** This player cast a spell: sent to the rival (on this player's side of the board). */
-  private noteLocalCast = (symbol: string, cells: Array<CellIndex>): void => {
+  private noteLocalCast = (symbol: string, cells: Array<CellIndex>, isDrawn: boolean = false): void => {
     if (!this.getIsMultiplayer() || !cells.length) return;
-    this.session?.send({ type: 'cast', turn: this.getTurnIndex(), symbol, cells: cells.map(({ i, j }) => ({ i, j })) });
+    this.session?.send({ type: 'cast', turn: this.getTurnIndex(), symbol, cells: cells.map(({ i, j }) => ({ i, j })), isDrawn });
     // (out of focus: its part of the turn ends)
     const self = this.players.getHumanPlayer();
     if (self && self.getFocus() < 1) window.setTimeout(this.endLocalPhase, 600);
@@ -374,7 +446,9 @@ export class Game {
       const cells = message.cells.map(({ i, j }) => ({ i, j: GameBoard.NUM_COLS - 1 - j }));
       const next = () => { this.isRivalQueueBusy = false; this.processRivalQueue(); };
       this.isRivalQueueBusy = true;
-      if (rival.getFocus() <= 0) { this.spawnSizedSpellInstance(message.symbol, cells, rival); next(); return; }
+      // (drawn, and its drawing seen live: cast at once; else drawn by its wizard, as the NPC's are)
+      const isSeenDrawn = !!message.isDrawn && this.isShowingRivalDrawings;
+      if (rival.getFocus() <= 0 || isSeenDrawn) { this.spawnSizedSpellInstance(message.symbol, cells, rival); next(); return; }
       rival.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
         { inferenceString: message.symbol as InferenceString, cells, onCast: next });
       return;
@@ -1018,11 +1092,12 @@ export class Game {
 
 
   // SPELL CANVAS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  beginDrawing = (): void => this.spellCanvas.setIsDrawing(true);
-  endDrawing = (): void => this.spellCanvas.setIsDrawing(false);
+  beginDrawing = (): void => { this.spellCanvas.setIsDrawing(true); this.isNewStroke = true; this.lastStrokeUnits = null; };
+  endDrawing = (): void => { this.spellCanvas.setIsDrawing(false); this.endLocalStroke(); };
   getIsDrawing = (): boolean => this.spellCanvas.getIsDrawing();
   getPlayerRawPoints = (): Array<Point> => this.spellCanvas.getRawPoints();
   addRawPoint(x: number, y: number): void {
+    this.noteLocalStrokePoint(x, y); // (2-player: sent to the rival, as it's drawn)
     const nextPoint = { x, y };
     let lastPoint = undefined;
     const rawPoints = this.spellCanvas.getRawPoints();
@@ -1130,7 +1205,7 @@ export class Game {
         if (humanPlayer && spell) {
           const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
           this.spawnSizedSpellInstance(result, freePositions, humanPlayer);
-          this.noteLocalCast(result, freePositions);
+          this.noteLocalCast(result, freePositions, true);
         }
       } else {
         this.incrementDrawingOffBoard();
