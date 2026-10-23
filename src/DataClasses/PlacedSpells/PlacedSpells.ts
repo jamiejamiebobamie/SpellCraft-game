@@ -32,7 +32,7 @@ export class PlacedSpells {
    * Runs the spell-movement turn in the rules engine, then replays the resulting frames on the
    * live (rendered) spells. Returns whether any spells collided (or interacted) this turn.
    */
-  async updateSpells(gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<boolean> {
+  async updateSpells(gameBoard: GameBoard, decrementPlayerHealth: Function): Promise<boolean> {
     const { frames } = new SpellMovementEngine(this.spells).simulateTurn();
 
     // Every live spell seen during the replay, by id, so frames can update them in place
@@ -50,7 +50,6 @@ export class PlacedSpells {
 
       frame.healthEvents.forEach(e => decrementPlayerHealth(e.playerIndex, e.dmg));
       this.applyFrame(frame, liveSpells, gameBoard);
-      forceUpdate();
       const delay = PlacedSpells.FRAME_DELAY_MILLI[frame.kind];
       if (delay > 0) await new Promise(r => setTimeout(r, delay));
     }
@@ -58,13 +57,12 @@ export class PlacedSpells {
   }
 
   /** Collides a spell just cast onto an enemy spell (SpellMovementEngine.resolveCastCollisions). */
-  async resolveCastCollisions(gameBoard: GameBoard, forceUpdate: Function): Promise<void> {
+  async resolveCastCollisions(gameBoard: GameBoard): Promise<void> {
     const { frames } = new SpellMovementEngine(this.spells).resolveCastCollisions();
     const liveSpells = new Map<string, Spell>();
     indexSpellGraph(this.spells, liveSpells);
     for (const frame of frames) {
       this.applyFrame(frame, liveSpells, gameBoard);
-      forceUpdate();
       // Long enough to see the collision's effects before its results are removed
       if (frame.kind === 'step') await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI / 2));
     }

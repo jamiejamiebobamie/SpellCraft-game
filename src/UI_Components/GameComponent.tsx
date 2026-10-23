@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
@@ -15,6 +15,7 @@ import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
+import { useKeyPress } from './UseKeyPress';
 
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
 // NOTE: AI on BRUTAL kills himself often... also does similar opening move (3x3 Ether) every time...
@@ -90,7 +91,6 @@ export const GameComponent = () => {
   const gridOverlayRef = useRef<HTMLDivElement | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const [isPlayerOutOfFocus, setIsPlayerOutOfFocus] = useState<boolean>(false);
-  const [, forceUpdate] = useReducer<number, []>((x) => x + 1, 0);
   const isPlaying = snap.getIsPlaying();
   const isOutOfFocus = snap.getIsOutOfFocus();
   const backgroundSceneBrightness = snap.getBackgroundSceneBrightness();
@@ -236,11 +236,8 @@ export const GameComponent = () => {
     };
   }, []);
 
-  useEffect(() => {
-    rootGameStore.setForceUpdate(forceUpdate);
-  }, []);
-
-  rootGameStore.useGameplayKeyBindings(); // (on the store: a hook, not a read)
+  // The game's keys (Game.keyActions)
+  useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: false });
 
   useEffect(() => {
     rootGameStore.setGameBoardRef(gridOverlayRef);

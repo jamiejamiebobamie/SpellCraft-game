@@ -138,7 +138,7 @@ export class TooltipManager {
     getIsKeyboardControlsShown(): boolean { return this.isKeyboardControlsShown; }
     setIsKeyboardControlsShown(isShown: boolean): void { this.isKeyboardControlsShown = isShown; }
 
-    reset(forceUpdate: Function): void {
+    reset(): void {
         // OUT OF FOCUS
         clearTimeout(this.isOutOfFocusRef);
         this.isOutOfFocus = false;
@@ -154,7 +154,7 @@ export class TooltipManager {
         // END TURN
         clearTimeout(this.isClickClockRef);
         this.isClickClock = false;
-        this.doClickClockFlash(forceUpdate);
+        this.doClickClockFlash();
 
         // TOOLTIPS (which ones were seen carries over to the next match)
         this.closeTooltip();
@@ -312,34 +312,32 @@ export class TooltipManager {
 
     // DRAWING OFF BOARD
     getIsDrawingOffBoard(): boolean { return this.isDrawingOffBoard; }
-    incrementDrawingOffBoard(forceUpdate: Function): void {
+    incrementDrawingOffBoard(): void {
         this.drawingOffBoardCount++;
         if (this.drawingOffBoardCount > 1) {
             clearTimeout(this.drawingOffBoardRef);
             this.isDrawingOffBoard = true;
-            forceUpdate();
             this.drawingOffBoardRef = setTimeout(() => {
                 this.isDrawingOffBoard = false;
                 this.drawingOffBoardCount = 0;
-                forceUpdate();
             }, 2000);
         }
     }
 
     // OUT OF FOCUS
     getIsOutOfFocus(): boolean { return this.isOutOfFocus; }
-    doOutOfFocusFlash(forceUpdate: Function): void {
+    doOutOfFocusFlash(): void {
         clearTimeout(this.isOutOfFocusRef);
         this.isOutOfFocus = true;
-        this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; forceUpdate(); }, 3000);
+        this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; }, 3000);
     }
 
     // END TURN
     getIsClickClock(): boolean { return this.isClickClock; }
-    doClickClockFlash(forceUpdate: Function, waitTimeMilli?: number): void {
+    doClickClockFlash(waitTimeMilli?: number): void {
         clearTimeout(this.isClickClockRef);
         // After a while without ending the turn: the "Ending Your Turn" tip, as a reminder
-        this.isClickClockRef = setTimeout(() => { this.isClickClock = true; this.remindTip('endTurn'); forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
+        this.isClickClockRef = setTimeout(() => { this.isClickClock = true; this.remindTip('endTurn'); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
     }
     clearClickClockRef(): void {
         clearTimeout(this.isClickClockRef);

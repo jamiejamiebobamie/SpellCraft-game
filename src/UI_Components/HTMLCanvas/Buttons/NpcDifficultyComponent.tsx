@@ -114,7 +114,6 @@ export default function NpcDifficultyComponent({ isShowingModal }: NpcDifficulty
     if (val) {
       setIsClickedOnce(true);
       rootGameStore.setNpcDifficulty(val);
-      rootGameStore.forceUpdate();
     }
   }, [])
 

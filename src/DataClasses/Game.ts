@@ -14,7 +14,7 @@ import { GameSymbol } from './PlacedSpells/GameSymbol';
 import { GameClock } from './GameClock/GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer, NPC_TURN_ORDER, NPC_WAITING_TIP } from './Player/NpcPlayer';
-import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
+import { KeyAction } from '../UI_Components/UseKeyPress'
 import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
 import { proxy, ref } from 'valtio';
 import { TURN_CLOCK } from './GameClock/GameClock';
@@ -38,7 +38,6 @@ export class Game {
 
   // UI-SPECIFIC
   gameWrapperRef: RefObject<HTMLDivElement | null> | null = null;
-  forceUpdate: () => void = () => { };
   backgroundSceneBrightness: number = 0.1;
   readonly LOW_BRIGHTNESS: number = 0.1;
   readonly HIGH_BRIGHTNESS: number = 0.4; // 0.5
@@ -91,7 +90,6 @@ export class Game {
     this.gameClock.onTick = (fraction: number) => {
       if (fraction < Game.END_TURN_TIP_AT || !this.tooltipManager.getIsTooltips() || this.tooltipManager.seenTips.has('endTurn') || this.tooltipManager.lightTips.includes('endTurn')) return;
       this.tooltipManager.triggerTip('endTurn');
-      this.forceUpdate();
     };
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
@@ -102,7 +100,6 @@ export class Game {
   startGame(): void {
     this.isPlaying = true;
     this.startBackgroundMusic();
-    this.forceUpdate();
   }
 
   // MULTIPLAYER (a 2-player match, over a MultiplayerSession) - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -152,7 +149,6 @@ export class Game {
     if (message.type === 'ready') {
       this.isRivalReady = true;
       this.startMatchOnceBothReady();
-      this.forceUpdate();
     }
     if (message.type === 'rematch') {
       this.isRivalRematch = true;
@@ -161,7 +157,6 @@ export class Game {
     if (message.type === 'leave') {
       this.isRivalLeft = true;
       if (this.gameOver === null) this.rivalFlees(); // (mid-match: gone)
-      this.forceUpdate();
     }
     if (message.type === 'cast' || message.type === 'endTurn') {
       this.rivalQueue.push(message);
@@ -207,30 +202,31 @@ export class Game {
   private isRivalDisconnected = false;
   private isRivalFleeing = false;
   private rivalLostAt = 0;
+  private rivalWaitSecondsLeft = Game.RIVAL_WAIT_SECONDS;
   private rivalWaitTimers: Array<number> = [];
   getIsRivalFleeing(): boolean { return this.isRivalFleeing; }
   /** The seconds left for a dropped rival to come back. */
-  getRivalWaitSecondsLeft(): number { return Math.max(0, Math.ceil(Game.RIVAL_WAIT_SECONDS - (Date.now() - this.rivalLostAt) / 1000)); }
+  getRivalWaitSecondsLeft(): number { return this.rivalWaitSecondsLeft; }
+  private countRivalWaitSeconds(): void { this.rivalWaitSecondsLeft = Math.max(0, Math.ceil(Game.RIVAL_WAIT_SECONDS - (Date.now() - this.rivalLostAt) / 1000)); }
 
   private handleRivalLost(): void {
     if (this.isRivalFleeing) return;
     // (the match is over: they've just left)
-    if (this.gameOver !== null) { this.isRivalLeft = true; this.forceUpdate(); return; }
+    if (this.gameOver !== null) { this.isRivalLeft = true; return; }
     this.isRivalDisconnected = true;
     this.rivalLostAt = Date.now();
+    this.countRivalWaitSeconds();
     this.rivalWaitTimers.forEach(timer => window.clearTimeout(timer));
     this.rivalWaitTimers = [
-      window.setInterval(this.forceUpdate, 1000), // (the countdown)
+      window.setInterval(() => this.countRivalWaitSeconds(), 1000), // (the countdown)
       window.setTimeout(this.rivalFlees.bind(this), Game.RIVAL_WAIT_SECONDS * 1000),
     ];
-    this.forceUpdate();
   }
 
   private handleRivalBack(): void {
     this.rivalWaitTimers.forEach(timer => { window.clearTimeout(timer); window.clearInterval(timer); });
     this.rivalWaitTimers = [];
     this.isRivalDisconnected = false;
-    this.forceUpdate();
   }
 
   /** The rival is gone for good: its wizard runs off, then the match is won (Enemy Fled). */
@@ -242,12 +238,10 @@ export class Game {
     this.isRivalFleeing = true;
     this.isRivalLeft = true;
     this.gameClock.stopTurnClock();
-    this.forceUpdate();
     window.setTimeout(() => {
       if (this.gameOver === null) this.gameOver = GameOverStatus.EnemyFled;
       this.disableGameBoard();
       this.session?.close();
-      this.forceUpdate();
     }, Game.RIVAL_FLEE_SECONDS * 1000);
   }
   static readonly RIVAL_FLEE_SECONDS = 1.8; // (its run off the hall: PlayerComponent)
@@ -282,7 +276,6 @@ export class Game {
     if (this.isLocalRematch || this.isRivalLeft) return;
     this.isLocalRematch = true;
     this.session?.send({ type: 'rematch' });
-    this.forceUpdate();
     this.startRematchOnceBoth();
   }
 
@@ -311,25 +304,24 @@ export class Game {
   // waits a moment between sending them
   private emotes: Record<'self' | 'rival', { id: number; emoji: string } | null> = { self: null, rival: null };
   private emoteCount = 0;
-  private emoteCooldownUntil = 0;
+  private isEmoteCooling = false;
   getEmote(side: 'self' | 'rival'): { id: number; emoji: string } | null { return this.emotes[side]; }
-  getIsEmoteCooling(): boolean { return performance.now() < this.emoteCooldownUntil; }
+  getIsEmoteCooling(): boolean { return this.isEmoteCooling; }
 
   /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
   sendEmote(emoji: string): void {
     if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
     this.session?.send({ type: 'emote', emoji });
     this.showEmote('self', emoji);
-    this.emoteCooldownUntil = performance.now() + EMOTE_TIMING.cooldownSeconds * 1000;
-    window.setTimeout(this.forceUpdate, EMOTE_TIMING.cooldownSeconds * 1000 + 20);
+    this.isEmoteCooling = true;
+    window.setTimeout(() => { this.isEmoteCooling = false; }, EMOTE_TIMING.cooldownSeconds * 1000);
   }
 
   private showEmote(side: 'self' | 'rival', emoji: string): void {
     const emote = { id: ++this.emoteCount, emoji };
     this.emotes[side] = emote;
-    this.forceUpdate();
     window.setTimeout(() => {
-      if (this.emotes[side]?.id === emote.id) { this.emotes[side] = null; this.forceUpdate(); }
+      if (this.emotes[side]?.id === emote.id) { this.emotes[side] = null; }
     }, EMOTE_TIMING.showSeconds * 1000);
   }
 
@@ -345,7 +337,6 @@ export class Game {
     this.isShowingRivalDrawings = !this.isShowingRivalDrawings;
     try { window.localStorage.setItem('quickCast-rivalDrawingsOff', JSON.stringify(!this.isShowingRivalDrawings)); } catch { /* (not remembered) */ }
     if (!this.isShowingRivalDrawings) this.rivalStroke = [];
-    this.forceUpdate();
   }
   private strokeOutbox: Array<[number, number]> = [];
   private isNewStroke = false;
@@ -429,14 +420,12 @@ export class Game {
       const token = this.turnToken;
       rival.beginNpcTurn(isPassed => {
         if (isPassed && this.getIsTurnStill(token)) this.npcPassCard = { id: (this.npcPassCard?.id ?? 0) + 1 };
-        this.forceUpdate();
       });
     } else {
       // (going first, the rival waits for this player; going second, the rival is already done)
       this.isNpcWaitingForPlayer = this.isLocalFirst;
     }
     this.gameClock.startTurnClock(TURN_CLOCK.multiplayerTurnSeconds);
-    this.forceUpdate();
     if (phase === 'rival') this.processRivalQueue();
   }
 
@@ -473,7 +462,7 @@ export class Game {
       // (drawn, and its drawing seen live: cast at once; else drawn by its wizard, as the NPC's are)
       const isSeenDrawn = !!message.isDrawn && this.isShowingRivalDrawings;
       if (rival.getFocus() <= 0 || isSeenDrawn) { this.spawnSizedSpellInstance(message.symbol, cells, rival); next(); return; }
-      rival.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate,
+      rival.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this),
         { inferenceString: message.symbol as InferenceString, cells, onCast: next });
       return;
     }
@@ -525,7 +514,6 @@ export class Game {
       this.gameOver = GameOverStatus.OutOfStep;
       this.gameClock.stopTurnClock();
       this.disableGameBoard();
-      this.forceUpdate();
     }
   }
 
@@ -536,8 +524,7 @@ export class Game {
     this.isRivalArrived = true;
     rival.setIsDoneWithIntroWalk(false);
     rival.setIsBeginIntroWalk(true);
-    this.forceUpdate();
-    setTimeout(() => { rival.setIsDoneWithIntroWalk(true); this.forceUpdate(); }, INTRO_WALK_ANIM_TIME * 1000);
+    setTimeout(() => { rival.setIsDoneWithIntroWalk(true); }, INTRO_WALK_ANIM_TIME * 1000);
   }
 
   resetGame(): void {
@@ -547,7 +534,7 @@ export class Game {
     this.gameOver = null;
     this.resetClock();
     this.enableGameBoard();
-    this.tooltipManager.reset(this.forceUpdate);
+    this.tooltipManager.reset();
     this.spellCanvas.setIsDrawing(false);
     this.spellCanvas.clearDrawing();
     this.matchNumber++;
@@ -555,7 +542,6 @@ export class Game {
     this.stopNpcWaiting();
     if (this.getIsMultiplayer()) window.setTimeout(this.noteMatchReady.bind(this), 800); // (the first turn once both are ready)
     else this.startNpcTurn(3000);
-    this.forceUpdate();
   }
 
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -604,7 +590,6 @@ export class Game {
     // The turn card: whose move it is first
     this.turnCard = { id: (this.turnCard?.id ?? 0) + 1, isPlayerFirst: this.getIsNpcWaitingThisTurn() };
     const token = ++this.turnToken;
-    this.forceUpdate();
     if (!this.getIsNpcWaitingThisTurn()) {
       setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
       return;
@@ -618,9 +603,7 @@ export class Game {
       if (!this.isNpcWaitingForPlayer) return;
       this.npcWaitingTipsShown++;
       this.tooltipManager.remindTip('waitingForYou');
-      this.forceUpdate();
     }, waitSeconds * 1000);
-    this.forceUpdate();
   }
 
   /** Stops waiting (and its reminder), without starting the NPC's turn. */
@@ -636,7 +619,6 @@ export class Game {
     this.stopNpcWaiting();
     const token = this.turnToken;
     setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
-    this.forceUpdate();
   }
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getGameOver(): GameOver | null { return this.gameOver; }
@@ -646,7 +628,6 @@ export class Game {
     const deathGameOver = getDeathGameOver(humanPlayer, npcPlayer);
     if (deathGameOver !== null) {
       this.gameOver = deathGameOver;
-      this.forceUpdate();
     }
   }
 
@@ -657,7 +638,6 @@ export class Game {
     const random = this.getIsMultiplayer() ? () => getSeededRandom(this.matchSeed + this.rematchCount * 7919, turnsElapsed) : Math.random;
     if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, random)) {
       this.gameOver = getCaughtGameOver(humanPlayer, npcPlayer);
-      this.forceUpdate();
     }
   }
 
@@ -673,7 +653,6 @@ export class Game {
       this.gameClock.stopTurnClock();
       this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
-      this.forceUpdate();
     }
     return isGameOver;
   }
@@ -707,7 +686,6 @@ export class Game {
 
       this.audioHandler.startSoundEffect('clock-chime');
       this.incrementMinuteAngleAcc();
-      this.forceUpdate();
       this.disableGameBoard();
       const isCollision = await this.updatePlacedSpells();
       this.regenFocusForPlayers();
@@ -729,13 +707,12 @@ export class Game {
         else this.startNpcTurn(1000);
       }
 
-      this.tooltipManager.doClickClockFlash(this.forceUpdate);
+      this.tooltipManager.doClickClockFlash();
 
       // Tutorial tips that this turn made relevant
       if (hadSpells) this.tooltipManager.triggerTip('spellsInMotion');
       if (isCollision) this.tooltipManager.triggerTip('collisions');
       if (this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle() >= Game.NIGHT_PASSING_TIP_TURN) this.tooltipManager.triggerTip('nightPassing');
-      this.forceUpdate();
     }
   }
 
@@ -767,7 +744,6 @@ export class Game {
       this.tooltipManager.triggerTip('spellSize');
       this.tooltipManager.triggerTip('endTurn');
     }
-    this.forceUpdate();
   }
 
   /**
@@ -848,11 +824,10 @@ export class Game {
                   this.setIsDoneWithTurn(true, humanPlayer);
                 }
               } else {
-                this.tooltipManager.doOutOfFocusFlash(this.forceUpdate);
+                this.tooltipManager.doOutOfFocusFlash();
               }
             }
             this.cancelPlacingSymbol();
-            this.forceUpdate();
           }
         }
       });
@@ -873,7 +848,6 @@ export class Game {
     this.keyActions = proxy(keyActions);
   }
 
-  useGameplayKeyBindings(): void { useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate }); }
   // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -903,7 +877,6 @@ export class Game {
       this.beginIntroWalk();
       this.setIsDoneWithIntroWalk(false);
     }
-    this.forceUpdate();
 
     /*
       after 4 seconds, begin brightening scene
@@ -911,7 +884,6 @@ export class Game {
     */
     setTimeout(() => {
       this.backgroundSceneBrightness = this.HIGH_BRIGHTNESS;
-      this.forceUpdate();
     }, INTRO_WALK_ANIM_TIME * 500);
 
     /*
@@ -921,7 +893,6 @@ export class Game {
       if (this.getIsMultiplayer()) {
         // (this player's wizard has arrived; the rival's arrives in its own time: rivalWalksIn)
         this.players.getHumanPlayer()?.setIsDoneWithIntroWalk(true);
-        this.forceUpdate();
       } else this.setIsDoneWithIntroWalk();
     }, INTRO_WALK_ANIM_TIME * 1000);
 
@@ -929,10 +900,6 @@ export class Game {
   setGameBoardRef(gameBoardRef: RefObject<HTMLDivElement | null>): void { this.gameBoard.setGameBoardRef(gameBoardRef); }
   setGameWrapperRef(gameWrapperRef: RefObject<HTMLDivElement | null>): void {
     this.gameWrapperRef = ref(gameWrapperRef); // (a React ref: never proxied)
-  }
-  setForceUpdate(forceUpdate: () => void) {
-    this.forceUpdate = forceUpdate;
-    this.assetLoader.setForceUpdate(forceUpdate);
   }
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -947,12 +914,10 @@ export class Game {
   getIsFxMuted(): boolean { return this.audioHandler.getIsFxMuted(); }
   toggleAudio(audioType: AudioType, isMuted?: boolean): void {
     this.audioHandler.toggleAudio(audioType, isMuted);
-    this.forceUpdate();
   }
   getVolume(audioType: AudioType): number { return this.audioHandler.getVolume(audioType); }
   setVolume(audioType: AudioType, volume: number): void {
     this.audioHandler.setVolume(audioType, volume);
-    this.forceUpdate();
   }
   // AUDIO MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -963,27 +928,26 @@ export class Game {
   setIsSpellBookOpen(isSpellBookOpen?: boolean): void {
     this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen);
     if (this.tooltipManager.getIsSpellBookOpen()) this.tooltipManager.dismissLightTip('spellBook'); // they found it
-    this.forceUpdate();
   }
-  incrementDrawingOffBoard(): void { this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate); }
+  incrementDrawingOffBoard(): void { this.tooltipManager.incrementDrawingOffBoard(); }
   getIsDrawingOffBoard(): boolean { return this.tooltipManager.getIsDrawingOffBoard(); }
   getIsOutOfFocus(): boolean { return this.tooltipManager.getIsOutOfFocus(); }
-  toggleToolTips(isOn?: boolean): void { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
-  loadToolTips(): void { this.tooltipManager.loadToolTips(); this.forceUpdate(); }
+  toggleToolTips(isOn?: boolean): void { this.tooltipManager.toggleToolTips(isOn); }
+  loadToolTips(): void { this.tooltipManager.loadToolTips(); }
   getIsLoreDone(): boolean { return this.tooltipManager.getIsLoreDone(); }
   getIsLore(): boolean { return this.tooltipManager.getIsLore(); }
   getIsLastTooltipPage(): boolean { return this.tooltipManager.getIsLastPage(); }
-  showLore(): void { this.tooltipManager.showLore(); this.forceUpdate(); }
-  chooseToolTips(isOn: boolean): void { this.tooltipManager.chooseToolTips(isOn); this.forceUpdate(); }
-  triggerTip(tip: TipId): void { this.tooltipManager.triggerTip(tip); this.forceUpdate(); }
-  triggerTips(tips: Array<TipId>): void { this.tooltipManager.triggerTips(tips); this.forceUpdate(); }
+  showLore(): void { this.tooltipManager.showLore(); }
+  chooseToolTips(isOn: boolean): void { this.tooltipManager.chooseToolTips(isOn); }
+  triggerTip(tip: TipId): void { this.tooltipManager.triggerTip(tip); }
+  triggerTips(tips: Array<TipId>): void { this.tooltipManager.triggerTips(tips); }
   getLightTips(): Array<TipId> { return this.tooltipManager.getLightTips(); }
   getIsKeyboardControlsShown(): boolean { return this.tooltipManager.getIsKeyboardControlsShown(); }
-  setIsKeyboardControlsShown(isShown: boolean): void { this.tooltipManager.setIsKeyboardControlsShown(isShown); this.forceUpdate(); }
-  dismissLightTip(tip?: TipId): void { this.tooltipManager.dismissLightTip(tip); this.forceUpdate(); }
-  nextTooltipPage(): void { this.tooltipManager.nextPage(); this.forceUpdate(); }
-  prevTooltipPage(): void { this.tooltipManager.prevPage(); this.forceUpdate(); }
-  closeTooltip(): void { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
+  setIsKeyboardControlsShown(isShown: boolean): void { this.tooltipManager.setIsKeyboardControlsShown(isShown); }
+  dismissLightTip(tip?: TipId): void { this.tooltipManager.dismissLightTip(tip); }
+  nextTooltipPage(): void { this.tooltipManager.nextPage(); }
+  prevTooltipPage(): void { this.tooltipManager.prevPage(); }
+  closeTooltip(): void { this.tooltipManager.closeTooltip(); }
   getTotalPages(): number { return this.tooltipManager.getTotalPages(); }
   getCurrPageNum(): number { return this.tooltipManager.getCurrPageNum(); }
   getCurrPageContent(): TooltipPage | null { return this.tooltipManager.getCurrPageContent(); }
@@ -992,7 +956,7 @@ export class Game {
   getIsNextDisabled(): boolean { return this.tooltipManager.getIsNextDisabled(); }
   getIsPrevDisabled(): boolean { return this.tooltipManager.getIsPrevDisabled(); }
   getIsClickClock(): boolean { return this.tooltipManager.getIsClickClock(); }
-  doClickClockFlash(waitTimeMilli?: number): void { this.tooltipManager.doClickClockFlash(this.forceUpdate, waitTimeMilli); }
+  doClickClockFlash(waitTimeMilli?: number): void { this.tooltipManager.doClickClockFlash(waitTimeMilli); }
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -1096,7 +1060,6 @@ export class Game {
   getGameSymbol(): GameSymbol | null { return this.players.getGameSymbol(); }
   cancelPlacingSymbol(player?: Player): void {
     this.players.cancelPlacingSymbol(player);
-    this.forceUpdate();
   }
   getIsComputerPlayerDoneWithTurn(): boolean {
     const npc = this.players.getNpcPlayer();
@@ -1109,8 +1072,8 @@ export class Game {
   setIsDoneWithTurn(isDoneWithTurn: boolean, player: Player): void {
     player.setIsDoneWithTurn(isDoneWithTurn);
   }
-  setIsDoneWithIntroWalk(bool?: boolean): void { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
-  beginIntroWalk(): void { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
+  setIsDoneWithIntroWalk(bool?: boolean): void { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); }
+  beginIntroWalk(): void { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); }
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -1150,7 +1113,7 @@ export class Game {
   /** Moves the spells for the turn; returns whether any collided. */
   async updatePlacedSpells(): Promise<boolean> {
     // uses a generator/iterator
-    return this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth.bind(this));
+    return this.placedSpells.updateSpells(this.gameBoard, this.decrementPlayerHealth.bind(this));
   }
 
   // Called "onMouseUp"
@@ -1187,7 +1150,6 @@ export class Game {
             }
           }
         }
-        this.forceUpdate();
       } else {
         this.incrementDrawingOffBoard();
       }
@@ -1240,7 +1202,6 @@ export class Game {
         this.setIsDoneWithTurn(true, humanPlayer);
       }
     }
-    this.forceUpdate();
   }
 
   /**
@@ -1328,7 +1289,7 @@ export class Game {
       this.checkIfIsGameOverFromPlayerDeath();
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
-    this.placedSpells.resolveCastCollisions(this.gameBoard, this.forceUpdate);
+    this.placedSpells.resolveCastCollisions(this.gameBoard);
   }
 
 
@@ -1343,7 +1304,6 @@ export class Game {
 
       if (p === this.players.getHumanPlayer()) {
         this.players.setReadiedSpell(gameSymbol.getSpellClass()?.spellName || null);
-        this.forceUpdate();
       }
     }
   }
@@ -1366,7 +1326,6 @@ export class Game {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.cycleThroughDifficulties();
-      this.forceUpdate();
     }
   }
   /** At most this long (ms) for the NPC's turn: after it, it's ended (a safety net, so a stalled NPC can never lock the clock). */
@@ -1378,20 +1337,18 @@ export class Game {
     const token = this.turnToken;
     npc.beginNpcTurn(isPassed => {
       if (isPassed && this.getIsTurnStill(token) && this.gameOver === null) this.npcPassCard = { id: (this.npcPassCard?.id ?? 0) + 1 };
-      this.forceUpdate();
     });
     setTimeout(() => {
       if (!this.getIsTurnStill(token) || npc.getIsDoneWithTurn()) return;
       console.warn('The NPC took too long to finish its turn; ending it');
       npc.setIsDoneWithTurn(true);
-      this.forceUpdate();
     }, Game.NPC_TURN_LIMIT_MILLI);
     // Each turn, the difficulty decides between a random turn and a trained one
     if (NPC_POLICY === 'trained' && this.npcBrain.getIsReady() && !npc.isRandomMove()) {
       this.doTrainedNpcMove(npc);
       return;
     }
-    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate);
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this));
   }
 
   /** The game as the NPC's brain sees it: the same view a trained model saw in training. */
@@ -1411,7 +1368,7 @@ export class Game {
   /** The trained NPC casts spell after spell (each drawn as usual) until it chooses to end its turn. */
   private async doTrainedNpcMove(npc: NPCPlayer, token: number = this.turnToken): Promise<void> {
     if (!this.getIsTurnStill(token)) return; // (its turn is over)
-    const endNpcTurn = () => { npc.setIsDoneWithTurn(true); this.forceUpdate(); };
+    const endNpcTurn = () => { npc.setIsDoneWithTurn(true); };
     if (this.gameOver !== null || npc.getIsDead()) return endNpcTurn();
     let cast;
     try {
@@ -1419,11 +1376,11 @@ export class Game {
     } catch (err) {
       // The model failed (it shouldn't): a random move instead, so the NPC's turn always ends
       console.error('The NPC model failed; playing a random move', err);
-      npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate);
+      npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this));
       return;
     }
     if (!cast) return endNpcTurn();
-    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate,
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this),
       { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc, token), 300) });
   }
   getNPCMoveData(): Array<NPCMoveData> {

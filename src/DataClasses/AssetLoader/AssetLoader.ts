@@ -75,8 +75,6 @@ export class AssetLoader {
     isMinLoadingTimeElapsed: boolean = false;
     isLogoSpellsReady: boolean = false; // (the logo's spells drawn: the boot screen can go)
 
-    forceUpdate: Function | null = null;
-
     private priorityAssets!: Promise<void>;
 
     /** Starts loading: called on the store's loader (its proxy), so the flags it sets reach the components. */
@@ -97,10 +95,6 @@ export class AssetLoader {
     whenPriorityAssetsLoaded(): Promise<void> { return this.priorityAssets; }
     getIsPriorityAssetsLoaded(): boolean { return this.isPriorityAssetsLoaded; }
 
-    setForceUpdate(forceUpdate: Function): void {
-        this.forceUpdate = forceUpdate;
-    }
-
     getIsFontLoaded(): boolean { return this.isFontsLoaded; }
     getIsSceneImgsLoaded(): boolean { return this.isSceneImgsLoaded; }
     getIsLogoSpellsReady(): boolean { return this.isLogoSpellsReady; }
@@ -111,7 +105,6 @@ export class AssetLoader {
         loaderObj.forEach((v, k) => {
             this[k as LoaderProperties] = v;
         })
-        this.forceUpdate && this.forceUpdate();
     }
 
     async loadFonts() {

@@ -2,17 +2,16 @@ import { useState, useEffect } from 'react';
 
 export type KeyAction = {
     keycodes: Array<string>;
-    action: (forceUpdate?: () => void) => void;
+    action: () => void;
 };
 
 type UseKeyPressProps = {
     keyActions: Array<KeyAction> | undefined
     isDisabled: boolean;
-    forceUpdate: () => void;
 };
 
-export const useKeyPress = ({ keyActions, isDisabled, forceUpdate }: UseKeyPressProps) => {
-    const [actionLookup, setActionLookup] = useState(new Map<string, (forceUpdate?: () => void) => void>());
+export const useKeyPress = ({ keyActions, isDisabled }: UseKeyPressProps) => {
+    const [actionLookup, setActionLookup] = useState(new Map<string, () => void>());
     useEffect(() => {
         if (keyActions) {
             const actionLookup = new Map<string, () => void>();
@@ -24,17 +23,15 @@ export const useKeyPress = ({ keyActions, isDisabled, forceUpdate }: UseKeyPress
         }
     }, [keyActions]);
     useEffect(() => {
-        if (!actionLookup || !actionLookup.size || !forceUpdate) return;
+        if (!actionLookup || !actionLookup.size) return;
         const handler = ({ code }: KeyboardEvent) => {
             if (isDisabled) return; // disable ALL keys...
             if (actionLookup.has(code)) {
                 const doAction = actionLookup.get(code);
-                if (doAction) doAction(forceUpdate);
+                if (doAction) doAction();
             }
         };
-        window.addEventListener("keyup", e => handler(e));
-        return () => {
-            window.removeEventListener("keyup", e => handler(e));
-        };
-    }, [isDisabled, actionLookup, forceUpdate]);
+        window.addEventListener("keyup", handler);
+        return () => window.removeEventListener("keyup", handler);
+    }, [isDisabled, actionLookup]);
 };

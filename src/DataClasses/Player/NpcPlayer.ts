@@ -262,15 +262,14 @@ export class NPCPlayer extends Player {
     }
 
     /** After a random move: another one (if any are left this turn and there's focus), or the turn is done. */
-    private finishNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void {
+    private finishNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function): void {
         this.decrementNumRemaningMovesPerTurn();
         if (this.getNumRemainingMovesPerTurn() > 0 && this.getFocus() > 0) {
             setTimeout(
-                () => this.doNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate),
+                () => this.doNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt),
                 Math.random() * 1000);
         } else {
             this.setIsDoneWithTurn(true);
-            forceUpdate();
         }
     }
 
@@ -330,12 +329,11 @@ export class NPCPlayer extends Player {
         return cells.length && getIsSafe(cells.slice(0, 1)) ? cells.slice(0, 1) : [];
     }
 
-    doNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void {
+    doNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, plannedMove?: PlannedNpcMove): void {
         // (every way out of a move that casts nothing ends the NPC's turn, so the turn can always end)
         const endTurnWithoutCasting = () => {
             this.clearNumRemaningMovesPerTurn();
             this.setIsDoneWithTurn(true);
-            forceUpdate();
         };
         if (!this.getFocus() || this.getIsDead()) return endTurnWithoutCasting();
 
@@ -359,7 +357,7 @@ export class NPCPlayer extends Player {
             }
             if (!randomCastCells.length && freeCells.length) {
                 // Nothing safe to cast: this move is skipped (not drawn)
-                this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate);
+                this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt);
                 return;
             }
         }
@@ -376,7 +374,7 @@ export class NPCPlayer extends Player {
 
             if (randomCastCells.length) spawnSizedSpellInstance(inferenceString, randomCastCells, this);
             this.setGameSymbol(null);
-            this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt, forceUpdate);
+            this.finishNpcMove(gameBoard, filterDominantCells, spawnSizedSpellInstance, isCanPlaceGameSymbolOn, getCellAt);
         };
 
 
@@ -385,7 +383,6 @@ export class NPCPlayer extends Player {
         this.setGameSymbol(new GameSymbol(inferenceString, this))
         this.npcMoveData.push({ ...npcMoveData, storedSpell, speed: 1.3 / scale.x });
         this.drawingsThisTurn++;
-        forceUpdate();
     }
 
 
