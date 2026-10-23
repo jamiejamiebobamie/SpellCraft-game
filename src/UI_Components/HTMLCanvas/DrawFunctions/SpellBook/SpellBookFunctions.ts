@@ -23,9 +23,9 @@ const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     // (nudged up, clear of the description's last line)
     Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }],
     Phlegm: [{ text: 'patches you up', place: 'below', tilt: -3 }],
-    // (and just under the title's rule)
-    GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.42, y: 0.315 } }],
-    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.42, y: 0.315 } }],
+    // (and under the description, to the left)
+    GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
+    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
 };
 
 const displayNameLookup = new Map<string, string>([
@@ -575,10 +575,10 @@ export const drawModalDetails = (
             desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward."
         },
         'GyreUp': {
-            desc: "An upward-flowing tornado.\nLifts stronger spells up; destroys weaker.\nA spell leaving it gets +1 move per\n   cell of the Updraft.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
+            desc: "An upward-flowing tornado.\nLifts stronger spells up; destroys weaker.\nA spell leaving it gets +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         },
         'GyreDown': {
-            desc: "A downward-flowing tornado.\nPushes stronger spells down; destroys weaker.\nA spell leaving it gets +1 move per\n   cell of the Downdraft.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
+            desc: "A downward-flowing tornado.\nPushes stronger spells down; destroys weaker.\nA spell leaving it gets +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         }
     };
     const targetData = spellDescriptions[currentTargetKey] || { desc: '' };

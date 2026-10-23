@@ -190,6 +190,16 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number; 
                scale(0.95);
     ${props => props.$rowX !== null && `transform: translate(calc(-50% + ${props.$rowX}cqw), -50%) scale(0.95);`}
   }
+
+  /* (a press on its volume dial isn't a press on the button: it keeps its hovered size) */
+  &:has(${VolumeDial}:active) {
+    transform: translate(-50%, -50%)
+               rotate(var(--at))
+               translate(0, -6.1cqw)
+               rotate(calc(-1 * var(--at)))
+               scale(1.15);
+    ${props => props.$rowX !== null && `transform: translate(calc(-50% + ${props.$rowX}cqw), -60%) scale(1.15);`}
+  }
 `;
 
 type SettingsComponentComponentProps = {
