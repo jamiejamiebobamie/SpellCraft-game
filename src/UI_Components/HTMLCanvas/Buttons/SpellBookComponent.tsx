@@ -74,25 +74,24 @@ const TriggerBox = styled.div<{ $isClicked: boolean, $isOpen: boolean, $isClicke
   ${props => !props.$isClickedOnce && css`animation: ${repeatingGlow} 7s ease-in-out infinite;`}
 `;
 
-const CoverText = styled.div<{ $style?: string; $isClickedOnce: boolean }>`
-  width: 100%;
-  height: 2cqw;
-  display: flex;
-  justify-content: flex-end;
+/**
+ * "Spell" and "Book" on the cover, drawn as SVG text: placed by their baselines (each line's right end
+ * and baseline, in cqw from the button's top left), so they sit the same in every browser. As HTML
+ * text, where a line sits depends on the font's metrics, which iOS reads differently from Windows
+ * (the words slipped down on iPhones).
+ */
+const COVER_TEXT = { size: 2.5, right: 6.3, lines: [{ text: 'Spell', baseline: 3.53 }, { text: 'Book', baseline: 5.53 }] };
 
-  /* 1. DEFAULT FOR REGULAR/LARGE SCREENS */
-  transform: translate(0.3cqw, 1.75cqw);
-
-  /* 2. FOR SMALL SCREENS (e.g., Mobile devices under 576px wide) */
-  @media (max-width: 576px) {
-    transform: translate(0.3dvw, 0.1dvh);
-  }
-
-  /* Filter and Dynamic Styles */
-  filter: drop-shadow(0 0 0.1cqw rgba(248, 255, 54, 0.3)) 
+const CoverText = styled.svg`
+  display: block;
+  width: 6cqw;
+  height: 4cqw;
+  overflow: visible;
+  fill: currentColor;
+  font-family: 'EnchantedLand', sans-serif;
+  letter-spacing: normal; /* (the page's 0.18px would be read in this SVG's units, cqw: far too wide) */
+  filter: drop-shadow(0 0 0.1cqw rgba(248, 255, 54, 0.3))
           drop-shadow(0 0 0.3cqw rgba(250, 245, 144, 0.14));
-
-  ${props => !!props.$style && props.$style}
 `;
 
 type SpellBookComponentProps = { isGearHovered: boolean }
@@ -118,11 +117,11 @@ export default function SpellBookComponent({ isGearHovered }: SpellBookComponent
         $isClickedOnce={isClickedOnce}
         title={`${isOpen ? 'Close' : 'Open'} book`}
       >
-        <CoverText $isClickedOnce={isClickedOnce}>
-          Spell
-        </CoverText>
-        <CoverText $isClickedOnce={isClickedOnce}>
-          Book
+        {/* (its units: cqw) */}
+        <CoverText viewBox='0 0 6 4' aria-hidden>
+          {COVER_TEXT.lines.map(({ text, baseline }) => (
+            <text key={text} x={COVER_TEXT.right} y={baseline} fontSize={COVER_TEXT.size} textAnchor='end'>{text}</text>
+          ))}
         </CoverText>
       </TriggerBox>
     </MenuAnchor >
