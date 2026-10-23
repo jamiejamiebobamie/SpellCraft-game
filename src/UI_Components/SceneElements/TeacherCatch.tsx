@@ -8,6 +8,7 @@ import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
 import { titleLetteringCss } from '../Logo/titleLettering';
 import { CATCH_SCENE, DAWN_CARD, LANTERN_PASS } from './teacherCatchConfig';
+import { PassCard } from '../TurnCard';
 
 /**
  * The doorways (the open arches behind each wizard, in cqw of the game's width): where the lantern's light
@@ -75,7 +76,7 @@ export function LanternLight() {
   const scene = snap.getCatchScene();
   return (
     <>
-      {pass && !scene && (
+      {LANTERN_PASS.isLightOn && pass && !scene && (
         <Doorway key={pass.id} $side={pass.side}>
           <Glow $isFlood={false} $seconds={LANTERN_PASS.seconds} />
           <Spill $isFlood={false} $seconds={LANTERN_PASS.seconds} />
@@ -169,78 +170,10 @@ export function DawnCard() {
   );
 }
 
-/**
- * At dawn, the weaker wizard's nerves: the anime "gloom lines", wavy strokes beside their head (on the side
- * away from the board, clear of "Pass" and the emoji above it), as in anime: black, with a faint blue-white
- * glow behind, about the head's size, just off the face and a little over it. Placed in % of the avatar
- * (top, and side: from its outer edge); size in cqw; glow: the glow's color (r, g, b).
- */
-export const NERVOUS_LINES = { isOn: true, top: 16, side: 28, width: 2.6, height: 3.8, color: '#0b0b10', glow: '205, 225, 255' };
-
-const linesWobble = keyframes`
-  0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.75; }
-  50% { transform: translateY(-0.3cqw) scaleY(1.08); opacity: 1; }
-`;
-
-const NervousBox = styled.svg<{ $isLeft: boolean }>`
-  position: absolute;
-  top: ${NERVOUS_LINES.top}%;
-  ${props => props.$isLeft ? `left: ${NERVOUS_LINES.side}%;` : `right: ${NERVOUS_LINES.side}%;`}
-  width: ${NERVOUS_LINES.width}cqw;
-  height: ${NERVOUS_LINES.height}cqw;
-  z-index: 41;
-  pointer-events: none;
-  overflow: visible;
-  filter: drop-shadow(0 0 0.15cqw rgba(${NERVOUS_LINES.glow}, 0.95)) drop-shadow(0 0 0.5cqw rgba(${NERVOUS_LINES.glow}, 0.55));
-  path { animation: ${linesWobble} 1.6s ease-in-out infinite; }
-  path:nth-child(2) { animation-delay: -0.5s; }
-  path:nth-child(3) { animation-delay: -1s; }
-`;
-
-/** Placed inside a wizard's avatar: the gloom lines, while they're the one at risk (Game.getAtRiskSide). */
-export function NervousLines({ side }: { side: 'self' | 'rival' }) {
-  const snap = useSnapshot(rootGameStore);
-  if (!NERVOUS_LINES.isOn || snap.getAtRiskSide() !== side) return null;
-  // (three wavy strokes, the middle one longest: in a 30 x 60 box)
-  const wave = (x: number, top: number, bottom: number) => {
-    let d = `M ${x} ${top}`;
-    for (let y = top, k = 0; y < bottom; y += 8, k++) d += ` q ${k % 2 ? -4 : 4} 4 0 8`;
-    return d;
-  };
-  return (
-    <NervousBox $isLeft={side === 'self'} viewBox='0 0 30 60' aria-hidden>
-      <path d={wave(5, 8, 48)} fill='none' stroke={NERVOUS_LINES.color} strokeWidth='3' strokeLinecap='round' />
-      <path d={wave(15, 0, 56)} fill='none' stroke={NERVOUS_LINES.color} strokeWidth='3' strokeLinecap='round' />
-      <path d={wave(25, 12, 44)} fill='none' stroke={NERVOUS_LINES.color} strokeWidth='3' strokeLinecap='round' />
-    </NervousBox>
-  );
-}
-
-const phewRise = keyframes`
-  0% { opacity: 0; transform: translateY(0.5cqw); }
-  20% { opacity: 1; transform: translateY(0); }
-  75% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-0.8cqw); }
-`;
-
-const PhewText = styled.div<{ $isLeft: boolean }>`
-  position: absolute;
-  top: 48%;
-  ${props => props.$isLeft ? 'right: -4%;' : 'left: -4%;'} /* (on the side toward the board, clear of "Pass" and emoji above the head) */
-  z-index: 41;
-  pointer-events: none;
-  font-family: 'QuillHand', cursive;
-  font-size: 1.9cqw;
-  color: #f3e2b0;
-  text-shadow: 0 0 0.6cqw rgba(0, 0, 0, 0.95), 0 0.1cqw 0.2cqw rgba(0, 0, 0, 0.9);
-  white-space: nowrap;
-  animation: ${phewRise} ${LANTERN_PASS.phewSeconds}s ease-out forwards;
-`;
-
 /** Placed inside a wizard's avatar: their "phew" once the lantern has passed them by. */
 export function PhewBubble({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
   const phew = snap.getPhew();
   if (!phew || phew.side !== side) return null;
-  return <PhewText key={phew.id} $isLeft={side === 'self'}>{LANTERN_PASS.phewText}</PhewText>;
+  return <PassCard key={phew.id}>{LANTERN_PASS.phewText}</PassCard>; // (as "Pass": the same place and lettering)
 }

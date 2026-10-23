@@ -333,6 +333,7 @@ export class Game {
   /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
   sendEmote(emoji: string): void {
     if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
+    if (this.getAtRiskSide() === 'self') return; // (their status is the frightened face until they're not at risk)
     this.session?.send({ type: 'emote', emoji });
     this.showEmote('self', emoji);
     this.isEmoteCooling = true;
@@ -342,6 +343,7 @@ export class Game {
   private showEmote(side: 'self' | 'rival', emoji: string): void {
     const emote = { id: ++this.emoteCount, emoji };
     this.emotes[side] = emote;
+    if (EMOTE_TIMING.showSeconds <= 0) return; // (a status: up until the next)
     window.setTimeout(() => {
       if (this.emotes[side]?.id === emote.id) { this.emotes[side] = null; }
     }, EMOTE_TIMING.showSeconds * 1000);
@@ -697,6 +699,21 @@ export class Game {
       if (this.matchNumber !== match || this.catchScene?.id !== scene.id) return;
       this.gameOver = status;
     }, CATCH_SCENE_TOTAL_SECONDS * 1000);
+  }
+
+  /**
+  * While developing: the catch scene played again (whoever's game over, or scene, is up is cleared first),
+  * each time with the next outcome: the player caught, the rival, then both.
+  */
+  private previewCount = 0;
+  previewCatchScene(): void {
+    const statuses = [GameOverStatus.CaughtPlayer, GameOverStatus.CaughtNpc, GameOverStatus.TimesUp];
+    const status = statuses[this.previewCount++ % statuses.length];
+    this.gameOver = null;
+    this.catchScene = null;
+    this.gameClock.stopTurnClock();
+    this.disableGameBoard();
+    window.setTimeout(() => this.beginCatchScene(status), 60); // (a moment with neither, so the animations start afresh)
   }
 
   /** A risky turn nobody was caught on: a lantern passes the weaker wizard's doorway (either, if even), and they breathe out. */

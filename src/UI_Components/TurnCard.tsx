@@ -2,7 +2,7 @@
 // Whose move it is as each turn begins: "Your Move" or "Their Move" over the board, in the title's
 // lettering, fading in, holding a moment, then fading away. (While a turn goes on, the active
 // wizard's spotlight shows it: see Spotlight.) Also NpcPassCard: over the NPC's avatar when it passes its turn.
-import styled, { keyframes } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../DataClasses/store';
 import { titleLetteringCss } from './Logo/titleLettering';
@@ -56,7 +56,7 @@ const passShowAndFade = keyframes`
   100% { opacity: 0; transform: translate(-50%, -70%) scale(1.04); }
 `;
 
-const PassCard = styled.div`
+export const PassCard = styled.div`
   position: absolute;
   left: 50%;
   top: ${NPC_PASS_CARD.top}%;
@@ -128,7 +128,24 @@ export function RivalSpinner() {
   return snap.getIsRivalSpinning() ? <RivalSpinnerPlace><SymbolSpinner size={3.2} /></RivalSpinnerPlace> : null;
 }
 
-const emotePop = keyframes`
+/**
+ * The emoji over a wizard's head, like a chat status: at dawn, the one a teacher would catch (atRisk: a
+ * frightened face, with the blue fading down its brow), else a 2-player match's latest reaction
+ * (EMOTE_TIMING: staying up until the next). Its place: as the avatar's, but it doesn't move with the
+ * wizard's own animations.
+ */
+export const STATUS_EMOJI = { atRisk: '😰', size: 5.2, top: -16 };
+
+const statusPop = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+`;
+const statusHover = keyframes`
+  0%, 100% { margin-top: 0; }
+  50% { margin-top: -0.4cqw; }
+`;
+const emoteFade = keyframes`
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
   14% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
   24% { transform: translate(-50%, -50%) scale(1); }
@@ -136,23 +153,25 @@ const emotePop = keyframes`
   100% { opacity: 0; transform: translate(-50%, -90%) scale(0.95); }
 `;
 
-/** An emoji over a wizard's head (2-player): bigger and higher than "Pass"; seconds: EMOTE_TIMING. */
-const EmoteText = styled.div`
+const StatusText = styled.div<{ $isStaying: boolean }>`
   position: absolute;
   left: 50%;
-  top: -16%;
+  top: ${STATUS_EMOJI.top}%;
   z-index: 41;
   pointer-events: none;
-  font-size: 5.2cqw;
+  font-size: ${STATUS_EMOJI.size}cqw;
   line-height: 1;
   filter: drop-shadow(0 0.3cqw 0.5cqw rgba(0, 0, 0, 0.6));
-  animation: ${emotePop} ${EMOTE_TIMING.showSeconds}s ease-out forwards;
+  ${props => props.$isStaying
+    ? css`animation: ${statusPop} 0.35s ease-out forwards, ${statusHover} 3s ease-in-out 0.35s infinite;`
+    : css`animation: ${emoteFade} ${EMOTE_TIMING.showSeconds}s ease-out forwards;`}
 `;
 
-/** Placed inside a wizard's avatar (not its mirrored frame): its latest emoji, for a moment. */
-export function EmoteBubble({ side }: { side: 'self' | 'rival' }) {
+/** Placed over a wizard (in a frame the size of its avatar, not moving with it): its status emoji, if any. */
+export function StatusEmoji({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
+  if (snap.getAtRiskSide() === side) return <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
   const emote = snap.getEmote(side);
   if (!emote) return null;
-  return <EmoteText key={emote.id}>{emote.emoji}</EmoteText>;
+  return <StatusText key={emote.id} $isStaying={EMOTE_TIMING.showSeconds <= 0}>{emote.emoji}</StatusText>;
 }

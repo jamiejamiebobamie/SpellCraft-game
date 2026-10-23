@@ -33,6 +33,12 @@ export const NPC_DRAWING_ASPECT = { min: 0.55, max: 1.45 };
 export const NPC_TURN_ORDER: 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first' = 'alternateTurns' as 'alternateTurns' | 'alternate' | 'waitForPlayer' | 'first';
 
 /** The NPC's turn lasts at least this long (ms), even when it casts nothing, so it's seen to take its turn. */
+/**
+ * Each difficulty's share of random turns (the rest its trained brain plays). Brutal: none for now, while
+ * building the moves dictionary and testing (was 0.3; perhaps 0.15 after).
+ */
+export const NPC_RANDOM_MOVES: Record<NpcDifficulty, number> = { Normal: 0.7, Hard: 0.5, Brutal: 0 };
+
 export const NPC_TURN_MIN_MILLI = 500;
 
 /** The "your move first" reminder: after this many seconds of waiting, then 5 seconds later each time it shows. */
@@ -121,17 +127,9 @@ export class NPCPlayer extends Player {
         const rand = min ? Math.random() * (max - min) + min : Math.random() * max;
         return rand;
     }
-    /** Whether this NPC turn is a random one (otherwise its brain plays it): more often on easier difficulties. */
+    /** Whether this NPC turn is a random one (otherwise its brain plays it): NPC_RANDOM_MOVES of them. */
     isRandomMove(): boolean {
-        const rand = Math.random();
-        switch (this.difficulty) {
-            case 'Hard':
-                return rand > 0.5;
-            case 'Brutal':
-                return rand > 0.7; // 30% random, 70% the trained model
-            default: // 'Normal'
-                return rand > 0.3;
-        }
+        return Math.random() < NPC_RANDOM_MOVES[this.difficulty];
     }
     /**
      * Draws the planned symbol (unrotated) over the area of its cells in the NPC's zone, keeping its

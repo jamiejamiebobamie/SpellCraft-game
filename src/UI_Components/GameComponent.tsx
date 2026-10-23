@@ -255,6 +255,14 @@ export const GameComponent = () => {
     };
   }, []);
 
+  // While developing: the \` key plays the catch scene again (Game.previewCatchScene)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => { if (e.code === 'Backquote') rootGameStore.previewCatchScene(); };
+    window.addEventListener('keyup', onKey);
+    return () => window.removeEventListener('keyup', onKey);
+  }, []);
+
   // The game's keys (Game.keyActions)
   useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: false });
 

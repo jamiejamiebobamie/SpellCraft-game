@@ -3,5 +3,8 @@
 // ever shown: a received one not on the list is ignored.
 export const EMOTES = ['👋', '😄', '😮', '🤔', '😠', '😭', '🔥', '🤝'];
 
-/** How long an emoji shows over a wizard's head, and the wait before sending another (seconds). */
-export const EMOTE_TIMING = { showSeconds: 2.2, cooldownSeconds: 2 };
+/**
+ * How long an emoji shows over a wizard's head (0: it stays, as a status, until the next), and the wait
+ * before sending another (seconds).
+ */
+export const EMOTE_TIMING = { showSeconds: 0, cooldownSeconds: 2 };

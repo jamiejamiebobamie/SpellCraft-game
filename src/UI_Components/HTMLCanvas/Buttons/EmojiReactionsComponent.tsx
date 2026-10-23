@@ -140,7 +140,8 @@ const EmojiChoice = styled.button<{ $isCooling: boolean }>`
 
 export default function EmojiReactionsComponent({ isShowingModal }: { isShowingModal: boolean }) {
   const snap = useSnapshot(rootGameStore);
-  const isCooling = snap.getIsEmoteCooling();
+  // (cooling down, or at risk at dawn: the status is then the frightened face, and reactions wait)
+  const isCooling = snap.getIsEmoteCooling() || snap.getAtRiskSide() === 'self';
   const [index, setIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);

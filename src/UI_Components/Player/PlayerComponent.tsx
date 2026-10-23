@@ -5,8 +5,8 @@ import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
-import { NpcPassCard, RivalSpinner, EmoteBubble } from '../TurnCard';
-import { PhewBubble, NervousLines } from '../SceneElements/TeacherCatch';
+import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
+import { PhewBubble } from '../SceneElements/TeacherCatch';
 import { CATCH_SCENE } from '../SceneElements/teacherCatchConfig';
 import styled, { css, keyframes } from 'styled-components'
 
@@ -71,6 +71,17 @@ const shiver = keyframes`
 
 const ShiverWrap = styled.div<{ $isShivering: boolean }>`
   ${props => props.$isShivering && css`animation: ${shiver} 3.2s ease-in-out infinite;`}
+`;
+
+/** The wizard's status emoji (StatusEmoji): placed as the avatar is, but not moving with it. */
+const StatusFrame = styled.div`
+  position: absolute;
+  left: 1.5cqw;
+  right: 1.5cqw;
+  bottom: calc(10cqw + 6.3cqw); /* (as the avatar: its placement, and the frame's margin below it) */
+  aspect-ratio: 1 / 1;
+  pointer-events: none;
+  z-index: 41;
 `;
 
 const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
@@ -280,9 +291,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
       </ShiverWrap>
       {direction === -1 && <NpcPassCard />}
       <PhewBubble side={side} />
-      <NervousLines side={side} />
       {direction === -1 && <RivalSpinner />}
-      <EmoteBubble side={direction === 1 ? 'self' : 'rival'} />
     </AvatarPlacementWrapper>
   );
 
@@ -309,6 +318,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead}
       $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
     {avatar}
+    <StatusFrame><StatusEmoji side={side} /></StatusFrame>
     {focusDots}
     {healthbar}
   </DuelistSideColumn>);
