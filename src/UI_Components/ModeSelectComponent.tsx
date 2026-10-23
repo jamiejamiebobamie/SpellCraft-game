@@ -11,16 +11,19 @@ import styled, { keyframes } from 'styled-components';
  * middle (cqw). dim: a soft darkening of the scene behind them, so the title and choices lead rather than
  * the clock (0: none, 1: black).
  * choiceScale: the choices' size (1: as first made, 21cqw wide); titleSize: the title's (cqw; was 4.4).
+ * titleUnderline: a thin line under the title (isOn), broken in two by the letter breakAt (its tail
+ * crossing the line); thickness and drop (below the text's box bottom, negative: up) in cqw.
  */
 export const MODE_SELECT = {
   iconStyle: 'silhouettes' as 'users' | 'wizards' | 'silhouettes',
   title: 'Choose Your Duel',
   titlePlace: 'topLeft' as 'above' | 'below' | 'topLeft',
-  titleInset: { x: 4, y: 3 },
-  choicesDown: 3,
-  dim: 0.4,
-  choiceScale: 1.25,
-  titleSize: 5.8,
+  titleInset: { x: 4, y: 5.5 },
+  choicesDown: 1,
+  dim: 1,
+  choiceScale: 1.7,
+  titleSize: 7,
+  titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -0.75 },
   fadeInSeconds: 0.6,
 };
 
@@ -51,6 +54,22 @@ const Title = styled.div`
   text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
   ${MODE_SELECT.titlePlace === 'topLeft' && `position: absolute; left: ${MODE_SELECT.titleInset.x}cqw; top: ${MODE_SELECT.titleInset.y}cqw;`}
 `;
+
+/** A stretch of the title with the underline beneath it (the letter it breaks at has none). */
+const Underlined = styled.span`
+  background: linear-gradient(currentColor, currentColor) no-repeat;
+  background-size: 100% ${MODE_SELECT.titleUnderline.thickness}cqw;
+  background-position: 0 calc(100% - ${-MODE_SELECT.titleUnderline.drop}cqw);
+`;
+
+/** The title, underlined if titleUnderline.isOn: the line broken in two at its breakAt letter. */
+const TitleText = () => {
+  const { title, titleUnderline } = MODE_SELECT;
+  const at = title.indexOf(titleUnderline.breakAt);
+  if (!titleUnderline.isOn) return <>{title}</>;
+  if (at < 0) return <Underlined>{title}</Underlined>;
+  return <><Underlined>{title.slice(0, at)}</Underlined>{title[at]}<Underlined>{title.slice(at + 1)}</Underlined></>;
+};
 
 const Choices = styled.div`
   display: flex;
@@ -149,7 +168,7 @@ type ModeSelectProps = { onSinglePlayer: () => void; onTwoPlayers: () => void };
 export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: ModeSelectProps) {
   return (
     <Screen>
-      {MODE_SELECT.titlePlace !== 'below' && <Title>{MODE_SELECT.title}</Title>}
+      {MODE_SELECT.titlePlace !== 'below' && <Title><TitleText /></Title>}
       <Choices>
         {/* (2 Players on the left, 1 Player on the right) */}
         <Choice onClick={onTwoPlayers}>
@@ -161,7 +180,7 @@ export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: Mo
           <span className="label">1 Player</span>
         </Choice>
       </Choices>
-      {MODE_SELECT.titlePlace === 'below' && <Title>{MODE_SELECT.title}</Title>}
+      {MODE_SELECT.titlePlace === 'below' && <Title><TitleText /></Title>}
     </Screen>
   );
 }
