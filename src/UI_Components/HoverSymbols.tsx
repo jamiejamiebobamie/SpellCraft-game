@@ -56,7 +56,7 @@ const Glyph = ({ shape }: { shape: Shape }) => {
     case 'circleDot': return <><circle cx={12} cy={12} r={7.5} {...stroke} /><circle cx={12} cy={12} r={1.6} fill="currentColor" /></>;
     case 'hourglass': return <path d="M5 4 L19 4 L10 12 L19 20 L5 20 L14 12 Z" {...stroke} />;
     case 'rhombus': return <path d="M12 6.5 L22 12 L12 17.5 L2 12 Z" {...stroke} />;
-    case 'lopsidedX': return <path d="M4 7 L18 20 M17 4 L5 18" {...stroke} />;
+    case 'lopsidedX': return <path d="M5 7 L19 20 M18 4 L6 18" {...stroke} />;
     case 'dot': return <circle cx={12} cy={12} r={4} fill="currentColor" />;
   }
 };

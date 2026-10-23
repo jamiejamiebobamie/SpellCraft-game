@@ -7,6 +7,7 @@ import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../DataClasses/store';
 import { titleLetteringCss } from './Logo/titleLettering';
 import SymbolSpinner from './SymbolSpinner';
+import { EMOTE_TIMING } from '../DataClasses/Multiplayer/emotes';
 
 /** The card (seconds; size in cqw). */
 export const TURN_CARD = { delaySeconds: 0.5, inSeconds: 0.35, holdSeconds: 1.1, outSeconds: 0.55, size: 6, yourMove: 'Your Move', theirMove: 'Their Move' };
@@ -119,4 +120,33 @@ const RivalSpinnerPlace = styled.div`
 export function RivalSpinner() {
   const snap = useSnapshot(rootGameStore);
   return snap.getIsRivalSpinning() ? <RivalSpinnerPlace><SymbolSpinner size={3.2} /></RivalSpinnerPlace> : null;
+}
+
+const emotePop = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  24% { transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; transform: translate(-50%, -70%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -90%) scale(0.95); }
+`;
+
+/** An emoji over a wizard's head (2-player): bigger and higher than "Pass"; seconds: EMOTE_TIMING. */
+const EmoteText = styled.div`
+  position: absolute;
+  left: 50%;
+  top: -16%;
+  z-index: 41;
+  pointer-events: none;
+  font-size: 5.2cqw;
+  line-height: 1;
+  filter: drop-shadow(0 0.3cqw 0.5cqw rgba(0, 0, 0, 0.6));
+  animation: ${emotePop} ${EMOTE_TIMING.showSeconds}s ease-out forwards;
+`;
+
+/** Placed inside a wizard's avatar (not its mirrored frame): its latest emoji, for a moment. */
+export function EmoteBubble({ side }: { side: 'self' | 'rival' }) {
+  const snap = useSnapshot(rootGameStore);
+  const emote = snap.getEmote(side);
+  if (!emote) return null;
+  return <EmoteText key={emote.id}>{emote.emoji}</EmoteText>;
 }

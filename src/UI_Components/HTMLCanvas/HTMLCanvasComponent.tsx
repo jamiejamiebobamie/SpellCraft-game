@@ -6,6 +6,7 @@ import SettingsComponent from './Buttons/SettingsComponent';
 import SpellBookComponent from './Buttons/SpellBookComponent';
 import ClockFaceComponent from './Buttons/ClockFaceComponent';
 import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';
+import EmojiReactionsComponent from './Buttons/EmojiReactionsComponent';
 import { drawProceduralSpell, updateAndDrawParticles } from './DrawFunctions/RenderSpells/renderSpells';
 import { spawnQuickenParticles, spawnQuickenHitParticles } from './DrawFunctions/RenderSpells/drawQuicken';
 import { spawnEtherParticles, spawnEtherHitParticles } from './DrawFunctions/RenderSpells/drawEther';
@@ -600,7 +601,10 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   }
   const buttons = <>
     <SpellBookComponent isGearHovered={isGearHovered} />
-    <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+    {/* (2-player: emoji reactions in the difficulty button's place) */}
+    {snap.getIsMultiplayer()
+      ? <EmojiReactionsComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
+      : <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />}
     <ClockFaceComponent />
     <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); rootGameStore.setIsKeyboardControlsShown(bool); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
   </>;

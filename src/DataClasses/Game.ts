@@ -19,6 +19,7 @@ import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDi
 import { proxy, ref } from 'valtio';
 import { TURN_CLOCK } from './GameClock/GameClock';
 import { MatchMessage, MultiplayerSession } from './Multiplayer/MultiplayerSession';
+import { EMOTES, EMOTE_TIMING } from './Multiplayer/emotes';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES, getSeededRandom } from './GameRules/gameRules';
@@ -170,6 +171,7 @@ export class Game {
       this.processRivalQueue();
     }
     if (message.type === 'stroke') this.addRivalStroke(message.points, message.isNew);
+    if (message.type === 'emote' && EMOTES.includes(message.emoji)) this.showEmote('rival', message.emoji);
     if (message.type === 'strokeEnd') { this.rivalStrokeEndedAt = performance.now(); }
     if (message.type === 'check') {
       this.rivalFingerprints.set(message.turn, message.fingerprint);
@@ -308,6 +310,32 @@ export class Game {
     this.fingerprints.clear();
     this.rivalFingerprints.clear();
     this.resetGame();
+  };
+
+  // Emoji reactions (2-player): one shows over a wizard's head for a moment (EmoteBubble); this player
+  // waits a moment between sending them
+  private emotes: Record<'self' | 'rival', { id: number; emoji: string } | null> = { self: null, rival: null };
+  private emoteCount = 0;
+  private emoteCooldownUntil = 0;
+  getEmote = (side: 'self' | 'rival'): { id: number; emoji: string } | null => this.emotes[side];
+  getIsEmoteCooling = (): boolean => performance.now() < this.emoteCooldownUntil;
+
+  /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
+  sendEmote = (emoji: string): void => {
+    if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
+    this.session?.send({ type: 'emote', emoji });
+    this.showEmote('self', emoji);
+    this.emoteCooldownUntil = performance.now() + EMOTE_TIMING.cooldownSeconds * 1000;
+    window.setTimeout(this.forceUpdate, EMOTE_TIMING.cooldownSeconds * 1000 + 20);
+  };
+
+  private showEmote = (side: 'self' | 'rival', emoji: string): void => {
+    const emote = { id: ++this.emoteCount, emoji };
+    this.emotes[side] = emote;
+    this.forceUpdate();
+    window.setTimeout(() => {
+      if (this.emotes[side]?.id === emote.id) { this.emotes[side] = null; this.forceUpdate(); }
+    }, EMOTE_TIMING.showSeconds * 1000);
   };
 
   // Live drawings (2-player): this player's strokes sent as they're drawn (in board units, a few times a

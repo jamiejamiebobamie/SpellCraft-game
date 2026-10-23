@@ -5,7 +5,7 @@ import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
-import { NpcPassCard, RivalSpinner } from '../TurnCard';
+import { NpcPassCard, RivalSpinner, EmoteBubble } from '../TurnCard';
 import styled, { css, keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -242,6 +242,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
       </AvatarFrame>
       {direction === -1 && <NpcPassCard />}
       {direction === -1 && <RivalSpinner />}
+      <EmoteBubble side={direction === 1 ? 'self' : 'rival'} />
     </AvatarPlacementWrapper>
   );
 

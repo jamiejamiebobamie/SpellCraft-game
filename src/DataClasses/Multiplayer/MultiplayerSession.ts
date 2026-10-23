@@ -23,6 +23,7 @@ export type MatchMessage =
   // cast's cells): isNew starts a new stroke. Only a picture: the casts are what count
   | { type: 'stroke'; points: Array<[number, number]>; isNew: boolean }
   | { type: 'strokeEnd' }
+  | { type: 'emote'; emoji: string } // an emoji over the sender's wizard's head (one of EMOTES)
   | { type: 'endTurn'; turn: number } // the sender's part of the turn is over
   | { type: 'check'; turn: number; fingerprint: string }; // the board after the turn (both should match)
 
