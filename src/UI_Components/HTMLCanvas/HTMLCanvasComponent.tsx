@@ -54,8 +54,12 @@ interface NpcDrawTracker {
   id: string;
 }
 
-/** A spell striking a wizard: how long its flight off the board takes (seconds). */
-const STRIKE = { seconds: 0.32 };
+/**
+ * A spell striking a wizard: how long its flight off the board takes (seconds), and the most cells a
+ * spell can have and still home in on the wizard's center (bigger ones fly straight on along their rows,
+ * bursting where they arrive).
+ */
+const STRIKE = { seconds: 0.32, homingMaxCells: 1 };
 
 /**
  * The Spell Book's pages drawn once, out of sight, on this canvas after loading (see isPageWarmUpDueRef):
@@ -66,7 +70,9 @@ const WARM_UP_PAGES = availableSymbols.flatMap(symbol => [0, 1, 2].flatMap(sizeI
 type Strike = {
   spell: any; spellClass: string; w: number; h: number; dir: number; side: 'left' | 'right';
   fromX: number; fromY: number; toX: number; toY: number; // its top left, from and to
-  targetX: number; targetY: number; amount: number; boardHeight: number; cellWidthPx: number;
+  targetX: number; targetY: number; // where it bursts
+  numberY: number; // its damage or healing number's height (over the wizard)
+  amount: number; boardHeight: number; cellWidthPx: number;
   progress: number; hasArrived: boolean; particles: Array<any>;
   anim: any; // the spell's animation state on the board
 };
@@ -295,10 +301,13 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             } else {
               // A spell reaching a wizard: it flies on off the board and strikes them, its hit effects
               // (and the damage or healing) on arrival
+              // (a 1x1 homes in on the wizard's center; a bigger spell flies straight on, level)
+              const isHoming = totalCells <= STRIKE.homingMaxCells;
+              const fromY = (anim as any).visualY, toY = isHoming ? tGlobalY - h / 2 : fromY;
               strikesRef.current.push({
                 spell, spellClass, w, h, dir, side: isOpponentHit ? 'right' : 'left',
-                fromX: (anim as any).visualX, fromY: (anim as any).visualY, toX: tGlobalX - w / 2, toY: tGlobalY - h / 2,
-                targetX: tGlobalX, targetY: tGlobalY, amount: spell.hitDamageAmount, boardHeight, cellWidthPx,
+                fromX: (anim as any).visualX, fromY, toX: tGlobalX - w / 2, toY,
+                targetX: tGlobalX, targetY: toY + h / 2, numberY: tGlobalY, amount: spell.hitDamageAmount, boardHeight, cellWidthPx,
                 progress: 0, hasArrived: false, particles: [], anim,
               });
               (anim as any).isStriking = true;
@@ -374,7 +383,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
               else if (strike.spellClass === 'Ether') spawnEtherHitParticles(particles, targetX, targetY);
               else if (strike.spellClass === 'Phlegm') spawnPhlegmHitParticles(particles, targetX, targetY);
               else if (strike.spellClass === 'GyreUp' || strike.spellClass === 'GyreDown') spawnGyreHitParticles(particles, targetX, targetY, strike.side, strike.cellWidthPx);
-              pushFloatingNumber(targetX, targetY, strike.amount);
+              pushFloatingNumber(targetX, strike.numberY, strike.amount); // (over the wizard, joining its running total)
             }
           }
           if (strike.particles.length > 0) updateAndDrawParticles(ctx, strike.particles, deltaTime);
