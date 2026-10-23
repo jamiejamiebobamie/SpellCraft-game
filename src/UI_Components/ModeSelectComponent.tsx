@@ -18,11 +18,11 @@ export const MODE_SELECT = {
   iconStyle: 'silhouettes' as 'users' | 'wizards' | 'silhouettes',
   title: 'Choose Your Duel',
   titlePlace: 'topLeft' as 'above' | 'below' | 'topLeft',
-  titleInset: { x: 4, y: 6.3 },
+  titleInset: { x: 4.5, y: 7 },
   choicesDown: 1,
   dim: 1,
   choiceScale: 1.6,
-  titleSize: 7.5,
+  titleSize: 7,
   titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -.95 },
   fadeInSeconds: 0.6,
 };

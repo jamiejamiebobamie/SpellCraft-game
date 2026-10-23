@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
-import styled from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
 import { titleLetteringCss } from './Logo/titleLettering';
 import HoverSymbols from './HoverSymbols';
@@ -202,6 +202,58 @@ const RubyModalButton = styled.button<{ $glow: string }>`
 const TEXT_RAISE = 4;
 
 /** The title and its line of text, raised (TEXT_RAISE). */
+/**
+ * A teacher's catch: the caught wizard's mask over the title, cracking (cracks drawn across it, with a
+ * jolt) a moment after the card shows. size: cqw wide.
+ */
+const CRACKED_MASK = { size: 7, crackDelaySeconds: 0.6, crackSeconds: 0.5 };
+const CAUGHT_STATUSES: Array<number> = [GameOverStatus.CaughtPlayer, GameOverStatus.CaughtNpc, GameOverStatus.TimesUp];
+
+const crackDraw = keyframes`
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+`;
+const crackJolt = keyframes`
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-4deg) scale(1.06); }
+  45% { transform: rotate(3deg) scale(0.98); }
+  70% { transform: rotate(-1deg) scale(1); }
+`;
+
+const MaskBox = styled.div<{ $delay: number }>`
+  position: relative;
+  width: ${CRACKED_MASK.size}cqw;
+  aspect-ratio: 58 / 73;
+  margin: 0 auto -1cqw;
+  background: url('mask-icons/1mask-icon-Normal.png') center / cover no-repeat;
+  filter: drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8)) brightness(0.9);
+  ${props => css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  path {
+    fill: none;
+    stroke: #1a0e06;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    ${props => css`animation: ${crackDraw} ${CRACKED_MASK.crackSeconds}s ease-out ${props.$delay}s forwards;`}
+  }
+`;
+
+/** The caught wizard's mask, cracking (shown with a catch's card). */
+const CrackedMask = ({ delaySeconds }: { delaySeconds: number }) => (
+  <MaskBox $delay={delaySeconds} aria-hidden>
+    {/* (cracks from a point on the brow, in a 58 x 73 box; pathLength 1 so each draws in evenly) */}
+    <svg viewBox='0 0 58 73'>
+      <path pathLength={1} d='M30 14 L27 22 L31 29 L26 37 L29 46 L25 55' />
+      <path pathLength={1} d='M27 22 L19 26 L15 33' />
+      <path pathLength={1} d='M31 29 L39 32 L43 40' />
+      <path pathLength={1} d='M29 46 L35 51' />
+    </svg>
+  </MaskBox>
+);
+
 const RaisedText = styled.div`
   width: 100%;
   display: flex;
@@ -246,6 +298,7 @@ export const GameOverModalComponent: React.FC = () => {
     <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
       <ModalCardContent>
         <RaisedText>
+          {isGameOver && CAUGHT_STATUSES.includes(currentGameOverState) && <CrackedMask delaySeconds={TRANSITION_TIME_SEC + CRACKED_MASK.crackDelaySeconds} />}
           <ModalTitle>{contentConfig.title}</ModalTitle>
           <ModalSubTextContainer $extraLinesCqw={contentConfig.isPlayAgainOwnLine ? (2 * contentConfig.fontSize - STANDARD_SUBTEXT_SIZE) * SUBTEXT_LINE_HEIGHT : 0}>
             {contentConfig.isPlayAgainOwnLine ? (

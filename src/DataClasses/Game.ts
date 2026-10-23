@@ -27,6 +27,7 @@ import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
 import { trackEvent } from '../analytics';
+import { CATCH_SCENE_TOTAL_SECONDS, LANTERN_PASS } from '../UI_Components/SceneElements/teacherCatchConfig';
 
 /*
 
@@ -549,6 +550,10 @@ export class Game {
   }
 
   resetGame(): void {
+    this.catchScene = null;
+    this.lanternPass = null;
+    this.phew = null;
+    this.dawnCard = null;
     this.placedSpells.reset();
     this.gameBoard.reset();
     this.players.reset();
@@ -658,9 +663,57 @@ export class Game {
     const turnsElapsed = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
     const random = this.getIsMultiplayer() ? () => getSeededRandom(this.matchSeed + this.rematchCount * 7919, turnsElapsed) : Math.random;
-    if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, random)) {
-      this.gameOver = getCaughtGameOver(humanPlayer, npcPlayer);
-    }
+    if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, random)) this.beginCatchScene(getCaughtGameOver(humanPlayer, npcPlayer));
+    else if (turnsElapsed >= CAUGHT_RULES.firstTurn) this.passLantern();
+  }
+
+  // THE TEACHER AT DAWN (TeacherCatch.tsx): sides are 'self' (this player's wizard, on the left) and 'rival'
+  private catchScene: { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null = null;
+  private lanternPass: { id: number; side: 'self' | 'rival' } | null = null;
+  private phew: { id: number; side: 'self' | 'rival' } | null = null;
+  private dawnCard: { id: number } | null = null;
+  private teacherCount = 0;
+  getCatchScene(): { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null { return this.catchScene; }
+  getLanternPass(): { id: number; side: 'self' | 'rival' } | null { return this.lanternPass; }
+  getPhew(): { id: number; side: 'self' | 'rival' } | null { return this.phew; }
+  getDawnCard(): { id: number } | null { return this.dawnCard; }
+
+  /** In the risky turns (from first light), the weaker wizard (whom a teacher would catch); null: even, or not yet. */
+  getAtRiskSide(): 'self' | 'rival' | null {
+    if (this.gameOver !== null || this.catchScene !== null) return null;
+    if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) < CAUGHT_RULES.firstTurn - 1) return null;
+    const self = this.players.getHumanPlayer(), rival = this.players.getNpcPlayer();
+    if (!self || !rival || self.getHealth() === rival.getHealth()) return null;
+    return self.getHealth() < rival.getHealth() ? 'self' : 'rival';
+  }
+
+  /** A teacher catches them: the scene plays (TeacherCatch.tsx), then the game is over. */
+  private beginCatchScene(status: GameOver): void {
+    const caught: Array<'self' | 'rival'> = status === GameOverStatus.CaughtPlayer ? ['self'] : status === GameOverStatus.CaughtNpc ? ['rival'] : ['self', 'rival'];
+    const scene = { id: ++this.teacherCount, status, caught };
+    this.catchScene = scene;
+    const match = this.matchNumber;
+    window.setTimeout(() => {
+      if (this.matchNumber !== match || this.catchScene?.id !== scene.id) return;
+      this.gameOver = status;
+    }, CATCH_SCENE_TOTAL_SECONDS * 1000);
+  }
+
+  /** A risky turn nobody was caught on: a lantern passes the weaker wizard's doorway (either, if even), and they breathe out. */
+  private passLantern(): void {
+    const side = this.getAtRiskSide() ?? (Math.random() < 0.5 ? 'self' : 'rival');
+    const pass = { id: ++this.teacherCount, side };
+    this.lanternPass = pass;
+    const match = this.matchNumber;
+    window.setTimeout(() => {
+      if (this.matchNumber !== match) return;
+      this.phew = { id: pass.id, side };
+    }, LANTERN_PASS.phewDelaySeconds * 1000);
+    window.setTimeout(() => {
+      if (this.matchNumber !== match) return;
+      if (this.lanternPass?.id === pass.id) this.lanternPass = null;
+      if (this.phew?.id === pass.id) this.phew = null;
+    }, (LANTERN_PASS.phewDelaySeconds + LANTERN_PASS.phewSeconds) * 1000);
   }
 
   checkIfIsGameOver(): boolean {
@@ -670,8 +723,8 @@ export class Game {
     // (compared with null: a draw, GameOverStatus.BothDead, is 0)
     if (this.gameOver === null) this.checkIfIsGameOverFromTime();
 
-    const isGameOver = this.gameOver !== null;
-    if (this.gameOver !== null) {
+    const isGameOver = this.gameOver !== null || this.catchScene !== null;
+    if (isGameOver) {
       this.gameClock.stopTurnClock();
       this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
@@ -735,6 +788,7 @@ export class Game {
       if (hadSpells) this.tooltipManager.triggerTip('spellsInMotion');
       if (isCollision) this.tooltipManager.triggerTip('collisions');
       if (this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle() >= Game.NIGHT_PASSING_TIP_TURN) this.tooltipManager.triggerTip('nightPassing');
+      if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) === Game.NIGHT_PASSING_TIP_TURN) this.dawnCard = { id: ++this.teacherCount };
     }
   }
 

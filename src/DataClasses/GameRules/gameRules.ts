@@ -189,27 +189,42 @@ export const createPlacedSpells = (SpellType: SpellClass, rects: Array<CellRect>
 export const SUNRISE_TURNS = 3 * 6;
 
 /**
- * A teacher may catch them at the end of any turn from `firstTurn` (the "Night Is Passing" tip shows the
- * turn before): `chanceStep` that turn, then `chanceStep` more each turn (4%, 8%, 12%...), and surely
- * at sunrise. From turn 12: from first light (the turn ending at 4 AM, as a summer dawn begins), so the
- * sky's light tells of the danger (getDawnLight). (At 4% a step: about 1 in 3 matches still going at
- * 4 AM caught by 5 AM, 3 in 5 before sunrise. Was from turn 6, at 1% a step.)
+ * A teacher may catch them at the end of any turn from `firstTurn` (first light: the turn ending at 4 AM;
+ * the "Night Is Passing" tip shows the turn before), surely at sunrise. The chance climbs steeply, slow at
+ * first and very likely by the end: `lastChance` x (steps so far / steps to sunrise) ^ `curve`, so with
+ * curve 3 and lastChance 0.5 about 0.2%, 2%, 6%, 15%, 29%, 50%, then sunrise (of matches still going at
+ * 4 AM: 8% caught by 4:40, 22% by 5:00, 72% by 5:40). (Was from 2 AM, 1% more each turn; then from 4 AM,
+ * 4% more each turn.)
  */
-export const CAUGHT_RULES = { firstTurn: 12, chanceStep: 0.04 };
+export const CAUGHT_RULES = { firstTurn: 12, lastChance: 0.5, curve: 3 };
 
 /** The chance a teacher catches them at the end of turn `turn` (1: sunrise). */
-export const getCaughtChance = (turn: number): number =>
-  turn >= SUNRISE_TURNS ? 1 : turn < CAUGHT_RULES.firstTurn ? 0 : Math.min(1, CAUGHT_RULES.chanceStep * (turn - CAUGHT_RULES.firstTurn + 1));
+export const getCaughtChance = (turn: number): number => {
+  if (turn >= SUNRISE_TURNS) return 1;
+  if (turn < CAUGHT_RULES.firstTurn) return 0;
+  const step = turn - CAUGHT_RULES.firstTurn + 1, steps = SUNRISE_TURNS - CAUGHT_RULES.firstTurn;
+  return Math.min(1, CAUGHT_RULES.lastChance * (step / steps) ** CAUGHT_RULES.curve);
+};
 
-/**
- * The dawn's light during the turn after `turnsElapsed` (0: night, 1: full day): the chance a teacher
- * has caught them by that turn's end, so the brightening sky tells of the danger. Dark until first light,
- * faint then, brightening faster through the last hour; full for the last turn (sunrise is certain).
- */
-export const getDawnLight = (turnsElapsed: number): number => {
+/** The chance a teacher has caught them by the end of the turn after `turnsElapsed` (1: by sunrise). */
+export const getCaughtRisk = (turnsElapsed: number): number => {
   let isFree = 1;
   for (let turn = CAUGHT_RULES.firstTurn; turn <= turnsElapsed + 1; turn++) isFree *= 1 - getCaughtChance(turn);
   return 1 - isFree;
+};
+
+/**
+ * The dawn's light: a summer dawn, rising steadily from first light to sunrise, blended with the risk of a
+ * teacher's catch (riskWeight: its share), so the sky lightens on time and brightens faster as the danger
+ * climbs.
+ */
+export const DAWN_LIGHT = { riskWeight: 0.6 };
+
+/** The dawn's light during the turn after `turnsElapsed` (0: night, 1: full day; DAWN_LIGHT). */
+export const getDawnLight = (turnsElapsed: number): number => {
+  const firstLight = CAUGHT_RULES.firstTurn - 1; // (turns elapsed as the first-light turn begins)
+  const steady = Math.max(0, Math.min(1, (turnsElapsed - firstLight + 1) / (SUNRISE_TURNS - firstLight)));
+  return turnsElapsed + 1 >= SUNRISE_TURNS ? 1 : (1 - DAWN_LIGHT.riskWeight) * steady + DAWN_LIGHT.riskWeight * getCaughtRisk(turnsElapsed);
 };
 
 /**

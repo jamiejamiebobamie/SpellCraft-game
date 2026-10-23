@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { GameOverStatus, CellIndex } from '../types';
-import { CAUGHT_RULES, SUNRISE_TURNS, getCaughtGameOver, getFocusCost, getIsTimeUp } from './gameRules';
+import { CAUGHT_RULES, getCaughtChance, SUNRISE_TURNS, getCaughtGameOver, getFocusCost, getIsTimeUp } from './gameRules';
 import { Player } from '../Player/Player';
 import { Ether } from '../PlacedSpells/Spell';
 import { CASTING_RULES, PLAYER_RULES } from '../PlacedSpells/spellRules';
@@ -99,11 +99,11 @@ describe('turns', () => {
   });
 
   it('a teacher may catch them from CAUGHT_RULES.firstTurn, likelier each turn, and surely at sunrise', () => {
-    const { firstTurn, chanceStep } = CAUGHT_RULES;
+    const { firstTurn } = CAUGHT_RULES;
     expect(getIsTimeUp(firstTurn - 1, () => 0)).toBe(false); // (never before)
-    expect(getIsTimeUp(firstTurn, () => chanceStep - 1e-9)).toBe(true);
-    expect(getIsTimeUp(firstTurn, () => chanceStep)).toBe(false);
-    expect(getIsTimeUp(firstTurn + 4, () => chanceStep * 5 - 1e-9)).toBe(true); // 5% four turns on
+    expect(getIsTimeUp(firstTurn, () => getCaughtChance(firstTurn) - 1e-9)).toBe(true);
+    expect(getIsTimeUp(firstTurn, () => getCaughtChance(firstTurn))).toBe(false);
+    for (let turn = firstTurn; turn < SUNRISE_TURNS - 1; turn++) expect(getCaughtChance(turn + 1)).toBeGreaterThan(getCaughtChance(turn)); // (likelier each turn)
     expect(getIsTimeUp(SUNRISE_TURNS, () => 0.999)).toBe(true);
   });
 

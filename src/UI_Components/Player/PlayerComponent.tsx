@@ -6,6 +6,8 @@ import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from 
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, EmoteBubble } from '../TurnCard';
+import { PhewBubble, NervousLines } from '../SceneElements/TeacherCatch';
+import { CATCH_SCENE } from '../SceneElements/teacherCatchConfig';
 import styled, { css, keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -22,24 +24,53 @@ const DuelistSideColumn = styled.div`
   width: 100%;
 `;
 
-/** A 2-player match's rival fleeing: turning away, then running off the side of the hall (Game.RIVAL_FLEE_SECONDS). */
+/**
+ * Running off the side of the hall (--exit: 1, to the right; -1, to the left), turned away: a 2-player
+ * match's rival fleeing (Game.RIVAL_FLEE_SECONDS), or the wizard who got away from a teacher.
+ */
 const flee = keyframes`
   0% { transform: translateX(0) scaleX(1); opacity: 1; }
   12% { transform: translateX(0) scaleX(-1) translateY(0); opacity: 1; }
-  30% { transform: translateX(6cqw) scaleX(-1) translateY(-0.8cqw); }
-  45% { transform: translateX(11cqw) scaleX(-1) translateY(0); }
-  60% { transform: translateX(17cqw) scaleX(-1) translateY(-0.8cqw); }
-  75% { transform: translateX(23cqw) scaleX(-1) translateY(0); }
-  100% { transform: translateX(34cqw) scaleX(-1) translateY(-0.6cqw); opacity: 0; }
+  30% { transform: translateX(calc(var(--exit) * 6cqw)) scaleX(-1) translateY(-0.8cqw); }
+  45% { transform: translateX(calc(var(--exit) * 11cqw)) scaleX(-1) translateY(0); }
+  60% { transform: translateX(calc(var(--exit) * 17cqw)) scaleX(-1) translateY(-0.8cqw); }
+  75% { transform: translateX(calc(var(--exit) * 23cqw)) scaleX(-1) translateY(0); }
+  100% { transform: translateX(calc(var(--exit) * 34cqw)) scaleX(-1) translateY(-0.6cqw); opacity: 0; }
 `;
 
-const AvatarPlacementWrapper = styled.div<{ $isFleeing?: boolean }>`
+/** Caught by a teacher: yanked, then dragged backwards out through the doorway, heels sliding, leaning back. */
+const dragged = keyframes`
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  10% { transform: translateX(calc(var(--exit) * 1.5cqw)) rotate(calc(var(--exit) * -10deg)); }
+  20% { transform: translateX(calc(var(--exit) * 1cqw)) rotate(calc(var(--exit) * -6deg)); }
+  100% { transform: translateX(calc(var(--exit) * 30cqw)) rotate(calc(var(--exit) * -14deg)); opacity: 0; }
+`;
+
+const AvatarPlacementWrapper = styled.div<{ $exit: number; $isFleeing?: boolean; $isDragged?: boolean; $isSlipping?: boolean }>`
   position: absolute;
   left: 1.5cqw;
   right: 1.5cqw;
   bottom: 10cqw;
   pointer-events: none;
+  --exit: ${props => props.$exit};
+  transform-origin: bottom center;
   ${props => props.$isFleeing && css`animation: ${flee} 1.8s ease-in forwards;`}
+  ${props => props.$isDragged && css`animation: ${dragged} ${CATCH_SCENE.dragSeconds}s ease-in ${CATCH_SCENE.floodSeconds}s forwards;`}
+  ${props => props.$isSlipping && css`animation: ${flee} ${CATCH_SCENE.dragSeconds}s ease-in ${CATCH_SCENE.floodSeconds + CATCH_SCENE.slipDelaySeconds}s forwards;`}
+`;
+
+/** At dawn, the weaker wizard (whom a teacher would catch): a shiver, every few seconds. */
+const shiver = keyframes`
+  0%, 84%, 100% { transform: translateX(0); }
+  86% { transform: translateX(-0.25cqw); }
+  88% { transform: translateX(0.25cqw); }
+  90% { transform: translateX(-0.2cqw); }
+  92% { transform: translateX(0.2cqw); }
+  94% { transform: translateX(-0.1cqw); }
+`;
+
+const ShiverWrap = styled.div<{ $isShivering: boolean }>`
+  ${props => props.$isShivering && css`animation: ${shiver} 3.2s ease-in-out infinite;`}
 `;
 
 const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
@@ -222,9 +253,15 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     if (direction === 1 && hasSpentFocus) rootGameStore.notePlayerCast();
   }, [focusAmt]);
   const isBeginIntroWalk = playerSnap?.getIsBeginIntroWalk() || false;
+  // The teacher at dawn: this wizard at risk (shivering), or caught (dragged out) or getting away (TeacherCatch.tsx)
+  const side = direction === 1 ? 'self' : 'rival';
+  const catchScene = snap.getCatchScene();
+  const isCaught = !!catchScene?.caught.includes(side);
+
 
   const avatar = (
-    <AvatarPlacementWrapper $isFleeing={direction === -1 && snap.getIsRivalFleeing()}>
+    <AvatarPlacementWrapper $exit={direction === 1 ? -1 : 1} $isFleeing={direction === -1 && snap.getIsRivalFleeing()} $isDragged={isCaught} $isSlipping={!!catchScene && !isCaught}>
+      <ShiverWrap $isShivering={snap.getAtRiskSide() === side}>
       <AvatarFrame $src={src} $direction={direction}>
         <Damageable
           $isBeginIntroWalk={isBeginIntroWalk}
@@ -240,7 +277,10 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           <FloorShadow $isHide={isDead} />
         </Damageable>
       </AvatarFrame>
+      </ShiverWrap>
       {direction === -1 && <NpcPassCard />}
+      <PhewBubble side={side} />
+      <NervousLines side={side} />
       {direction === -1 && <RivalSpinner />}
       <EmoteBubble side={direction === 1 ? 'self' : 'rival'} />
     </AvatarPlacementWrapper>

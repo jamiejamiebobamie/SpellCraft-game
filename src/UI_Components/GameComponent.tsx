@@ -9,13 +9,25 @@ import LightTipLayer from './LightTipCard';
 import LoaderComponent from './LoaderComponent';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
-import styled from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
 import { useKeyPress } from './UseKeyPress';
+import { LanternLight, CaughtStamp, DawnCard } from './SceneElements/TeacherCatch';
+import { CATCH_SCENE } from './SceneElements/teacherCatchConfig';
+
+/** The hall shaking as a teacher's light floods in (a catch: TeacherCatch.tsx). */
+const hallShake = keyframes`
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-0.4cqw, 0.2cqw); }
+  30% { transform: translate(0.35cqw, -0.25cqw); }
+  45% { transform: translate(-0.3cqw, -0.15cqw); }
+  60% { transform: translate(0.25cqw, 0.2cqw); }
+  80% { transform: translate(-0.1cqw, 0.05cqw); }
+`;
 
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
 // NOTE: AI on BRUTAL kills himself often... also does similar opening move (3x3 Ether) every time...
@@ -26,7 +38,7 @@ import { useKeyPress } from './UseKeyPress';
  */
 const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
 
-const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
+const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking: boolean }>`
   /* Vertical placement comes from the spacers around #root (index.css) */
   margin: 0 auto;
 
@@ -36,6 +48,7 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number }>`
   user-select: none;
   overflow: hidden;
   position: relative;
+  ${props => props.$isShaking && css`animation: ${hallShake} 0.55s ease-in-out ${CATCH_SCENE.floodSeconds * 0.75}s 1;`}
 
   aspect-ratio: 16 / 9;
   width: 100%;
@@ -262,6 +275,7 @@ export const GameComponent = () => {
       backgroundSceneBrightness={backgroundSceneBrightness}
       right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
+    <LanternLight />
   </>;
 
   const mainUI = <>
@@ -271,6 +285,8 @@ export const GameComponent = () => {
     </MainColumn>
     <TurnCard />
     <RivalWaitingCard />
+    <DawnCard />
+    <CaughtStamp />
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>;
 
@@ -282,6 +298,7 @@ export const GameComponent = () => {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       $backgroundSceneBrightness={backgroundSceneBrightness}
+      $isShaking={snap.getCatchScene() !== null}
     >
       <GameOverModalComponent />
       <LoaderComponent />
