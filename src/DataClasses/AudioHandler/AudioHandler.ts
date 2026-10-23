@@ -15,6 +15,12 @@ export const VOLUME = {
     } as Record<AudioType, { volume: string; muted: string }>,
 };
 
+/**
+ * The dawn's birdsong: a quiet loop (src) from `fromTurn` turns in (5 AM: the last hour before sunrise),
+ * at `volume` of the sound effects' level, fading in and out over these many seconds.
+ */
+export const BIRDSONG = { src: './Audio/Effects/Clock/785248__newlocknew__ambbird_birdsong-loop.mp3', fromTurn: 15, volume: 0.6, fadeInSeconds: 8, fadeOutSeconds: 3 };
+
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
 
@@ -71,6 +77,45 @@ export class AudioHandler {
             .catch(err => console.log("Autoplay blocked:", err));
     }
 
+    // The birdsong (BIRDSONG): an audio element (ref: never proxied), and the fade under way
+    private birdsong: HTMLAudioElement | null = null;
+    private birdsongFade = 0;
+    private isBirdsongOn = false;
+
+    /** The birdsong fades in (once: nothing if it's already playing). */
+    startBirdsong(): void {
+        if (this.isBirdsongOn) return;
+        this.isBirdsongOn = true;
+        if (!this.birdsong) {
+            this.birdsong = ref(new Audio(BIRDSONG.src));
+            this.birdsong.loop = true;
+        }
+        this.birdsong.volume = 0;
+        this.birdsong.play().catch(err => console.log('Birdsong blocked:', err));
+        this.fadeBirdsong(BIRDSONG.fadeInSeconds);
+    }
+    /** The birdsong fades out (then pauses). */
+    stopBirdsong(): void {
+        if (!this.isBirdsongOn) return;
+        this.isBirdsongOn = false;
+        this.fadeBirdsong(BIRDSONG.fadeOutSeconds);
+    }
+    private getBirdsongLevel(): number { return this.isBirdsongOn ? Math.min(1, this.getLevel('fx') * BIRDSONG.volume) : 0; }
+    private fadeBirdsong(seconds: number): void {
+        const audio = this.birdsong;
+        if (!audio) return;
+        window.clearInterval(this.birdsongFade);
+        const from = audio.volume, startedAt = performance.now();
+        this.birdsongFade = window.setInterval(() => {
+            const t = Math.min(1, (performance.now() - startedAt) / (seconds * 1000));
+            audio.volume = Math.max(0, Math.min(1, from + (this.getBirdsongLevel() - from) * t));
+            if (t >= 1) {
+                window.clearInterval(this.birdsongFade);
+                if (!this.isBirdsongOn) audio.pause();
+            }
+        }, 50);
+    }
+
     /**
      * 2. POLYPHONIC SFX PLAYER
      * Each play gets its own source node from the shared decoded buffer, so the same clip can
@@ -107,7 +152,10 @@ export class AudioHandler {
 
     /** How loud a kind plays (0 to 1): its dial's volume, unless muted. */
     private getLevel(audioType: AudioType): number { return this.muted[audioType] ? 0 : this.volumes[audioType] * VOLUME.middleLevel; }
-    private applyMusicLevel(): void { if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music'); }
+    private applyMusicLevel(): void {
+        if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music');
+        if (this.birdsong && this.isBirdsongOn) this.birdsong.volume = this.getBirdsongLevel();
+    }
 
     /** Mutes or unmutes a kind (`isMuted`: which; else the other way round). */
     toggleAudio(audioType: AudioType, isMuted?: boolean): void {

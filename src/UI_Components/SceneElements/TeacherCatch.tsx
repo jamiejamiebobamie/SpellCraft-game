@@ -12,9 +12,9 @@ import { PassCard } from '../TurnCard';
 
 /**
  * The doorways (the open arches behind each wizard, in cqw of the game's width): where the lantern's light
- * shows, and its color (r, g, b).
+ * shows, its color (r, g, b: blood red), and its blur (cqw).
  */
-export const DOORWAYS = { self: { left: 5.5 }, rival: { right: 5.8 }, width: 13, top: 17, height: 22, light: '255, 196, 120' };
+export const DOORWAYS = { self: { left: 5.5 }, rival: { right: 5.8 }, width: 13, top: 17, height: 22, light: '190, 12, 12', blur: 1.6 };
 
 // A lantern carried past, beyond the doorway: its glow crossing the opening, and its light spilling out
 // over the floor in front, brightening and fading as it passes
@@ -44,6 +44,7 @@ const Doorway = styled.div<{ $side: 'self' | 'rival' }>`
   z-index: 1; /* over the background, beneath the wizards */
   pointer-events: none;
   mix-blend-mode: screen; /* light: brightening what's there */
+  filter: blur(${DOORWAYS.blur}cqw); /* (one soft glow, not its two shapes) */
 `;
 
 const Glow = styled.div<{ $isFlood: boolean; $seconds: number }>`
@@ -93,10 +94,10 @@ export function LanternLight() {
 }
 
 const stampOn = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(2.6); }
-  35% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(0.92); }
-  45% { transform: translate(-50%, -50%) rotate(-8deg) scale(1.04); }
-  55%, 100% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(14deg) scale(2.6); }
+  35% { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(0.92); }
+  45% { transform: translate(-50%, -50%) rotate(8deg) scale(1.04); }
+  55%, 100% { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
 `;
 
 const Stamp = styled.div`
@@ -109,9 +110,9 @@ const Stamp = styled.div`
   font-family: 'EnchantedLand', sans-serif;
   font-size: 11cqw;
   line-height: 1;
-  color: #d23a2a;
-  -webkit-text-stroke: 0.12cqw #3a0b06;
-  text-shadow: 0 0 1.5cqw rgba(0, 0, 0, 0.8), 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.9);
+  color: #8a0303; /* blood red */
+  -webkit-text-stroke: 0.12cqw #2a0000;
+  text-shadow: 0 0 1.2cqw rgba(170, 0, 0, 0.55), 0 0 2.5cqw rgba(0, 0, 0, 0.85), 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.9);
   opacity: 0;
   animation: ${stampOn} ${CATCH_SCENE.stampSeconds}s cubic-bezier(0.2, 0.8, 0.3, 1) ${CATCH_SCENE.floodSeconds + CATCH_SCENE.dragSeconds}s forwards;
 `;

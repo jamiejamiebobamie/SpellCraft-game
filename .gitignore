@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Original recordings (large): the game uses the compressed versions in public/Audio
+art/audio-sources/

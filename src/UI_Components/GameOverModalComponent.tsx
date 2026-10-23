@@ -203,11 +203,23 @@ const TEXT_RAISE = 4;
 
 /** The title and its line of text, raised (TEXT_RAISE). */
 /**
- * A teacher's catch: the caught wizard's mask over the title, cracking (cracks drawn across it, with a
- * jolt) a moment after the card shows. size: cqw wide.
+ * Both wizards' masks beside the title: the player's (white) on the left, the rival's (green) on the right.
+ * A winner's stays whole; a loser's cracks, then splits along the crack and falls apart, a moment after the
+ * card shows. size: cqw wide; white: the filter making the green mask image the player's white.
  */
-const CRACKED_MASK = { size: 7, crackDelaySeconds: 0.6, crackSeconds: 0.5 };
-const CAUGHT_STATUSES: Array<number> = [GameOverStatus.CaughtPlayer, GameOverStatus.CaughtNpc, GameOverStatus.TimesUp];
+const OUTCOME_MASKS = { size: 9, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, white: 'grayscale(1) brightness(2.1) contrast(0.9)' };
+
+/** For each game over (from this player's side): whether each mask breaks; a missing one isn't shown (a rival who fled). */
+const MASK_OUTCOMES: Record<number, { self?: 'whole' | 'broken'; rival?: 'whole' | 'broken' }> = {
+  [GameOverStatus.BothDead]: { self: 'whole', rival: 'whole' }, // (a draw)
+  [GameOverStatus.PlayerWon]: { self: 'whole', rival: 'broken' },
+  [GameOverStatus.NpcWon]: { self: 'broken', rival: 'whole' },
+  [GameOverStatus.TimesUp]: { self: 'broken', rival: 'broken' }, // (both caught)
+  [GameOverStatus.CaughtPlayer]: { self: 'broken', rival: 'whole' },
+  [GameOverStatus.CaughtNpc]: { self: 'whole', rival: 'broken' },
+  [GameOverStatus.OutOfStep]: { self: 'whole', rival: 'whole' },
+  [GameOverStatus.EnemyFled]: { self: 'whole' },
+};
 
 const crackDraw = keyframes`
   from { stroke-dashoffset: 1; }
@@ -219,16 +231,30 @@ const crackJolt = keyframes`
   45% { transform: rotate(3deg) scale(0.98); }
   70% { transform: rotate(-1deg) scale(1); }
 `;
+const cracksFade = keyframes`
+  to { opacity: 0; }
+`;
+const splitLeft = keyframes`
+  to { transform: translate(-0.35cqw, 0.35cqw) rotate(-4deg); }
+`;
+const splitRight = keyframes`
+  to { transform: translate(0.35cqw, 0.5cqw) rotate(3.5deg); }
+`;
 
-const MaskBox = styled.div<{ $delay: number }>`
+// The halves, cut along the main crack (in the mask image's 58 x 73 box, as %)
+const CRACK_LINE = '53.4% 0%, 51.7% 19.2%, 46.6% 30.1%, 53.4% 39.7%, 44.8% 50.7%, 50% 63%, 43.1% 75.3%, 41.4% 100%';
+const LEFT_HALF = `polygon(0% 0%, ${CRACK_LINE}, 0% 100%)`;
+const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100% 100%, 100% 0%)`;
+
+const MaskBox = styled.div<{ $delay: number; $isBroken: boolean }>`
   position: relative;
-  width: ${CRACKED_MASK.size}cqw;
+  flex: none;
+  width: ${OUTCOME_MASKS.size}cqw;
   aspect-ratio: 58 / 73;
-  margin: 0 auto -1cqw;
-  background: url('mask-icons/1mask-icon-Normal.png') center / cover no-repeat;
-  filter: drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8)) brightness(0.9);
-  ${props => css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
+  filter: drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8));
+  ${props => props.$isBroken && css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  svg { ${props => css`animation: ${cracksFade} 0.3s ease-in ${props.$delay + OUTCOME_MASKS.crackSeconds + 0.15}s forwards;`} }
   path {
     fill: none;
     stroke: #1a0e06;
@@ -237,22 +263,50 @@ const MaskBox = styled.div<{ $delay: number }>`
     stroke-linejoin: round;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    ${props => css`animation: ${crackDraw} ${CRACKED_MASK.crackSeconds}s ease-out ${props.$delay}s forwards;`}
+    ${props => css`animation: ${crackDraw} ${OUTCOME_MASKS.crackSeconds}s ease-out ${props.$delay}s forwards;`}
   }
 `;
 
-/** The caught wizard's mask, cracking (shown with a catch's card). */
-const CrackedMask = ({ delaySeconds }: { delaySeconds: number }) => (
-  <MaskBox $delay={delaySeconds} aria-hidden>
-    {/* (cracks from a point on the brow, in a 58 x 73 box; pathLength 1 so each draws in evenly) */}
-    <svg viewBox='0 0 58 73'>
-      <path pathLength={1} d='M30 14 L27 22 L31 29 L26 37 L29 46 L25 55' />
-      <path pathLength={1} d='M27 22 L19 26 L15 33' />
-      <path pathLength={1} d='M31 29 L39 32 L43 40' />
-      <path pathLength={1} d='M29 46 L35 51' />
-    </svg>
-  </MaskBox>
-);
+const MaskHalf = styled.div<{ $isWhite: boolean; $clip: string; $split: ReturnType<typeof keyframes> | null; $delay: number }>`
+  position: absolute;
+  inset: 0;
+  background: url('mask-icons/1mask-icon-Normal.png') center / cover no-repeat;
+  ${props => props.$isWhite && `filter: ${OUTCOME_MASKS.white};`}
+  clip-path: ${props => props.$clip};
+  transform-origin: 50% 100%;
+  ${props => props.$split && css`animation: ${props.$split} ${OUTCOME_MASKS.splitSeconds}s cubic-bezier(0.3, 0, 0.6, 1) ${props.$delay}s forwards;`}
+`;
+
+/** A wizard's mask on the card: whole, or cracking and splitting apart (`delaySeconds`: when it cracks). */
+const OutcomeMask = ({ side, isBroken, delaySeconds }: { side: 'self' | 'rival'; isBroken: boolean; delaySeconds: number }) => {
+  const splitDelay = delaySeconds + OUTCOME_MASKS.crackSeconds + 0.1;
+  const isWhite = side === 'self';
+  return (
+    <MaskBox $delay={delaySeconds} $isBroken={isBroken} aria-hidden>
+      <MaskHalf $isWhite={isWhite} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />
+      {isBroken && <MaskHalf $isWhite={isWhite} $clip={RIGHT_HALF} $split={splitRight} $delay={splitDelay} />}
+      {isBroken && (
+        // (cracks from a point on the brow; pathLength 1 so each draws in evenly)
+        <svg viewBox='0 0 58 73'>
+          <path pathLength={1} d='M30 14 L27 22 L31 29 L26 37 L29 46 L25 55' />
+          <path pathLength={1} d='M27 22 L19 26 L15 33' />
+          <path pathLength={1} d='M31 29 L39 32 L43 40' />
+          <path pathLength={1} d='M29 46 L35 51' />
+        </svg>
+      )}
+    </MaskBox>
+  );
+};
+
+/** The title, between the two masks. */
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5cqw;
+  width: 100%;
+  h2 { width: auto; }
+`;
 
 const RaisedText = styled.div`
   width: 100%;
@@ -293,13 +347,19 @@ export const GameOverModalComponent: React.FC = () => {
   const isGameOver = currentGameOverState !== null;
   const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
   const isAwaitingRematch = snap.getIsAwaitingRematch(), isRivalLeft = snap.getIsRivalLeft();
+  // (the masks beside the title: a loser's cracking once the card has faded in)
+  const masks = isGameOver ? MASK_OUTCOMES[currentGameOverState] : null;
+  const maskDelay = TRANSITION_TIME_SEC + OUTCOME_MASKS.crackDelaySeconds;
 
   return (
     <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
       <ModalCardContent>
         <RaisedText>
-          {isGameOver && CAUGHT_STATUSES.includes(currentGameOverState) && <CrackedMask delaySeconds={TRANSITION_TIME_SEC + CRACKED_MASK.crackDelaySeconds} />}
-          <ModalTitle>{contentConfig.title}</ModalTitle>
+          <TitleRow>
+            {masks?.self && <OutcomeMask key={`self:${currentGameOverState}`} side='self' isBroken={masks.self === 'broken'} delaySeconds={maskDelay} />}
+            <ModalTitle>{contentConfig.title}</ModalTitle>
+            {masks?.rival && <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' isBroken={masks.rival === 'broken'} delaySeconds={maskDelay} />}
+          </TitleRow>
           <ModalSubTextContainer $extraLinesCqw={contentConfig.isPlayAgainOwnLine ? (2 * contentConfig.fontSize - STANDARD_SUBTEXT_SIZE) * SUBTEXT_LINE_HEIGHT : 0}>
             {contentConfig.isPlayAgainOwnLine ? (
               <>

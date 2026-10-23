@@ -175,6 +175,7 @@ training/.venv/Scripts/python training/export_onnx.py training/models/<model>.zi
 | [Scream - Ugh](https://freesound.org/s/338145/) | ArtOrDie | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | [Male Grunts](https://freesound.org/s/727827/) | abraksil | [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | [Magic Healing Spell SFX - Fantasy RPG Restore Effect](https://freesound.org/s/853303/) | TommasoMotteran | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [AMBBird_Birdsong near the village, large parking lot](https://freesound.org/s/785248/) (an excerpt, looped) | newlocknew | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
 
 **Music:** "Magic Escape Room" Kevin MacLeod ([incompetech.com](https://incompetech.com/))\
 Licensed under Creative Commons: By Attribution 4.0 License\

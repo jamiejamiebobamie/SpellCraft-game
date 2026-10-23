@@ -1,6 +1,6 @@
 // Game.ts
 import { RefObject } from 'react';
-import { AudioHandler } from './AudioHandler/AudioHandler';
+import { AudioHandler, BIRDSONG } from './AudioHandler/AudioHandler';
 import { AssetLoader } from './AssetLoader/AssetLoader';
 import { GameBoard } from './GameBoard/GameBoard';
 import { Players } from './Player/Players';
@@ -552,6 +552,7 @@ export class Game {
   }
 
   resetGame(): void {
+    this.audioHandler.stopBirdsong();
     this.catchScene = null;
     this.lanternPass = null;
     this.phew = null;
@@ -742,6 +743,7 @@ export class Game {
 
     const isGameOver = this.gameOver !== null || this.catchScene !== null;
     if (isGameOver) {
+      this.audioHandler.stopBirdsong();
       this.gameClock.stopTurnClock();
       this.tooltipManager.clearClickClockRef();
       this.disableGameBoard();
@@ -806,6 +808,7 @@ export class Game {
       if (isCollision) this.tooltipManager.triggerTip('collisions');
       if (this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle() >= Game.NIGHT_PASSING_TIP_TURN) this.tooltipManager.triggerTip('nightPassing');
       if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) === Game.NIGHT_PASSING_TIP_TURN) this.dawnCard = { id: ++this.teacherCount };
+      if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) >= BIRDSONG.fromTurn) this.audioHandler.startBirdsong();
     }
   }
 
