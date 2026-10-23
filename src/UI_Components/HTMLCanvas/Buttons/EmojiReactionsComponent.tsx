@@ -8,6 +8,7 @@ import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../../DataClasses/store';
 import { EMOTES } from '../../../DataClasses/Multiplayer/emotes';
 import { UIFadeIn } from '../../UIFadeIn';
+import { LAYERS } from '../../layers';
 
 /**
  * The button: look 'mask' (the difficulty button's Normal mask, "React" in gold beneath it) or 'symbols'
@@ -25,8 +26,8 @@ const Anchor = styled(UIFadeIn) <{ $isShowingModal: boolean }>`
   position: absolute;
   top: 1.5cqw;
   right: 4.5cqw;
-  z-index: 35;
-  filter: brightness(${props => props.$isShowingModal ? 0.55 : 1});
+  /* beneath the canvas while it shows the keyboard controls or a Spell Book page, which then cover it (layers.ts) */
+  z-index: ${props => props.$isShowingModal ? LAYERS.buttonUnderOverlay : LAYERS.button};
   display: flex;
   flex-direction: column;
   align-items: flex-end;

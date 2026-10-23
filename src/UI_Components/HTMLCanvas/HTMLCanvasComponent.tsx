@@ -21,6 +21,7 @@ import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
 import { useSnapshot } from 'valtio';
 import { availableSymbols, pixieColors, runGlobalBookSparkles, drawProceduralScroll, drawModalDetails, prewarmSpellBookPage } from './DrawFunctions/SpellBook/SpellBookFunctions';
 import { drawKeyboardOverlay } from './DrawFunctions/KeyBindings/KeyBindingsOverlay';
+import { LAYERS } from '../layers';
 import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTSPOT, cursorSettings, getDefaultCursor } from '../cursors';
 
 /**
@@ -37,7 +38,7 @@ const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
   transform: translate(-50%, -50%);
   width: 100cqw; 
   height: 60cqw;
-  z-index: ${props => (props.$zIndex ? props.$zIndex : 29)};
+  z-index: ${props => (props.$zIndex ? props.$zIndex : LAYERS.canvas)};
   pointer-events: auto;
   touch-action: none;
   filter: drop-shadow(0 0 1.5cqw rgba(248, 255, 54, 0.4));
@@ -554,7 +555,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       if (isShowingModal && isIntroDone) drawModalDetails(ctx, scrollUIRef.current, deltaTime, viewW, viewH, animStatesRef.current, currentTime);
       if (isGearHovered && !isShowingModal && isIntroDone) drawKeyboardOverlay(ctx, viewW, viewH);
       if (isIntroDone) {
-        runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
+        // (the Spell Book button's sparkles: not while the keyboard controls cover the button)
+        if (!isGearHovered) runGlobalBookSparkles(ctx, scrollUIRef.current, viewW);
         drawProceduralScroll(ctx, scrollUIRef.current, viewW, viewH, deltaTime, currentTime, setIsHovered, animStatesRef.current);
       }
 
@@ -651,7 +653,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         style={{ touchAction: 'none' }}
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
-        $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? 32 : 29}
+        $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? LAYERS.canvasWithOverlay : LAYERS.canvas}
         $cursor={cursor} />
     </>
   );

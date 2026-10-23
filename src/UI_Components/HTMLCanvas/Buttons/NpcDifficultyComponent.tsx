@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { UIFadeIn } from '../../UIFadeIn';
+import { LAYERS } from '../../layers';
 
 import styled, { keyframes } from 'styled-components';
 import { NpcDifficulty } from '../../../DataClasses/types';
@@ -13,8 +14,8 @@ const MenuAnchor = styled(UIFadeIn) <{ $isShowingModal: boolean }>`
   position: absolute;
   top: 1cqw;   
   right: 4cqw; 
-  z-index: 35;
-  filter: brightness(${props => props.$isShowingModal ? .55 : 1});
+  /* beneath the canvas while it shows the keyboard controls or a Spell Book page, which then cover it (layers.ts) */
+  z-index: ${props => props.$isShowingModal ? LAYERS.buttonUnderOverlay : LAYERS.button};
 `;
 
 // The Visual Trigger Element

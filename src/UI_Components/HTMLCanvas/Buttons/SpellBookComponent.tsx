@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { rootGameStore } from '../../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import { UIFadeIn } from '../../UIFadeIn';
+import { LAYERS } from '../../layers';
 import styled, { css, keyframes } from 'styled-components';
 
 const repeatingGlow = keyframes`
@@ -15,8 +16,8 @@ const MenuAnchor = styled(UIFadeIn)<{ $isGearHovered: boolean }>`
   position: absolute;
   top: 2cqw;
   left: 3cqw; 
-  z-index: 35;
-  filter: brightness(${props => props.$isGearHovered ? .55 : 1});
+  /* beneath the canvas while it shows the keyboard controls, which then cover it (layers.ts) */
+  z-index: ${props => props.$isGearHovered ? LAYERS.buttonUnderOverlay : LAYERS.button};
 `;
 
 // The Visual Trigger Element
