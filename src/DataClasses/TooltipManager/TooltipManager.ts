@@ -336,7 +336,6 @@ export class TooltipManager {
 
     // END TURN
     getIsClickClock = (): boolean => this.isClickClock;
-    turnOffIsClickClock = (): void => { this.isClickClock = false; }
     doClickClockFlash = (forceUpdate: Function, waitTimeMilli?: number): void => {
         clearTimeout(this.isClickClockRef);
         // After a while without ending the turn: the "Ending Your Turn" tip, as a reminder

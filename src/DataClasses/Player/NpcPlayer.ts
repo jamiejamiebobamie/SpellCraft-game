@@ -117,10 +117,6 @@ export class NPCPlayer extends Player {
         const inferenceString = GAME_SYMBOLS[rand];
         return inferenceString;
     }
-    getRandomNumberInRange = (max: number, min?: number): number => {
-        const rand = min ? Math.floor(Math.random() * (max - min)) + min : Math.floor(Math.random() * max);
-        return rand;
-    }
     getRandomFloatInRange = (max: number, min?: number): number => {
         const rand = min ? Math.random() * (max - min) + min : Math.random() * max;
         return rand;

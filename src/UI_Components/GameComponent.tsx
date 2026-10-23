@@ -15,7 +15,6 @@ import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
-// import { GameOverStatus } from '../DataClasses/types';
 
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
 // NOTE: AI on BRUTAL kills himself often... also does similar opening move (3x3 Ether) every time...

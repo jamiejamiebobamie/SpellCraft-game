@@ -176,7 +176,6 @@ export const encodeObservation = (sim: GameView, side: number): Array<number> =>
  * - 'mixed': each game, one of the above (except 'none'), per MIXED_OPPONENT_WEIGHTS
  */
 export type OpponentName = 'none' | 'random' | 'scripted' | 'scriptedNormal' | 'mixed';
-export const OPPONENTS: Array<OpponentName> = ['none', 'random', 'scripted', 'scriptedNormal', 'mixed'];
 
 /** How often each opponent is picked for a game when training against 'mixed'. */
 export const MIXED_OPPONENT_WEIGHTS: Array<[OpponentName, number]> = [['random', 0.2], ['scriptedNormal', 0.3], ['scripted', 0.5]];

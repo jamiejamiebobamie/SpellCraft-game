@@ -218,8 +218,6 @@ export class MultiplayerSession {
     waiting.forEach(message => this.connection?.send(message));
   };
 
-  getIsConnected = (): boolean => !!this.connection?.open;
-
   /** Sends a message (or, while the connection is down, keeps it until it's back). */
   send = (message: MatchMessage): void => {
     if (this.connection?.open && this.isRivalPresent) this.connection.send(message);

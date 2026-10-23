@@ -66,7 +66,6 @@ export abstract class Spell extends UniqueId {
   hitDamageAmount: number = 0;
   hitImpactCount: number = 0; // incremented per hit, so the canvas plays each hit's effects once
 
-  // isBeingConsumed: boolean = false;
   consumedEthers: number = 0;
   consumedPhlegms: number = 0;
   consumedQuickens: number = 0;
@@ -77,7 +76,6 @@ export abstract class Spell extends UniqueId {
   recordedMovesCount: number = 0;
 
   // Vector field tracking mechanics
-  phlegmOrbitStepsSpent: number = 0;
   isInPhlegmField: boolean = false;
 
   // Id of the spell this piece broke off from ('' if not a piece). Pieces of the same spell never collide.
@@ -131,7 +129,6 @@ export abstract class Spell extends UniqueId {
     return currentClass.spellName || "Unknown Spell";
   };
 
-  getCaster = (): Player => this.caster;
   getCellIndex = (): CellIndex => this.cellIndex;
   setCellIndex = (cellIndex: CellIndex): void => { this.cellIndex = { ...cellIndex }; };
   getIsRemove = (): boolean => this.isRemove;// && !this.getIsBeingConsumed();// /* TESTING: */ && !this.isBeingConsumed;
@@ -190,47 +187,7 @@ export abstract class Spell extends UniqueId {
     }
   };
 
-  /*
-  
-    executeSingleMicroStep = (): void => {
-    // FIX: If a spell has active consumedGyres capacity, it should always execute its vertical movement step.
-    // We remove the strict requirement for 'consumedSpellRef' to be alive in memory for vertical steps,
-    // allowing shattered fragments to safely dive or climb even after the target Gyre obstacle has been destroyed.
-    const hasActiveVerticalOverride = this.consumedGyres !== 0;
-
-    if (hasActiveVerticalOverride) {
-      this.moveVertically();
-      return;
-    }
-
-    // 2. Vector field implementation for orbital paths inside Phlegm layouts
-    if (this.isInPhlegmField && this.phlegmCenterIndex) {
-      this.executePhlegmOrbitStep();
-      return;
-    }
-
-    // 3. Fallback to basic horizontal movement paths
-    this.moveHorizontally();
-  };
-
-  
-  */
-
   executeSingleMicroStep = (): void => {
-    // FIX: If a spell is carrying vertical movement capacity from an interactive Gyre,
-    // bypass the strict column-matching rule (.j == .j) so it can execute its rowShift 
-    // cleanly without being blocked by look-ahead targets in adjacent columns.
-    // const isTrackingGyreObstacle = this.consumedSpellRef instanceof Gyre;
-    // const isColumnAligned = this.consumedSpellRef && this.consumedSpellRef.cellIndex.j === this.cellIndex.j;
-
-    // const hasActiveVerticalOverride = this.consumedGyres !== 0 &&
-    //   (this instanceof Gyre || isTrackingGyreObstacle || isColumnAligned);
-
-    // if (hasActiveVerticalOverride) {
-    //   this.moveVertically();
-    //   return;
-    // }
-
     if (this.consumedGyres !== 0) {
       this.moveVertically();
       return;
@@ -550,9 +507,6 @@ export abstract class Gyre extends Spell {
 
   /** Capacity per cell of a Gyre's height (its mode's units). */
   static getCapacityPerCell = (): number => GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell;
-
-  /** Whether it can lift another spell cell: it has any capacity left (a stronger cell uses up the rest). */
-  getCanLift = (): boolean => this.getRemainingCapacity() > 1e-9;
 
   /** How much it can still lift. */
   getRemainingCapacity = (): number => Math.max(0, this.getCapacity() - this.capacityUsed);

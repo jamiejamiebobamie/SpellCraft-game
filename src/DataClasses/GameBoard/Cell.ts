@@ -44,10 +44,6 @@ export class Cell extends UniqueId {
     this.spell = spell;
   };
 
-  setTransparencyAmt = (transparencyAmt: number): void => {
-    this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
-  };
-
   setPlayerOfPlacementCell = (playerOfPlacementCell: Player | null): void => {
     this.playerOfPlacementCell = playerOfPlacementCell;
   };

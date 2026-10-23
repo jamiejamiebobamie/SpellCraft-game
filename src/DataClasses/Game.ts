@@ -114,11 +114,9 @@ export class Game {
   private isIntroStarted = false;
   private isRivalArrived = false; // (its wizard has begun walking in)
   private isRivalArrivalPending = false; // (the guest joined before the host's intro began)
-  getMatchMode = (): 'single' | 'host' | 'guest' => this.matchMode;
   getIsMultiplayer = (): boolean => this.matchMode !== 'single';
   /** The host, in the hall, waiting for the rival to join. */
   getIsWaitingForRival = (): boolean => this.matchMode === 'host' && this.isIntroStarted && !this.isRivalArrived;
-  getMatchSeed = (): number => this.matchSeed;
 
   /** The host begins: its wizard walks in alone, the rival's when they join (the 'hello' message). */
   startHostedMatch = (session: MultiplayerSession): void => {
@@ -211,7 +209,6 @@ export class Game {
   private isRivalFleeing = false;
   private rivalLostAt = 0;
   private rivalWaitTimers: Array<number> = [];
-  getIsRivalDisconnected = (): boolean => this.isRivalDisconnected;
   getIsRivalFleeing = (): boolean => this.isRivalFleeing;
   /** The seconds left for a dropped rival to come back. */
   getRivalWaitSecondsLeft = (): number =>
@@ -600,7 +597,6 @@ export class Game {
     if (NPC_TURN_ORDER === 'alternateTurns') return Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) % 2 === 0;
     return false;
   };
-  getIsNpcWaitingForPlayer = (): boolean => this.isNpcWaitingForPlayer;
 
   /** The NPC's turn begins: it casts after `delayMilli`, or waits for the player to cast first. */
   startNpcTurn = (delayMilli: number): void => {
@@ -645,9 +641,6 @@ export class Game {
   };
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getGameOver = (): GameOver | null => this.gameOver;
-  setGameOver = (status: GameOver): void => {
-    this.gameOver = status;
-  }
 
   checkIfIsGameOverFromPlayerDeath = (): void => {
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
@@ -887,7 +880,6 @@ export class Game {
 
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getIsPlaying = (): boolean => this.isPlaying;
-  setIsPlaying = (isPlaying: boolean): void => { this.isPlaying = isPlaying; };
 
   getIsSceneImgsLoaded = (): boolean => this.assetLoader.getIsSceneImgsLoaded();
   getIsFontLoaded = (): boolean => this.assetLoader.getIsFontLoaded();
@@ -943,7 +935,6 @@ export class Game {
     this.forceUpdate = forceUpdate;
     this.assetLoader.setForceUpdate(forceUpdate);
   }
-  resetBackgroundSceneBrightnessToDarkness = (): void => { this.backgroundSceneBrightness = this.LOW_BRIGHTNESS; }
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 

@@ -47,10 +47,6 @@ export class GameSymbol extends UniqueId {
     return this.SpellClass;
   }
 
-  setSpellClass(SpellClass: SpellConstructor) {
-    this.SpellClass = SpellClass;
-  }
-
   /**
    * Main factory method. Handles cost, validation, and instantiation.
    * Returns the Spell instance if successful, or null if the drawing "Fizzles".

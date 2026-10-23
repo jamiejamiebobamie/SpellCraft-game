@@ -560,29 +560,24 @@ export const drawModalDetails = (
     }
     const currentTargetKey = uiState.hoveredSpellName || '';
     const displayTitle = displayNameLookup.get(currentTargetKey) || currentTargetKey;
-    const spellDescriptions: Record<string, { desc: string; stats: string }> = {
+    const spellDescriptions: Record<string, { desc: string }> = {
         'Ether': {
-            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   that destroys it.",
-            stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell (+5 Base)             Speed: 1 Cell / Horiz. Cell"
+            desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   that destroys it."
         },
         'Quicken': {
-            desc: "A crackling lightning bolt.\nDestroys weaker spells.\nIts destroyer: +1 move per cell\n   of its width, that turn.\nA 1x1 is fast, and gives +1 speed.",
-            stats: "Cost: 2 Focus / Cell             Damages: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell (+1 Base)"
+            desc: "A crackling lightning bolt.\nDestroys weaker spells.\nIts destroyer: +1 move per cell\n   of its width, that turn.\nA 1x1 is fast, and gives +1 speed."
         },
         'Phlegm': {
-            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward.",
-            stats: "Cost: 1 Focus / Cell             Heals: 5 Health / Cell             Speed: 1 Cell / Horiz. Cell"
+            desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward."
         },
         'GyreUp': {
-            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up.",
-            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         },
         'GyreDown': {
-            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up.",
-            stats: "Cost: 1 Focus / Cell             Damages: 4 Health / Cell             Speed: 1"
+            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         }
     };
-    const targetData = spellDescriptions[currentTargetKey] || { desc: '', stats: '' };
+    const targetData = spellDescriptions[currentTargetKey] || { desc: '' };
     const infoW = viewW * 0.76;
     const infoH = viewH * 0.7;
     const infoX = (viewW - infoW) * 0.5;
@@ -641,14 +636,6 @@ export const drawModalDetails = (
             currentTextY += lineHeight;
         });
         ctx.restore();
-        // ctx.save();
-        // ctx.textAlign = 'right';
-        // ctx.textBaseline = 'bottom';
-        // ctx.fillStyle = '#5c3317';
-        // ctx.font = `bold ${viewW * 0.022}px 'EnchantedLand', sans-serif`;
-        // const statsY = (infoY + infoH) - padTop;
-        // ctx.fillText(targetData.stats, padRight, statsY);
-        // ctx.restore();
         ctx.save();
         ctx.translate(rightGridX, rightGridY);
         // ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';

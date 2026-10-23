@@ -24,7 +24,6 @@ export class Players {
     getNpcPlayer = (): NPCPlayer | null => this.computerPlayer;
     getHumanPlayer = (): Player | null => this.humanPlayer;
     getPlayer = (idx: number): Player => this.players[idx];
-    getDeadPlayers = (): Array<Player> => this.players.filter(p => p.getIsDead());
     getReadiedSpell = (): string | null => this.playerGameSymbolSpellName;
     getGameSymbol = (): GameSymbol | null => {
         const humanPlayer = this.players[0];

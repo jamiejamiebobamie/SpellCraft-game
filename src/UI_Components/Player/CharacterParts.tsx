@@ -40,10 +40,6 @@ export const armFlingUp = keyframes`
   100% { transform: rotate(-75deg); } /* Forces arm to point straight "up" skyward */
 `;
 
-export const noAnim = keyframes`
-  0%, 100% { var(--extra-transform, ); }
-`;
-
 const flashDamage = keyframes`
   0% { opacity: 0; }
   15% { opacity: 0.6; }

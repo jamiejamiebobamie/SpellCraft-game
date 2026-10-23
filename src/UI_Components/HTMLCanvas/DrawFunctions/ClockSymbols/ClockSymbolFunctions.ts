@@ -18,10 +18,6 @@ export const drawClockAdvanceSymbols = (ctx: CanvasRenderingContext2D, ui: Canva
     const spiritFade = 0.45 + Math.sin(currentTime * 0.001) * 0.4;
     ctx.globalAlpha = Math.max(0.05, Math.min(0.85, spiritFade));
 
-    // const clockCX = viewW * 0.5;
-    // const clockCY = viewH * 0.2;
-    // const clockFaceRadius = viewW * 0.12; 
-
     
     const clockCX = viewW * 0.5;
     const clockCY = viewH * 0.2;

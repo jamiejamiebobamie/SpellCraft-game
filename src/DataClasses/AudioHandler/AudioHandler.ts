@@ -92,23 +92,6 @@ export class AudioHandler {
         source.start();
     }
 
-    /**
-     * 3. GLOBAL TERMINATION DESK
-     * Enumerates over all active, loose channels and kills them instantly.
-     */
-    stopAllSoundEffects = () => {
-        this.activeSfxInstances.forEach(instance => instance.stop());
-        this.activeSfxInstances.clear();
-    }
-
-    stopBackgroundMusic = () => {
-        if (this.backgroundMusic) {
-            this.backgroundMusic.pause();
-            this.backgroundMusic.currentTime = 0;
-            this.backgroundMusicStarted = false;
-        }
-    }
-
     toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
         if (audioType == 'fx') {
             this.effectsAudioLevel = isMuted || this.effectsAudioLevel == this.MAX_SOUND_EFFECT_LVL ? 0 : this.MAX_SOUND_EFFECT_LVL
@@ -130,9 +113,5 @@ export class AudioHandler {
 
     getIsBackgroundMusicStarted = (): boolean => {
         return this.backgroundMusicStarted;
-    }
-
-    getEffectsAudioLevel = (): number => {
-        return this.effectsAudioLevel;
     }
 }

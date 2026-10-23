@@ -1,6 +1,6 @@
 // GameBoard.ts
 import { RefObject } from 'react';
-import { CellIndex, DivRefDimensions, Point } from '../types';
+import { CellIndex, DivRefDimensions } from '../types';
 import { Cell } from './Cell';
 import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
@@ -11,7 +11,6 @@ export class GameBoard {
   static readonly NUM_ROWS: number = 3;
   static readonly NUM_COLS: number = 7;
   static readonly NUM_PLACEMENT_CELLS: number = 3;
-  static readonly HIDDEN_TRANSPARENCY_AMT = .3;
   static readonly SHOWN_TRANSPARENCY_AMT = .9;
 
   // Column depth allowing spell spawning
@@ -91,18 +90,6 @@ export class GameBoard {
     return { i, j };
   }
 
-  getScreenCoordFromCellIndex = (cellIndex: CellIndex): Point | null => {
-    if (!this.gameBoardRef || !this.gameBoardRef.current) {
-      return null;
-    }
-    const { left, top, width, height } = this.gameBoardRef.current.getBoundingClientRect();
-    const cellWidth = width / GameBoard.NUM_COLS
-    const cellHeight = height / GameBoard.NUM_ROWS
-    const x = left + cellIndex.j * cellWidth // x
-    const y = top + cellIndex.i * cellHeight // y
-    return { x, y }
-  }
-
   getIsOffBoardAt = (index: CellIndex): boolean => {
     return (
       index.i < 0 ||
@@ -117,39 +104,18 @@ export class GameBoard {
     return index.i * GameBoard.NUM_COLS + index.j;
   };
 
-  getTwoDIndexFrom = (index: number): CellIndex | null => {
-    if (index < 0 || index >= GameBoard.NUM_COLS * GameBoard.NUM_ROWS) return null;
-    const i = Math.floor(index / GameBoard.NUM_COLS);
-    const j = index % GameBoard.NUM_COLS;
-    return { i, j };
-  };
-
   getCellAt = (index: CellIndex): Cell | null => {
     const idx1D = this.getOneDIndexFrom(index);
     if (idx1D === -1) return null;
     return this.cells[idx1D];
   };
 
-  addCellIndices = (cell1: CellIndex, cell2: CellIndex): CellIndex => {
-    return { i: cell1.i + cell2.i, j: cell1.j + cell2.j };
-  }
-
   // --- Spell Management Hooks ---
-
-  getSpellAt = (index: CellIndex): Spell | null => {
-    const cell = this.getCellAt(index);
-    return cell ? cell.getSpell() : null;
-  };
 
   setSpellAt = (spell: Spell | null, cell: Cell): void => {
     if (cell) {
       cell.setSpell(spell);
     }
-  };
-
-  getIsCellFreeAt = (index: CellIndex): boolean => {
-    const cell = this.getCellAt(index);
-    return cell ? cell.getIsFree() : false;
   };
 
   getIsGameBoardDisabled = (): boolean => {
@@ -164,11 +130,6 @@ export class GameBoard {
 
   getBoardTransparencyAmt = (): number => {
     return this.transparencyAmt;
-  };
-
-  setBoardTransparencyAmt = (transparencyAmt: number): void => {
-    this.transparencyAmt = Math.max(0.0, Math.min(1.0, transparencyAmt));
-    this.cells.forEach(cell => cell.setTransparencyAmt(this.transparencyAmt));
   };
 
   reset = (): void => {
@@ -206,16 +167,6 @@ export class GameBoard {
 
     const entry = unguardedRows.find(n => n > 0);
     return entry != undefined ? unguardedRows.indexOf(entry) : -1;
-  }
-
-  npcGetHealingRow = (): number | undefined => {
-
-    const healingRows: Set<number> = new Set()
-
-    const outgoingSpells: Array<Spell> = this.npcGetOutgoingSpells();
-    outgoingSpells.filter(s => s.getPropertyValue('dmgHealth') < 0).map(s => healingRows.add(s.getCellIndex().i));
-
-    return Array.from(healingRows.keys())[0];
   }
 
   npcGetIncomingSpells = (): Array<Spell> => {

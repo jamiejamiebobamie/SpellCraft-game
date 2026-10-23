@@ -197,7 +197,6 @@ export const drawKeyboardOverlay = (ctx: CanvasRenderingContext2D, viewW: number
 
     const shiftWidth = colW * 0.55;
     const shiftX = rightColX + (colW - shiftWidth) * 0.73;
-    // const shiftY = dividerRightY + viewH * 0.12;
     renderSingleKeyNode('SHIFT', shiftX, cancelKeyY, shiftWidth);
 
 

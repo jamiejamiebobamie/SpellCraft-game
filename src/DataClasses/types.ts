@@ -1,7 +1,6 @@
 import { Phlegm, Quicken, Ether, GyreUp, GyreDown } from './PlacedSpells/Spell';
 import { Player } from './Player/Player';
 import { UniqueId } from './UniqueId/UniqeId';
-import { Spell } from './PlacedSpells/Spell';
 
 // types
 export type CellIndex = {
@@ -10,8 +9,6 @@ export type CellIndex = {
 };
 
 export type SpellPropertyName = 'speedDirection' | 'dmgHealth' | 'rowShift' | 'consumedEthers' | 'consumedPhlegms' | 'consumedQuickens' | 'widthCells' | 'heightCells';
-
-export type Direction = 1 | -1 | 0; // 0 = not valid value
 
 export type NpcDifficulty = 'Normal' | 'Hard' | 'Brutal';
 
@@ -89,11 +86,6 @@ export interface SpellAnimTracker {
   visualX: number;
   visualY: number;
   initialized: boolean;
-}
-
-export type CollisionResult = {
-  winner: Spell | null;
-  loser: Spell | null;
 }
 
 export interface PlacedSpellsProps {

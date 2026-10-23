@@ -28,15 +28,6 @@ export class Model {
 
     // Define the human-readable labels matching your Python `labels` dictionary
 
-    // sequential7.onnx:
-    // private static readonly SPELL_LABELS: Record<number, InferenceString> = {
-    //     0: 'circle',
-    //     1: 'star',
-    //     2: 'diamond',
-    //     3: 'line',
-    //     4: 'squiggle'
-    // };
-
     // sequential8.onnx
     private static readonly SPELL_LABELS: Record<number, InferenceString> = { 0: 'circle', 1: 'square', 2: 'star', 3: 'triangle', 4: 'diamond', 5: 'line', 6: 'squiggle' }
 
