@@ -4,6 +4,8 @@ import { rootGameStore } from '../../../DataClasses/store';
 import { UIFadeIn } from '../../UIFadeIn';
 import { useSnapshot } from 'valtio';
 import { cursorSettings, toggleCanvasWand } from '../../cursors';
+import { VOLUME } from '../../../DataClasses/AudioHandler/AudioHandler';
+import { AudioType } from '../../../DataClasses/types';
 
 /**
  * How the settings buttons show: 'row', always there in a row along the bottom (no gear); 'gear', hidden
@@ -79,6 +81,57 @@ const CLOSE_DELAY_MILLI = 500;
 const SWING_SECONDS = 0.45;
 const SWING_STAGGER_SECONDS = 0.04;
 
+/**
+ * The volume dial over a sound button, shown while it's hovered: a slider from silent to VOLUME.max, a
+ * tick at its middle (the default). width: the slider's; gap: between it and the button (cqw).
+ */
+const VOLUME_DIAL = { width: 8, gap: 0.5 };
+
+const VolumeDial = styled.div`
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-bottom: ${VOLUME_DIAL.gap}cqw; /* (a bridge from the button, so the mouse can cross to the dial) */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  cursor: default;
+`;
+
+const DialBox = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0.5cqw 0.8cqw;
+  background: rgba(20, 20, 20, 0.85);
+  border: 0.15cqw solid #444;
+  border-radius: 1.2cqw;
+  box-shadow: 0 .2cqw .5cqw rgba(0,0,0,0.6);
+
+  /* the middle (the default volume) */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    height: 60%;
+    width: 0.12cqw;
+    transform: translateX(-50%);
+    background: rgba(230, 197, 99, 0.45);
+    pointer-events: none;
+  }
+
+  input {
+    position: relative;
+    z-index: 1;
+    width: ${VOLUME_DIAL.width}cqw;
+    margin: 0;
+    accent-color: #e6c563;
+    cursor: pointer;
+  }
+`;
+
 const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number; $rowX: number | null }>`
   /* --at: where it is on its way round (its place when open; swung back below the gear when closed) */
   --at: ${props => props.$isOpen ? props.$angle : props.$angle - SWING_DEGREES}deg;
@@ -113,6 +166,11 @@ const SubIcons = styled.div<{ $angle: number; $isOpen: boolean; $order: number; 
     filter 0.2s, border-color 0.2s;
 
   /* Global hover and active feedback configurations for elements */
+  &:hover ${VolumeDial} {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   &:hover {
     border-color: #e6c563;
     transition: transform 0.2s ease-out, filter 0.2s, border-color 0.2s;
@@ -140,23 +198,38 @@ type SettingsComponentComponentProps = {
 }
 
 const SUB_ICONS = {
-  'FX_ON': '🔊', 'FX_OFF': '🔇',
-  'MUSIC_ON': '🔊', 'MUSIC_OFF': '🔇',
+  'FX_ON': '🔊', 'FX_LOW': '🔉', 'FX_OFF': '🔇',
+  'MUSIC_ON': '🔊', 'MUSIC_LOW': '🔉', 'MUSIC_OFF': '🔇',
   'KEYBOARD_CONTROLS': '⌨️',
   'SEE_TOOLTIPS': '👁️',
   'CANVAS_WAND': '🪄',
   'RIVAL_DRAWINGS': '✍️',
 }
 
-const localStorageKeys = [
-  'quickCast-fxVolumeOff',
-  'quickCast-musicVolumeOff'
-]
+/** A sound button's dial (a slider; its clicks don't reach the button, which mutes). */
+function VolumeSlider({ audioType, label }: { audioType: AudioType; label: string }) {
+  const snap = useSnapshot(rootGameStore);
+  return (
+    <VolumeDial onMouseUp={e => e.stopPropagation()}>
+      <DialBox>
+        <input
+          type='range' min={0} max={VOLUME.max} step={0.05}
+          value={snap.getVolume(audioType)}
+          aria-label={label}
+          onChange={e => rootGameStore.setVolume(audioType, Number(e.target.value))}
+          // (let go: the keys go back to the game, not the slider)
+          onMouseUp={e => e.currentTarget.blur()}
+        />
+      </DialBox>
+    </VolumeDial>
+  );
+}
 
 export default function SettingsComponent({ isShowingModal, setIsGearHovered }: SettingsComponentComponentProps) {
   const snap = useSnapshot(rootGameStore);
   const isMusicMuted = snap.getIsMusicMuted();
   const isFxMuted = snap.getIsFxMuted();
+  const isFxLow = snap.getVolume('fx') < 1, isMusicLow = snap.getVolume('music') < 1;
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const [isShowingKeys, setIsShowingKeys] = useState<boolean>(false); // the keyboard controls overlay
   const isToolTips = snap.getIsTooltips();
@@ -182,22 +255,6 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
   const isOpen = isRow || isClicked;
   const at = (order: number) => ({ $angle: 270 + order * 45, $order: order, $isOpen: isOpen, $rowX: isRow ? (order - (buttonCount - 1) / 2) * ROW.spacing : null });
 
-  useEffect(() => {
-    localStorageKeys.forEach((k, i) => {
-      const item = window.localStorage.getItem(k);
-      let isMuted = undefined;
-      try {
-        if (item)
-          isMuted = JSON.parse(item);
-      } catch (error) {
-        console.warn(`Error reading localStorage key :`, error);
-      }
-      if (isMuted) {
-        i == 0 ? rootGameStore.toggleAudio('fx', isMuted) : rootGameStore.toggleAudio('music', isMuted);
-      }
-    });
-  }, []);
-
   return (
     <MenuAnchor $isDoneWithIntro={isDoneWithIntro} onMouseEnter={keepOpen} onMouseLeave={closeSoon} $isShowingModal={isShowingModal} data-click-type="ui-buttons">
       {/* Opens on hover (not mid-drawing, when the mouse may just be passing over) or on click */}
@@ -209,14 +266,11 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
       <SubIconGroup>
         <SubIcons
           {...at(0)}
-          onMouseUp={() => {
-            const isFxMuted = rootGameStore.getIsFxMuted();
-            rootGameStore.toggleAudio('fx');
-            window.localStorage.setItem('quickCast-fxVolumeOff', JSON.stringify(!isFxMuted));
-          }}
-          title={`${isFxMuted ? 'Turn-on' : 'Turn-off'} sound effects audio`}
+          onMouseUp={() => rootGameStore.toggleAudio('fx')}
+          title={`Sound effects: click to ${isFxMuted ? 'unmute' : 'mute'}`}
         >
-          {isFxMuted ? SUB_ICONS.FX_OFF : SUB_ICONS.FX_ON}
+          {isFxMuted ? SUB_ICONS.FX_OFF : isFxLow ? SUB_ICONS.FX_LOW : SUB_ICONS.FX_ON}
+          <VolumeSlider audioType='fx' label='Sound effects volume' />
         </SubIcons>
         <SubIcons
           {...at(1)}
@@ -245,14 +299,11 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
         </SubIcons>
         <SubIcons
           {...at(4)}
-          onMouseUp={() => {
-            const isMusicMuted = rootGameStore.getIsMusicMuted();
-            rootGameStore.toggleAudio('music');
-            window.localStorage.setItem('quickCast-musicVolumeOff', JSON.stringify(!isMusicMuted));
-          }}
-          title={`${isMusicMuted ? 'Turn-on' : 'Turn-off'} music audio`}
+          onMouseUp={() => rootGameStore.toggleAudio('music')}
+          title={`Music: click to ${isMusicMuted ? 'unmute' : 'mute'}`}
         >
-          {isMusicMuted ? SUB_ICONS.MUSIC_OFF : SUB_ICONS.MUSIC_ON}
+          {isMusicMuted ? SUB_ICONS.MUSIC_OFF : isMusicLow ? SUB_ICONS.MUSIC_LOW : SUB_ICONS.MUSIC_ON}
+          <VolumeSlider audioType='music' label='Music volume' />
         </SubIcons>
         {isMultiplayer && (
           <SubIcons

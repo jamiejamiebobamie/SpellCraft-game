@@ -2,17 +2,29 @@ import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { AudioType, SoundEffectName, SFX_REGISTRY } from '../types'
 import { ref } from 'valtio';
 
+/**
+ * The volume dials (in Settings): the level at a dial's middle (its default; 0 to 1), the dial's top (a
+ * multiple of the middle; the bottom is silent), and where each kind's volume and muting are remembered.
+ */
+export const VOLUME = {
+    middleLevel: 0.5,
+    max: 2,
+    storageKeys: {
+        fx: { volume: 'quickCast-fxVolume', muted: 'quickCast-fxVolumeOff' },
+        music: { volume: 'quickCast-musicVolume', muted: 'quickCast-musicVolumeOff' },
+    } as Record<AudioType, { volume: string; muted: string }>,
+};
+
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
-
-    private readonly MAX_SOUND_EFFECT_LVL = 0.5;
-    private readonly MAX_MUSIC_LVL = 0.5;
 
     private backgroundMusic: HTMLAudioElement | null = null;
     private backgroundMusicStarted: boolean = false;
 
-    private musicAudioLevel: number = this.MAX_MUSIC_LVL;
-    private effectsAudioLevel: number = this.MAX_SOUND_EFFECT_LVL;
+    // Each kind's volume, as its dial shows it (0 to VOLUME.max; 1 is the middle), and whether it's
+    // muted (kept apart, so unmuting goes back to the same volume); both remembered (VOLUME.storageKeys)
+    private volumes: Record<AudioType, number> = { fx: 1, music: 1 };
+    private muted: Record<AudioType, boolean> = { fx: false, music: false };
 
     // Decoded sound effects, held in memory so they play instantly.
     // ref() keeps valtio from proxying native audio objects (which breaks their methods).
@@ -23,6 +35,7 @@ export class AudioHandler {
     private activeSfxInstances: Set<AudioBufferSourceNode> = new Set();
 
     constructor(assetLoader: AssetLoader) {
+        this.loadVolumes();
         this.preloadSoundEffects(assetLoader);
     }
 
@@ -52,7 +65,7 @@ export class AudioHandler {
         this.backgroundMusicStarted = true;
         this.backgroundMusic = new Audio(this.BACKGROUND_MUSIC_SRC);
         this.backgroundMusic.loop = true;
-        this.backgroundMusic.volume = this.musicAudioLevel;
+        this.backgroundMusic.volume = this.getLevel('music');
         this.backgroundMusic.play()
             .then(_ => { /* this.backgroundMusicStarted = true; */ })
             .catch(err => console.log("Autoplay blocked:", err));
@@ -63,7 +76,7 @@ export class AudioHandler {
      * Each play gets its own source node from the shared decoded buffer, so the same clip can
      * fire repeatedly and overlap without cutting off previous layers.
      */
-    startSoundEffect = (name: SoundEffectName, volumeScalar = this.effectsAudioLevel) => {
+    startSoundEffect = (name: SoundEffectName, volumeScalar = this.getLevel('fx')) => {
         const buffer = this.sfxLibrary.get(name);
         if (!buffer) {
             console.error(`Sound effect registry key "${name}" not found!`);
@@ -92,23 +105,43 @@ export class AudioHandler {
         source.start();
     }
 
+    /** How loud a kind plays (0 to 1): its dial's volume, unless muted. */
+    private getLevel = (audioType: AudioType): number => this.muted[audioType] ? 0 : this.volumes[audioType] * VOLUME.middleLevel;
+    private applyMusicLevel = (): void => { if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music'); };
+
+    /** Mutes or unmutes a kind (`isMuted`: which; else the other way round). */
     toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
-        if (audioType == 'fx') {
-            this.effectsAudioLevel = isMuted || this.effectsAudioLevel == this.MAX_SOUND_EFFECT_LVL ? 0 : this.MAX_SOUND_EFFECT_LVL
-        } else {
-            this.musicAudioLevel = isMuted || this.musicAudioLevel == this.MAX_MUSIC_LVL ? 0 : this.MAX_MUSIC_LVL;
-            if (this.backgroundMusic) {
-                this.backgroundMusic.volume = this.musicAudioLevel;
-            }
-        }
+        this.muted[audioType] = isMuted ?? !this.muted[audioType];
+        this.applyMusicLevel();
+        this.saveVolumes(audioType);
     }
 
-    getIsMusicMuted = (): boolean => {
-        return this.musicAudioLevel != this.MAX_MUSIC_LVL;
+    getVolume = (audioType: AudioType): number => this.volumes[audioType];
+    /** A kind's dial turned to `volume` (0 to VOLUME.max): it's unmuted, unless turned right down. */
+    setVolume = (audioType: AudioType, volume: number): void => {
+        this.volumes[audioType] = Math.min(VOLUME.max, Math.max(0, volume));
+        if (this.volumes[audioType] > 0) this.muted[audioType] = false;
+        this.applyMusicLevel();
+        this.saveVolumes(audioType);
     }
 
-    getIsFxMuted = (): boolean => {
-        return this.effectsAudioLevel != this.MAX_SOUND_EFFECT_LVL;
+    getIsMusicMuted = (): boolean => this.getLevel('music') === 0;
+    getIsFxMuted = (): boolean => this.getLevel('fx') === 0;
+
+    private loadVolumes = (): void => {
+        (['fx', 'music'] as Array<AudioType>).forEach(audioType => {
+            try {
+                const saved = window.localStorage.getItem(VOLUME.storageKeys[audioType].volume);
+                if (saved !== null && Number.isFinite(Number(saved))) this.volumes[audioType] = Math.min(VOLUME.max, Math.max(0, Number(saved)));
+                this.muted[audioType] = JSON.parse(window.localStorage.getItem(VOLUME.storageKeys[audioType].muted) ?? 'false') === true;
+            } catch { /* (storage unavailable: the defaults) */ }
+        });
+    }
+    private saveVolumes = (audioType: AudioType): void => {
+        try {
+            window.localStorage.setItem(VOLUME.storageKeys[audioType].volume, String(this.volumes[audioType]));
+            window.localStorage.setItem(VOLUME.storageKeys[audioType].muted, JSON.stringify(this.muted[audioType]));
+        } catch { /* (storage unavailable: not remembered) */ }
     }
 
     getIsBackgroundMusicStarted = (): boolean => {

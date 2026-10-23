@@ -11,17 +11,21 @@ import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMargi
 
 /**
  * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
- * description and the preview ('gap'); longer ones below the preview ('below'). tilt: degrees, as in
- * CSS (negative: rising to the right). nudge: moved from there, in fractions of the page's width
- * (x right, y down).
+ * description and the preview ('gap'); longer ones below the preview ('below'); or anywhere ('at': its
+ * center, in fractions of the page's width and height from its top left). tilt: degrees, as in CSS
+ * (negative: rising to the right). nudge: moved from there, in fractions of the page's width (x right,
+ * y down).
  */
-const MARGIN_NOTES: Record<string, { text: string; place: 'gap' | 'below'; tilt: number; nudge?: { x: number; y: number } }> = {
+type MarginNote = { text: string; place: 'gap' | 'below' | 'at'; tilt: number; nudge?: { x: number; y: number }; at?: { x: number; y: number } };
+const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     // (nudged toward 255 degrees on the unit circle: down and a little left, off the preview's edge)
-    Ether: { text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } },
-    Quicken: { text: 'fast!!', place: 'gap', tilt: -15 },
-    Phlegm: { text: 'patches you up', place: 'below', tilt: -3 },
-    GyreUp: { text: 'gives breathing room', place: 'below', tilt: -3 },
-    GyreDown: { text: 'gives breathing room', place: 'below', tilt: -3 },
+    Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }],
+    // (nudged up, clear of the description's last line)
+    Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }],
+    Phlegm: [{ text: 'patches you up', place: 'below', tilt: -3 }],
+    // (and just under the title's rule)
+    GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.42, y: 0.315 } }],
+    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.42, y: 0.315 } }],
 };
 
 const displayNameLookup = new Map<string, string>([
@@ -565,16 +569,16 @@ export const drawModalDetails = (
             desc: "A crackling ball of fire,\n   Explodes on impact!\nDestroys weaker spells on collision.\nConfers +5 Damage to any spell\n   that destroys it."
         },
         'Quicken': {
-            desc: "A crackling lightning bolt.\nDestroys weaker spells.\nIts destroyer: +1 move per cell\n   of its width, that turn.\nA 1x1 is fast, and gives +1 speed."
+            desc: "A crackling lightning bolt.\nDestroys weaker spells.\nIts destroyer gets +1 move per cell\n   of its width for that turn.\nA 1x1 is fast, and gives a permanent +1 speed."
         },
         'Phlegm': {
             desc: "A revolving torrent of water,\n   Heals those it touches.\nReflects stronger spells backward."
         },
         'GyreUp': {
-            desc: "An upward-flowing tornado.\nDestroys weaker spells; lifts\n   stronger ones up (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
+            desc: "An upward-flowing tornado.\nLifts stronger spells up; destroys weaker.\nA spell leaving it gets +1 move per\n   cell of the Updraft.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         },
         'GyreDown': {
-            desc: "A downward-flowing tornado.\nDestroys weaker spells; pushes\n   stronger ones down (off the board: gone).\nA spell leaving it: +1 move per cell.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
+            desc: "A downward-flowing tornado.\nPushes stronger spells down; destroys weaker.\nA spell leaving it gets +1 move per\n   cell of the Downdraft.\nAbsorbs 5 damage a cell, shrinking\n   as it's used up."
         }
     };
     const targetData = spellDescriptions[currentTargetKey] || { desc: '' };
@@ -624,15 +628,16 @@ export const drawModalDetails = (
         ctx.textBaseline = 'top';
         ctx.fillStyle = KELLS.ink;
         let currentTextY = titleY + (viewW * 0.095);
-        const lineHeight = viewW * 0.037;
         const linesArray = targetData.desc.split('\n');
+        // (shrunk, if need be, to fit: no wider than the room left of the preview, no lower than the page's border)
+        const textX = titleX + viewW * 0.02;
+        ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
+        const widest = Math.max(...linesArray.map(lineText => ctx.measureText(lineText).width));
+        const fit = Math.min(1, (rightGridX - viewW * 0.02 - textX) / widest, (infoY + infoH - viewW * 0.03 - currentTextY) / (linesArray.length * viewW * 0.037));
+        const lineHeight = viewW * 0.037 * fit;
+        ctx.font = `500 ${viewW * 0.029 * fit}px 'EnchantedLand', sans-serif`;
         linesArray.forEach((lineText) => {
-            if (lineText.includes("Note: Spells pushed off the board are destroyed.")) {
-                ctx.font = `500 ${viewW * 0.023}px 'EnchantedLand', sans-serif`;
-            } else {
-                ctx.font = `500 ${viewW * 0.029}px 'EnchantedLand', sans-serif`;
-            }
-            ctx.fillText(lineText, titleX + (viewW * 0.02), currentTextY);
+            ctx.fillText(lineText, textX, currentTextY);
             currentTextY += lineHeight;
         });
         ctx.restore();
@@ -653,18 +658,25 @@ export const drawModalDetails = (
             ctx.beginPath(); ctx.moveTo(r * cellSz, 0); ctx.lineTo(r * cellSz, gridBoxW); ctx.stroke();
         }
         ctx.restore();
-        // A note in the margin, below the preview
-        const marginNote = MARGIN_NOTES[currentTargetKey];
-        if (marginNote?.place === 'gap') {
-            // between the description and the preview, level with the description's second-to-last line
-            // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
-            const lineCount = targetData.desc.split('\n').length;
-            const noteY = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
+        // Notes in the margin (MARGIN_NOTES)
+        (MARGIN_NOTES[currentTargetKey] ?? []).forEach(marginNote => {
             const nudge = marginNote.nudge ?? { x: 0, y: 0 };
-            drawMarginNote(ctx, marginNote.text, infoX + infoW * 0.535 + viewW * nudge.x, noteY + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
-        } else if (marginNote) {
-            drawMarginNote(ctx, marginNote.text, rightGridX + gridBoxW * 0.5, rightGridY + gridBoxW + viewW * 0.03, viewW * 0.017, marginNote.tilt * Math.PI / 180);
-        }
+            let x: number, y: number;
+            if (marginNote.place === 'gap') {
+                // between the description and the preview, level with the description's second-to-last line
+                // (its lines start viewW * 0.095 below the title, viewW * 0.037 apart)
+                const lineCount = targetData.desc.split('\n').length;
+                x = infoX + infoW * 0.535;
+                y = titleY + viewW * 0.095 + viewW * 0.037 * (Math.max(1, lineCount - 2) + 0.6);
+            } else if (marginNote.place === 'at') {
+                x = infoX + infoW * (marginNote.at?.x ?? 0.5);
+                y = infoY + infoH * (marginNote.at?.y ?? 0.5);
+            } else {
+                x = rightGridX + gridBoxW * 0.5;
+                y = rightGridY + gridBoxW + viewW * 0.03;
+            }
+            drawMarginNote(ctx, marginNote.text, x + viewW * nudge.x, y + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+        });
     });
     ctx.save();
     ctx.translate(rightGridX, rightGridY);

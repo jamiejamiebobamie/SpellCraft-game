@@ -951,6 +951,11 @@ export class Game {
     this.audioHandler.toggleAudio(audioType, isMuted);
     this.forceUpdate();
   }
+  getVolume = (audioType: AudioType): number => this.audioHandler.getVolume(audioType);
+  setVolume = (audioType: AudioType, volume: number): void => {
+    this.audioHandler.setVolume(audioType, volume);
+    this.forceUpdate();
+  }
   // AUDIO MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
