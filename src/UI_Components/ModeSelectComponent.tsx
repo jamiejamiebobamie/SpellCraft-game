@@ -6,13 +6,19 @@ import styled, { keyframes } from 'styled-components';
 /**
  * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
  * overlapping like 👥) or 'silhouettes' (wizards drawn in the game's gold, the same on every device).
- * titlePlace: the title 'above' the choices, or 'below' them (clear of the clock's halo, behind the top).
+ * titlePlace: the title 'above' the choices, 'below' them (clear of the clock's halo, behind the top), or
+ * in the 'topLeft' corner (titleInset: from the corner, cqw). choicesDown: the choices moved down from the
+ * middle (cqw). dim: a soft darkening of the scene behind them, so the title and choices lead rather than
+ * the clock (0: none, 1: black).
  * choiceScale: the choices' size (1: as first made, 21cqw wide); titleSize: the title's (cqw; was 4.4).
  */
 export const MODE_SELECT = {
   iconStyle: 'silhouettes' as 'users' | 'wizards' | 'silhouettes',
   title: 'Choose Your Duel',
-  titlePlace: 'below' as 'above' | 'below',
+  titlePlace: 'topLeft' as 'above' | 'below' | 'topLeft',
+  titleInset: { x: 4, y: 3 },
+  choicesDown: 3,
+  dim: 0.4,
   choiceScale: 1.25,
   titleSize: 5.8,
   fadeInSeconds: 0.6,
@@ -31,9 +37,11 @@ const Screen = styled.div`
   align-items: center;
   justify-content: center;
   gap: 3cqw;
-  padding-top: 7cqw; /* (clear of the clock and its halo, above) */
+  padding-top: ${7 + MODE_SELECT.choicesDown * 2}cqw; /* (clear of the clock and its halo, above; then moved down) */
   box-sizing: border-box;
   animation: ${fadeIn} ${MODE_SELECT.fadeInSeconds}s ease-out both;
+  /* the dimming: darkest in the middle, behind the choices, fading toward the edges */
+  background: radial-gradient(ellipse 70% 75% at 50% 55%, rgba(0, 0, 0, ${MODE_SELECT.dim}) 0%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.6}) 60%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.35}) 100%);
 `;
 
 const Title = styled.div`
@@ -41,6 +49,7 @@ const Title = styled.div`
   font-size: ${MODE_SELECT.titleSize}cqw;
   color: #e6c563;
   text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
+  ${MODE_SELECT.titlePlace === 'topLeft' && `position: absolute; left: ${MODE_SELECT.titleInset.x}cqw; top: ${MODE_SELECT.titleInset.y}cqw;`}
 `;
 
 const Choices = styled.div`
@@ -140,7 +149,7 @@ type ModeSelectProps = { onSinglePlayer: () => void; onTwoPlayers: () => void };
 export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: ModeSelectProps) {
   return (
     <Screen>
-      {MODE_SELECT.titlePlace === 'above' && <Title>{MODE_SELECT.title}</Title>}
+      {MODE_SELECT.titlePlace !== 'below' && <Title>{MODE_SELECT.title}</Title>}
       <Choices>
         {/* (2 Players on the left, 1 Player on the right) */}
         <Choice onClick={onTwoPlayers}>
