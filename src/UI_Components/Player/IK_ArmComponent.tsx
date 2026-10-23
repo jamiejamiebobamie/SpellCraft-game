@@ -23,18 +23,26 @@ type usIKProps = {
   setTheta: Dispatch<SetStateAction<Array<number>>>;
 }
 
+/**
+ * How often the shoulder's place on the page is measured (milliseconds). Measuring it every frame made the
+ * browser bring every animation's styles up to date mid-frame; the wizards only drift a little as they bob.
+ */
+const SHOULDER_MEASURE_MILLI = 250;
+
 const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProps) => {
   useEffect(() => {
     let animationFrameId: number;
+    let bicepRect: DOMRect | null = null, measuredAt = -Infinity;
+    let lastTheta = [NaN, NaN, NaN];
 
-    const updateArmIK = () => {
+    const updateArmIK = (now: number) => {
       const npcMousePos = rootGameStore.getNpcMousePos();
       if (!bicepRef.current || !handRef.current) return;
 
       const mouseLocation = direction == 1 ? mousePosRef?.current : npcMousePos;
       if (!mouseLocation) return;
 
-      const bicepRect = bicepRef.current.getBoundingClientRect();
+      if (!bicepRect || now - measuredAt >= SHOULDER_MEASURE_MILLI) { bicepRect = bicepRef.current.getBoundingClientRect(); measuredAt = now; }
       const shoulderOrigin = {
         x: bicepRect.x + (direction == -1 ? bicepRect.width : -bicepRect.width),
         y: bicepRect.y + bicepRect.height / 2
@@ -62,7 +70,11 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProp
         const thetaThird = theta * 1 / 3; // elbow
         const thetaHalf = theta * 1 / 2;  // wrist
 
-        setTheta([thetaSixth, thetaThird, thetaHalf]);
+        // (redrawn only when it has turned: a re-render every frame otherwise)
+        if (Number.isNaN(lastTheta[0]) || Math.abs(thetaSixth - lastTheta[0]) > 0.05) {
+          lastTheta = [thetaSixth, thetaThird, thetaHalf];
+          setTheta(lastTheta);
+        }
       }
 
       animationFrameId = requestAnimationFrame(updateArmIK);

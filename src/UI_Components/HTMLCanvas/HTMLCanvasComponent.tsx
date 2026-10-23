@@ -120,6 +120,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const isComputerPlayerDoingTurn = !snap.getIsComputerPlayerDoneWithTurn();
   const isSpellBookOpen = snap.getIsSpellBookOpen();
   const readiedSpell = snap.getReadiedSpell();
+  // The canvas' cursor (kept for the drawing loop: reading it back from the page each frame made the
+  // browser bring every animation's styles up to date mid-frame)
+  const cursor = readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : getDefaultCursor(isCanvasWand, isCanvasWandReady));
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
 
   useEffect(() => {
     const boardElement = gridOverlayRef.current;
@@ -206,6 +211,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     let animationFrameId: number; let lastTime = performance.now();
+    // The canvas' place on the page: measured on resizing, and a few times a second in case (measured
+    // every frame, it made the browser bring every animation's styles up to date mid-frame)
+    let rect = canvas.getBoundingClientRect(), rectAt = performance.now();
+    const measure = () => { rect = canvas.getBoundingClientRect(); rectAt = performance.now(); };
+    window.addEventListener('resize', measure);
 
     const render = (currentTime: number) => {
       const deltaTime = (currentTime - lastTime) / 1000; lastTime = currentTime;
@@ -223,7 +233,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       }
       ctx.clearRect(0, 0, viewW, viewH);
 
-      const rect = canvas.getBoundingClientRect();
+      if (currentTime - rectAt >= 250) measure();
       const boardWidth = boardLayoutRef.current.width; const boardHeight = boardLayoutRef.current.height;
       if (boardWidth === 0 || boardHeight === 0) { animationFrameId = requestAnimationFrame(render); return; }
       const cellWidthPx = boardWidth / GameBoard.NUM_COLS; const cellHeightPx = boardHeight / GameBoard.NUM_ROWS;
@@ -543,7 +553,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       // buttons, or while placing a readied spell)
       const wandImg = wandImgRef.current;
       const pointer = wandPointerRef.current;
-      if (pointer.isOverCanvas && wandImg?.complete && wandImg.naturalWidth && getComputedStyle(canvas).cursor === 'none') {
+      if (pointer.isOverCanvas && wandImg?.complete && wandImg.naturalWidth && cursorRef.current === 'canvasWand') {
         const wandW = viewW * CANVAS_WAND_WIDTH_FRACTION;
         const wandH = wandW * wandImg.naturalHeight / wandImg.naturalWidth;
         const tipX = (pointer.x - rect.left) * (viewW / rect.width);
@@ -553,7 +563,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       animationFrameId = requestAnimationFrame(render);
     };
     animationFrameId = requestAnimationFrame(render);
-    return () => { cancelAnimationFrame(animationFrameId); if (scrollUIRef.current) scrollUIRef.current.cleanup(); };
+    return () => { cancelAnimationFrame(animationFrameId); window.removeEventListener('resize', measure); if (scrollUIRef.current) scrollUIRef.current.cleanup(); };
   }, [rootGameStore, isGearHovered, readiedSpell, isComputerPlayerDoingTurn]);
   function calculateCanvasCoordinates(spell: any, canvasWidth: number, canvasHeight: number, cellWidthPx: number, cellHeightPx: number) {
     const cellIndex = spell.getCellIndex(); return {
@@ -633,7 +643,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
         $zIndex={isHovered || isGearHovered || (readiedSpell != null) ? 32 : 29}
-        $cursor={readiedSpell ? 'crosshair' : (isHovered ? 'pointer' : getDefaultCursor(isCanvasWand, isCanvasWandReady))} />
+        $cursor={cursor} />
     </>
   );
 };

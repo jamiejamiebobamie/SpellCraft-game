@@ -6,7 +6,6 @@ import { useSnapshot } from 'valtio';
 
 const PlacementArea = styled.div<{ $isShow: boolean }>`
   position: absolute;
-  // display: ${props => props.$isShow ? 'grid' : 'none'};
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(3, 1fr);
   width: ${GameBoard.NUM_ROWS / GameBoard.NUM_COLS * 100}%;

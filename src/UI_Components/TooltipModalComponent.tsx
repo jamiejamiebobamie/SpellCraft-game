@@ -20,7 +20,6 @@ const TooltipOverlay = styled.div<{ $isDoneWithIntro: boolean }>`
 `;
 
 const ModalContent = styled.div`
-  // background: #1a1a1a;
   background: #1a1a1a75;
   border: 0.2cqw solid #444;
   border-radius: 0.8cqw;
@@ -52,7 +51,6 @@ const TextColumn = styled.div`
     margin-bottom: 1.5cqw;
     font-size: 5.2cqw;
     color: #e6c563;
-    // font-family: sans-serif;
     font-family: 'EnchantedLand', sans-serif;
   }
 
@@ -129,7 +127,6 @@ const FooterControls = styled.div`
 const PageIndicator = styled.span`
   font-size: 2.3cqw;
   color: #aaa;
-  // font-family: sans-serif;
   min-width: 4cqw;
   text-align: center;
   font-family: 'EnchantedLand', sans-serif;

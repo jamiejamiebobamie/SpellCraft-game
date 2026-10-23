@@ -14,7 +14,6 @@ const MenuAnchor = styled(UIFadeIn) <{ $isShowingModal: boolean }>`
   top: 1cqw;   
   right: 4cqw; 
   z-index: 35;
-  // transition: filter .3s;
   filter: brightness(${props => props.$isShowingModal ? .55 : 1});
 `;
 

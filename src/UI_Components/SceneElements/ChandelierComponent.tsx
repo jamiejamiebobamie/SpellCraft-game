@@ -104,7 +104,6 @@ const ChandelierImg = styled.div<ChandelierProps>`
       background-position: center;
 
       transition: filter ${INTRO_WALK_ANIM_TIME}s;
-      // filter: brightness(.6) hue-rotate(90deg);
       filter: ${props => props.$animType === 'flames' ? flameFilter(props.$backgroundSceneBrightness) : `brightness(${props.$backgroundSceneBrightness * 1.75}) hue-rotate(90deg)`};
       z-index: -1;
   }

@@ -394,8 +394,9 @@ export class Game {
 
   /** The rival's drawing in screen coordinates, and how faded it is (1: drawing; 0: gone). */
   getRivalStroke = (): { points: Array<Point>; alpha: number } => {
+    if (!this.rivalStroke.length) return { points: [], alpha: 0 }; // (before measuring the board: read every frame)
     const board = this.gameBoard.getBoardRefDimensions();
-    if (!this.rivalStroke.length || !board || !board.width) return { points: [], alpha: 0 };
+    if (!board || !board.width) return { points: [], alpha: 0 };
     const alpha = this.rivalStrokeEndedAt === null ? 1 : Math.max(0, 1 - (performance.now() - this.rivalStrokeEndedAt) / Game.STROKE.fadeMilli);
     if (alpha <= 0) { this.rivalStroke = []; return { points: [], alpha: 0 }; }
     return {
