@@ -412,6 +412,14 @@ const drawSinusoidalFloatingMessage = (
     ctx.restore();
 };
 
+/**
+ * The preview's stats (Cost, Damage or Heal, Speed), backlit in gold so they read over the spell behind
+ * them: color (the game's gold), blur (the glow's spread, a fraction of the game's width), passes (the
+ * glow drawn this many times over: stronger), outline (a solid gold edge under the letters, the same
+ * fraction; 0: none).
+ */
+const STATS_BACKLIGHT = { isOn: true, color: 'rgba(230, 197, 99, 1)', blur: 0.012, passes: 4, outline: 0.004 };
+
 export const drawWidgetLineOverlay = (
     ctx: CanvasRenderingContext2D,
     centerX: number,
@@ -501,6 +509,22 @@ export const drawWidgetLineOverlay = (
     ];
     columnLineItems.forEach((textLineString, lineIndexOffset) => {
         const renderYPosition = pt4Y + (lineIndexOffset - 1) * verticalLineSpacingDelta;
+        // Backlit in gold (STATS_BACKLIGHT), so it reads over the preview's spell (a 1x1 sits right behind it)
+        if (STATS_BACKLIGHT.isOn) {
+            ctx.save();
+            ctx.shadowColor = STATS_BACKLIGHT.color;
+            ctx.shadowBlur = viewW * STATS_BACKLIGHT.blur;
+            ctx.fillStyle = STATS_BACKLIGHT.color;
+            for (let pass = 0; pass < STATS_BACKLIGHT.passes; pass++) ctx.fillText(textLineString, columnTextX, renderYPosition);
+            if (STATS_BACKLIGHT.outline > 0) {
+                ctx.shadowBlur = 0;
+                ctx.lineJoin = 'round';
+                ctx.lineWidth = viewW * STATS_BACKLIGHT.outline;
+                ctx.strokeStyle = STATS_BACKLIGHT.color;
+                ctx.strokeText(textLineString, columnTextX, renderYPosition);
+            }
+            ctx.restore();
+        }
         ctx.fillStyle = 'rgba(40, 25, 10, 0.7)';
         ctx.fillText(textLineString, columnTextX + 1, renderYPosition + 1);
         if (lineIndexOffset === 1) {

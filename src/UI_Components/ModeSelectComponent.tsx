@@ -22,8 +22,8 @@ export const MODE_SELECT = {
   choicesDown: 1,
   dim: 1,
   choiceScale: 1.7,
-  titleSize: 7,
-  titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -0.75 },
+  titleSize: 7.5,
+  titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -.95 },
   fadeInSeconds: 0.6,
 };
 
