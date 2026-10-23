@@ -6,6 +6,7 @@ import styled, { keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../DataClasses/store';
 import { titleLetteringCss } from './Logo/titleLettering';
+import SymbolSpinner from './SymbolSpinner';
 
 /** The card (seconds; size in cqw). */
 export const TURN_CARD = { delaySeconds: 0.5, inSeconds: 0.35, holdSeconds: 1.1, outSeconds: 0.55, size: 6, yourMove: 'Your Move', theirMove: 'Their Move' };
@@ -74,4 +75,48 @@ export function NpcPassCard() {
   if (!card || snap.getGameOver() !== null) return null;
   // (keyed by each pass, so each plays afresh)
   return <PassCard key={card.id}>{NPC_PASS_CARD.text}</PassCard>;
+}
+
+const waitPulse = keyframes`
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+`;
+
+const WaitingCard = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 28cqw;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 3.6cqw;
+  line-height: 1;
+  ${titleLetteringCss({ strokeCqw: 0.05, glowCqw: 0.5 })}
+  animation: ${waitPulse} 2.2s ease-in-out infinite;
+`;
+
+/** A 2-player match waiting for the rival: to join (the host), or to begin (getRivalWaitingText). */
+export function RivalWaitingCard() {
+  const snap = useSnapshot(rootGameStore);
+  const text = snap.getRivalWaitingText();
+  if (!text || !snap.getHumanPlayer()?.getIsDoneWithIntroWalk()) return null;
+  return <WaitingCard>{text}</WaitingCard>;
+}
+
+/** The spinner's place over the rival's head (just above its hat). */
+const RivalSpinnerPlace = styled.div`
+  position: absolute;
+  left: 50%;
+  top: -4%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  pointer-events: none;
+`;
+
+/** Placed inside the rival's avatar (the NPC's side): the spinner, while the rival isn't with us. */
+export function RivalSpinner() {
+  const snap = useSnapshot(rootGameStore);
+  return snap.getIsRivalSpinning() ? <RivalSpinnerPlace><SymbolSpinner size={3.2} /></RivalSpinnerPlace> : null;
 }

@@ -223,6 +223,8 @@ export const GameOverStatus = {
   TimesUp: 3, // caught by a teacher: both of them (equal health)
   CaughtPlayer: 4, // caught by a teacher: the player, the weaker (the NPC wins)
   CaughtNpc: 5, // caught by a teacher: the NPC, the weaker (the player wins)
+  OutOfStep: 6, // a 2-player match whose two browsers no longer agree on the board (no contest)
+  EnemyFled: 7, // a 2-player match's rival left, or lost their connection for good (the player wins)
 } as const;
 
 // Create a type out of the object if needed

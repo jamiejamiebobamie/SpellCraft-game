@@ -1,0 +1,152 @@
+// ModeSelectComponent.tsx
+// After Play: choose "1 Player" (the duel against the NPC, as before) or "2 Players" (a match with a
+// friend, by an invite link). Two large framed choices, each brightening on hover.
+import styled, { keyframes } from 'styled-components';
+
+/**
+ * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
+ * overlapping like 👥) or 'silhouettes' (wizards drawn in the game's gold, the same on every device).
+ */
+export const MODE_SELECT = {
+  iconStyle: 'silhouettes' as 'users' | 'wizards' | 'silhouettes',
+  title: 'Choose Your Duel',
+  fadeInSeconds: 0.6,
+};
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(1cqw); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const Screen = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqw;
+  padding-top: 7cqw; /* (clear of the clock and its halo, above) */
+  box-sizing: border-box;
+  animation: ${fadeIn} ${MODE_SELECT.fadeInSeconds}s ease-out both;
+`;
+
+const Title = styled.div`
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 4.4cqw;
+  color: #e6c563;
+  text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
+`;
+
+const Choices = styled.div`
+  display: flex;
+  gap: 4cqw;
+`;
+
+const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8';
+
+const Choice = styled.button`
+  width: 21cqw;
+  aspect-ratio: 1 / 1.08;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6cqw;
+  background: rgba(20, 16, 10, 0.55);
+  border: 0.22cqw solid rgba(230, 197, 99, 0.55);
+  border-radius: 1.2cqw;
+  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.6);
+  color: ${GOLD};
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s, background 0.2s;
+
+  .icon {
+    height: 9cqw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: filter 0.2s, transform 0.2s;
+    filter: drop-shadow(0 0 0 rgba(255, 225, 140, 0));
+  }
+  .label {
+    font-family: 'EnchantedLand', sans-serif;
+    font-size: 3.4cqw;
+    line-height: 1;
+  }
+
+  /* Hover: the frame, the icon and the label light up */
+  &:hover, &:focus-visible {
+    outline: none;
+    color: ${GOLD_BRIGHT};
+    border-color: ${GOLD_BRIGHT};
+    background: rgba(40, 32, 16, 0.6);
+    box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.6), 0 0 2cqw rgba(255, 220, 130, 0.45), inset 0 0 1.5cqw rgba(255, 220, 130, 0.15);
+    transform: translateY(-0.3cqw);
+  }
+  &:hover .icon, &:focus-visible .icon {
+    filter: brightness(1.3) drop-shadow(0 0 0.8cqw rgba(255, 225, 140, 0.8));
+    transform: scale(1.05);
+  }
+`;
+
+const Emoji = styled.span<{ $size: number }>`
+  font-size: ${props => props.$size}cqw;
+  line-height: 1;
+`;
+
+/** Two emoji wizards, one behind the other, read as one group (like 👥). */
+const EmojiPair = styled.span`
+  position: relative;
+  width: 10cqw;
+  height: 9cqw;
+  span { position: absolute; font-size: 6.6cqw; line-height: 1; }
+  span:first-child { right: 0; top: 0; opacity: 0.8; transform: scale(0.88); }
+  span:last-child { left: 0; bottom: 0; }
+`;
+
+/** A wizard drawn in gold (currentColor): pointed hat, brim, face and robe. */
+const WizardSilhouette = ({ x = 0, y = 0, scale = 1, opacity = 1 }: { x?: number; y?: number; scale?: number; opacity?: number }) => (
+  <g transform={`translate(${x} ${y}) scale(${scale})`} opacity={opacity}>
+    <path d="M33 2 C30 9 27 16 21 27 L45 27 C40 20 36 13 33 2 Z" fill="currentColor" />
+    <ellipse cx="33" cy="27.5" rx="15" ry="3.2" fill="currentColor" />
+    <circle cx="33" cy="34" r="5.6" fill="currentColor" />
+    <path d="M17 64 C18 50 24 41 33 40.5 C42 41 48 50 49 64 Z" fill="currentColor" />
+  </g>
+);
+
+const ModeIcon = ({ players }: { players: 1 | 2 }) => {
+  if (MODE_SELECT.iconStyle === 'users') return <Emoji $size={8}>{players === 1 ? '👤' : '👥'}</Emoji>;
+  if (MODE_SELECT.iconStyle === 'wizards') {
+    return players === 1 ? <Emoji $size={8}>🧙</Emoji> : <EmojiPair><span>🧙</span><span>🧙</span></EmojiPair>;
+  }
+  // (a second, smaller wizard behind and to the right, a little faded: one group, as in 👥)
+  return (
+    <svg viewBox="0 0 80 66" style={{ height: '9cqw', overflow: 'visible' }} aria-hidden="true">
+      {players === 1
+        ? <WizardSilhouette x={7} />
+        : <><WizardSilhouette x={24} y={2} scale={0.88} opacity={0.6} /><WizardSilhouette x={-2} y={2} /></>}
+    </svg>
+  );
+};
+
+type ModeSelectProps = { onSinglePlayer: () => void; onTwoPlayers: () => void };
+
+export default function ModeSelectComponent({ onSinglePlayer, onTwoPlayers }: ModeSelectProps) {
+  return (
+    <Screen>
+      <Title>{MODE_SELECT.title}</Title>
+      <Choices>
+        {/* (2 Players on the left, 1 Player on the right) */}
+        <Choice onClick={onTwoPlayers}>
+          <span className="icon"><ModeIcon players={2} /></span>
+          <span className="label">2 Players</span>
+        </Choice>
+        <Choice onClick={onSinglePlayer}>
+          <span className="icon"><ModeIcon players={1} /></span>
+          <span className="label">1 Player</span>
+        </Choice>
+      </Choices>
+    </Screen>
+  );
+}

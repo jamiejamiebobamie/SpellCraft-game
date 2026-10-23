@@ -65,14 +65,84 @@
         animation: boot-spin 1s linear infinite;
       }
       @keyframes boot-spin { to { transform: rotate(360deg); } }
+      /* The Play button's symbols (HoverSymbols), cycling in place in the spinner's middle: always one
+         showing, each flickering through glyphs, holding, then turning red and fading as the next appears
+         over it (the game's own spinners: SymbolSpinner) */
+      #boot-screen .boot-spinner-wrap { position: relative; }
+      #boot-screen .boot-spot { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+      #boot-screen .boot-sym {
+        position: absolute; left: 0; top: 0; overflow: visible;
+        width: var(--size); height: var(--size);
+        transform: translate(-50%, -50%);
+        color: #fff3a8; opacity: var(--peak);
+        filter: drop-shadow(0 0 0.3vmin #ffcf5a) drop-shadow(0 0 0.7vmin #ffcf5a);
+      }
+      #boot-screen .boot-sym.burning {
+        color: #ff6a55; opacity: 0;
+        filter: drop-shadow(0 0 0.3vmin #e0281e) drop-shadow(0 0 0.7vmin #e0281e) blur(0.45vmin);
+        transition: color 0.06s linear, filter 0.6s ease-in, opacity 0.6s ease-in;
+      }
       @media (prefers-reduced-motion: reduce) { #boot-screen .boot-spinner { animation-duration: 3s; } }
     </style>
   </head>
   <body>
     <div id="boot-screen" aria-hidden="true">
       <div class="boot-title">SpellCraft</div>
-      <div class="boot-spinner"></div>
+      <div class="boot-spinner-wrap"><div class="boot-spinner"></div></div>
     </div>
+    <script>
+      // The boot spinner's symbol (see the CSS above), cycling in place: plain script, as the game's code
+      // hasn't loaded yet. Stops once the boot screen is gone.
+      (function () {
+        var wrap = document.querySelector('#boot-screen .boot-spinner-wrap');
+        if (!wrap) return;
+        var ns = 'http://www.w3.org/2000/svg';
+        var line = ' fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
+        var glyphs = [
+          '<path d="M12 3 L19 12 L12 21 L5 12 Z"' + line + '/>',
+          '<circle cx="12" cy="12" r="7.5"' + line + '/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>',
+          '<path d="M5 4 L19 4 L10 12 L19 20 L5 20 L14 12 Z"' + line + '/>',
+          '<path d="M12 6.5 L22 12 L12 17.5 L2 12 Z"' + line + '/>',
+          '<path d="M4 7 L18 20 M17 4 L5 18"' + line + '/>',
+          '<circle cx="12" cy="12" r="4" fill="currentColor"/>'
+        ];
+        var between = function (low, high) { return low + Math.random() * (high - low); };
+        var pick = function (not) { var k; do { k = Math.floor(Math.random() * glyphs.length); } while (k === not); return k; };
+        var spot = document.createElement('div');
+        spot.className = 'boot-spot';
+        wrap.appendChild(spot);
+        var size = '2.8vmin', peak = 0.55, last = -1, current = null;
+        var show = function () {
+          var sym = document.createElementNS(ns, 'svg');
+          sym.setAttribute('viewBox', '0 0 24 24');
+          sym.setAttribute('class', 'boot-sym');
+          sym.style.setProperty('--size', size);
+          sym.style.setProperty('--peak', peak);
+          last = pick(last);
+          sym.innerHTML = glyphs[last];
+          spot.appendChild(sym);
+          // deciphered: flickering through a few glyphs, then settling
+          var settled = last, flickers = 0;
+          var flicker = setInterval(function () {
+            if (++flickers >= 4) { clearInterval(flicker); sym.innerHTML = glyphs[settled]; return; }
+            sym.innerHTML = glyphs[pick(settled)];
+          }, 40);
+          return sym;
+        };
+        var step = function () {
+          if (!document.getElementById('boot-screen')) return;
+          // the current symbol burns away as the next appears (so there's never a gap)
+          if (current) {
+            var old = current;
+            old.setAttribute('class', 'boot-sym burning');
+            setTimeout(function () { old.remove(); }, 650);
+          }
+          current = show();
+          setTimeout(step, (0.15 + between(0.15, 0.3)) * 1000);
+        };
+        step();
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

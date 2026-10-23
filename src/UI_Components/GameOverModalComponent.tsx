@@ -46,6 +46,18 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
   },
+  [GameOverStatus.EnemyFled]: {
+    title: 'Enemy Fled',
+    text: 'Your rival fled the hall, leaving the duel to you.',
+    fontSize: 3.2,
+    isPlayAgainOwnLine: true,
+  },
+  [GameOverStatus.OutOfStep]: {
+    title: 'Out of Step',
+    text: "Your spells and your rival's no longer match up: the duel can't go on fairly.",
+    fontSize: 3.2,
+    isPlayAgainOwnLine: true,
+  },
   [GameOverStatus.CaughtNpc]: {
     title: 'Teacher!',
     text: 'A teacher caught your rival, too weary to flee. You slipped away into the dark.',
@@ -149,6 +161,14 @@ const ButtonRow = styled.div`
 `;
 
 // --- Shared Core Shape Sub-Layouts ---
+const ModalNote = styled.div`
+  font-family: 'EnchantedLand', sans-serif;
+  font-size: 2.6cqw;
+  color: #e6c563;
+  text-align: center;
+  margin-top: 1.5cqw;
+`;
+
 /** The ruby button (PlayButtonStyles), as on the landing screen. */
 const RubyModalButton = styled.button<{ $glow: string }>`
   position: relative;
@@ -220,6 +240,7 @@ export const GameOverModalComponent: React.FC = () => {
   // (compared with null: a draw, GameOverStatus.BothDead, is 0)
   const isGameOver = currentGameOverState !== null;
   const contentConfig = isGameOver ? MODAL_CONTENT_MAP[currentGameOverState] : { title: '', fontSize: 0, text: '' };
+  const isAwaitingRematch = snap.getIsAwaitingRematch(), isRivalLeft = snap.getIsRivalLeft();
 
   return (
     <ModalDimOverlay $isDisplay={isGameOver} $bgOpacity={isGameOver ? MAX_OPACITY : MIN_OPACITY}>
@@ -230,19 +251,23 @@ export const GameOverModalComponent: React.FC = () => {
             {contentConfig.isPlayAgainOwnLine ? (
               <>
                 <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
-                <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>
+                {/* (no "Play again?" once the rival has left) */}
+                {!isRivalLeft && <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>}
               </>
             ) : (
-              <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text} Play again?</ModalSubText>
+              <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}{isRivalLeft ? '' : ' Play again?'}</ModalSubText>
             )}
           </ModalSubTextContainer>
         </RaisedText>
-        {isGameOver && <ButtonRow>
-          <ModalButtonWithSymbols label="Yes" onClick={rootGameStore.resetGame} />
-          <ModalButtonWithSymbols label="No" onClick={() => {
-            // The project's GitHub in a new tab, and this one back to the landing page (a fresh start)
-            window.open('https://github.com/jamiejamiebobamie/SpellCraft-game', '_blank', 'noopener,noreferrer');
-            window.location.reload();
+        {/* (a 2-player match: Yes waits for the rival's; a rival who left can't play again) */}
+        {isGameOver && isRivalLeft && currentGameOverState !== GameOverStatus.EnemyFled && <ModalNote>Your rival has left the hall.</ModalNote>}
+        {isGameOver && isAwaitingRematch && !isRivalLeft && <ModalNote>Waiting for your rival…</ModalNote>}
+        {isGameOver && !isAwaitingRematch && <ButtonRow>
+          {!isRivalLeft && <ModalButtonWithSymbols label="Yes" onClick={rootGameStore.chooseRematch} />}
+          <ModalButtonWithSymbols label={isRivalLeft ? "Back" : "No"} onClick={() => {
+            // Back to the landing page (a fresh start; an invite link's join left off, so it isn't joined again)
+            if (snap.getIsMultiplayer()) rootGameStore.leaveMatch();
+            window.location.href = window.location.origin + window.location.pathname;
           }} />
         </ButtonRow>}
       </ModalCardContent>

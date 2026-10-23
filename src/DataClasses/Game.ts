@@ -15,11 +15,13 @@ import { GameClock } from './GameClock/GameClock'
 import { Player } from './Player/Player';
 import { NPCPlayer, NPC_TURN_ORDER, NPC_WAITING_TIP } from './Player/NpcPlayer';
 import { KeyAction, useKeyPress } from '../UI_Components/UseKeyPress'
-import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver } from './types';
-import { proxy } from 'valtio';
+import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDimensions, SoundEffectName, AudioType, GameOver, GameOverStatus } from './types';
+import { proxy, ref } from 'valtio';
+import { TURN_CLOCK } from './GameClock/GameClock';
+import { MatchMessage, MultiplayerSession } from './Multiplayer/MultiplayerSession';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
-import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES } from './GameRules/gameRules';
+import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES, getSeededRandom } from './GameRules/gameRules';
 import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
 import { GameView } from './GameRules/NpcTrainingEnv';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
@@ -82,7 +84,8 @@ export class Game {
     // The turn clock holds still while the welcome story is open; while a tip card is showing (so a
     // beginner has time to read it, and it isn't swept away by the turn ending); while the Spell Book
     // is open (so a player who'd rather not be timed can take their time); and once the game is over
-    this.gameClock.getIsHeld = () => this.tooltipManager.active || this.tooltipManager.lightTips.length > 0 || this.getIsSpellBookOpen() || this.gameOver !== null;
+    this.gameClock.getIsHeld = () => this.gameOver !== null || this.isRivalDisconnected || this.isRivalFleeing ||
+      (!this.getIsMultiplayer() && (this.tooltipManager.active || this.tooltipManager.lightTips.length > 0 || this.getIsSpellBookOpen()));
     // Two thirds of the way through a turn's time, the first time: the tip on ending your turn (and the
     // seconds hand), in case the player hasn't cast yet (which usually brings it up)
     this.gameClock.onTick = (fraction: number) => {
@@ -102,6 +105,343 @@ export class Game {
     this.forceUpdate();
   }
 
+  // MULTIPLAYER (a 2-player match, over a MultiplayerSession) - - - - - - - - - - - - - - - - - - - - - - - - -
+  // The rival takes the NPC's place (the right); each player sees themselves on the left.
+  private matchMode: 'single' | 'host' | 'guest' = 'single';
+  private session: MultiplayerSession | null = null;
+  private matchSeed = 0; // (the host's: for the teacher's catch rolls, the same on both browsers)
+  private isIntroStarted = false;
+  private isRivalArrived = false; // (its wizard has begun walking in)
+  private isRivalArrivalPending = false; // (the guest joined before the host's intro began)
+  getMatchMode = (): 'single' | 'host' | 'guest' => this.matchMode;
+  getIsMultiplayer = (): boolean => this.matchMode !== 'single';
+  /** The host, in the hall, waiting for the rival to join. */
+  getIsWaitingForRival = (): boolean => this.matchMode === 'host' && this.isIntroStarted && !this.isRivalArrived;
+  getMatchSeed = (): number => this.matchSeed;
+
+  /** The host begins: its wizard walks in alone, the rival's when they join (the 'hello' message). */
+  startHostedMatch = (session: MultiplayerSession): void => {
+    this.matchMode = 'host';
+    this.session = ref(session);
+    this.matchSeed = Math.floor(Math.random() * 2 ** 31);
+    this.listenToSession(session);
+    this.startGame();
+  };
+
+  private listenToSession = (session: MultiplayerSession): void => {
+    session.onMessage(this.handleMatchMessage);
+    session.onRivalLost(this.handleRivalLost);
+    session.onRivalBack(this.handleRivalBack);
+    // (closing or leaving this page: the rival is told at once, rather than waiting out the minute)
+    window.addEventListener('pagehide', () => this.session?.send({ type: 'leave' }));
+  };
+
+  /** The guest joins (connected): both wizards walk in as its intro begins. */
+  startJoinedMatch = (session: MultiplayerSession): void => {
+    this.matchMode = 'guest';
+    this.session = ref(session);
+    this.listenToSession(session);
+    this.startGame();
+  };
+
+  private handleMatchMessage = (message: MatchMessage): void => {
+    if (message.type === 'hello' && this.matchMode === 'host') {
+      this.session?.send({ type: 'welcome', seed: this.matchSeed });
+      if (this.isIntroStarted) this.rivalWalksIn();
+      else this.isRivalArrivalPending = true;
+    }
+    if (message.type === 'welcome' && this.matchMode === 'guest') this.matchSeed = message.seed;
+    if (message.type === 'ready') {
+      this.isRivalReady = true;
+      this.startMatchOnceBothReady();
+      this.forceUpdate();
+    }
+    if (message.type === 'rematch') {
+      this.isRivalRematch = true;
+      this.startRematchOnceBoth();
+    }
+    if (message.type === 'leave') {
+      this.isRivalLeft = true;
+      if (this.gameOver === null) this.rivalFlees(); // (mid-match: gone)
+      this.forceUpdate();
+    }
+    if (message.type === 'cast' || message.type === 'endTurn') {
+      this.rivalQueue.push(message);
+      this.processRivalQueue();
+    }
+    if (message.type === 'check') {
+      this.rivalFingerprints.set(message.turn, message.fingerprint);
+      this.compareFingerprints(message.turn);
+    }
+  };
+
+  // A 2-player match's turns: each turn, one player casts first, then the other (who has seen those
+  // casts); then the spells move, on both screens. Who goes first alternates: the host on even turns.
+  // The rival is the NPC's side (the right), its casts arriving as messages, drawn as the NPC's are.
+  private matchPhase: 'local' | 'rival' | 'resolving' | null = null;
+  private isLocalFirst = false;
+  private isResolvingMatchTurn = false;
+  private rivalQueue: Array<MatchMessage> = [];
+  private isRivalQueueBusy = false;
+  private fingerprints = new Map<number, string>(); // this browser's board after each turn
+  private rivalFingerprints = new Map<number, string>();
+
+  // The first turn starts once both intros are over (each browser says so: 'ready')
+  private isLocalReady = false;
+  private isRivalReady = false;
+  /** This browser's intro is over (both wizards in): the match begins once the rival's is too. */
+  noteMatchReady = (): void => {
+    if (this.isLocalReady) return;
+    this.isLocalReady = true;
+    this.session?.send({ type: 'ready' });
+    this.startMatchOnceBothReady();
+  };
+  private startMatchOnceBothReady = (): void => {
+    if (this.isLocalReady && this.isRivalReady && this.matchPhase === null) this.startMultiplayerTurn();
+  };
+
+  // The rival's connection dropping: a spinner over its head, the clock held, a minute's countdown; back
+  // in time, the match goes on; not, its wizard runs off and the match is won (Enemy Fled)
+  static readonly RIVAL_WAIT_SECONDS = 60;
+  private isRivalDisconnected = false;
+  private isRivalFleeing = false;
+  private rivalLostAt = 0;
+  private rivalWaitTimers: Array<number> = [];
+  getIsRivalDisconnected = (): boolean => this.isRivalDisconnected;
+  getIsRivalFleeing = (): boolean => this.isRivalFleeing;
+  /** The seconds left for a dropped rival to come back. */
+  getRivalWaitSecondsLeft = (): number =>
+    Math.max(0, Math.ceil(Game.RIVAL_WAIT_SECONDS - (Date.now() - this.rivalLostAt) / 1000));
+
+  private handleRivalLost = (): void => {
+    if (this.isRivalFleeing) return;
+    // (the match is over: they've just left)
+    if (this.gameOver !== null) { this.isRivalLeft = true; this.forceUpdate(); return; }
+    this.isRivalDisconnected = true;
+    this.rivalLostAt = Date.now();
+    this.rivalWaitTimers.forEach(timer => window.clearTimeout(timer));
+    this.rivalWaitTimers = [
+      window.setInterval(this.forceUpdate, 1000), // (the countdown)
+      window.setTimeout(this.rivalFlees, Game.RIVAL_WAIT_SECONDS * 1000),
+    ];
+    this.forceUpdate();
+  };
+
+  private handleRivalBack = (): void => {
+    this.rivalWaitTimers.forEach(timer => { window.clearTimeout(timer); window.clearInterval(timer); });
+    this.rivalWaitTimers = [];
+    this.isRivalDisconnected = false;
+    this.forceUpdate();
+  };
+
+  /** The rival is gone for good: its wizard runs off, then the match is won (Enemy Fled). */
+  private rivalFlees = (): void => {
+    if (this.isRivalFleeing) return;
+    this.rivalWaitTimers.forEach(timer => { window.clearTimeout(timer); window.clearInterval(timer); });
+    this.rivalWaitTimers = [];
+    this.isRivalDisconnected = false;
+    this.isRivalFleeing = true;
+    this.isRivalLeft = true;
+    this.gameClock.stopTurnClock();
+    this.forceUpdate();
+    window.setTimeout(() => {
+      if (this.gameOver === null) this.gameOver = GameOverStatus.EnemyFled;
+      this.disableGameBoard();
+      this.session?.close();
+      this.forceUpdate();
+    }, Game.RIVAL_FLEE_SECONDS * 1000);
+  };
+  static readonly RIVAL_FLEE_SECONDS = 1.8; // (its run off the hall: PlayerComponent)
+
+  /** The spinner over the rival's head: it hasn't begun yet, or its connection has dropped. */
+  getIsRivalSpinning = (): boolean => this.isRivalDisconnected || this.getIsRivalNotReady();
+
+  /** The rival is in the hall but hasn't begun (e.g. the host still on the invite screen): a spinner over its head. */
+  getIsRivalNotReady = (): boolean => this.getIsMultiplayer() && this.gameOver === null && this.isRivalArrived && !this.isRematchStarting &&
+    !!this.players.getNpcPlayer()?.getIsDoneWithIntroWalk() && this.matchPhase === null && !this.isRivalReady;
+
+  /** What the centre card says while waiting for the rival (null: not waiting). */
+  getRivalWaitingText = (): string | null => {
+    if (this.isRivalDisconnected) return `Your rival's connection dropped… ${this.getRivalWaitSecondsLeft()}`;
+    if (this.getIsWaitingForRival()) return 'Waiting for your rival…';
+    if (this.getIsRivalNotReady() && this.players.getHumanPlayer()?.getIsDoneWithIntroWalk()) return 'Waiting for your rival to begin…';
+    return null;
+  };
+
+  // Play again: a new match starts once both choose it; either may leave instead
+  private isLocalRematch = false;
+  private isRivalRematch = false;
+  private isRivalLeft = false;
+  private rematchCount = 0; // (the matches played with this rival: each a new set of teacher's rolls)
+  private isRematchStarting = false; // (both chose to play again: no waiting card while the first turn starts)
+  getIsAwaitingRematch = (): boolean => this.isLocalRematch;
+  getIsRivalLeft = (): boolean => this.isRivalLeft;
+
+  /** "Play again?" Yes: alone, at once; in a 2-player match, once the rival says yes too. */
+  chooseRematch = (): void => {
+    if (!this.getIsMultiplayer()) { this.resetGame(); return; }
+    if (this.isLocalRematch || this.isRivalLeft) return;
+    this.isLocalRematch = true;
+    this.session?.send({ type: 'rematch' });
+    this.forceUpdate();
+    this.startRematchOnceBoth();
+  };
+
+  /** "Play again?" No, in a 2-player match: the rival is told, and the connection closed. */
+  leaveMatch = (): void => {
+    this.session?.send({ type: 'leave' });
+    this.session?.close();
+  };
+
+  private startRematchOnceBoth = (): void => {
+    if (!this.isLocalRematch || !this.isRivalRematch) return;
+    this.isLocalRematch = this.isRivalRematch = false;
+    this.isRematchStarting = true;
+    this.rematchCount++;
+    this.matchPhase = null;
+    this.isLocalReady = this.isRivalReady = false;
+    this.isNpcWaitingForPlayer = false;
+    this.rivalQueue = [];
+    this.isRivalQueueBusy = false;
+    this.fingerprints.clear();
+    this.rivalFingerprints.clear();
+    this.resetGame();
+  };
+
+  private getTurnIndex = (): number => Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle());
+  /** Whether this player may cast now: always alone; in a 2-player match, in their part of the turn. */
+  getCanLocalCast = (): boolean => !this.getIsMultiplayer() || this.matchPhase === 'local';
+
+  /** A 2-player match's turn begins: "Your Move" or "Their Move", then that part of the turn. */
+  startMultiplayerTurn = (): void => {
+    this.isRematchStarting = false;
+    this.isLocalFirst = (this.getTurnIndex() % 2 === 0) === (this.matchMode === 'host');
+    this.turnCard = { id: (this.turnCard?.id ?? 0) + 1, isPlayerFirst: this.isLocalFirst };
+    this.turnToken++;
+    this.beginMatchPhase(this.isLocalFirst ? 'local' : 'rival');
+  };
+
+  /** A part of the turn: this player's (casting, its clock running), or the rival's (watching theirs). */
+  private beginMatchPhase = (phase: 'local' | 'rival'): void => {
+    const rival = this.players.getNpcPlayer();
+    if (!rival) return;
+    this.matchPhase = phase;
+    if (phase === 'rival') {
+      this.isNpcWaitingForPlayer = false;
+      rival.setIsDoneWithTurn(false);
+      // (its "Pass" card, if it casts nothing)
+      const token = this.turnToken;
+      rival.beginNpcTurn(isPassed => {
+        if (isPassed && this.getIsTurnStill(token)) this.npcPassCard = { id: (this.npcPassCard?.id ?? 0) + 1 };
+        this.forceUpdate();
+      });
+    } else {
+      // (going first, the rival waits for this player; going second, the rival is already done)
+      this.isNpcWaitingForPlayer = this.isLocalFirst;
+    }
+    this.gameClock.startTurnClock(TURN_CLOCK.multiplayerTurnSeconds);
+    this.forceUpdate();
+    if (phase === 'rival') this.processRivalQueue();
+  };
+
+  /** This player's part of the turn is over (the clock, Space, its time, or its focus running out). */
+  private endLocalPhase = (): void => {
+    if (this.matchPhase !== 'local') return;
+    this.gameClock.stopTurnClock();
+    this.session?.send({ type: 'endTurn', turn: this.getTurnIndex() });
+    if (this.isLocalFirst) this.beginMatchPhase('rival');
+    else this.resolveMatchTurn();
+  };
+
+  /** This player cast a spell: sent to the rival (on this player's side of the board). */
+  private noteLocalCast = (symbol: string, cells: Array<CellIndex>): void => {
+    if (!this.getIsMultiplayer() || !cells.length) return;
+    this.session?.send({ type: 'cast', turn: this.getTurnIndex(), symbol, cells: cells.map(({ i, j }) => ({ i, j })) });
+    // (out of focus: its part of the turn ends)
+    const self = this.players.getHumanPlayer();
+    if (self && self.getFocus() < 1) window.setTimeout(this.endLocalPhase, 600);
+  };
+
+  /** The rival's casts and turn ends, one at a time, in order, during its part of the turn. */
+  private processRivalQueue = (): void => {
+    if (this.isRivalQueueBusy || this.matchPhase !== 'rival') return;
+    const message = this.rivalQueue.shift();
+    if (!message) return;
+    const rival = this.players.getNpcPlayer();
+    if (!rival) return;
+    if (message.type === 'cast') {
+      // Its cast, mirrored to its side: drawn by its wizard (as the NPC's are), then cast there
+      const cells = message.cells.map(({ i, j }) => ({ i, j: GameBoard.NUM_COLS - 1 - j }));
+      const next = () => { this.isRivalQueueBusy = false; this.processRivalQueue(); };
+      this.isRivalQueueBusy = true;
+      if (rival.getFocus() <= 0) { this.spawnSizedSpellInstance(message.symbol, cells, rival); next(); return; }
+      rival.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
+        { inferenceString: message.symbol as InferenceString, cells, onCast: next });
+      return;
+    }
+    if (message.type === 'endTurn') {
+      this.gameClock.stopTurnClock();
+      rival.setIsDoneWithTurn(true);
+      if (!this.isLocalFirst) this.beginMatchPhase('local');
+      else this.resolveMatchTurn();
+      this.processRivalQueue();
+    }
+  };
+
+  /** Both have played their part: the spells move (as in endTurn), then the boards are compared. */
+  private resolveMatchTurn = async (): Promise<void> => {
+    const turn = this.getTurnIndex();
+    this.matchPhase = 'resolving';
+    this.isNpcWaitingForPlayer = false;
+    this.isResolvingMatchTurn = true;
+    try { await this.endTurn(); } finally { this.isResolvingMatchTurn = false; }
+    const fingerprint = this.getBoardFingerprint();
+    this.fingerprints.set(turn, fingerprint);
+    this.session?.send({ type: 'check', turn, fingerprint });
+    this.compareFingerprints(turn);
+  };
+
+  /**
+   * The board after a turn, as the host sees it (so both browsers' match): health, focus and the spells
+   * (the guest's mirrored back), sorted.
+   */
+  private getBoardFingerprint = (): string => {
+    const isGuest = this.matchMode === 'guest';
+    const [self, rival] = this.players.getPlayers();
+    const players = (isGuest ? [rival, self] : [self, rival]).map(p => `${p.getHealth()}/${p.getFocus()}`).join(',');
+    const spells = this.placedSpells.spells.filter(spell => !spell.getIsRemove()).map(spell => {
+      const { i, j } = spell.getCellIndex();
+      const column = isGuest ? GameBoard.NUM_COLS - j - spell.widthCells : j;
+      const direction = Math.sign(spell.speedDirection) * (isGuest ? -1 : 1);
+      return `${spell.getSpellName()}:${i},${column}:${spell.widthCells}x${spell.heightCells}:${spell.getPower()}:${direction}`;
+    }).sort();
+    return `${players}|${spells.join(';')}`;
+  };
+
+  /** Both browsers' boards after `turn`, once both are in: if they differ, the match is out of step. */
+  private compareFingerprints = (turn: number): void => {
+    const own = this.fingerprints.get(turn), theirs = this.rivalFingerprints.get(turn);
+    if (own === undefined || theirs === undefined) return;
+    if (own !== theirs && this.gameOver === null) {
+      console.warn(`The match is out of step after turn ${turn}:\n this browser: ${own}\n the rival's:  ${theirs}`);
+      this.gameOver = GameOverStatus.OutOfStep;
+      this.gameClock.stopTurnClock();
+      this.disableGameBoard();
+      this.forceUpdate();
+    }
+  };
+
+  /** The rival's wizard walks in (the match begins once both have arrived: getIsDoneWithIntroWalk). */
+  private rivalWalksIn = (): void => {
+    const rival = this.players.getNpcPlayer();
+    if (!rival || this.isRivalArrived) return;
+    this.isRivalArrived = true;
+    rival.setIsDoneWithIntroWalk(false);
+    rival.setIsBeginIntroWalk(true);
+    this.forceUpdate();
+    setTimeout(() => { rival.setIsDoneWithIntroWalk(true); this.forceUpdate(); }, INTRO_WALK_ANIM_TIME * 1000);
+  };
+
   resetGame = (): void => {
     this.placedSpells.reset();
     this.gameBoard.reset();
@@ -115,7 +455,8 @@ export class Game {
     this.matchNumber++;
     this.turnToken++; // (anything the NPC had pending from the last match does nothing)
     this.stopNpcWaiting();
-    this.startNpcTurn(3000);
+    if (this.getIsMultiplayer()) window.setTimeout(this.noteMatchReady, 800); // (the first turn once both are ready)
+    else this.startNpcTurn(3000);
     this.forceUpdate();
   };
 
@@ -194,7 +535,7 @@ export class Game {
 
   /** The player has cast (or is ending the turn): a waiting NPC now plays its turn. */
   private releaseNpc = (delayMilli: number): void => {
-    if (!this.isNpcWaitingForPlayer) return;
+    if (!this.isNpcWaitingForPlayer || this.getIsMultiplayer()) return; // (a 2-player match has no NPC)
     this.stopNpcWaiting();
     const token = this.turnToken;
     setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
@@ -219,7 +560,8 @@ export class Game {
     // One clock tick (20 minutes) per turn; a teacher catches the weaker wizard (getCaughtGameOver)
     const turnsElapsed = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
-    if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, Math.random)) {
+    const random = this.getIsMultiplayer() ? () => getSeededRandom(this.matchSeed + this.rematchCount * 7919, turnsElapsed) : Math.random;
+    if (humanPlayer && npcPlayer && getIsTimeUp(turnsElapsed, random)) {
       this.gameOver = getCaughtGameOver(humanPlayer, npcPlayer);
       this.forceUpdate();
     }
@@ -244,6 +586,7 @@ export class Game {
 
   endTurn = async (): Promise<void> => {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
+    if (this.getIsMultiplayer() && !this.isResolvingMatchTurn) { this.endLocalPhase(); return; }
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
     // The turn is ending: the seconds hand stops (and goes back to 12)
     if (!this.getIsGameBoardDisabled()) this.gameClock.stopTurnClock();
@@ -288,7 +631,8 @@ export class Game {
         npcPlayer.setGameSymbol(null);
         humanPlayer.setGameSymbol(null);
         (npcPlayer as NPCPlayer).resetNumRemainingMovesPerTurn(); // resets NPC moves to between 2-3
-        this.startNpcTurn(1000);
+        if (this.getIsMultiplayer()) this.startMultiplayerTurn();
+        else this.startNpcTurn(1000);
       }
 
       this.tooltipManager.doClickClockFlash(this.forceUpdate);
@@ -384,7 +728,7 @@ export class Game {
         action: () => {
           const cell = this.gameBoard.getCellAt(cellIndex);
           const humanPlayer = this.players.getHumanPlayer();
-          if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead()) {
+          if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast()) {
             const gameSymbol = humanPlayer.getGameSymbol();
             if (!gameSymbol) return;
             const inferenceString = gameSymbol.symbolName as InferenceString;
@@ -405,6 +749,7 @@ export class Game {
                 this.placeSpellAt(inferenceString, cellIndex, s);
                 this.placedSpells.combineSpellsMaximally(this.gameBoard);
                 this.checkIfIsGameOverFromPlayerDeath();
+                this.noteLocalCast(inferenceString, [cellIndex]);
                 if (humanPlayer.getFocus() < 1) {
                   this.setIsDoneWithTurn(true, humanPlayer);
                 }
@@ -451,9 +796,20 @@ export class Game {
 
   getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
   beginIntro = (): void => {
-    // begin intro walk...
-    this.beginIntroWalk();
-    this.setIsDoneWithIntroWalk(false);
+    // begin intro walk... (in a 2-player match, only this player's wizard: the rival's when they join)
+    this.isIntroStarted = true;
+    if (this.getIsMultiplayer()) {
+      const self = this.players.getHumanPlayer();
+      self?.setIsBeginIntroWalk(true);
+      this.setIsDoneWithIntroWalk(false);
+      if (this.matchMode === 'guest') {
+        this.session?.send({ type: 'hello' });
+        this.rivalWalksIn(); // (the host is there already: both walk in together, on this screen)
+      } else if (this.isRivalArrivalPending) this.rivalWalksIn();
+    } else {
+      this.beginIntroWalk();
+      this.setIsDoneWithIntroWalk(false);
+    }
     this.forceUpdate();
 
     /*
@@ -469,7 +825,11 @@ export class Game {
       turn-off walk anim after 8 seconds after turning it on.
     */
     setTimeout(() => {
-      this.setIsDoneWithIntroWalk();
+      if (this.getIsMultiplayer()) {
+        // (this player's wizard has arrived; the rival's arrives in its own time: rivalWalksIn)
+        this.players.getHumanPlayer()?.setIsDoneWithIntroWalk(true);
+        this.forceUpdate();
+      } else this.setIsDoneWithIntroWalk();
     }, INTRO_WALK_ANIM_TIME * 1000);
 
   }
@@ -703,7 +1063,7 @@ export class Game {
       if (cellIndex) {
         const cell = this.getCellAt(cellIndex);
         const humanPlayer = this.players.getHumanPlayer();
-        if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead()) {
+        if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast()) {
           const inferenceString = humanPlayer?.getGameSymbol()?.symbolName || 'circle';
           const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
           if (spell) {
@@ -722,6 +1082,7 @@ export class Game {
               this.placeSpellAt(inferenceString, cellIndex, s);
               this.placedSpells.combineSpellsMaximally(this.gameBoard);
               this.checkIfIsGameOverFromPlayerDeath();
+              this.noteLocalCast(inferenceString, [cellIndex]);
               if (humanPlayer.getFocus() < 1) {
                 this.setIsDoneWithTurn(true, humanPlayer);
               }
@@ -763,12 +1124,13 @@ export class Game {
     if (!GameSymbol.FIZZLE_INFERENCES.includes(result)) {
       // Extract dominant layout targets from the collection stream points
       const dominantCells = this.filterDominantCells(rawPoints);
-      if (dominantCells.length > 0 && humanPlayer) {
+      if (dominantCells.length > 0 && humanPlayer && this.getCanLocalCast()) {
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         const spell = GameSymbol.SPELL_LOOKUP.get(result);
         if (humanPlayer && spell) {
           const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
           this.spawnSizedSpellInstance(result, freePositions, humanPlayer);
+          this.noteLocalCast(result, freePositions);
         }
       } else {
         this.incrementDrawingOffBoard();

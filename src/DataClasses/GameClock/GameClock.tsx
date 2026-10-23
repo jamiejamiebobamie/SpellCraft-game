@@ -6,6 +6,7 @@
 export const TURN_CLOCK = {
   isOn: true,
   turnSeconds: 30, // how long the player has each turn (real seconds)
+  multiplayerTurnSeconds: 15, // (a 2-player match: each player's part of the turn)
   ticksPerTurn: 60, // the seconds hand's ticks round the face (one a "second")
 };
 
@@ -62,11 +63,11 @@ export class GameClock {
     }
 
     /** The player's turn begins: the seconds hand starts from 12, ticking round once over the turn. */
-    startTurnClock = (): void => {
+    startTurnClock = (seconds: number = TURN_CLOCK.turnSeconds): void => {
         this.stopTurnClock();
         if (!TURN_CLOCK.isOn) return;
         this.isTurnClockRunning = true;
-        const tickMilli = (TURN_CLOCK.turnSeconds / TURN_CLOCK.ticksPerTurn) * 1000;
+        const tickMilli = (seconds / TURN_CLOCK.ticksPerTurn) * 1000;
         this.intervalRef = window.setInterval(() => {
             if (this.getIsHeld()) return;
             this.secondTicks++;

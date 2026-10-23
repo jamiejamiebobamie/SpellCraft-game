@@ -260,3 +260,41 @@ export default function HoverSymbols({ isHovered }: { isHovered: boolean; hoverK
     </Layer>
   );
 }
+
+/**
+ * The same symbols cycling in place in a spinner's middle (see SymbolSpinner): always one showing, each
+ * deciphered, held a moment, then turning red and fading as the next appears over it.
+ */
+export function SpinnerSymbols({ size = 1, burnSeconds = 0.6 }: { size?: number; burnSeconds?: number }) {
+  const [showing, setShowing] = useState<Array<Showing>>(() => [{ id: 0, shape: pick(SHAPES), isBurning: false }]);
+  const nextId = useRef(1);
+  const [look] = useState(() => ({ size: between(H.size) * size, peak: between(H.opacity) }));
+  useEffect(() => {
+    let timeout = 0;
+    const step = () => {
+      // the current symbol burns away as the next appears (so there's never a gap)
+      setShowing(current => {
+        const burning = current.map(s => s.isBurning ? s : { ...s, isBurning: true });
+        const last = current[current.length - 1];
+        return [...burning, { id: nextId.current++, shape: pick(SHAPES, last?.shape), isBurning: false }];
+      });
+      // (burnt-out symbols cleared)
+      window.setTimeout(() => setShowing(current => current.filter((s, k) => !s.isBurning || k >= current.length - 2)), burnSeconds * 1000 + 50);
+      timeout = window.setTimeout(step, (H.decipherSeconds + between(H.holdSeconds)) * 1000);
+    };
+    timeout = window.setTimeout(step, (H.decipherSeconds + between(H.holdSeconds)) * 1000);
+    return () => window.clearTimeout(timeout);
+  }, [burnSeconds]);
+  return (
+    <Layer aria-hidden style={{ zIndex: 0 }}>
+      <div style={{ position: 'absolute', left: '50%', top: '50%', width: 0, height: 0 }}>
+        {showing.map(s => (
+          <SymbolAt key={s.id} viewBox="0 0 24 24" $isBurning={s.isBurning}
+            style={{ width: `${look.size}cqw`, height: `${look.size}cqw`, '--peak': look.peak, '--burn': `${burnSeconds}s` } as React.CSSProperties}>
+            <Deciphering shape={s.shape} />
+          </SymbolAt>
+        ))}
+      </div>
+    </Layer>
+  );
+}

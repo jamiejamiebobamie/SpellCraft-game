@@ -14,7 +14,7 @@ import { UIFadeIn } from './UIFadeIn';
 import { INTRO_WALK_ANIM_TIME } from './Player/CharacterParts';
 import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
-import TurnCard from './TurnCard';
+import TurnCard, { RivalWaitingCard } from './TurnCard';
 // import { GameOverStatus } from '../DataClasses/types';
 
 // NOTE: ensure rnadom moves that trigger blood magic and are guarded / reduced to 1 cell size are drawn correctly...
@@ -110,7 +110,8 @@ export const GameComponent = () => {
         // BEGIN MATCH!
         rootGameStore.triggerTips(['casting', 'spellBook']); // one after the other
         rootGameStore.doClickClockFlash();
-        rootGameStore.startNpcTurn(3000);
+        if (rootGameStore.getIsMultiplayer()) rootGameStore.noteMatchReady(); // (the first turn once both are ready)
+        else rootGameStore.startNpcTurn(3000);
       }
     }
   }, [isPlaying, isDoneWithIntro, isLoreDone]);
@@ -267,6 +268,7 @@ export const GameComponent = () => {
       <GameBoardComponent gridOverlayRef={gridOverlayRef} />
     </MainColumn>
     <TurnCard />
+    <RivalWaitingCard />
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>;
 

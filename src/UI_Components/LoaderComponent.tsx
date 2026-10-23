@@ -8,6 +8,11 @@ import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
 import HoverSymbols from './HoverSymbols';
 import PixieDust, { PIXIE_DUST_SECONDS } from './PixieDust';
 import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
+import ModeSelectComponent from './ModeSelectComponent';
+import CodeLinkComponent from './CodeLinkComponent';
+import SymbolSpinner from './SymbolSpinner';
+import { HostMatchScreen, JoinMatchScreen } from './MatchScreens';
+import { MultiplayerSession } from '../DataClasses/Multiplayer/MultiplayerSession';
 
 /** How wide one sweep of "Loading..."'s sheen is (cqw): about the word's width. */
 const LOADING_SHEEN_TILE = 16;
@@ -40,6 +45,14 @@ const LoadingOverlay = styled.div<{ $isSceneImgsLoaded: boolean }>`
   z-index: 9999;
   ${props => props.$isSceneImgsLoaded ? 'background: rgba(0, 0, 0, 0);' : 'background: rgba(0, 0, 0, 1);'}
   transition: background 5s;  
+`;
+
+/** While the multiplayer service is checked (after Play): the spinner, in the middle. */
+const CheckingSpinner = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  transform: translate(-50%, -50%);
 `;
 
 /** The landing content and its pixie dust (the content dissolving into it as Play is pressed). */
@@ -179,13 +192,24 @@ const LoaderComponent = () => {
     return () => clearTimeout(removeTimeout);
   }, [isPriorityAssetsLoaded, isLogoSpellsReady]);
 
-  // Play: the landing page dissolves into pixie dust, then the game begins
+  // Play: the landing page dissolves into pixie dust, then the choice of 1 Player or 2 Players. Opened
+  // from an invite link, Play reads "Join", and joins the host's match instead
+  const [joinId, setJoinId] = useState<string | null>(() => MultiplayerSession.getJoinIdFromUrl());
   const [isDissolving, setIsDissolving] = useState<boolean>(false);
+  const [screen, setScreen] = useState<'landing' | 'checking' | 'mode' | 'host' | 'join'>('landing');
   const dissolveAndPlay = () => {
     if (isDissolving) return;
     setIsDissolving(true);
-    window.setTimeout(rootGameStore.startGame, PIXIE_DUST_SECONDS * 1000);
+    // (the multiplayer service is checked meanwhile: if it's down, the game goes straight to 1 Player)
+    const isServiceUp = joinId ? Promise.resolve(true) : MultiplayerSession.checkService();
+    window.setTimeout(async () => {
+      if (joinId) { setScreen('join'); return; }
+      setScreen('checking'); // (a spinner, if the answer isn't in yet)
+      if (await isServiceUp) setScreen('mode');
+      else rootGameStore.startGame();
+    }, PIXIE_DUST_SECONDS * 1000);
   };
+  const playAlone = () => { setJoinId(null); setScreen('mode'); };
 
   // Hovering: the symbols around the button
   const [hoverKey, setHoverKey] = useState<number>(0);
@@ -225,7 +249,7 @@ const LoaderComponent = () => {
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
-              <PlayButtonFace look="ruby" label="Play" isGlinting={isHovered} />
+              <PlayButtonFace look="ruby" label={joinId ? 'Join' : 'Play'} isGlinting={isHovered} />
               <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
             </FramedPlayButton>
           )}
@@ -234,6 +258,14 @@ const LoaderComponent = () => {
       </LoadingContent>
       <PixieDust isActive={isDissolving} />
       </DissolveArea>
+      {/* (on the landing page only: it fades as Play is pressed) */}
+      {screen === 'landing' && !isLoading && (
+        <CodeLinkComponent isHidden={isDissolving} />
+      )}
+      {screen === 'checking' && <CheckingSpinner><SymbolSpinner size={4.2} /></CheckingSpinner>}
+      {screen === 'mode' && <ModeSelectComponent onSinglePlayer={rootGameStore.startGame} onTwoPlayers={() => setScreen('host')} />}
+      {screen === 'host' && <HostMatchScreen onBegin={rootGameStore.startHostedMatch} onBack={() => setScreen('mode')} />}
+      {screen === 'join' && joinId && <JoinMatchScreen hostId={joinId} onJoined={rootGameStore.startJoinedMatch} onPlayAlone={playAlone} />}
     </LoadingOverlay>
   )
 };

@@ -5,8 +5,8 @@ import { IK_ArmComponent } from './IK_ArmComponent';
 import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
-import { NpcPassCard } from '../TurnCard';
-import styled, { keyframes } from 'styled-components'
+import { NpcPassCard, RivalSpinner } from '../TurnCard';
+import styled, { css, keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
   flex: 1;
@@ -22,12 +22,24 @@ const DuelistSideColumn = styled.div`
   width: 100%;
 `;
 
-const AvatarPlacementWrapper = styled.div`
+/** A 2-player match's rival fleeing: turning away, then running off the side of the hall (Game.RIVAL_FLEE_SECONDS). */
+const flee = keyframes`
+  0% { transform: translateX(0) scaleX(1); opacity: 1; }
+  12% { transform: translateX(0) scaleX(-1) translateY(0); opacity: 1; }
+  30% { transform: translateX(6cqw) scaleX(-1) translateY(-0.8cqw); }
+  45% { transform: translateX(11cqw) scaleX(-1) translateY(0); }
+  60% { transform: translateX(17cqw) scaleX(-1) translateY(-0.8cqw); }
+  75% { transform: translateX(23cqw) scaleX(-1) translateY(0); }
+  100% { transform: translateX(34cqw) scaleX(-1) translateY(-0.6cqw); opacity: 0; }
+`;
+
+const AvatarPlacementWrapper = styled.div<{ $isFleeing?: boolean }>`
   position: absolute;
   left: 1.5cqw;
   right: 1.5cqw;
-  bottom: 10cqw; 
+  bottom: 10cqw;
   pointer-events: none;
+  ${props => props.$isFleeing && css`animation: ${flee} 1.8s ease-in forwards;`}
 `;
 
 const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
@@ -212,7 +224,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const isBeginIntroWalk = playerSnap?.getIsBeginIntroWalk() || false;
 
   const avatar = (
-    <AvatarPlacementWrapper>
+    <AvatarPlacementWrapper $isFleeing={direction === -1 && snap.getIsRivalFleeing()}>
       <AvatarFrame $src={src} $direction={direction}>
         <Damageable
           $isBeginIntroWalk={isBeginIntroWalk}
@@ -229,6 +241,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
         </Damageable>
       </AvatarFrame>
       {direction === -1 && <NpcPassCard />}
+      {direction === -1 && <RivalSpinner />}
     </AvatarPlacementWrapper>
   );
 
