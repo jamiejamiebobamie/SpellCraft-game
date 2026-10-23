@@ -111,8 +111,9 @@ const pulse = keyframes`
   50% { opacity: ${CLOCK_HALO.pulseLow}; }
 `;
 
-const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean }>`
+const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean; $isClosed: boolean }>`
   position: absolute;
+  visibility: ${props => props.$isClosed ? 'hidden' : 'visible'};
   left: ${CLOCK_HALO.center.x - CANVAS_REACH}cqw;
   top: ${CLOCK_HALO.center.y - CANVAS_REACH}cqw;
   width: ${CANVAS_REACH * 2}cqw;
@@ -123,7 +124,7 @@ const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean }>`
   filter: brightness(${props => props.$brightness});
   transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;
   ${CLOCK_HALO.pulseSeconds > 0 && css`animation: ${pulse} ${CLOCK_HALO.pulseSeconds}s ease-in-out infinite;`}
-  animation-play-state: ${props => props.$isFrozen ? 'paused' : 'running'};
+  animation-play-state: ${props => props.$isFrozen || props.$isClosed ? 'paused' : 'running'};
 `;
 
 const HaloCanvas = styled.canvas`
@@ -131,15 +132,21 @@ const HaloCanvas = styled.canvas`
   height: 100%;
 `;
 
-/** An 'r, g, b' color moved `amount` (0 to 1) of the way to white. */
-const towardWhite = (rgb: string, amount: number): string => {
+/** A color as numbers (r, g, b: 0 to 255), so the rays' many shades are worked out without parsing strings each frame. */
+type Rgb = [number, number, number];
+
+/** An 'r, g, b' color (as in CLOCK_HALO) as numbers. */
+const parseRgb = (rgb: string): Rgb => rgb.split(',').map(Number) as Rgb;
+
+/** A color moved `amount` (0 to 1) of the way to white. */
+const towardWhite = ([r, g, b]: Rgb, amount: number): Rgb => {
   const t = Math.min(1, Math.max(0, amount));
-  return rgb.split(',').map(c => Math.round(Number(c) + (255 - Number(c)) * t)).join(', ');
+  return [r + (255 - r) * t, g + (255 - g) * t, b + (255 - b) * t];
 };
 
-/** An 'r, g, b' color scaled by `factor` (darker below 1). */
-const shade = (rgb: string, factor: number): string =>
-  rgb.split(',').map(c => Math.round(Math.min(255, Number(c) * factor))).join(', ');
+/** A color scaled by `factor` (darker below 1). */
+const shade = ([r, g, b]: Rgb, factor: number): Rgb =>
+  [Math.min(255, r * factor), Math.min(255, g * factor), Math.min(255, b * factor)];
 
 /**
  * Where a ray at `angle` (radians, 0 = up, clockwise) is drawn so the rays spread apart around
@@ -180,7 +187,7 @@ const getReachFactor = (angle: number): number => {
  * at `tip` (in pixels), fading from `opacity` to nothing at the tip. A ribbon twists as it goes, its
  * width narrowing where it turns edge-on and its back face darker; `flow` moves the twist along it.
  */
-const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: string, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1, tipFade: number = 1,
+const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: number, halfWidth: number, rgb: Rgb, opacity: number, flow: number, ribbonAmount: number, sheenAt: number = -1, tipFade: number = 1,
   flowing?: { seconds: number; phase: number; pace: number }, twistCount: number = CLOCK_HALO.ribbon.twists) => {
   const isRibbon = ray.ribbon && ribbonAmount > 0;
   const steps = ray.style === 'wavy' || isRibbon || flowing ? 32 : 1;
@@ -199,28 +206,38 @@ const drawRay = (ctx: CanvasRenderingContext2D, ray: Ray, base: number, tip: num
     return { u, x: swingOf(u), y: -(base + (tip - base) * u), half: halfWidth * (1 - u), twist };
   });
 
-  for (let k = 0; k < steps; k++) {
-    const a = points[k], b = points[k + 1];
-    const twist = (a.twist + b.twist) / 2;
+  // The color at `u` along the ray (0 base, 1 tip), where it's twisted to `twist`
+  const colorAt = (u: number, twist: number): string => {
     const isFront = twist >= 0;
     // The face toward you is lit (with a sheen where it faces you squarely); the back is in shadow
     // (a ray turning into a ribbon gains its sheen as it does; the plain rays keep theirs)
     const sheenAmount = sheen * (ray.ribbon ? ribbonAmount : 1);
     // (and the satin sheen sliding along a ribbon: brightest where it faces you)
-    const u = (a.u + b.u) / 2, band = sheenAt < 0 || !isRibbon ? 0 : Math.exp(-((u - sheenAt) ** 2) / (2 * CLOCK_HALO.ribbonSheen.width ** 2));
+    const band = sheenAt < 0 || !isRibbon ? 0 : Math.exp(-((u - sheenAt) ** 2) / (2 * CLOCK_HALO.ribbonSheen.width ** 2));
     const satin = Math.min(1, band * CLOCK_HALO.ribbonSheen.strength * CLOCK_HALO.ribbonSheen.brightness * ribbonAmount * Math.abs(twist));
     const litRgb = isFront ? (sheenAmount > 0 ? towardWhite(rgb, sheenAmount * twist * twist) : rgb) : shade(rgb, backShade);
-    const faceRgb = satin > 0 ? towardWhite(litRgb, satin) : litRgb;
-    const alpha = opacity * (1 - tipFade * (a.u + b.u) / 2);
-    ctx.fillStyle = `rgba(${faceRgb}, ${alpha})`;
-    ctx.beginPath();
-    ctx.moveTo(a.x - a.half * Math.abs(a.twist), a.y);
-    ctx.lineTo(b.x - b.half * Math.abs(b.twist), b.y);
-    ctx.lineTo(b.x + b.half * Math.abs(b.twist), b.y);
-    ctx.lineTo(a.x + a.half * Math.abs(a.twist), a.y);
-    ctx.closePath();
-    ctx.fill();
+    const [red, green, blue] = satin > 0 ? towardWhite(litRgb, satin) : litRgb;
+    const alpha = opacity * (1 - tipFade * u);
+    return `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha.toFixed(3)})`;
+  };
+
+  if (steps === 1) {
+    // A plain spike: one color (as at its middle)
+    const [a, b] = points;
+    ctx.fillStyle = colorAt(0.5, (a.twist + b.twist) / 2);
+  } else {
+    // A ribbon (or a wavy ray): one shape, shaded along its length by a gradient with a color stop at
+    // each step (a shape per step cost hundreds of drawing calls a frame)
+    const gradient = ctx.createLinearGradient(0, -base, 0, -tip);
+    points.forEach(p => gradient.addColorStop(p.u, colorAt(p.u, p.twist)));
+    ctx.fillStyle = gradient;
   }
+  // Its outline: up one edge (narrowing where it turns edge-on) and back down the other
+  ctx.beginPath();
+  points.forEach((p, k) => k === 0 ? ctx.moveTo(p.x - p.half * Math.abs(p.twist), p.y) : ctx.lineTo(p.x - p.half * Math.abs(p.twist), p.y));
+  for (let k = steps; k >= 0; k--) ctx.lineTo(points[k].x + points[k].half * Math.abs(points[k].twist), points[k].y);
+  ctx.closePath();
+  ctx.fill();
 };
 
 /** `isShown`: grows in when it turns true, shrinks away when it turns false. */
@@ -236,6 +253,9 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
 
   // The iris (CLOCK_HALO.appear): `amount` 0 (closed) to 1 (open), heading for `target`
   const irisRef = useRef({ amount: 0, target: 0 });
+  // Closed: the halo's layer hidden (its blending and pulse otherwise cost the browser every frame)
+  const isClosedRef = useRef(true);
+  const [isClosed, setIsClosed] = useState(true);
   // Frozen time (the turn clock held): the pulse pauses with the drawing (checked each frame)
   const frozenRef = useRef(false);
   const [isFrozen, setIsFrozen] = useState(false);
@@ -276,13 +296,18 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
     // (the colors on the landing page, and in play: rayColorsToWhite)
     const colorsFor = (toWhiteAll: number) => {
       const toColors = (list: Array<{ rgb: string; toWhite: number }>) =>
-        list.map(({ rgb, toWhite }) => towardWhite(rgb, 1 - (1 - toWhite) * (1 - toWhiteAll)));
-      const rays = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [color];
+        list.map(({ rgb, toWhite }) => towardWhite(parseRgb(rgb), 1 - (1 - toWhite) * (1 - toWhiteAll)));
+      const rays = CLOCK_HALO.rayColors.length ? toColors(CLOCK_HALO.rayColors) : [parseRgb(color)];
       return { rays, ribbons: CLOCK_HALO.ribbonColors.length ? toColors(CLOCK_HALO.ribbonColors) : rays };
     };
     const landingColors = colorsFor(CLOCK_HALO.rayColorsToWhite.landing), playColors = colorsFor(CLOCK_HALO.rayColorsToWhite.play);
 
     let frameId = 0, lastNow = performance.now();
+    let isBlank = false; // (cleared while closed: nothing to clear again)
+    // The canvas' width on the page, kept up to date (read each frame, it made the browser lay out the page each frame)
+    let cssWidth = canvas.clientWidth;
+    const resizeObserver = new ResizeObserver(entries => { cssWidth = entries[0]?.contentRect.width ?? cssWidth; });
+    resizeObserver.observe(canvas);
     let seconds = 0; // the halo's own time: it stops while time is frozen
     let isPlayLook = rootGameStore.getIsPlaying(); // (its colors: rayColorsToWhite.play, else .landing)
     const draw = (now: number) => {
@@ -312,14 +337,19 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       // pressed, so it doesn't change while the ribbons recede
       if (!rootGameStore.getIsPlaying()) isPlayLook = false;
       else if (iris.amount <= 0.001) isPlayLook = true;
+      // Closed: cleared once, then nothing drawn (and the halo's layer hidden) until it opens again
+      const isClosedNow = open <= 0.001;
+      if (isClosedNow !== isClosedRef.current) { isClosedRef.current = isClosedNow; setIsClosed(isClosedNow); }
+      if (isClosedNow && isBlank) { frameId = requestAnimationFrame(draw); return; }
       const dpr = window.devicePixelRatio || 1;
-      const size = Math.round(canvas.clientWidth * dpr);
+      const size = Math.round(cssWidth * dpr);
       if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
       const pxPerCqw = size / (CANVAS_REACH * 2);
       const radiusPx = CLOCK_HALO.radius * pxPerCqw;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, size, size);
-      if (open <= 0.001) { frameId = requestAnimationFrame(draw); return; } // closed
+      isBlank = isClosedNow;
+      if (isClosedNow) { frameId = requestAnimationFrame(draw); return; }
       ctx.translate(size / 2, size / 2);
 
       // The soft glow around the face
@@ -377,12 +407,12 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       frameId = requestAnimationFrame(draw);
     };
     frameId = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frameId);
+    return () => { cancelAnimationFrame(frameId); resizeObserver.disconnect(); };
   }, []);
 
   if (!CLOCK_HALO.enabled) return null;
   return (
-    <HaloWrapper $brightness={brightness} $isFrozen={isFrozen}>
+    <HaloWrapper $brightness={brightness} $isFrozen={isFrozen} $isClosed={isClosed}>
       <HaloCanvas ref={canvasRef} />
     </HaloWrapper>
   );
