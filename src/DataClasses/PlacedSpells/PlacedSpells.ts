@@ -18,21 +18,21 @@ export class PlacedSpells {
     final: 0,
   };
 
-  addSpell = (spell: Spell): void => {
+  addSpell(spell: Spell): void {
     if (!this.spells.includes(spell)) {
       this.spells.push(spell);
     }
-  };
+  }
 
-  reset = (): void => {
+  reset(): void {
     this.spells.splice(0);
-  };
+  }
 
   /**
    * Runs the spell-movement turn in the rules engine, then replays the resulting frames on the
    * live (rendered) spells. Returns whether any spells collided (or interacted) this turn.
    */
-  updateSpells = async (gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<boolean> => {
+  async updateSpells(gameBoard: GameBoard, forceUpdate: Function, decrementPlayerHealth: Function): Promise<boolean> {
     const { frames } = new SpellMovementEngine(this.spells).simulateTurn();
 
     // Every live spell seen during the replay, by id, so frames can update them in place
@@ -55,10 +55,10 @@ export class PlacedSpells {
       if (delay > 0) await new Promise(r => setTimeout(r, delay));
     }
     return isCollision;
-  };
+  }
 
   /** Collides a spell just cast onto an enemy spell (SpellMovementEngine.resolveCastCollisions). */
-  resolveCastCollisions = async (gameBoard: GameBoard, forceUpdate: Function): Promise<void> => {
+  async resolveCastCollisions(gameBoard: GameBoard, forceUpdate: Function): Promise<void> {
     const { frames } = new SpellMovementEngine(this.spells).resolveCastCollisions();
     const liveSpells = new Map<string, Spell>();
     indexSpellGraph(this.spells, liveSpells);
@@ -68,9 +68,9 @@ export class PlacedSpells {
       // Long enough to see the collision's effects before its results are removed
       if (frame.kind === 'step') await new Promise(r => setTimeout(r, PlacedSpells.SPELL_MOVEMENT_TURN_DELAY_MILLI / 2));
     }
-  };
+  }
 
-  private applyFrame = (frame: SpellTurnFrame, liveSpells: Map<string, Spell>, gameBoard: GameBoard): void => {
+  private applyFrame(frame: SpellTurnFrame, liveSpells: Map<string, Spell>, gameBoard: GameBoard): void {
     const nextSpells = copySpellGraph(frame.spells, liveSpells);
 
     const isSameMembership = nextSpells.length === this.spells.length && nextSpells.every((s, k) => this.spells[k]?.id === s.id);
@@ -82,9 +82,9 @@ export class PlacedSpells {
 
     gameBoard.cells.forEach(c => c.setSpell(null));
     this.setCellsFromSpells(gameBoard);
-  };
+  }
 
-  private setCellsFromSpells = (gameBoard: GameBoard): void => {
+  private setCellsFromSpells(gameBoard: GameBoard): void {
     this.spells.forEach(s => {
       if (s.getIsRemove()) return;
       const idx = s.getCellIndex();
@@ -100,10 +100,10 @@ export class PlacedSpells {
         }
       }
     });
-  };
+  }
 
-  public combineSpellsMaximally = (gameBoard: GameBoard): void => {
+  public combineSpellsMaximally(gameBoard: GameBoard): void {
     combineSpellsMaximally(this.spells);
     this.setCellsFromSpells(gameBoard);
-  };
+  }
 }

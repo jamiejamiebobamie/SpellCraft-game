@@ -33,37 +33,37 @@ export class GameClock {
     }
 
     // PUBLIC
-    getMinuteAngleAcc = (): number => {
+    getMinuteAngleAcc(): number {
         return this.minuteAngleAcc;
     }
 
-    getMinuteIncrAngle = (): number => {
+    getMinuteIncrAngle(): number {
         return GameClock.MINUTE_INCREMENT_ANGLE;
     }
 
-    incrementMinuteAngleAcc = (): void => {
+    incrementMinuteAngleAcc(): void {
         this.minuteAngleAcc += GameClock.MINUTE_INCREMENT_ANGLE;
     }
 
-    resetMinuteAngleAcc = (): void => {
+    resetMinuteAngleAcc(): void {
         this.minuteAngleAcc = 0;
     }
 
     /** The seconds hand's angle (0 at 12, 360 once it has gone round: the turn's time is up). */
-    getSecondsHandAngle = (): number => (this.secondTicks / TURN_CLOCK.ticksPerTurn) * 360;
+    getSecondsHandAngle(): number { return (this.secondTicks / TURN_CLOCK.ticksPerTurn) * 360; }
 
     /** How far through the turn's time the seconds hand is (0 to 1). */
-    getTurnTimeFraction = (): number => this.secondTicks / TURN_CLOCK.ticksPerTurn;
+    getTurnTimeFraction(): number { return this.secondTicks / TURN_CLOCK.ticksPerTurn; }
 
-    getIsTurnClockRunning = (): boolean => this.isTurnClockRunning;
+    getIsTurnClockRunning(): boolean { return this.isTurnClockRunning; }
 
-    resetClock = (): void => {
+    resetClock(): void {
         this.stopTurnClock();
         this.resetMinuteAngleAcc();
     }
 
     /** The player's turn begins: the seconds hand starts from 12, ticking round once over the turn. */
-    startTurnClock = (seconds: number = TURN_CLOCK.turnSeconds): void => {
+    startTurnClock(seconds: number = TURN_CLOCK.turnSeconds): void {
         this.stopTurnClock();
         if (!TURN_CLOCK.isOn) return;
         this.isTurnClockRunning = true;
@@ -82,7 +82,7 @@ export class GameClock {
     }
 
     /** The turn is over (ended, or the game is): the seconds hand stops and goes back to 12. */
-    stopTurnClock = (): void => {
+    stopTurnClock(): void {
         window.clearInterval(this.intervalRef);
         this.isTurnClockRunning = false;
         this.secondTicks = 0;

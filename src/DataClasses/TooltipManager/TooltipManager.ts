@@ -135,10 +135,10 @@ export class TooltipManager {
 
     // KEYBOARD CONTROLS (shown while the Settings keyboard button is hovered; tips hide meanwhile)
     isKeyboardControlsShown: boolean = false;
-    getIsKeyboardControlsShown = (): boolean => this.isKeyboardControlsShown;
-    setIsKeyboardControlsShown = (isShown: boolean): void => { this.isKeyboardControlsShown = isShown; }
+    getIsKeyboardControlsShown(): boolean { return this.isKeyboardControlsShown; }
+    setIsKeyboardControlsShown(isShown: boolean): void { this.isKeyboardControlsShown = isShown; }
 
-    reset = (forceUpdate: Function): void => {
+    reset(forceUpdate: Function): void {
         // OUT OF FOCUS
         clearTimeout(this.isOutOfFocusRef);
         this.isOutOfFocus = false;
@@ -163,7 +163,7 @@ export class TooltipManager {
     }
 
     /** Loads the saved setting: on if it was never chosen. */
-    loadToolTips = (): void => {
+    loadToolTips(): void {
         let saved: unknown = undefined;
         try {
             const item = window.localStorage.getItem(TOOLTIPS_STORAGE_KEY);
@@ -178,7 +178,7 @@ export class TooltipManager {
      * Turns tooltips on or off (and saves it). Off: closes any showing. The story only opens a session,
      * so turning them on later (Settings) starts with the in-game tips.
      */
-    toggleToolTips = (isOn?: boolean) => {
+    toggleToolTips(isOn?: boolean) {
         this.isToolTips = typeof isOn === 'boolean' ? isOn : !this.isToolTips;
         this.isLoreDone = true;
         try {
@@ -194,29 +194,29 @@ export class TooltipManager {
     }
 
     // THE STORY
-    getIsLoreDone = (): boolean => this.isLoreDone || !this.isToolTips;
-    showLore = (): void => {
+    getIsLoreDone(): boolean { return this.isLoreDone || !this.isToolTips; }
+    showLore(): void {
         this.pages = GAME_TUTORIALS.LORE;
         this.currentPageIndex = 0;
         this.isLore = true;
         this.active = true;
     }
     /** The story's last page: "Play with tooltips" (true) or "Play" (false). */
-    chooseToolTips = (isOn: boolean): void => {
+    chooseToolTips(isOn: boolean): void {
         this.isLoreDone = true;
         this.toggleToolTips(isOn);
         this.closeTooltip();
     }
-    getIsLore = (): boolean => this.isLore;
+    getIsLore(): boolean { return this.isLore; }
 
     /**
      * A chunk becomes relevant: shows it (once per session, if tooltips are on), or queues it while
      * another is showing.
      */
-    triggerTip = (tip: TipId): void => this.triggerTips([tip]);
+    triggerTip(tip: TipId): void { this.triggerTips([tip]); }
 
     /** Several chunks at once: shown one at a time, in order (the rest wait their turn). */
-    triggerTips = (tips: Array<TipId>): void => {
+    triggerTips(tips: Array<TipId>): void {
         if (!this.isToolTips) return;
         const isPending = (tip: TipId) => this.seenTips.has(tip) || this.lightTips.includes(tip) || this.tipQueue.some(group => group.includes(tip));
         tips.filter(tip => !isPending(tip)).forEach(tip => {
@@ -225,7 +225,7 @@ export class TooltipManager {
         });
     }
 
-    private showTips = (group: Array<TipId>): void => {
+    private showTips(group: Array<TipId>): void {
         group.forEach(tip => this.seenTips.add(tip));
         this.lightTips = group;
     }
@@ -234,65 +234,65 @@ export class TooltipManager {
      * Shows a tip again as a reminder (e.g. "Ending Your Turn" when the player idles), even if seen
      * before: now, or after the tip showing (one at a time).
      */
-    remindTip = (tip: TipId): void => {
+    remindTip(tip: TipId): void {
         if (!this.isToolTips || this.lightTips.includes(tip) || this.tipQueue.some(group => group.includes(tip))) return;
         if (this.active || this.lightTips.length) this.tipQueue.push([tip]);
         else this.showTips([tip]);
     }
 
     /** Drops a reminder that's no longer relevant, showing or queued (unlike dropQueuedTip, it can come back). */
-    cancelReminder = (tip: TipId): void => {
+    cancelReminder(tip: TipId): void {
         this.tipQueue = this.tipQueue.map(group => group.filter(queued => queued !== tip)).filter(group => group.length);
         this.dismissLightTip(tip);
     }
 
     /** Shows the next queued group, once nothing is showing. */
-    private showNextTip = (): void => {
+    private showNextTip(): void {
         if (this.active || this.lightTips.length || !this.isToolTips) return;
         const next = this.tipQueue.shift();
         if (next) this.showTips(next);
     }
 
-    getLightTips = (): Array<TipId> => this.lightTips;
+    getLightTips(): Array<TipId> { return this.lightTips; }
 
     /** Closes a light tip (`tip`, or every one showing); once none are left, the next queued group shows. */
-    dismissLightTip = (tip?: TipId): void => {
+    dismissLightTip(tip?: TipId): void {
         if (!this.lightTips.length || (tip && !this.lightTips.includes(tip))) return;
         this.lightTips = tip ? this.lightTips.filter(shown => shown !== tip) : [];
         this.showNextTip();
     }
 
     /** Drops a queued tip that's no longer relevant (and won't show it later). */
-    dropQueuedTip = (tip: TipId): void => {
+    dropQueuedTip(tip: TipId): void {
         if (!this.tipQueue.some(group => group.includes(tip))) return;
         this.tipQueue = this.tipQueue.map(group => group.filter(queued => queued !== tip)).filter(group => group.length);
         this.seenTips.add(tip);
     }
 
-    getIsTooltips = (): boolean => this.isToolTips;
-    getTotalPages = (): number => this.pages.length;
-    getCurrPageNum = (): number => this.currentPageIndex + 1;
-    getCurrPageContent = (): TooltipPage | null => this.pages[this.currentPageIndex] ? this.pages[this.currentPageIndex] : null;
-    getIsMultiPage = (): boolean => this.pages.length > 1;
-    getMultiPageProgress = (): string => `${this.currentPageIndex + 1} / ${this.pages.length}`;
-    getIsNextDisabled = (): boolean => this.currentPageIndex === this.pages.length - 1;
-    getIsPrevDisabled = (): boolean => this.currentPageIndex === 0;
-    getIsLastPage = (): boolean => this.currentPageIndex === this.pages.length - 1;
+    getIsTooltips(): boolean { return this.isToolTips; }
+    getTotalPages(): number { return this.pages.length; }
+    getCurrPageNum(): number { return this.currentPageIndex + 1; }
+    getCurrPageContent(): TooltipPage | null { return this.pages[this.currentPageIndex] ? this.pages[this.currentPageIndex] : null; }
+    getIsMultiPage(): boolean { return this.pages.length > 1; }
+    getMultiPageProgress(): string { return `${this.currentPageIndex + 1} / ${this.pages.length}`; }
+    getIsNextDisabled(): boolean { return this.currentPageIndex === this.pages.length - 1; }
+    getIsPrevDisabled(): boolean { return this.currentPageIndex === 0; }
+    getIsLastPage(): boolean { return this.currentPageIndex === this.pages.length - 1; }
 
-    nextPage = (): void => {
+    nextPage(): void {
         if (this.currentPageIndex < this.pages.length - 1) {
             this.currentPageIndex++;
         }
     }
 
-    prevPage = (): void => {
+    prevPage(): void {
         if (this.currentPageIndex > 0) {
             this.currentPageIndex--;
         }
     }
 
     /** Closes the modal. Closing the story keeps the current setting (on, if never chosen). */
-    closeTooltip = (): void => {
+    closeTooltip(): void {
         if (this.isLore && !this.isLoreDone) {
             this.isLoreDone = true;
             this.toggleToolTips(this.isToolTips);
@@ -305,14 +305,14 @@ export class TooltipManager {
     }
 
     // SPELLBOOK
-    getIsSpellBookOpen = (): boolean => this.isSpellBookOpen;
-    setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => {
+    getIsSpellBookOpen(): boolean { return this.isSpellBookOpen; }
+    setIsSpellBookOpen(isSpellBookOpen?: boolean): void {
         this.isSpellBookOpen = typeof isSpellBookOpen === 'boolean' ? isSpellBookOpen : !this.isSpellBookOpen;
     }
 
     // DRAWING OFF BOARD
-    getIsDrawingOffBoard = (): boolean => this.isDrawingOffBoard;
-    incrementDrawingOffBoard = (forceUpdate: Function): void => {
+    getIsDrawingOffBoard(): boolean { return this.isDrawingOffBoard; }
+    incrementDrawingOffBoard(forceUpdate: Function): void {
         this.drawingOffBoardCount++;
         if (this.drawingOffBoardCount > 1) {
             clearTimeout(this.drawingOffBoardRef);
@@ -327,21 +327,21 @@ export class TooltipManager {
     }
 
     // OUT OF FOCUS
-    getIsOutOfFocus = (): boolean => this.isOutOfFocus;
-    doOutOfFocusFlash = (forceUpdate: Function): void => {
+    getIsOutOfFocus(): boolean { return this.isOutOfFocus; }
+    doOutOfFocusFlash(forceUpdate: Function): void {
         clearTimeout(this.isOutOfFocusRef);
         this.isOutOfFocus = true;
         this.isOutOfFocusRef = setTimeout(() => { this.isOutOfFocus = false; forceUpdate(); }, 3000);
     }
 
     // END TURN
-    getIsClickClock = (): boolean => this.isClickClock;
-    doClickClockFlash = (forceUpdate: Function, waitTimeMilli?: number): void => {
+    getIsClickClock(): boolean { return this.isClickClock; }
+    doClickClockFlash(forceUpdate: Function, waitTimeMilli?: number): void {
         clearTimeout(this.isClickClockRef);
         // After a while without ending the turn: the "Ending Your Turn" tip, as a reminder
         this.isClickClockRef = setTimeout(() => { this.isClickClock = true; this.remindTip('endTurn'); forceUpdate(); }, !!waitTimeMilli ? waitTimeMilli : this.CLICK_CLOCK_WAIT_TIME_MILLI);
     }
-    clearClickClockRef = (): void => {
+    clearClickClockRef(): void {
         clearTimeout(this.isClickClockRef);
         this.isClickClock = false;
     }

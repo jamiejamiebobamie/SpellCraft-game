@@ -240,7 +240,7 @@ export const GameComponent = () => {
     rootGameStore.setForceUpdate(forceUpdate);
   }, []);
 
-  snap.useGameplayKeyBindings();
+  rootGameStore.useGameplayKeyBindings(); // (on the store: a hook, not a read)
 
   useEffect(() => {
     rootGameStore.setGameBoardRef(gridOverlayRef);

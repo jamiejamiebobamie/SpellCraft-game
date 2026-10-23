@@ -44,7 +44,7 @@ export class AudioHandler {
      * Downloads and decodes every sound effect up front. Sound effects are only marked as loaded
      * once all of them are decoded (a failed file is logged and skipped).
      */
-    private preloadSoundEffects = async (assetLoader: AssetLoader) => {
+    private async preloadSoundEffects(assetLoader: AssetLoader) {
         await assetLoader.whenPriorityAssetsLoaded();
         await Promise.all(Object.entries(SFX_REGISTRY).map(async ([name, path]) => {
             try {
@@ -60,10 +60,10 @@ export class AudioHandler {
         assetLoader.setIsLoading(loaderObj);
     }
 
-    startBackgroundMusic = () => {
+    startBackgroundMusic() {
         if (this.backgroundMusicStarted) return;
         this.backgroundMusicStarted = true;
-        this.backgroundMusic = new Audio(this.BACKGROUND_MUSIC_SRC);
+        this.backgroundMusic = ref(new Audio(this.BACKGROUND_MUSIC_SRC)); // (never proxied: its methods need the real element)
         this.backgroundMusic.loop = true;
         this.backgroundMusic.volume = this.getLevel('music');
         this.backgroundMusic.play()
@@ -76,7 +76,7 @@ export class AudioHandler {
      * Each play gets its own source node from the shared decoded buffer, so the same clip can
      * fire repeatedly and overlap without cutting off previous layers.
      */
-    startSoundEffect = (name: SoundEffectName, volumeScalar = this.getLevel('fx')) => {
+    startSoundEffect(name: SoundEffectName, volumeScalar = this.getLevel('fx')) {
         const buffer = this.sfxLibrary.get(name);
         if (!buffer) {
             console.error(`Sound effect registry key "${name}" not found!`);
@@ -106,29 +106,29 @@ export class AudioHandler {
     }
 
     /** How loud a kind plays (0 to 1): its dial's volume, unless muted. */
-    private getLevel = (audioType: AudioType): number => this.muted[audioType] ? 0 : this.volumes[audioType] * VOLUME.middleLevel;
-    private applyMusicLevel = (): void => { if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music'); };
+    private getLevel(audioType: AudioType): number { return this.muted[audioType] ? 0 : this.volumes[audioType] * VOLUME.middleLevel; }
+    private applyMusicLevel(): void { if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music'); }
 
     /** Mutes or unmutes a kind (`isMuted`: which; else the other way round). */
-    toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
+    toggleAudio(audioType: AudioType, isMuted?: boolean): void {
         this.muted[audioType] = isMuted ?? !this.muted[audioType];
         this.applyMusicLevel();
         this.saveVolumes(audioType);
     }
 
-    getVolume = (audioType: AudioType): number => this.volumes[audioType];
+    getVolume(audioType: AudioType): number { return this.volumes[audioType]; }
     /** A kind's dial turned to `volume` (0 to VOLUME.max): it's unmuted, unless turned right down. */
-    setVolume = (audioType: AudioType, volume: number): void => {
+    setVolume(audioType: AudioType, volume: number): void {
         this.volumes[audioType] = Math.min(VOLUME.max, Math.max(0, volume));
         if (this.volumes[audioType] > 0) this.muted[audioType] = false;
         this.applyMusicLevel();
         this.saveVolumes(audioType);
     }
 
-    getIsMusicMuted = (): boolean => this.getLevel('music') === 0;
-    getIsFxMuted = (): boolean => this.getLevel('fx') === 0;
+    getIsMusicMuted(): boolean { return this.getLevel('music') === 0; }
+    getIsFxMuted(): boolean { return this.getLevel('fx') === 0; }
 
-    private loadVolumes = (): void => {
+    private loadVolumes(): void {
         (['fx', 'music'] as Array<AudioType>).forEach(audioType => {
             try {
                 const saved = window.localStorage.getItem(VOLUME.storageKeys[audioType].volume);
@@ -137,14 +137,14 @@ export class AudioHandler {
             } catch { /* (storage unavailable: the defaults) */ }
         });
     }
-    private saveVolumes = (audioType: AudioType): void => {
+    private saveVolumes(audioType: AudioType): void {
         try {
             window.localStorage.setItem(VOLUME.storageKeys[audioType].volume, String(this.volumes[audioType]));
             window.localStorage.setItem(VOLUME.storageKeys[audioType].muted, JSON.stringify(this.muted[audioType]));
         } catch { /* (storage unavailable: not remembered) */ }
     }
 
-    getIsBackgroundMusicStarted = (): boolean => {
+    getIsBackgroundMusicStarted(): boolean {
         return this.backgroundMusicStarted;
     }
 }

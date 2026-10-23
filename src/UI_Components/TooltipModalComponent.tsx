@@ -188,9 +188,9 @@ const TooltipModalComponent = () => {
 
   return !!currTooltipPage && (
     // The story can only be left by choosing (no Close, and clicking outside does nothing)
-    <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={isLore ? undefined : rootGameStore.closeTooltip}>
+    <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={isLore ? undefined : () => rootGameStore.closeTooltip()}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
-        {!isLore && <CloseButton onClick={rootGameStore.closeTooltip}>Close{" "}<CloseSymbol /></CloseButton>}
+        {!isLore && <CloseButton onClick={() => rootGameStore.closeTooltip()}>Close{" "}<CloseSymbol /></CloseButton>}
         <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%', flex: 1, overflow: 'hidden' }}>
           {(currTooltipPage.title || currTooltipPage.paragraphs) && (
             <TextColumn>
@@ -213,7 +213,7 @@ const TooltipModalComponent = () => {
           <FooterControls>
             <NavArrow
               $disabled={snap.getIsPrevDisabled()}
-              onClick={rootGameStore.prevTooltipPage}
+              onClick={() => rootGameStore.prevTooltipPage()}
             >
               &#9664;
             </NavArrow>
@@ -222,7 +222,7 @@ const TooltipModalComponent = () => {
             </PageIndicator>
             <NavArrow
               $disabled={snap.getIsNextDisabled()}
-              onClick={rootGameStore.nextTooltipPage}
+              onClick={() => rootGameStore.nextTooltipPage()}
             >
               &#9654;
             </NavArrow>

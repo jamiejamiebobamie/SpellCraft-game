@@ -36,7 +36,7 @@ export class SpellCanvas {
         this.isDrawing = isDrawing;
     }
 
-    public updateCellPointsIfDifferent = (currCellIndex: CellIndex) => {
+    public updateCellPointsIfDifferent(currCellIndex: CellIndex) {
         if (this.getIsCellIndexNew(currCellIndex)) {
             this.currCellIndex = currCellIndex;
             this.cellPoints.push({ cellIndex: currCellIndex, rawPointIndex: this.getNumPoints() - 1 });
@@ -62,13 +62,13 @@ export class SpellCanvas {
         return this.rawPoints.length;
     }
 
-    public getIsCellIndexNew = (cellIndex: CellIndex) => {
+    public getIsCellIndexNew(cellIndex: CellIndex) {
         if (!this.currCellIndex) return true;
         else
             return !(cellIndex.i == this.currCellIndex.i && cellIndex.j == this.currCellIndex.j);
     }
 
-    getRawPointSubsets = () => {
+    getRawPointSubsets() {
         const result = [];
         for (let i = 0; i < this.cellPoints.length; i++) {
             const { cellIndex, rawPointIndex } = this.cellPoints[i];

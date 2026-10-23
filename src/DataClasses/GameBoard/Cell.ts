@@ -19,36 +19,36 @@ export class Cell extends UniqueId {
 
   // --- Getters & Status Checks ---
 
-  getIsFree = (): boolean => {
+  getIsFree(): boolean {
     return this.spell === null;
-  };
+  }
 
-  getSpell = (): Spell | null => {
+  getSpell(): Spell | null {
     return this.spell;
-  };
+  }
 
-  getCellIndex = (): CellIndex => {
+  getCellIndex(): CellIndex {
     return this.cellIndex;
-  };
+  }
 
-  getIsPlaceCell = (player: Player): boolean => !!this.playerOfPlacementCell && player.id === this.playerOfPlacementCell.id;
+  getIsPlaceCell(player: Player): boolean { return !!this.playerOfPlacementCell && player.id === this.playerOfPlacementCell.id; }
 
 
-  getTransparencyAmt = (): number => {
+  getTransparencyAmt(): number {
     return this.transparencyAmt;
-  };
+  }
 
   // --- State Changers ---
 
-  setSpell = (spell: Spell | null): void => {
+  setSpell(spell: Spell | null): void {
     this.spell = spell;
-  };
+  }
 
-  setPlayerOfPlacementCell = (playerOfPlacementCell: Player | null): void => {
+  setPlayerOfPlacementCell(playerOfPlacementCell: Player | null): void {
     this.playerOfPlacementCell = playerOfPlacementCell;
-  };
+  }
 
-  reset = (): void => {
+  reset(): void {
     this.spell = null;
   }
 }

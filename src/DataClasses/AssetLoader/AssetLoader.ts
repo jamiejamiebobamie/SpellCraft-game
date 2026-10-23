@@ -77,9 +77,10 @@ export class AssetLoader {
 
     forceUpdate: Function | null = null;
 
-    private priorityAssets: Promise<void>;
+    private priorityAssets!: Promise<void>;
 
-    constructor() {
+    /** Starts loading: called on the store's loader (its proxy), so the flags it sets reach the components. */
+    start(): void {
         // ref(): keep valtio (Game proxies the loader) from proxying the promise
         this.priorityAssets = ref(this.loadPriorityAssets());
         this.priorityAssets.then(() => {
@@ -93,33 +94,33 @@ export class AssetLoader {
      * Resolves once the priority batch (font, logo images) is in: the other loaders (sounds, models)
      * wait for it, so they don't slow it down. Never rejects (failed assets are logged).
      */
-    whenPriorityAssetsLoaded = (): Promise<void> => this.priorityAssets;
-    getIsPriorityAssetsLoaded = (): boolean => this.isPriorityAssetsLoaded;
+    whenPriorityAssetsLoaded(): Promise<void> { return this.priorityAssets; }
+    getIsPriorityAssetsLoaded(): boolean { return this.isPriorityAssetsLoaded; }
 
-    setForceUpdate = (forceUpdate: Function): void => {
+    setForceUpdate(forceUpdate: Function): void {
         this.forceUpdate = forceUpdate;
     }
 
-    getIsFontLoaded = (): boolean => this.isFontsLoaded;
-    getIsSceneImgsLoaded = (): boolean => this.isSceneImgsLoaded;
-    getIsLogoSpellsReady = (): boolean => this.isLogoSpellsReady;
-    setIsLogoSpellsReady = (): void => { if (!this.isLogoSpellsReady) this.setIsLoading(new Map([['isLogoSpellsReady', true]])); };
+    getIsFontLoaded(): boolean { return this.isFontsLoaded; }
+    getIsSceneImgsLoaded(): boolean { return this.isSceneImgsLoaded; }
+    getIsLogoSpellsReady(): boolean { return this.isLogoSpellsReady; }
+    setIsLogoSpellsReady(): void { if (!this.isLogoSpellsReady) this.setIsLoading(new Map([['isLogoSpellsReady', true]])); }
 
-    getIsLoading = (): boolean => loaders.some(k => !this[k as LoaderProperties]);
-    setIsLoading = (loaderObj: Map<LoaderProperties, boolean>): void => {
+    getIsLoading(): boolean { return loaders.some(k => !this[k as LoaderProperties]); }
+    setIsLoading(loaderObj: Map<LoaderProperties, boolean>): void {
         loaderObj.forEach((v, k) => {
             this[k as LoaderProperties] = v;
         })
         this.forceUpdate && this.forceUpdate();
-    };
+    }
 
-    loadFonts = async () => {
+    async loadFonts() {
         // Request the font itself: document.fonts.ready alone only waits for fonts already in use
         await document.fonts.load(PRIORITY_FONT);
         await document.fonts.ready;
-    };
+    }
 
-    private loadPriorityAssets = async (): Promise<void> => {
+    private async loadPriorityAssets(): Promise<void> {
         try {
             await Promise.all([this.loadFonts(), this.loadImages(logoImgSrcs)]);
         } catch (error) {
@@ -127,9 +128,9 @@ export class AssetLoader {
         } finally {
             this.setIsLoading(new Map<LoaderProperties, boolean>([['isFontsLoaded', true], ['isPriorityAssetsLoaded', true]]));
         }
-    };
+    }
 
-    loadImages = (sources: string[], successCallback?: Function) => {
+    loadImages(sources: string[], successCallback?: Function) {
         return Promise.all(
             sources.map((src) => {
                 return new Promise((resolve, reject) => {
@@ -140,10 +141,10 @@ export class AssetLoader {
                 });
             })
         ).then(_ => successCallback && successCallback());
-    };
+    }
 
     /** The second batch's images (the sounds and models load themselves, after the priority batch). */
-    loadFontsAndImgs = async () => {
+    async loadFontsAndImgs() {
         try {
             await Promise.all([
                 this.loadImages(sceneImageSrcs, () => {

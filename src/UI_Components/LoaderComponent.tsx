@@ -228,7 +228,7 @@ const LoaderComponent = () => {
     isDisplay && <LoadingOverlay $isSceneImgsLoaded={isSceneImgsLoaded}>
       <DissolveArea>
       <LoadingContent $isDissolving={isDissolving}>
-        <Logo>{isPriorityAssetsLoaded && <LogoComponent isShown={isLogoSpellsReady} onSpellsReady={rootGameStore.setIsLogoSpellsReady} />}</Logo>
+        <Logo>{isPriorityAssetsLoaded && <LogoComponent isShown={isLogoSpellsReady} onSpellsReady={() => rootGameStore.setIsLogoSpellsReady()} />}</Logo>
         <ActionSlot>
           {isLoading ? (
             <Loader>
@@ -263,9 +263,9 @@ const LoaderComponent = () => {
         <CodeLinkComponent isHidden={isDissolving} />
       )}
       {screen === 'checking' && <CheckingSpinner><SymbolSpinner size={4.2} /></CheckingSpinner>}
-      {screen === 'mode' && <ModeSelectComponent onSinglePlayer={rootGameStore.startGame} onTwoPlayers={() => setScreen('host')} />}
-      {screen === 'host' && <HostMatchScreen onBegin={rootGameStore.startHostedMatch} onBack={() => setScreen('mode')} />}
-      {screen === 'join' && joinId && <JoinMatchScreen hostId={joinId} onJoined={rootGameStore.startJoinedMatch} onPlayAlone={playAlone} />}
+      {screen === 'mode' && <ModeSelectComponent onSinglePlayer={() => rootGameStore.startGame()} onTwoPlayers={() => setScreen('host')} />}
+      {screen === 'host' && <HostMatchScreen onBegin={session => rootGameStore.startHostedMatch(session)} onBack={() => setScreen('mode')} />}
+      {screen === 'join' && joinId && <JoinMatchScreen hostId={joinId} onJoined={session => rootGameStore.startJoinedMatch(session)} onPlayAlone={playAlone} />}
     </LoadingOverlay>
   )
 };

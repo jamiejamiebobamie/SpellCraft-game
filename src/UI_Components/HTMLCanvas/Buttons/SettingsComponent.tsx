@@ -318,7 +318,7 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
         {isMultiplayer && (
           <SubIcons
             {...at(5)}
-            onMouseUp={rootGameStore.toggleRivalDrawings}
+            onMouseUp={() => rootGameStore.toggleRivalDrawings()}
             title={isShowingRivalDrawings ? "Hide your rival's drawings" : "Show your rival's drawings"}
             style={{ opacity: isOpen ? (isShowingRivalDrawings ? 1 : 0.45) : 0 }}
           >

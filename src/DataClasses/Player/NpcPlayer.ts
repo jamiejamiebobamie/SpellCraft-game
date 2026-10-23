@@ -72,16 +72,16 @@ export class NPCPlayer extends Player {
     }
 
     /** Its turn begins. `onTurnDone` is told when it's done, and whether it passed (drew nothing). */
-    beginNpcTurn = (onTurnDone: (isPassed: boolean) => void): void => {
+    beginNpcTurn(onTurnDone: (isPassed: boolean) => void): void {
         this.turnId++;
         this.isFinishingTurn = false;
         this.turnStartedAt = performance.now();
         this.drawingsThisTurn = 0;
         this.onTurnDone = onTurnDone;
-    };
+    }
 
     /** Done with its turn: not before NPC_TURN_MIN_MILLI from its start (however it ends). */
-    setIsDoneWithTurn = (isDoneWithTurn: boolean): void => {
+    setIsDoneWithTurn(isDoneWithTurn: boolean): void {
         if (!isDoneWithTurn) {
             this.turnId++;
             this.isFinishingTurn = false;
@@ -102,27 +102,27 @@ export class NPCPlayer extends Player {
         this.isFinishingTurn = true;
         if (waitMilli > 0) setTimeout(finish, waitMilli);
         else finish();
-    };
+    }
 
     // GET
-    getNpcDifficulty = (): NpcDifficulty => this.difficulty;
-    getNpcDrawingPoints = (): Array<Point> => this.drawingPoints;
-    getNpcMousePos = (): Point => this.npcMousePos;
-    getNumRemainingMovesPerTurn = (): number => this.numRemainingMovesPerTurn;
-    getNPCMoveData = (): Array<NPCMoveData> => this.npcMoveData;
-    getNPCMoveDatum = (i: number): NPCMoveData | null => this.npcMoveData[i] || null;
-    getRandomInferenceString = (): InferenceString => {
+    getNpcDifficulty(): NpcDifficulty { return this.difficulty; }
+    getNpcDrawingPoints(): Array<Point> { return this.drawingPoints; }
+    getNpcMousePos(): Point { return this.npcMousePos; }
+    getNumRemainingMovesPerTurn(): number { return this.numRemainingMovesPerTurn; }
+    getNPCMoveData(): Array<NPCMoveData> { return this.npcMoveData; }
+    getNPCMoveDatum(i: number): NPCMoveData | null { return this.npcMoveData[i] || null; }
+    getRandomInferenceString(): InferenceString {
         let GAME_SYMBOLS: Array<InferenceString> = ['star' , 'line', 'circle', 'triangle', 'diamond'];
         const rand = Math.floor(Math.random() * GAME_SYMBOLS.length);
         const inferenceString = GAME_SYMBOLS[rand];
         return inferenceString;
     }
-    getRandomFloatInRange = (max: number, min?: number): number => {
+    getRandomFloatInRange(max: number, min?: number): number {
         const rand = min ? Math.random() * (max - min) + min : Math.random() * max;
         return rand;
     }
     /** Whether this NPC turn is a random one (otherwise its brain plays it): more often on easier difficulties. */
-    isRandomMove = (): boolean => {
+    isRandomMove(): boolean {
         const rand = Math.random();
         switch (this.difficulty) {
             case 'Hard':
@@ -137,7 +137,7 @@ export class NPCPlayer extends Player {
      * Draws the planned symbol (unrotated) over the area of its cells in the NPC's zone, keeping its
      * proportions (NPC_DRAWING_ASPECT): centered in that area if it can't fill it.
      */
-    getPlannedMoveData = ({ inferenceString, cells }: Pick<PlannedNpcCast, 'inferenceString' | 'cells'>): NPCMoveData => {
+    getPlannedMoveData({ inferenceString, cells }: Pick<PlannedNpcCast, 'inferenceString' | 'cells'>): NPCMoveData {
         const zoneStartJ = GameBoard.NUM_COLS - GameBoard.NUM_PLACEMENT_CELLS;
         const minI = Math.min(...cells.map(c => c.i)), maxI = Math.max(...cells.map(c => c.i));
         const minJ = Math.min(...cells.map(c => c.j)), maxJ = Math.max(...cells.map(c => c.j));
@@ -152,7 +152,7 @@ export class NPCPlayer extends Player {
         return proxy(new NPCMoveData(inferenceString, translationNorm, scale, 0));
     }
 
-    getRandomMoveForTesting = (): NPCMoveData => {
+    getRandomMoveForTesting(): NPCMoveData {
         /*
             
             From:
@@ -226,29 +226,29 @@ export class NPCPlayer extends Player {
     }
 
     // SET
-    setNpcDifficulty = (difficulty: NpcDifficulty): void => {
+    setNpcDifficulty(difficulty: NpcDifficulty): void {
         this.difficulty = difficulty;
     }
-    setNpcDrawingPoints = (drawingPoints: Array<Point>) => {
+    setNpcDrawingPoints(drawingPoints: Array<Point>) {
         this.drawingPoints = drawingPoints
     }
-    setNpcMousePos = (npcMousePos: Point) => {
+    setNpcMousePos(npcMousePos: Point) {
         this.npcMousePos = npcMousePos;
     }
-    decrementNumRemaningMovesPerTurn = (): void => { this.numRemainingMovesPerTurn--; }
-    cycleThroughDifficulties = (): void => {
+    decrementNumRemaningMovesPerTurn(): void { this.numRemainingMovesPerTurn--; }
+    cycleThroughDifficulties(): void {
         const newDifficulty = this.difficulty == 'Normal' ? 'Hard' : this.difficulty == 'Hard' ? 'Brutal' : 'Normal';
         this.setNpcDifficulty(newDifficulty);
     }
 
     // RESET
-    clearNumRemaningMovesPerTurn = (): void => {
+    clearNumRemaningMovesPerTurn(): void {
         this.numRemainingMovesPerTurn = 0;
     }
-    resetNumRemainingMovesPerTurn = () => {
+    resetNumRemainingMovesPerTurn() {
         this.numRemainingMovesPerTurn = 1;
     }
-    resetNpcMove = () => {
+    resetNpcMove() {
         this.npcMoveData = proxy([]);
     }
 
@@ -262,7 +262,7 @@ export class NPCPlayer extends Player {
     }
 
     /** After a random move: another one (if any are left this turn and there's focus), or the turn is done. */
-    private finishNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void => {
+    private finishNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function): void {
         this.decrementNumRemaningMovesPerTurn();
         if (this.getNumRemainingMovesPerTurn() > 0 && this.getFocus() > 0) {
             setTimeout(
@@ -272,10 +272,10 @@ export class NPCPlayer extends Player {
             this.setIsDoneWithTurn(true);
             forceUpdate();
         }
-    };
+    }
 
     /** The screen points of a drawing (its symbol rotated, scaled and placed), densely sampled; null before layout. */
-    private getDrawingPoints = (npcMoveData: NPCMoveData, gameBoard: GameBoard): Array<Point> | null => {
+    private getDrawingPoints(npcMoveData: NPCMoveData, gameBoard: GameBoard): Array<Point> | null {
         const { inferenceString, translationNorm, scale, rotation } = npcMoveData;
         const cellWidth = gameBoard.getCellWidth();
         const normalizedPoints = HARDCODED_SYMBOLS.get(inferenceString);
@@ -309,7 +309,7 @@ export class NPCPlayer extends Player {
             lastPoint = newPoint;
         });
         return rawPoints;
-    };
+    }
 
     /**
      * Draws a symbol and casts its spell. With `plannedMove` (from the NPC's brain), draws that symbol
@@ -319,7 +319,7 @@ export class NPCPlayer extends Player {
      * The cells of a random drawing the NPC can cast without killing itself with blood magic: all of
      * them, else just one (the smallest cast), else none.
      */
-    private getCellsSafeToCast = (spell: SpellClass, cells: Array<CellIndex>, gameBoard: GameBoard): Array<CellIndex> => {
+    private getCellsSafeToCast(spell: SpellClass, cells: Array<CellIndex>, gameBoard: GameBoard): Array<CellIndex> {
         const isOccupied = (cell: CellIndex) => !gameBoard.getCellAt(cell)?.getIsFree();
         const getIsSafe = (castCells: Array<CellIndex>) => {
             const focusCost = Math.max(1, Math.ceil(getPlacementFocusCost(spell, planSpellPlacement(spell, castCells, this.getDirection(), isOccupied))));
@@ -328,9 +328,9 @@ export class NPCPlayer extends Player {
         };
         if (getIsSafe(cells)) return cells;
         return cells.length && getIsSafe(cells.slice(0, 1)) ? cells.slice(0, 1) : [];
-    };
+    }
 
-    doNpcMove = (gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void => {
+    doNpcMove(gameBoard: GameBoard, filterDominantCells: Function, spawnSizedSpellInstance: Function, isCanPlaceGameSymbolOn: Function, getCellAt: Function, forceUpdate: Function, plannedMove?: PlannedNpcMove): void {
         // (every way out of a move that casts nothing ends the NPC's turn, so the turn can always end)
         const endTurnWithoutCasting = () => {
             this.clearNumRemaningMovesPerTurn();

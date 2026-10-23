@@ -53,7 +53,7 @@ export class GameSymbol extends UniqueId {
    * 
    * @param strokeLength The length or duration of the player's drawing gesture
    */
-  instantiateSpell = (): Spell | null => {
+  instantiateSpell(): Spell | null {
     // Validate drawing and do fizzle if invalid
     if (GameSymbol.FIZZLE_INFERENCES.includes(this.symbolName)) {
       return null;
@@ -68,5 +68,5 @@ export class GameSymbol extends UniqueId {
 
     const spell = proxy(new this.SpellClass(this.caster));
     return proxy(spell);
-  };
+  }
 }

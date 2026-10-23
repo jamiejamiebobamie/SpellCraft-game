@@ -4,7 +4,7 @@ import { CellIndex, DivRefDimensions } from '../types';
 import { Cell } from './Cell';
 import { Spell } from '../PlacedSpells/Spell';
 import { Player } from '../Player/Player';
-import { proxy } from 'valtio';
+import { proxy, ref } from 'valtio';
 
 export class GameBoard {
   // Config Constants
@@ -30,7 +30,7 @@ export class GameBoard {
    * Builds out a flattened multi-column 1D index array mapping tracking properties.
    */
 
-  private initializeGrid = (p1: Player, p2: Player): void => {
+  private initializeGrid(p1: Player, p2: Player): void {
     for (let i = 0; i < GameBoard.NUM_ROWS; i++) {
       for (let j = 0; j < GameBoard.NUM_COLS; j++) {
         const cell = proxy(new Cell({ j, i })); // Map (j, i) matching coordinate logic
@@ -46,13 +46,13 @@ export class GameBoard {
         this.cells.push(cell);
       }
     }
-  };
-
-  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => {
-    this.gameBoardRef = gameBoardRef;
   }
 
-  getBoardRefDimensions = (): DivRefDimensions | null => {
+  setGameBoardRef(gameBoardRef: RefObject<HTMLDivElement | null>): void {
+    this.gameBoardRef = ref(gameBoardRef); // (a React ref: never proxied)
+  }
+
+  getBoardRefDimensions(): DivRefDimensions | null {
     if (!this.gameBoardRef || !this.gameBoardRef.current) {
       return null;
     }
@@ -61,7 +61,7 @@ export class GameBoard {
     return { left, top, width, height };
   }
 
-  getCellWidth = (): number | null => {
+  getCellWidth(): number | null {
     if (!this.gameBoardRef || !this.gameBoardRef.current) {
       return null;
     }
@@ -71,7 +71,7 @@ export class GameBoard {
 
   // --- Grid Index Calculators ---
 
-  getCellIndexFromScreenCoord = (x: number, y: number): CellIndex | null => {
+  getCellIndexFromScreenCoord(x: number, y: number): CellIndex | null {
     if (!this.gameBoardRef || !this.gameBoardRef.current) {
       return null;
     }
@@ -90,65 +90,65 @@ export class GameBoard {
     return { i, j };
   }
 
-  getIsOffBoardAt = (index: CellIndex): boolean => {
+  getIsOffBoardAt(index: CellIndex): boolean {
     return (
       index.i < 0 ||
       index.i >= GameBoard.NUM_ROWS ||
       index.j < 0 ||
       index.j >= GameBoard.NUM_COLS
     );
-  };
+  }
 
-  getOneDIndexFrom = (index: CellIndex): number => {
+  getOneDIndexFrom(index: CellIndex): number {
     if (this.getIsOffBoardAt(index)) return -1;
     return index.i * GameBoard.NUM_COLS + index.j;
-  };
+  }
 
-  getCellAt = (index: CellIndex): Cell | null => {
+  getCellAt(index: CellIndex): Cell | null {
     const idx1D = this.getOneDIndexFrom(index);
     if (idx1D === -1) return null;
     return this.cells[idx1D];
-  };
+  }
 
   // --- Spell Management Hooks ---
 
-  setSpellAt = (spell: Spell | null, cell: Cell): void => {
+  setSpellAt(spell: Spell | null, cell: Cell): void {
     if (cell) {
       cell.setSpell(spell);
     }
-  };
+  }
 
-  getIsGameBoardDisabled = (): boolean => {
+  getIsGameBoardDisabled(): boolean {
     return this.isGameBoardDisabled;
-  };
+  }
 
   // --- Interaction Configurations ---
 
-  setIsGameBoardDisabled = (isDisabled: boolean): void => {
+  setIsGameBoardDisabled(isDisabled: boolean): void {
     this.isGameBoardDisabled = isDisabled;
-  };
+  }
 
-  getBoardTransparencyAmt = (): number => {
+  getBoardTransparencyAmt(): number {
     return this.transparencyAmt;
-  };
+  }
 
-  reset = (): void => {
+  reset(): void {
     this.isGameBoardDisabled = false;
     this.transparencyAmt = GameBoard.SHOWN_TRANSPARENCY_AMT;
     this.cells.forEach(c => c.reset())
   }
 
-  enableBoard = (): void => {
+  enableBoard(): void {
     this.setIsGameBoardDisabled(false);
   }
 
-  disableBoard = (): void => {
+  disableBoard(): void {
     this.setIsGameBoardDisabled(true);
   }
 
   // --- NPC Helper Functions ---
 
-  npcGetFutureSpellCollisionRow = (): number => {
+  npcGetFutureSpellCollisionRow(): number {
 
     const unguardedRows: Array<number> = [0, 0, 0];
 
@@ -169,7 +169,7 @@ export class GameBoard {
     return entry != undefined ? unguardedRows.indexOf(entry) : -1;
   }
 
-  npcGetIncomingSpells = (): Array<Spell> => {
+  npcGetIncomingSpells(): Array<Spell> {
     return this.cells.filter(c => {
       if (c.getIsFree()) return false;
       const spell = c.getSpell();
@@ -181,7 +181,7 @@ export class GameBoard {
     }).map(c => c.getSpell()).filter(s => s != null);
   }
 
-  npcGetOutgoingSpells = (): Array<Spell> => {
+  npcGetOutgoingSpells(): Array<Spell> {
     return this.cells.filter(c => {
       if (c.getIsFree()) return false;
       const spell = c.getSpell();

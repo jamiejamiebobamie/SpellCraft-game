@@ -263,7 +263,7 @@ export const GameOverModalComponent: React.FC = () => {
         {isGameOver && isRivalLeft && currentGameOverState !== GameOverStatus.EnemyFled && <ModalNote>Your rival has left the hall.</ModalNote>}
         {isGameOver && isAwaitingRematch && !isRivalLeft && <ModalNote>Waiting for your rival…</ModalNote>}
         {isGameOver && !isAwaitingRematch && <ButtonRow>
-          {!isRivalLeft && <ModalButtonWithSymbols label="Yes" onClick={rootGameStore.chooseRematch} />}
+          {!isRivalLeft && <ModalButtonWithSymbols label="Yes" onClick={() => rootGameStore.chooseRematch()} />}
           <ModalButtonWithSymbols label={isRivalLeft ? "Back" : "No"} onClick={() => {
             // Back to the landing page (a fresh start; an invite link's join left off, so it isn't joined again)
             if (snap.getIsMultiplayer()) rootGameStore.leaveMatch();

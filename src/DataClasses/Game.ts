@@ -64,12 +64,10 @@ export class Game {
   assetLoader!: AssetLoader;
   npcBrain!: NpcBrain;
 
-  constructor() {
-    this.init();
-  }
+  // (set up by init(), called on the store once it's proxied: see store.ts)
 
   // GAME - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  init = (): void => {
+  init(): void {
     this.players = proxy(new Players());
     this.players.init();
     const humanPlayer = this.players.getHumanPlayer(), npcPlayer = this.players.getNpcPlayer();
@@ -77,11 +75,12 @@ export class Game {
       this.gameBoard = proxy(new GameBoard(humanPlayer, npcPlayer as Player));
     this.placedSpells = proxy(new PlacedSpells());
     this.assetLoader = proxy(new AssetLoader());
+    this.assetLoader.start();
 
     this.model = proxy(new Model());
     this.model.init(this.assetLoader);
     this.spellCanvas = proxy(new SpellCanvas());
-    this.gameClock = proxy(new GameClock(this.endTurn));
+    this.gameClock = proxy(new GameClock(this.endTurn.bind(this)));
     // The turn clock holds still while the welcome story is open; while a tip card is showing (so a
     // beginner has time to read it, and it isn't swept away by the turn ending); while the Spell Book
     // is open (so a player who'd rather not be timed can take their time); and once the game is over
@@ -96,11 +95,11 @@ export class Game {
     };
     this.audioHandler = proxy(new AudioHandler(this.assetLoader));
     this.tooltipManager = proxy(new TooltipManager());
-    this.npcBrain = new NpcBrain(this.assetLoader);
+    this.npcBrain = ref(new NpcBrain(this.assetLoader)); // (its model session: never proxied)
     this.setupGameplayKeyBindings();
-  };
+  }
 
-  startGame = (): void => {
+  startGame(): void {
     this.isPlaying = true;
     this.startBackgroundMusic();
     this.forceUpdate();
@@ -114,36 +113,36 @@ export class Game {
   private isIntroStarted = false;
   private isRivalArrived = false; // (its wizard has begun walking in)
   private isRivalArrivalPending = false; // (the guest joined before the host's intro began)
-  getIsMultiplayer = (): boolean => this.matchMode !== 'single';
+  getIsMultiplayer(): boolean { return this.matchMode !== 'single'; }
   /** The host, in the hall, waiting for the rival to join. */
-  getIsWaitingForRival = (): boolean => this.matchMode === 'host' && this.isIntroStarted && !this.isRivalArrived;
+  getIsWaitingForRival(): boolean { return this.matchMode === 'host' && this.isIntroStarted && !this.isRivalArrived; }
 
   /** The host begins: its wizard walks in alone, the rival's when they join (the 'hello' message). */
-  startHostedMatch = (session: MultiplayerSession): void => {
+  startHostedMatch(session: MultiplayerSession): void {
     this.matchMode = 'host';
     this.session = ref(session);
     this.matchSeed = Math.floor(Math.random() * 2 ** 31);
     this.listenToSession(session);
     this.startGame();
-  };
+  }
 
-  private listenToSession = (session: MultiplayerSession): void => {
-    session.onMessage(this.handleMatchMessage);
-    session.onRivalLost(this.handleRivalLost);
-    session.onRivalBack(this.handleRivalBack);
+  private listenToSession(session: MultiplayerSession): void {
+    session.onMessage(this.handleMatchMessage.bind(this));
+    session.onRivalLost(this.handleRivalLost.bind(this));
+    session.onRivalBack(this.handleRivalBack.bind(this));
     // (closing or leaving this page: the rival is told at once, rather than waiting out the minute)
     window.addEventListener('pagehide', () => this.session?.send({ type: 'leave' }));
-  };
+  }
 
   /** The guest joins (connected): both wizards walk in as its intro begins. */
-  startJoinedMatch = (session: MultiplayerSession): void => {
+  startJoinedMatch(session: MultiplayerSession): void {
     this.matchMode = 'guest';
     this.session = ref(session);
     this.listenToSession(session);
     this.startGame();
-  };
+  }
 
-  private handleMatchMessage = (message: MatchMessage): void => {
+  private handleMatchMessage(message: MatchMessage): void {
     if (message.type === 'hello' && this.matchMode === 'host') {
       this.session?.send({ type: 'welcome', seed: this.matchSeed });
       if (this.isIntroStarted) this.rivalWalksIn();
@@ -175,7 +174,7 @@ export class Game {
       this.rivalFingerprints.set(message.turn, message.fingerprint);
       this.compareFingerprints(message.turn);
     }
-  };
+  }
 
   // A 2-player match's turns: each turn, one player casts first, then the other (who has seen those
   // casts); then the spells move, on both screens. Who goes first alternates: the host on even turns.
@@ -192,15 +191,15 @@ export class Game {
   private isLocalReady = false;
   private isRivalReady = false;
   /** This browser's intro is over (both wizards in): the match begins once the rival's is too. */
-  noteMatchReady = (): void => {
+  noteMatchReady(): void {
     if (this.isLocalReady) return;
     this.isLocalReady = true;
     this.session?.send({ type: 'ready' });
     this.startMatchOnceBothReady();
-  };
-  private startMatchOnceBothReady = (): void => {
+  }
+  private startMatchOnceBothReady(): void {
     if (this.isLocalReady && this.isRivalReady && this.matchPhase === null) this.startMultiplayerTurn();
-  };
+  }
 
   // The rival's connection dropping: a spinner over its head, the clock held, a minute's countdown; back
   // in time, the match goes on; not, its wizard runs off and the match is won (Enemy Fled)
@@ -209,12 +208,11 @@ export class Game {
   private isRivalFleeing = false;
   private rivalLostAt = 0;
   private rivalWaitTimers: Array<number> = [];
-  getIsRivalFleeing = (): boolean => this.isRivalFleeing;
+  getIsRivalFleeing(): boolean { return this.isRivalFleeing; }
   /** The seconds left for a dropped rival to come back. */
-  getRivalWaitSecondsLeft = (): number =>
-    Math.max(0, Math.ceil(Game.RIVAL_WAIT_SECONDS - (Date.now() - this.rivalLostAt) / 1000));
+  getRivalWaitSecondsLeft(): number { return Math.max(0, Math.ceil(Game.RIVAL_WAIT_SECONDS - (Date.now() - this.rivalLostAt) / 1000)); }
 
-  private handleRivalLost = (): void => {
+  private handleRivalLost(): void {
     if (this.isRivalFleeing) return;
     // (the match is over: they've just left)
     if (this.gameOver !== null) { this.isRivalLeft = true; this.forceUpdate(); return; }
@@ -223,20 +221,20 @@ export class Game {
     this.rivalWaitTimers.forEach(timer => window.clearTimeout(timer));
     this.rivalWaitTimers = [
       window.setInterval(this.forceUpdate, 1000), // (the countdown)
-      window.setTimeout(this.rivalFlees, Game.RIVAL_WAIT_SECONDS * 1000),
+      window.setTimeout(this.rivalFlees.bind(this), Game.RIVAL_WAIT_SECONDS * 1000),
     ];
     this.forceUpdate();
-  };
+  }
 
-  private handleRivalBack = (): void => {
+  private handleRivalBack(): void {
     this.rivalWaitTimers.forEach(timer => { window.clearTimeout(timer); window.clearInterval(timer); });
     this.rivalWaitTimers = [];
     this.isRivalDisconnected = false;
     this.forceUpdate();
-  };
+  }
 
   /** The rival is gone for good: its wizard runs off, then the match is won (Enemy Fled). */
-  private rivalFlees = (): void => {
+  private rivalFlees(): void {
     if (this.isRivalFleeing) return;
     this.rivalWaitTimers.forEach(timer => { window.clearTimeout(timer); window.clearInterval(timer); });
     this.rivalWaitTimers = [];
@@ -251,23 +249,23 @@ export class Game {
       this.session?.close();
       this.forceUpdate();
     }, Game.RIVAL_FLEE_SECONDS * 1000);
-  };
+  }
   static readonly RIVAL_FLEE_SECONDS = 1.8; // (its run off the hall: PlayerComponent)
 
   /** The spinner over the rival's head: it hasn't begun yet, or its connection has dropped. */
-  getIsRivalSpinning = (): boolean => this.isRivalDisconnected || this.getIsRivalNotReady();
+  getIsRivalSpinning(): boolean { return this.isRivalDisconnected || this.getIsRivalNotReady(); }
 
   /** The rival is in the hall but hasn't begun (e.g. the host still on the invite screen): a spinner over its head. */
-  getIsRivalNotReady = (): boolean => this.getIsMultiplayer() && this.gameOver === null && this.isRivalArrived && !this.isRematchStarting &&
-    !!this.players.getNpcPlayer()?.getIsDoneWithIntroWalk() && this.matchPhase === null && !this.isRivalReady;
+  getIsRivalNotReady(): boolean { return this.getIsMultiplayer() && this.gameOver === null && this.isRivalArrived && !this.isRematchStarting &&
+    !!this.players.getNpcPlayer()?.getIsDoneWithIntroWalk() && this.matchPhase === null && !this.isRivalReady; }
 
   /** What the centre card says while waiting for the rival (null: not waiting). */
-  getRivalWaitingText = (): string | null => {
+  getRivalWaitingText(): string | null {
     if (this.isRivalDisconnected) return `Your rival's connection dropped… ${this.getRivalWaitSecondsLeft()}`;
     if (this.getIsWaitingForRival()) return 'Waiting for your rival…';
     if (this.getIsRivalNotReady() && this.players.getHumanPlayer()?.getIsDoneWithIntroWalk()) return 'Waiting for your rival to begin…';
     return null;
-  };
+  }
 
   // Play again: a new match starts once both choose it; either may leave instead
   private isLocalRematch = false;
@@ -275,26 +273,26 @@ export class Game {
   private isRivalLeft = false;
   private rematchCount = 0; // (the matches played with this rival: each a new set of teacher's rolls)
   private isRematchStarting = false; // (both chose to play again: no waiting card while the first turn starts)
-  getIsAwaitingRematch = (): boolean => this.isLocalRematch;
-  getIsRivalLeft = (): boolean => this.isRivalLeft;
+  getIsAwaitingRematch(): boolean { return this.isLocalRematch; }
+  getIsRivalLeft(): boolean { return this.isRivalLeft; }
 
   /** "Play again?" Yes: alone, at once; in a 2-player match, once the rival says yes too. */
-  chooseRematch = (): void => {
+  chooseRematch(): void {
     if (!this.getIsMultiplayer()) { this.resetGame(); return; }
     if (this.isLocalRematch || this.isRivalLeft) return;
     this.isLocalRematch = true;
     this.session?.send({ type: 'rematch' });
     this.forceUpdate();
     this.startRematchOnceBoth();
-  };
+  }
 
   /** "Play again?" No, in a 2-player match: the rival is told, and the connection closed. */
-  leaveMatch = (): void => {
+  leaveMatch(): void {
     this.session?.send({ type: 'leave' });
     this.session?.close();
-  };
+  }
 
-  private startRematchOnceBoth = (): void => {
+  private startRematchOnceBoth(): void {
     if (!this.isLocalRematch || !this.isRivalRematch) return;
     this.isLocalRematch = this.isRivalRematch = false;
     this.isRematchStarting = true;
@@ -307,33 +305,33 @@ export class Game {
     this.fingerprints.clear();
     this.rivalFingerprints.clear();
     this.resetGame();
-  };
+  }
 
   // Emoji reactions (2-player): one shows over a wizard's head for a moment (EmoteBubble); this player
   // waits a moment between sending them
   private emotes: Record<'self' | 'rival', { id: number; emoji: string } | null> = { self: null, rival: null };
   private emoteCount = 0;
   private emoteCooldownUntil = 0;
-  getEmote = (side: 'self' | 'rival'): { id: number; emoji: string } | null => this.emotes[side];
-  getIsEmoteCooling = (): boolean => performance.now() < this.emoteCooldownUntil;
+  getEmote(side: 'self' | 'rival'): { id: number; emoji: string } | null { return this.emotes[side]; }
+  getIsEmoteCooling(): boolean { return performance.now() < this.emoteCooldownUntil; }
 
   /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
-  sendEmote = (emoji: string): void => {
+  sendEmote(emoji: string): void {
     if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
     this.session?.send({ type: 'emote', emoji });
     this.showEmote('self', emoji);
     this.emoteCooldownUntil = performance.now() + EMOTE_TIMING.cooldownSeconds * 1000;
     window.setTimeout(this.forceUpdate, EMOTE_TIMING.cooldownSeconds * 1000 + 20);
-  };
+  }
 
-  private showEmote = (side: 'self' | 'rival', emoji: string): void => {
+  private showEmote(side: 'self' | 'rival', emoji: string): void {
     const emote = { id: ++this.emoteCount, emoji };
     this.emotes[side] = emote;
     this.forceUpdate();
     window.setTimeout(() => {
       if (this.emotes[side]?.id === emote.id) { this.emotes[side] = null; this.forceUpdate(); }
     }, EMOTE_TIMING.showSeconds * 1000);
-  };
+  }
 
   // Live drawings (2-player): this player's strokes sent as they're drawn (in board units, a few times a
   // second); the rival's drawn on this screen, mirrored, its wand following, fading once it lets go.
@@ -342,13 +340,13 @@ export class Game {
   private isShowingRivalDrawings = (() => {
     try { return window.localStorage.getItem('quickCast-rivalDrawingsOff') !== 'true'; } catch { return true; }
   })();
-  getIsShowingRivalDrawings = (): boolean => this.isShowingRivalDrawings;
-  toggleRivalDrawings = (): void => {
+  getIsShowingRivalDrawings(): boolean { return this.isShowingRivalDrawings; }
+  toggleRivalDrawings(): void {
     this.isShowingRivalDrawings = !this.isShowingRivalDrawings;
     try { window.localStorage.setItem('quickCast-rivalDrawingsOff', JSON.stringify(!this.isShowingRivalDrawings)); } catch { /* (not remembered) */ }
     if (!this.isShowingRivalDrawings) this.rivalStroke = [];
     this.forceUpdate();
-  };
+  }
   private strokeOutbox: Array<[number, number]> = [];
   private isNewStroke = false;
   private strokeTimer: number | undefined;
@@ -357,7 +355,7 @@ export class Game {
   private rivalStrokeEndedAt: number | null = null;
 
   /** A point of this player's drawing (screen coordinates): sent, in board units, while it's this player's part of the turn. */
-  private noteLocalStrokePoint = (x: number, y: number): void => {
+  private noteLocalStrokePoint(x: number, y: number): void {
     if (!this.getIsMultiplayer() || this.matchPhase !== 'local' || !this.session) return;
     const board = this.gameBoard.getBoardRefDimensions();
     if (!board || !board.width) return;
@@ -366,34 +364,34 @@ export class Game {
     if (last && Math.hypot(units[0] - last[0], units[1] - last[1]) < Game.STROKE.minStepUnits) return;
     this.lastStrokeUnits = units;
     this.strokeOutbox.push([Math.round(units[0] * 1000) / 1000, Math.round(units[1] * 1000) / 1000]);
-    if (this.strokeTimer === undefined) this.strokeTimer = window.setTimeout(this.sendStroke, Game.STROKE.sendEveryMilli);
-  };
-  private sendStroke = (): void => {
+    if (this.strokeTimer === undefined) this.strokeTimer = window.setTimeout(this.sendStroke.bind(this), Game.STROKE.sendEveryMilli);
+  }
+  private sendStroke(): void {
     this.strokeTimer = undefined;
     if (!this.strokeOutbox.length) return;
     this.session?.send({ type: 'stroke', points: this.strokeOutbox, isNew: this.isNewStroke });
     this.strokeOutbox = [];
     this.isNewStroke = false;
-  };
-  private endLocalStroke = (): void => {
+  }
+  private endLocalStroke(): void {
     if (!this.getIsMultiplayer() || !this.session) return;
     window.clearTimeout(this.strokeTimer);
     this.sendStroke();
     this.session.send({ type: 'strokeEnd' });
     this.lastStrokeUnits = null;
-  };
+  }
 
   /** Part of the rival's drawing (board units, its side): mirrored onto this board, its wand following. */
-  private addRivalStroke = (points: Array<[number, number]>, isNew: boolean): void => {
+  private addRivalStroke(points: Array<[number, number]>, isNew: boolean): void {
     if (!this.isShowingRivalDrawings || this.matchPhase !== 'rival') return;
     if (isNew || this.rivalStrokeEndedAt !== null) { this.rivalStroke = []; this.rivalStrokeEndedAt = null; }
     points.forEach(([column, row]) => this.rivalStroke.push([GameBoard.NUM_COLS - column, row]));
     const tip = this.getRivalStrokeTip();
     if (tip) this.setNpcMousePos(tip);
-  };
+  }
 
   /** The rival's drawing in screen coordinates, and how faded it is (1: drawing; 0: gone). */
-  getRivalStroke = (): { points: Array<Point>; alpha: number } => {
+  getRivalStroke(): { points: Array<Point>; alpha: number } {
     if (!this.rivalStroke.length) return { points: [], alpha: 0 }; // (before measuring the board: read every frame)
     const board = this.gameBoard.getBoardRefDimensions();
     if (!board || !board.width) return { points: [], alpha: 0 };
@@ -403,24 +401,24 @@ export class Game {
       points: this.rivalStroke.map(([column, row]) => ({ x: board.left + column / GameBoard.NUM_COLS * board.width, y: board.top + row / GameBoard.NUM_ROWS * board.height })),
       alpha,
     };
-  };
-  private getRivalStrokeTip = (): Point | null => { const { points } = this.getRivalStroke(); return points[points.length - 1] ?? null; };
+  }
+  private getRivalStrokeTip(): Point | null { const { points } = this.getRivalStroke(); return points[points.length - 1] ?? null; }
 
-  private getTurnIndex = (): number => Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle());
+  private getTurnIndex(): number { return Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()); }
   /** Whether this player may cast now: always alone; in a 2-player match, in their part of the turn. */
-  getCanLocalCast = (): boolean => !this.getIsMultiplayer() || this.matchPhase === 'local';
+  getCanLocalCast(): boolean { return !this.getIsMultiplayer() || this.matchPhase === 'local'; }
 
   /** A 2-player match's turn begins: "Your Move" or "Their Move", then that part of the turn. */
-  startMultiplayerTurn = (): void => {
+  startMultiplayerTurn(): void {
     this.isRematchStarting = false;
     this.isLocalFirst = (this.getTurnIndex() % 2 === 0) === (this.matchMode === 'host');
     this.turnCard = { id: (this.turnCard?.id ?? 0) + 1, isPlayerFirst: this.isLocalFirst };
     this.turnToken++;
     this.beginMatchPhase(this.isLocalFirst ? 'local' : 'rival');
-  };
+  }
 
   /** A part of the turn: this player's (casting, its clock running), or the rival's (watching theirs). */
-  private beginMatchPhase = (phase: 'local' | 'rival'): void => {
+  private beginMatchPhase(phase: 'local' | 'rival'): void {
     const rival = this.players.getNpcPlayer();
     if (!rival) return;
     this.matchPhase = phase;
@@ -440,28 +438,28 @@ export class Game {
     this.gameClock.startTurnClock(TURN_CLOCK.multiplayerTurnSeconds);
     this.forceUpdate();
     if (phase === 'rival') this.processRivalQueue();
-  };
+  }
 
   /** This player's part of the turn is over (the clock, Space, its time, or its focus running out). */
-  private endLocalPhase = (): void => {
+  private endLocalPhase(): void {
     if (this.matchPhase !== 'local') return;
     this.gameClock.stopTurnClock();
     this.session?.send({ type: 'endTurn', turn: this.getTurnIndex() });
     if (this.isLocalFirst) this.beginMatchPhase('rival');
     else this.resolveMatchTurn();
-  };
+  }
 
   /** This player cast a spell: sent to the rival (on this player's side of the board). */
-  private noteLocalCast = (symbol: string, cells: Array<CellIndex>, isDrawn: boolean = false): void => {
+  private noteLocalCast(symbol: string, cells: Array<CellIndex>, isDrawn: boolean = false): void {
     if (!this.getIsMultiplayer() || !cells.length) return;
     this.session?.send({ type: 'cast', turn: this.getTurnIndex(), symbol, cells: cells.map(({ i, j }) => ({ i, j })), isDrawn });
     // (out of focus: its part of the turn ends)
     const self = this.players.getHumanPlayer();
-    if (self && self.getFocus() < 1) window.setTimeout(this.endLocalPhase, 600);
-  };
+    if (self && self.getFocus() < 1) window.setTimeout(this.endLocalPhase.bind(this), 600);
+  }
 
   /** The rival's casts and turn ends, one at a time, in order, during its part of the turn. */
-  private processRivalQueue = (): void => {
+  private processRivalQueue(): void {
     if (this.isRivalQueueBusy || this.matchPhase !== 'rival') return;
     const message = this.rivalQueue.shift();
     if (!message) return;
@@ -475,7 +473,7 @@ export class Game {
       // (drawn, and its drawing seen live: cast at once; else drawn by its wizard, as the NPC's are)
       const isSeenDrawn = !!message.isDrawn && this.isShowingRivalDrawings;
       if (rival.getFocus() <= 0 || isSeenDrawn) { this.spawnSizedSpellInstance(message.symbol, cells, rival); next(); return; }
-      rival.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
+      rival.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate,
         { inferenceString: message.symbol as InferenceString, cells, onCast: next });
       return;
     }
@@ -486,10 +484,10 @@ export class Game {
       else this.resolveMatchTurn();
       this.processRivalQueue();
     }
-  };
+  }
 
   /** Both have played their part: the spells move (as in endTurn), then the boards are compared. */
-  private resolveMatchTurn = async (): Promise<void> => {
+  private async resolveMatchTurn(): Promise<void> {
     const turn = this.getTurnIndex();
     this.matchPhase = 'resolving';
     this.isNpcWaitingForPlayer = false;
@@ -499,13 +497,13 @@ export class Game {
     this.fingerprints.set(turn, fingerprint);
     this.session?.send({ type: 'check', turn, fingerprint });
     this.compareFingerprints(turn);
-  };
+  }
 
   /**
    * The board after a turn, as the host sees it (so both browsers' match): health, focus and the spells
    * (the guest's mirrored back), sorted.
    */
-  private getBoardFingerprint = (): string => {
+  private getBoardFingerprint(): string {
     const isGuest = this.matchMode === 'guest';
     const [self, rival] = this.players.getPlayers();
     const players = (isGuest ? [rival, self] : [self, rival]).map(p => `${p.getHealth()}/${p.getFocus()}`).join(',');
@@ -516,10 +514,10 @@ export class Game {
       return `${spell.getSpellName()}:${i},${column}:${spell.widthCells}x${spell.heightCells}:${spell.getPower()}:${direction}`;
     }).sort();
     return `${players}|${spells.join(';')}`;
-  };
+  }
 
   /** Both browsers' boards after `turn`, once both are in: if they differ, the match is out of step. */
-  private compareFingerprints = (turn: number): void => {
+  private compareFingerprints(turn: number): void {
     const own = this.fingerprints.get(turn), theirs = this.rivalFingerprints.get(turn);
     if (own === undefined || theirs === undefined) return;
     if (own !== theirs && this.gameOver === null) {
@@ -529,10 +527,10 @@ export class Game {
       this.disableGameBoard();
       this.forceUpdate();
     }
-  };
+  }
 
   /** The rival's wizard walks in (the match begins once both have arrived: getIsDoneWithIntroWalk). */
-  private rivalWalksIn = (): void => {
+  private rivalWalksIn(): void {
     const rival = this.players.getNpcPlayer();
     if (!rival || this.isRivalArrived) return;
     this.isRivalArrived = true;
@@ -540,9 +538,9 @@ export class Game {
     rival.setIsBeginIntroWalk(true);
     this.forceUpdate();
     setTimeout(() => { rival.setIsDoneWithIntroWalk(true); this.forceUpdate(); }, INTRO_WALK_ANIM_TIME * 1000);
-  };
+  }
 
-  resetGame = (): void => {
+  resetGame(): void {
     this.placedSpells.reset();
     this.gameBoard.reset();
     this.players.reset();
@@ -555,10 +553,10 @@ export class Game {
     this.matchNumber++;
     this.turnToken++; // (anything the NPC had pending from the last match does nothing)
     this.stopNpcWaiting();
-    if (this.getIsMultiplayer()) window.setTimeout(this.noteMatchReady, 800); // (the first turn once both are ready)
+    if (this.getIsMultiplayer()) window.setTimeout(this.noteMatchReady.bind(this), 800); // (the first turn once both are ready)
     else this.startNpcTurn(3000);
     this.forceUpdate();
-  };
+  }
 
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   private matchNumber = 0; // rematches in this session
@@ -568,39 +566,39 @@ export class Game {
    * from an earlier turn (or a finished match) can act in, or end, a later one.
    */
   private turnToken = 0;
-  private getIsTurnStill = (token: number): boolean => token === this.turnToken && this.gameOver === null;
+  private getIsTurnStill(token: number): boolean { return token === this.turnToken && this.gameOver === null; }
   /** The card shown as each turn begins (TurnCard): a new id each turn. */
   private turnCard: { id: number; isPlayerFirst: boolean } | null = null;
-  getTurnCard = (): { id: number; isPlayerFirst: boolean } | null => this.turnCard;
+  getTurnCard(): { id: number; isPlayerFirst: boolean } | null { return this.turnCard; }
   // The card over the NPC's avatar when it passes its turn (casts nothing)
   private npcPassCard: { id: number } | null = null;
-  getNpcPassCard = (): { id: number } | null => this.npcPassCard;
+  getNpcPassCard(): { id: number } | null { return this.npcPassCard; }
 
   /**
    * Whose move it is right now (their spotlight brightens): the NPC while it's casting (unless it's
    * waiting for the player to cast first), otherwise the player; null between turns (spells moving),
    * before the match begins, or once it's over.
    */
-  getActiveSide = (): number | null => {
+  getActiveSide(): number | null {
     if (this.gameOver !== null || this.getIsGameBoardDisabled() || !this.getIsDoneWithIntroWalk()) return null;
     const npc = this.players.getNpcPlayer();
     return npc && !this.isNpcWaitingForPlayer && !npc.getIsDoneWithTurn() ? NPC_INDEX : PLAYER_INDEX;
-  };
+  }
   private isNpcWaitingForPlayer = false;
   private npcWaitingTipsShown = 0; // this session (each makes the next wait 5 seconds longer)
   private npcWaitingTipRef: number | undefined = undefined;
 
   /** Whether the NPC waits for the player's first cast this turn (NPC_TURN_ORDER: by default, every other turn). */
-  private getIsNpcWaitingThisTurn = (): boolean => {
+  private getIsNpcWaitingThisTurn(): boolean {
     if (NPC_TURN_ORDER === 'waitForPlayer') return true;
     if (NPC_TURN_ORDER === 'alternate') return this.matchNumber % 2 === 0;
     // 'alternateTurns': the player first on odd turns (turnsElapsed 0, 2, ...), the NPC on even ones
     if (NPC_TURN_ORDER === 'alternateTurns') return Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) % 2 === 0;
     return false;
-  };
+  }
 
   /** The NPC's turn begins: it casts after `delayMilli`, or waits for the player to cast first. */
-  startNpcTurn = (delayMilli: number): void => {
+  startNpcTurn(delayMilli: number): void {
     // (the player's turn begins with the NPC's: the clock's seconds hand starts counting it down)
     this.gameClock.startTurnClock();
     // The turn card: whose move it is first
@@ -623,27 +621,27 @@ export class Game {
       this.forceUpdate();
     }, waitSeconds * 1000);
     this.forceUpdate();
-  };
+  }
 
   /** Stops waiting (and its reminder), without starting the NPC's turn. */
-  private stopNpcWaiting = (): void => {
+  private stopNpcWaiting(): void {
     this.isNpcWaitingForPlayer = false;
     clearTimeout(this.npcWaitingTipRef);
     this.tooltipManager.cancelReminder('waitingForYou');
-  };
+  }
 
   /** The player has cast (or is ending the turn): a waiting NPC now plays its turn. */
-  private releaseNpc = (delayMilli: number): void => {
+  private releaseNpc(delayMilli: number): void {
     if (!this.isNpcWaitingForPlayer || this.getIsMultiplayer()) return; // (a 2-player match has no NPC)
     this.stopNpcWaiting();
     const token = this.turnToken;
     setTimeout(() => { if (this.getIsTurnStill(token)) this.doNpcMove(); }, delayMilli);
     this.forceUpdate();
-  };
+  }
   // NPC TURN ORDER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getGameOver = (): GameOver | null => this.gameOver;
+  getGameOver(): GameOver | null { return this.gameOver; }
 
-  checkIfIsGameOverFromPlayerDeath = (): void => {
+  checkIfIsGameOverFromPlayerDeath(): void {
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
     const deathGameOver = getDeathGameOver(humanPlayer, npcPlayer);
     if (deathGameOver !== null) {
@@ -652,7 +650,7 @@ export class Game {
     }
   }
 
-  checkIfIsGameOverFromTime = (): void => {
+  checkIfIsGameOverFromTime(): void {
     // One clock tick (20 minutes) per turn; a teacher catches the weaker wizard (getCaughtGameOver)
     const turnsElapsed = this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle();
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
@@ -663,7 +661,7 @@ export class Game {
     }
   }
 
-  checkIfIsGameOver = (): boolean => {
+  checkIfIsGameOver(): boolean {
     // - GAMEOVER CONDITION #1: One or both players are dead. <PLAYER DEATH>
     this.checkIfIsGameOverFromPlayerDeath();
     // - GAMEOVER CONDITION #2: Player is caught by teacher. <TIME'S UP>
@@ -680,7 +678,7 @@ export class Game {
     return isGameOver;
   }
 
-  endTurn = async (): Promise<void> => {
+  async endTurn(): Promise<void> {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
     if (this.getIsMultiplayer() && !this.isResolvingMatchTurn) { this.endLocalPhase(); return; }
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
@@ -754,7 +752,7 @@ export class Game {
    * The player cast a spell (their focus dropped): closes a tip the cast answers; the first time, the
    * Focus tip, then Spell Size, then Ending Your Turn.
    */
-  notePlayerCast = (): void => {
+  notePlayerCast(): void {
     this.releaseNpc(700); // a NPC waiting for the player to cast first now answers
     const shown = [...this.tooltipManager.getLightTips()];
     const wasFocusShowing = shown.includes('focus');
@@ -777,14 +775,14 @@ export class Game {
    * this same cast has closed the previous tip.
    */
   private isBloodMagicTipPending = false;
-  private noteBloodMagic = (caster: Player): void => {
+  private noteBloodMagic(caster: Player): void {
     if (caster.id === this.getHumanPlayer()?.id) this.isBloodMagicTipPending = true;
   }
   // GAME - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
   // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  setupGameplayKeyBindings = (): void => {
+  setupGameplayKeyBindings(): void {
     const keyActions: Array<KeyAction> = [];
 
     /*
@@ -863,7 +861,7 @@ export class Game {
     // END turn
     keyActions.push({
       keycodes: ['Escape', 'Space'],
-      action: this.endTurn
+      action: this.endTurn.bind(this)
     });
 
     // CYCLE through NPC Difficulties: 'Normal' -> 'Hard' -> 'Brutal' -> 'Normal'
@@ -875,22 +873,22 @@ export class Game {
     this.keyActions = proxy(keyActions);
   }
 
-  useGameplayKeyBindings = (): void => useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate });
+  useGameplayKeyBindings(): void { useKeyPress({ keyActions: this.keyActions, isDisabled: false, forceUpdate: this.forceUpdate }); }
   // KEY BINDINGS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
   // UI SPECIFIC - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getIsPlaying = (): boolean => this.isPlaying;
+  getIsPlaying(): boolean { return this.isPlaying; }
 
-  getIsSceneImgsLoaded = (): boolean => this.assetLoader.getIsSceneImgsLoaded();
-  getIsFontLoaded = (): boolean => this.assetLoader.getIsFontLoaded();
-  getIsPriorityAssetsLoaded = (): boolean => this.assetLoader.getIsPriorityAssetsLoaded();
-  getIsLogoSpellsReady = (): boolean => this.assetLoader.getIsLogoSpellsReady();
-  setIsLogoSpellsReady = (): void => this.assetLoader.setIsLogoSpellsReady();
-  getIsLoading = (): boolean => this.assetLoader.getIsLoading();
+  getIsSceneImgsLoaded(): boolean { return this.assetLoader.getIsSceneImgsLoaded(); }
+  getIsFontLoaded(): boolean { return this.assetLoader.getIsFontLoaded(); }
+  getIsPriorityAssetsLoaded(): boolean { return this.assetLoader.getIsPriorityAssetsLoaded(); }
+  getIsLogoSpellsReady(): boolean { return this.assetLoader.getIsLogoSpellsReady(); }
+  setIsLogoSpellsReady(): void { this.assetLoader.setIsLogoSpellsReady(); }
+  getIsLoading(): boolean { return this.assetLoader.getIsLoading(); }
 
-  getBackgroundSceneBrightness = (): number => this.backgroundSceneBrightness;
-  beginIntro = (): void => {
+  getBackgroundSceneBrightness(): number { return this.backgroundSceneBrightness; }
+  beginIntro(): void {
     // begin intro walk... (in a 2-player match, only this player's wizard: the rival's when they join)
     this.isIntroStarted = true;
     if (this.getIsMultiplayer()) {
@@ -928,11 +926,11 @@ export class Game {
     }, INTRO_WALK_ANIM_TIME * 1000);
 
   }
-  setGameBoardRef = (gameBoardRef: RefObject<HTMLDivElement | null>): void => this.gameBoard.setGameBoardRef(gameBoardRef);
-  setGameWrapperRef = (gameWrapperRef: RefObject<HTMLDivElement | null>): void => {
-    this.gameWrapperRef = gameWrapperRef;
+  setGameBoardRef(gameBoardRef: RefObject<HTMLDivElement | null>): void { this.gameBoard.setGameBoardRef(gameBoardRef); }
+  setGameWrapperRef(gameWrapperRef: RefObject<HTMLDivElement | null>): void {
+    this.gameWrapperRef = ref(gameWrapperRef); // (a React ref: never proxied)
   }
-  setForceUpdate = (forceUpdate: () => void) => {
+  setForceUpdate(forceUpdate: () => void) {
     this.forceUpdate = forceUpdate;
     this.assetLoader.setForceUpdate(forceUpdate);
   }
@@ -940,19 +938,19 @@ export class Game {
 
 
   // AUDIO MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  startBackgroundMusic = (): void => {
+  startBackgroundMusic(): void {
     if (!this.audioHandler.getIsBackgroundMusicStarted()) {
       this.audioHandler.startBackgroundMusic()
     }
   }
-  getIsMusicMuted = (): boolean => this.audioHandler.getIsMusicMuted()
-  getIsFxMuted = (): boolean => this.audioHandler.getIsFxMuted();
-  toggleAudio = (audioType: AudioType, isMuted?: boolean): void => {
+  getIsMusicMuted(): boolean { return this.audioHandler.getIsMusicMuted(); }
+  getIsFxMuted(): boolean { return this.audioHandler.getIsFxMuted(); }
+  toggleAudio(audioType: AudioType, isMuted?: boolean): void {
     this.audioHandler.toggleAudio(audioType, isMuted);
     this.forceUpdate();
   }
-  getVolume = (audioType: AudioType): number => this.audioHandler.getVolume(audioType);
-  setVolume = (audioType: AudioType, volume: number): void => {
+  getVolume(audioType: AudioType): number { return this.audioHandler.getVolume(audioType); }
+  setVolume(audioType: AudioType, volume: number): void {
     this.audioHandler.setVolume(audioType, volume);
     this.forceUpdate();
   }
@@ -960,54 +958,54 @@ export class Game {
 
 
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getIsTooltips = (): boolean => this.tooltipManager.getIsTooltips();
-  getIsSpellBookOpen = (): boolean => this.tooltipManager.getIsSpellBookOpen();
-  setIsSpellBookOpen = (isSpellBookOpen?: boolean): void => {
+  getIsTooltips(): boolean { return this.tooltipManager.getIsTooltips(); }
+  getIsSpellBookOpen(): boolean { return this.tooltipManager.getIsSpellBookOpen(); }
+  setIsSpellBookOpen(isSpellBookOpen?: boolean): void {
     this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen);
     if (this.tooltipManager.getIsSpellBookOpen()) this.tooltipManager.dismissLightTip('spellBook'); // they found it
     this.forceUpdate();
   }
-  incrementDrawingOffBoard = (): void => this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate);
-  getIsDrawingOffBoard = (): boolean => this.tooltipManager.getIsDrawingOffBoard();
-  getIsOutOfFocus = (): boolean => this.tooltipManager.getIsOutOfFocus();
-  toggleToolTips = (isOn?: boolean): void => { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
-  loadToolTips = (): void => { this.tooltipManager.loadToolTips(); this.forceUpdate(); }
-  getIsLoreDone = (): boolean => this.tooltipManager.getIsLoreDone();
-  getIsLore = (): boolean => this.tooltipManager.getIsLore();
-  getIsLastTooltipPage = (): boolean => this.tooltipManager.getIsLastPage();
-  showLore = (): void => { this.tooltipManager.showLore(); this.forceUpdate(); }
-  chooseToolTips = (isOn: boolean): void => { this.tooltipManager.chooseToolTips(isOn); this.forceUpdate(); }
-  triggerTip = (tip: TipId): void => { this.tooltipManager.triggerTip(tip); this.forceUpdate(); }
-  triggerTips = (tips: Array<TipId>): void => { this.tooltipManager.triggerTips(tips); this.forceUpdate(); }
-  getLightTips = (): Array<TipId> => this.tooltipManager.getLightTips();
-  getIsKeyboardControlsShown = (): boolean => this.tooltipManager.getIsKeyboardControlsShown();
-  setIsKeyboardControlsShown = (isShown: boolean): void => { this.tooltipManager.setIsKeyboardControlsShown(isShown); this.forceUpdate(); }
-  dismissLightTip = (tip?: TipId): void => { this.tooltipManager.dismissLightTip(tip); this.forceUpdate(); }
-  nextTooltipPage = (): void => { this.tooltipManager.nextPage(); this.forceUpdate(); }
-  prevTooltipPage = (): void => { this.tooltipManager.prevPage(); this.forceUpdate(); }
-  closeTooltip = (): void => { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
-  getTotalPages = (): number => this.tooltipManager.getTotalPages();
-  getCurrPageNum = (): number => this.tooltipManager.getCurrPageNum();
-  getCurrPageContent = (): TooltipPage | null => this.tooltipManager.getCurrPageContent();
-  getIsMultiPage = (): boolean => this.tooltipManager.getIsMultiPage();
-  getMultiPageProgress = (): string => this.tooltipManager.getMultiPageProgress();
-  getIsNextDisabled = (): boolean => this.tooltipManager.getIsNextDisabled();
-  getIsPrevDisabled = (): boolean => this.tooltipManager.getIsPrevDisabled();
-  getIsClickClock = (): boolean => this.tooltipManager.getIsClickClock();
-  doClickClockFlash = (waitTimeMilli?: number): void => { this.tooltipManager.doClickClockFlash(this.forceUpdate, waitTimeMilli); }
+  incrementDrawingOffBoard(): void { this.tooltipManager.incrementDrawingOffBoard(this.forceUpdate); }
+  getIsDrawingOffBoard(): boolean { return this.tooltipManager.getIsDrawingOffBoard(); }
+  getIsOutOfFocus(): boolean { return this.tooltipManager.getIsOutOfFocus(); }
+  toggleToolTips(isOn?: boolean): void { this.tooltipManager.toggleToolTips(isOn); this.forceUpdate(); }
+  loadToolTips(): void { this.tooltipManager.loadToolTips(); this.forceUpdate(); }
+  getIsLoreDone(): boolean { return this.tooltipManager.getIsLoreDone(); }
+  getIsLore(): boolean { return this.tooltipManager.getIsLore(); }
+  getIsLastTooltipPage(): boolean { return this.tooltipManager.getIsLastPage(); }
+  showLore(): void { this.tooltipManager.showLore(); this.forceUpdate(); }
+  chooseToolTips(isOn: boolean): void { this.tooltipManager.chooseToolTips(isOn); this.forceUpdate(); }
+  triggerTip(tip: TipId): void { this.tooltipManager.triggerTip(tip); this.forceUpdate(); }
+  triggerTips(tips: Array<TipId>): void { this.tooltipManager.triggerTips(tips); this.forceUpdate(); }
+  getLightTips(): Array<TipId> { return this.tooltipManager.getLightTips(); }
+  getIsKeyboardControlsShown(): boolean { return this.tooltipManager.getIsKeyboardControlsShown(); }
+  setIsKeyboardControlsShown(isShown: boolean): void { this.tooltipManager.setIsKeyboardControlsShown(isShown); this.forceUpdate(); }
+  dismissLightTip(tip?: TipId): void { this.tooltipManager.dismissLightTip(tip); this.forceUpdate(); }
+  nextTooltipPage(): void { this.tooltipManager.nextPage(); this.forceUpdate(); }
+  prevTooltipPage(): void { this.tooltipManager.prevPage(); this.forceUpdate(); }
+  closeTooltip(): void { this.tooltipManager.closeTooltip(); this.forceUpdate(); }
+  getTotalPages(): number { return this.tooltipManager.getTotalPages(); }
+  getCurrPageNum(): number { return this.tooltipManager.getCurrPageNum(); }
+  getCurrPageContent(): TooltipPage | null { return this.tooltipManager.getCurrPageContent(); }
+  getIsMultiPage(): boolean { return this.tooltipManager.getIsMultiPage(); }
+  getMultiPageProgress(): string { return this.tooltipManager.getMultiPageProgress(); }
+  getIsNextDisabled(): boolean { return this.tooltipManager.getIsNextDisabled(); }
+  getIsPrevDisabled(): boolean { return this.tooltipManager.getIsPrevDisabled(); }
+  getIsClickClock(): boolean { return this.tooltipManager.getIsClickClock(); }
+  doClickClockFlash(waitTimeMilli?: number): void { this.tooltipManager.doClickClockFlash(this.forceUpdate, waitTimeMilli); }
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
   // GAMECLOCK - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getMinuteAngleAcc = (): number => this.gameClock.getMinuteAngleAcc();
-  incrementMinuteAngleAcc = (): void => this.gameClock.incrementMinuteAngleAcc();
-  resetMinuteAngleAcc = (): void => this.gameClock.resetMinuteAngleAcc();
-  getSecondsHandAngle = (): number => this.gameClock.getSecondsHandAngle();
-  resetClock = (): void => this.gameClock.resetClock();
-  getTurnTimeFraction = (): number => this.gameClock.getTurnTimeFraction();
+  getMinuteAngleAcc(): number { return this.gameClock.getMinuteAngleAcc(); }
+  incrementMinuteAngleAcc(): void { this.gameClock.incrementMinuteAngleAcc(); }
+  resetMinuteAngleAcc(): void { this.gameClock.resetMinuteAngleAcc(); }
+  getSecondsHandAngle(): number { return this.gameClock.getSecondsHandAngle(); }
+  resetClock(): void { this.gameClock.resetClock(); }
+  getTurnTimeFraction(): number { return this.gameClock.getTurnTimeFraction(); }
   /** Whether the turn clock's seconds hand is held still right now (a tip showing, the Spell Book open...). */
-  getIsTurnClockHeld = (): boolean => this.gameClock.getIsTurnClockRunning() && this.gameClock.getIsHeld();
-  getClockChimeSeconds = (): number => {
+  getIsTurnClockHeld(): boolean { return this.gameClock.getIsTurnClockRunning() && this.gameClock.getIsHeld(); }
+  getClockChimeSeconds(): number {
     const numTotalMoves = this.placedSpells.spells.reduce((acc, item) => acc + Math.abs(item.speedDirection), 0);
     return Math.max(4, Math.floor(numTotalMoves * PlacedSpells.SPELL_MOVEMENT_DELAY_MILLI / 1000));
   }
@@ -1015,17 +1013,17 @@ export class Game {
 
 
   // GAMEBOARD - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getCellWidth = (): number | null => this.gameBoard.getCellWidth();
-  getBoardRefDimensions = (): DivRefDimensions => this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 };
-  getIsGameBoardDisabled = (): boolean => this.gameBoard.getIsGameBoardDisabled();
-  enableGameBoard = (): void => this.gameBoard.enableBoard();
-  disableGameBoard = (): void => this.gameBoard.disableBoard();
-  isCanPlaceGameSymbolOn = (cell: Cell, player?: Player): boolean => {
+  getCellWidth(): number | null { return this.gameBoard.getCellWidth(); }
+  getBoardRefDimensions(): DivRefDimensions { return this.gameBoard.getBoardRefDimensions() || { width: 0, height: 0, top: 0, left: 0 }; }
+  getIsGameBoardDisabled(): boolean { return this.gameBoard.getIsGameBoardDisabled(); }
+  enableGameBoard(): void { this.gameBoard.enableBoard(); }
+  disableGameBoard(): void { this.gameBoard.disableBoard(); }
+  isCanPlaceGameSymbolOn(cell: Cell, player?: Player): boolean {
     const p = player ? player : this.players.getHumanPlayer();
     if (!p || this.getIsGameBoardDisabled() || !cell.getIsPlaceCell(p)) return false;
     return !getIsBlockedForCasting(cell.getCellIndex(), p.getDirection(), () => !cell.getIsFree(), this.placedSpells.spells);
   }
-  placeSpellOnBoard = async (cell: Cell, _spell?: Spell): Promise<void> => {
+  async placeSpellOnBoard(cell: Cell, _spell?: Spell): Promise<void> {
     const p = this.players.getHumanPlayer();
     if (p && this.isCanPlaceGameSymbolOn(cell, p)) {
       const gameSymbol = p.getGameSymbol();
@@ -1042,7 +1040,7 @@ export class Game {
       }
     }
   }
-  placeSpellAt = (inferenceString: InferenceString, cellIndex: CellIndex, spell?: Spell): void => {
+  placeSpellAt(inferenceString: InferenceString, cellIndex: CellIndex, spell?: Spell): void {
     const p = this.players.getHumanPlayer();
     if (p) {
       this.instantiateGameSymbolFromInferenceString(inferenceString, p);
@@ -1054,20 +1052,20 @@ export class Game {
       }
     }
   }
-  getCellAt = (cellIndex: CellIndex): Cell | null => this.gameBoard.getCellAt(cellIndex);
-  npcGetFutureSpellCollisionRow = (): number => this.gameBoard.npcGetFutureSpellCollisionRow();
+  getCellAt(cellIndex: CellIndex): Cell | null { return this.gameBoard.getCellAt(cellIndex); }
+  npcGetFutureSpellCollisionRow(): number { return this.gameBoard.npcGetFutureSpellCollisionRow(); }
   // GAMEBOARD - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  getIsDoneWithIntroWalk = (): boolean => { const isDone = this.players.getPlayers().every(p => p.getIsDoneWithIntroWalk()); return isDone; }
-  getHasFocus = (): boolean => {
+  getIsDoneWithIntroWalk(): boolean { const isDone = this.players.getPlayers().every(p => p.getIsDoneWithIntroWalk()); return isDone; }
+  getHasFocus(): boolean {
     const humanPlayer = this.players.getHumanPlayer();
     if (humanPlayer) {
       return humanPlayer.getFocus() > 0;
     } else return false;
   }
-  playPlayerDmgSound = (p: Player, dmg: number) => {
+  playPlayerDmgSound(p: Player, dmg: number) {
     const remainingHealth = (p.getHealth() - dmg);
     if (remainingHealth <= 0) {
       // death-cry
@@ -1084,23 +1082,23 @@ export class Game {
       this.audioHandler.startSoundEffect('wizard-Heal');
     }
   }
-  getHumanPlayer = (): Player | null => this.players.getHumanPlayer();
-  getNpcPlayer = (): NPCPlayer | null => this.players.getNpcPlayer();
-  regenFocusForPlayers = () => this.players.regenFocusForPlayers();
-  decrementPlayerHealth = (playerIndex: number, dmg: number): void => {
+  getHumanPlayer(): Player | null { return this.players.getHumanPlayer(); }
+  getNpcPlayer(): NPCPlayer | null { return this.players.getNpcPlayer(); }
+  regenFocusForPlayers() { return this.players.regenFocusForPlayers(); }
+  decrementPlayerHealth(playerIndex: number, dmg: number): void {
     if ([0, 1].includes(playerIndex) && dmg) {
       const p = this.players.getPlayer(playerIndex);
       p.decrementHealth(dmg);
       this.playPlayerDmgSound(p, dmg);
     }
   }
-  getReadiedSpell = (): string | null => this.players.getReadiedSpell();
-  getGameSymbol = (): GameSymbol | null => this.players.getGameSymbol();
-  cancelPlacingSymbol = (player?: Player): void => {
+  getReadiedSpell(): string | null { return this.players.getReadiedSpell(); }
+  getGameSymbol(): GameSymbol | null { return this.players.getGameSymbol(); }
+  cancelPlacingSymbol(player?: Player): void {
     this.players.cancelPlacingSymbol(player);
     this.forceUpdate();
   }
-  getIsComputerPlayerDoneWithTurn = (): boolean => {
+  getIsComputerPlayerDoneWithTurn(): boolean {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       // (waiting for the player to cast first counts as done, so the player can end the turn)
@@ -1108,19 +1106,19 @@ export class Game {
     }
     return false; // default to false...
   }
-  setIsDoneWithTurn = (isDoneWithTurn: boolean, player: Player): void => {
+  setIsDoneWithTurn(isDoneWithTurn: boolean, player: Player): void {
     player.setIsDoneWithTurn(isDoneWithTurn);
   }
-  setIsDoneWithIntroWalk = (bool?: boolean): void => { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
-  beginIntroWalk = (): void => { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
+  setIsDoneWithIntroWalk(bool?: boolean): void { this.players.getPlayers().forEach(p => p.setIsDoneWithIntroWalk(bool)); this.forceUpdate(); }
+  beginIntroWalk(): void { this.players.getPlayers().forEach(p => p.setIsBeginIntroWalk(true)); this.forceUpdate(); }
   // PLAYERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
   // SPELL CANVAS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  beginDrawing = (): void => { this.spellCanvas.setIsDrawing(true); this.isNewStroke = true; this.lastStrokeUnits = null; };
-  endDrawing = (): void => { this.spellCanvas.setIsDrawing(false); this.endLocalStroke(); };
-  getIsDrawing = (): boolean => this.spellCanvas.getIsDrawing();
-  getPlayerRawPoints = (): Array<Point> => this.spellCanvas.getRawPoints();
+  beginDrawing(): void { this.spellCanvas.setIsDrawing(true); this.isNewStroke = true; this.lastStrokeUnits = null; }
+  endDrawing(): void { this.spellCanvas.setIsDrawing(false); this.endLocalStroke(); }
+  getIsDrawing(): boolean { return this.spellCanvas.getIsDrawing(); }
+  getPlayerRawPoints(): Array<Point> { return this.spellCanvas.getRawPoints(); }
   addRawPoint(x: number, y: number): void {
     this.noteLocalStrokePoint(x, y); // (2-player: sent to the rival, as it's drawn)
     const nextPoint = { x, y };
@@ -1150,13 +1148,13 @@ export class Game {
 
   // PLACED SPELLS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   /** Moves the spells for the turn; returns whether any collided. */
-  updatePlacedSpells = async (): Promise<boolean> => {
+  async updatePlacedSpells(): Promise<boolean> {
     // uses a generator/iterator
-    return this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth);
+    return this.placedSpells.updateSpells(this.gameBoard, this.forceUpdate, this.decrementPlayerHealth.bind(this));
   }
 
   // Called "onMouseUp"
-  runInference = async (mouseCoords?: Point): Promise<void> => {
+  async runInference(mouseCoords?: Point): Promise<void> {
     if (mouseCoords && this.spellCanvas.getNumPoints() == 0) {
       // IF "CLICK" -> place num key spell or Fireball if no spell readied
       const cellIndex = this.gameBoard.getCellIndexFromScreenCoord(mouseCoords.x, mouseCoords.y);
@@ -1248,7 +1246,7 @@ export class Game {
   /**
  * Filters cell lists to discard accidental clipping boundaries based on point counts
  */
-  private filterDominantCells = (points: Array<{ x: number; y: number }>): CellIndex[] => {
+  private filterDominantCells(points: Array<{ x: number; y: number }>): CellIndex[] {
     if (points.length === 0) return [];
 
     const cellFrequency: Map<string, { count: number; index: CellIndex }> = new Map();
@@ -1290,10 +1288,10 @@ export class Game {
     }
 
     return dominantCells;
-  };
+  }
 
   /** Whether a cell is taken (by a placed spell, or marked on the board). */
-  private getIsCellOccupied = (index: CellIndex): boolean => {
+  private getIsCellOccupied(index: CellIndex): boolean {
     const cell = this.gameBoard.getCellAt(index);
     if (!cell || !cell.getIsFree() || cell.getSpell() !== null) return true;
     return this.placedSpells.spells.some(s => {
@@ -1302,18 +1300,18 @@ export class Game {
       if (!root) return false;
       return index.i >= root.i && index.i < root.i + s.heightCells && index.j >= root.j && index.j < root.j + s.widthCells;
     });
-  };
+  }
 
   /**
    * Casts a drawn spell: where it lands, its shapes and its focus cost come from the shared
    * casting rules (GameRules/gameRules.ts); this adds the effects (blood magic, sound).
    */
-  private spawnSizedSpellInstance = (symbol: string, cells: CellIndex[], activeCaster: any): void => {
+  private spawnSizedSpellInstance(symbol: string, cells: CellIndex[], activeCaster: any): void {
     if (cells.length === 0 || !activeCaster) return;
     const spell = GameSymbol.SPELL_LOOKUP.get(symbol.toLowerCase() as InferenceString);
     if (!spell) return;
 
-    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied, this.placedSpells.spells);
+    const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied.bind(this), this.placedSpells.spells);
     const placed = createPlacedSpells(spell as SpellClass, rects, activeCaster);
     placed.forEach(s => this.placedSpells.addSpell(s));
 
@@ -1331,10 +1329,10 @@ export class Game {
     }
     this.placedSpells.combineSpellsMaximally(this.gameBoard);
     this.placedSpells.resolveCastCollisions(this.gameBoard, this.forceUpdate);
-  };
+  }
 
 
-  instantiateGameSymbolFromInferenceString = (inferenceString: InferenceString, player?: Player): void => {
+  instantiateGameSymbolFromInferenceString(inferenceString: InferenceString, player?: Player): void {
     const p = player ? player : this.players.getHumanPlayer();
     if (p) {
       const gameSymbol = proxy(new GameSymbol(inferenceString, p));
@@ -1353,18 +1351,18 @@ export class Game {
 
 
   // NPC PLAYER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-  getNpcDifficulty = (): NpcDifficulty => {
+  getNpcDifficulty(): NpcDifficulty {
     const npc = this.players.getNpcPlayer();
     if (npc) return npc.difficulty;
     else return 'Normal'
   }
-  setNpcDifficulty = (difficulty: NpcDifficulty): void => {
+  setNpcDifficulty(difficulty: NpcDifficulty): void {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.setNpcDifficulty(difficulty)
     }
   }
-  cycleThroughDifficulties = (): void => {
+  cycleThroughDifficulties(): void {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.cycleThroughDifficulties();
@@ -1374,7 +1372,7 @@ export class Game {
   /** At most this long (ms) for the NPC's turn: after it, it's ended (a safety net, so a stalled NPC can never lock the clock). */
   static readonly NPC_TURN_LIMIT_MILLI = 30000;
 
-  doNpcMove = (): void => {
+  doNpcMove(): void {
     const npc = this.players.getNpcPlayer();
     if (!npc) return;
     const token = this.turnToken;
@@ -1393,25 +1391,25 @@ export class Game {
       this.doTrainedNpcMove(npc);
       return;
     }
-    npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate);
   }
 
   /** The game as the NPC's brain sees it: the same view a trained model saw in training. */
-  getNpcGameView = (): GameView => {
+  getNpcGameView(): GameView {
     const [humanPlayer, npcPlayer] = this.players.getPlayers();
     return {
       spells: this.placedSpells.spells.filter(s => !s.getIsRemove()),
       players: [humanPlayer, npcPlayer],
       turnsElapsed: this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle(),
       gameOver: this.gameOver,
-      getIsOccupied: this.getIsCellOccupied,
+      getIsOccupied: this.getIsCellOccupied.bind(this),
       // (on turns the NPC waits for the player, it moves second, having seen their casts)
       isMovingSecond: this.getIsNpcWaitingThisTurn(),
     };
   }
 
   /** The trained NPC casts spell after spell (each drawn as usual) until it chooses to end its turn. */
-  private doTrainedNpcMove = async (npc: NPCPlayer, token: number = this.turnToken): Promise<void> => {
+  private async doTrainedNpcMove(npc: NPCPlayer, token: number = this.turnToken): Promise<void> {
     if (!this.getIsTurnStill(token)) return; // (its turn is over)
     const endNpcTurn = () => { npc.setIsDoneWithTurn(true); this.forceUpdate(); };
     if (this.gameOver !== null || npc.getIsDead()) return endNpcTurn();
@@ -1421,14 +1419,14 @@ export class Game {
     } catch (err) {
       // The model failed (it shouldn't): a random move instead, so the NPC's turn always ends
       console.error('The NPC model failed; playing a random move', err);
-      npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate);
+      npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate);
       return;
     }
     if (!cast) return endNpcTurn();
-    npc.doNpcMove(this.gameBoard, this.filterDominantCells, this.spawnSizedSpellInstance, this.isCanPlaceGameSymbolOn, this.getCellAt, this.forceUpdate,
+    npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this), this.forceUpdate,
       { ...cast, onCast: () => setTimeout(() => this.doTrainedNpcMove(npc, token), 300) });
   }
-  getNPCMoveData = (): Array<NPCMoveData> => {
+  getNPCMoveData(): Array<NPCMoveData> {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       return npc.getNPCMoveData();
@@ -1436,7 +1434,7 @@ export class Game {
       return [];
     }
   }
-  getNPCMoveDatum = (i: number): NPCMoveData | null => {
+  getNPCMoveDatum(i: number): NPCMoveData | null {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       return npc.getNPCMoveDatum(i)
@@ -1444,26 +1442,26 @@ export class Game {
       return null;
     }
   }
-  getNpcMousePos = (): Point => {
+  getNpcMousePos(): Point {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       return npc.getNpcMousePos();
     }
     return { x: 0, y: 0 };
   }
-  setNpcMousePos = (npcMousePos: Point) => {
+  setNpcMousePos(npcMousePos: Point) {
     const npc = this.players.getNpcPlayer();
     if (npc) {
       npc.setNpcMousePos(npcMousePos);
     }
   }
-  getNpcDrawingPoints = (): Array<Point> | null => {
+  getNpcDrawingPoints(): Array<Point> | null {
     const npc = this.players.getNpcPlayer();
     if (npc)
       return npc.getNpcDrawingPoints();
     return null
   }
-  resetNpcMove = (): void => {
+  resetNpcMove(): void {
     const npc = this.players.getNpcPlayer();
     if (npc)
       npc.resetNpcMove();

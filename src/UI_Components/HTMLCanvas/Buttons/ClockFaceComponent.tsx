@@ -269,7 +269,7 @@ export default function ClockFaceComponent() {
       $isDisabled={isGameBoardDisabled || isComputerPlayerDoingTurn || isAnyPlayerDead}
       $isFlashClock={!isComputerPlayerDoingTurn} // (hovering pauses it in CSS, rather than removing it)
       $isDoneWithIntro={isDoneWithIntro}
-      onClick={rootGameStore.endTurn}
+      onClick={() => rootGameStore.endTurn()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-click-type="ui-buttons"

@@ -40,103 +40,103 @@ export class Player extends UniqueId {
 
   // --- Getters ---
 
-  getGameSymbol = (): GameSymbol | null => {
+  getGameSymbol(): GameSymbol | null {
     return this.gameSymbol;
   }
 
-  getIsDead = (): boolean => {
+  getIsDead(): boolean {
     return this.healthAmt <= 0;
-  };
+  }
 
-  getHealth = (): number => {
+  getHealth(): number {
     return this.healthAmt;
-  };
+  }
 
-  getHealthPrct = (): number => {
+  getHealthPrct(): number {
     return (this.healthAmt / Player.MAX_HEALTH_AMT) * 100
   }
 
   // focus restored between turns
-  getFocusRegenAmt = (): number => {
+  getFocusRegenAmt(): number {
     return Player.FOCUS_REGEN_AMT;
-  };
+  }
 
   // focus restored between turns
-  getBloodMagicCost = (): number => {
+  getBloodMagicCost(): number {
     return Player.BLOOD_MAGIC_COST;
-  };
+  }
 
   // current amt of focus player has
-  getFocus = (): number => {
+  getFocus(): number {
     return this.focusAmt;
-  };
+  }
 
   // normal max or cap on focus
-  getMaxFocus = (): number => {
+  getMaxFocus(): number {
     return Player.MAX_FOCUS_AMT;
-  };
+  }
 
   // excess focus allowed above normal max
-  getMaxExcessFocus = (): number => {
+  getMaxExcessFocus(): number {
     return Player.MAX_EXCESS_FOCUS_AMT;
-  };
+  }
 
-  getDirection = (): number => {
+  getDirection(): number {
     return this.direction;
   }
 
-  getIsDoneWithTurn = (): boolean => {
+  getIsDoneWithTurn(): boolean {
     return this.isDoneWithTurn;
   }
 
-  getIsBeginIntroWalk = (): boolean => {
+  getIsBeginIntroWalk(): boolean {
     return this.isBeginIntroWalk;
   }
 
-  setIsBeginIntroWalk = (isBegin?: boolean): void => {
+  setIsBeginIntroWalk(isBegin?: boolean): void {
     this.isBeginIntroWalk = typeof isBegin == 'boolean' ? isBegin : true;
   }
 
-  getIsDoneWithIntroWalk = (): boolean => {
+  getIsDoneWithIntroWalk(): boolean {
     return this.isDoneWithIntroWalk;
   }
 
-  setIsDoneWithIntroWalk = (isDone?: boolean): void => {
+  setIsDoneWithIntroWalk(isDone?: boolean): void {
     this.isDoneWithIntroWalk = typeof isDone == 'boolean' ? isDone : true;
   }
 
-  setIsDoneWithTurn = (isDoneWithTurn: boolean): void => {
+  setIsDoneWithTurn(isDoneWithTurn: boolean): void {
     this.isDoneWithTurn = isDoneWithTurn;
   }
 
   // --- State Changers ---
 
-  setGameSymbol = (gameSymbol: GameSymbol | null): void => {
+  setGameSymbol(gameSymbol: GameSymbol | null): void {
     this.gameSymbol = gameSymbol;
   }
 
   /**
    * Deducts health points. Pass a negative number to heal the player.
    */
-  decrementHealth = (healthDecrement: number): void => {
+  decrementHealth(healthDecrement: number): void {
     this.healthAmt -= healthDecrement;
     // clamp values between 0 and max
     this.healthAmt = Math.min(Math.max(this.healthAmt, 0), Player.MAX_HEALTH_AMT);
-  };
+  }
 
   /**
    * Deducts focus points. Pass a negative number to regenerate focus.
    */
-  decrementFocus = (focusDecrement: number): void => {
+  decrementFocus(focusDecrement: number): void {
     this.focusAmt -= focusDecrement;
     // clamp values between 0 and max
     this.focusAmt = Math.min(Math.max(this.focusAmt, 0), Player.MAX_FOCUS_AMT + Player.MAX_EXCESS_FOCUS_AMT);
-  };
+  }
 
   /**
    * Reduces focus to zero.
    */
-  depleteFocusToZero = (): void => {
+  depleteFocusToZero(): void {
     this.focusAmt = 0;
   }
 
@@ -152,7 +152,7 @@ export class Player extends UniqueId {
   * Decrements that amount of Focus from the Player
   * Returns the Health cost (if any) for the Spell.
   */
-  incurPlayerCostForSpell = (focusCost: number): number => {
+  incurPlayerCostForSpell(focusCost: number): number {
     // (the cast's cap, if any, is in gameRules.getFocusCost)
     const cost = Math.max(1, Math.ceil(focusCost));
     if (this.getFocus() >= cost) {
