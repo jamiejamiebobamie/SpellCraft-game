@@ -22,7 +22,8 @@ const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }],
     // (nudged up, clear of the description's last line)
     Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }],
-    Phlegm: [{ text: 'patches you up', place: 'below', tilt: -3 }],
+    // (and under the description, to the left)
+    Phlegm: [{ text: 'patches you up', place: 'below', tilt: -3 }, { text: '2x3 cells = heal self', place: 'at', tilt: -3, at: { x: 0.25, y: 0.68 } }],
     // (and under the description, to the left)
     GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
     GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
