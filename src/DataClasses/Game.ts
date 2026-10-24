@@ -19,7 +19,7 @@ import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDi
 import { proxy, ref } from 'valtio';
 import { TURN_CLOCK } from './GameClock/GameClock';
 import { MatchMessage, MultiplayerSession } from './Multiplayer/MultiplayerSession';
-import { EMOTES, EMOTE_CLEAR, EMOTE_TIMING } from './Multiplayer/emotes';
+import { EMOTES, EMOTE_TIMING } from './Multiplayer/emotes';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES, getSeededRandom } from './GameRules/gameRules';
@@ -190,7 +190,7 @@ export class Game {
       this.processRivalQueue();
     }
     if (message.type === 'stroke') this.addRivalStroke(message.points, message.isNew);
-    if (message.type === 'emote' && (EMOTES.includes(message.emoji) || message.emoji === EMOTE_CLEAR)) this.showEmote('rival', message.emoji);
+    if (message.type === 'emote' && EMOTES.includes(message.emoji)) this.showEmote('rival', message.emoji);
     if (message.type === 'strokeEnd') { this.rivalStrokeEndedAt = performance.now(); }
     if (message.type === 'check') {
       this.rivalFingerprints.set(message.turn, message.fingerprint);
@@ -329,16 +329,15 @@ export class Game {
 
   // Emoji reactions (2-player): one shows over a wizard's head for a moment (EmoteBubble); this player
   // waits a moment between sending them
-  private emotes: Record<'self' | 'rival', { id: number; emoji: string } | null> = { self: null, rival: null };
+  private emotes: Record<'self' | 'rival', { id: number; emoji: string; at: number } | null> = { self: null, rival: null }; // (at: when, performance.now())
   private emoteCount = 0;
   private isEmoteCooling = false;
-  getEmote(side: 'self' | 'rival'): { id: number; emoji: string } | null { return this.emotes[side]; }
+  getEmote(side: 'self' | 'rival'): { id: number; emoji: string; at: number } | null { return this.emotes[side]; }
   getIsEmoteCooling(): boolean { return this.isEmoteCooling; }
 
-  /** This player sends an emoji (shown over its own head here too), or EMOTE_CLEAR (theirs taken down), unless still cooling down. */
+  /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
   sendEmote(emoji: string): void {
-    if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !(EMOTES.includes(emoji) || emoji === EMOTE_CLEAR)) return;
-    if (this.getIsAtRisk('self')) return; // (their status is the frightened face until they're not at risk)
+    if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
     this.session?.send({ type: 'emote', emoji });
     this.showEmote('self', emoji);
     this.isEmoteCooling = true;
@@ -346,8 +345,7 @@ export class Game {
   }
 
   private showEmote(side: 'self' | 'rival', emoji: string): void {
-    if (emoji === EMOTE_CLEAR) { this.emotes[side] = null; return; }
-    const emote = { id: ++this.emoteCount, emoji };
+    const emote = { id: ++this.emoteCount, emoji, at: performance.now() };
     this.emotes[side] = emote;
     if (EMOTE_TIMING.showSeconds <= 0) return; // (a status: up until the next)
     window.setTimeout(() => {
@@ -678,11 +676,11 @@ export class Game {
   // THE TEACHER AT DAWN (TeacherCatch.tsx): sides are 'self' (this player's wizard, on the left) and 'rival'
   private catchScene: { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null = null;
   private lanternPass: { id: number; side: 'self' | 'rival' } | null = null;
-  private phew: { id: number; side: 'self' | 'rival' } | null = null;
+  private phew: { id: number; side: 'self' | 'rival'; at: number } | null = null; // (at: when, performance.now())
   private teacherCount = 0;
   getCatchScene(): { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null { return this.catchScene; }
   getLanternPass(): { id: number; side: 'self' | 'rival' } | null { return this.lanternPass; }
-  getPhew(): { id: number; side: 'self' | 'rival' } | null { return this.phew; }
+  getPhew(): { id: number; side: 'self' | 'rival'; at: number } | null { return this.phew; }
 
   /** In the risky turns (from first light), the weaker wizard (whom a teacher would catch); null: even, or not yet. */
   getAtRiskSide(): 'self' | 'rival' | 'both' | null {
@@ -770,7 +768,7 @@ export class Game {
     const match = this.matchNumber;
     window.setTimeout(() => {
       if (this.matchNumber !== match) return;
-      this.phew = { id: pass.id, side };
+      this.phew = { id: pass.id, side, at: performance.now() };
     }, LANTERN_PASS.phewDelaySeconds * 1000);
     window.setTimeout(() => {
       if (this.matchNumber !== match) return;

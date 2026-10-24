@@ -168,19 +168,23 @@ const StatusText = styled.div<{ $isStaying: boolean }>`
     : css`animation: ${emoteFade} ${EMOTE_TIMING.showSeconds}s ease-out forwards;`}
 `;
 
-/** Placed over a wizard (in a frame the size of its avatar, not moving with it): its status emoji, if any. */
+/**
+ * Placed over a wizard (in a frame the size of its avatar, not moving with it): one emoji, the newest of
+ * those showing: a 2-player reaction (for EMOTE_TIMING.showSeconds) or the relief when a risky turn passes
+ * them by (LANTERN_PASS), else the frightened face while a teacher would catch them. Each pops in as it
+ * takes over, and the frightened face returns once the others are done.
+ */
 export function StatusEmoji({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
   if (snap.getIsMatchOver()) return null; // (the match over: none)
-  if (snap.getIsAtRisk(side)) {
-    // (a risky turn just passed them by: relieved for a moment, both if both were at risk)
-    const phew = snap.getPhew();
-    const isRelieved = phew !== null && (phew.side === side || snap.getAtRiskSide() === 'both');
-    return isRelieved
-      ? <StatusText key={`relieved:${phew.id}`} $isStaying={true}>{STATUS_EMOJI.relieved}</StatusText>
-      : <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
-  }
+  const isAtRisk = snap.getIsAtRisk(side);
+  // (the relief: for whoever the risky turn passed by, both if both were at risk)
+  const phew = snap.getPhew();
+  const relief = isAtRisk && phew !== null && (phew.side === side || snap.getAtRiskSide() === 'both') ? phew : null;
   const emote = snap.getEmote(side);
-  if (!emote) return null;
-  return <StatusText key={emote.id} $isStaying={EMOTE_TIMING.showSeconds <= 0}>{emote.emoji}</StatusText>;
+  if (emote && (!relief || emote.at > relief.at)) {
+    return <StatusText key={`emote:${emote.id}`} $isStaying={EMOTE_TIMING.showSeconds <= 0}>{emote.emoji}</StatusText>;
+  }
+  if (relief) return <StatusText key={`relieved:${relief.id}`} $isStaying={true}>{STATUS_EMOJI.relieved}</StatusText>;
+  return isAtRisk ? <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText> : null;
 }
