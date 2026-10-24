@@ -17,6 +17,7 @@ export const MASK_VORTEX = {
   pixels: 320,
   twist: 2.4,
   arms: 3,
+  speed: 1, // (how fast it all turns: 2, twice as fast; 0.5, half)
   seconds: 40,
   innerSeconds: 22,
   colors: { black: [0, 0, 0], midnight: [20, 30, 78], backlight: [190, 170, 245] },
@@ -114,7 +115,7 @@ const Layer = styled.img<{ $seconds: number; $inset: number; $opacity: number }>
 export const MaskVortex = () => {
   const src = useMemo(() => vortexImage ?? (vortexImage = drawVortex()), []);
   return <>
-    <Layer src={src} alt='' aria-hidden $seconds={MASK_VORTEX.seconds} $inset={0} $opacity={MASK_VORTEX.opacity} />
-    <Layer src={src} alt='' aria-hidden $seconds={MASK_VORTEX.innerSeconds} $inset={22} $opacity={0.6 * MASK_VORTEX.opacity} />
+    <Layer src={src} alt='' aria-hidden $seconds={MASK_VORTEX.seconds / MASK_VORTEX.speed} $inset={0} $opacity={MASK_VORTEX.opacity} />
+    <Layer src={src} alt='' aria-hidden $seconds={MASK_VORTEX.innerSeconds / MASK_VORTEX.speed} $inset={22} $opacity={0.6 * MASK_VORTEX.opacity} />
   </>;
 };

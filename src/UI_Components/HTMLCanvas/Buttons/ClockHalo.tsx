@@ -33,10 +33,10 @@ export const CLOCK_HALO = {
   // ribbon at its own moment), `strength` toward white where it faces you, `width` (fraction of its length)
   // brightness: the sheen's own brightness (scales strength), apart from the ribbon's
   ribbonSheen: { seconds: 2.6, strength: 0.55, width: 0.12, brightness: 1 },
-  // The ribbons' own look, apart from the long rays: opacity (1: completely opaque), how much they fade
+  // The ribbons' own look, apart from the long rays: opacity (1: completely opaque; on the landing page, and in play), how much they fade
   // toward their tips (0: not at all, 1: to nothing), and brightness (multiplying their colors): on the
   // landing page, and in play (where the scene starts dark, so they're brightened to stay vivid)
-  ribbonLook: { opacity: 0.75, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
+  ribbonLook: { opacity: { landing: 0.75, play: 0.75 }, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
   // How far the ribbons reach: the short rays' shape (short on top, longest straight down, as the long
   // rays), stretched out to the sides along the walls by `sideStretch` (0: none; 1: twice as far at the
   // sides), top and bottom as they were. (Keep the sides short of the doorways, about 32 cqw out.)
@@ -397,7 +397,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
           const ribbonBrightness = isPlayLook ? ribbonLook.brightness.play : ribbonLook.brightness.landing;
           const { rays: rayColors, ribbons: ribbonColors } = isPlayLook ? playColors : landingColors;
           const rayColor = ray.ribbon ? shade(ribbonColors[k % ribbonColors.length], ribbonBrightness) : rayColors[k % rayColors.length];
-          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? ribbonLook.opacity : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
+          drawRay(ctx, ray, base, tip, (radiusPx * ray.width) / 2, rayColor, (ray.ribbon ? (isPlayLook ? ribbonLook.opacity.play : ribbonLook.opacity.landing) : rayOpacity) * Math.min(1, open * 1.5), flow + k * 0.37, ribbonAmount,
             ray.ribbon ? ((seconds / CLOCK_HALO.ribbonSheen.seconds + k * 0.29) % 1) * 1.4 - 0.2 : -1,
             ray.ribbon ? ribbonLook.tipFade : 1,
             ray.ribbon ? { seconds, phase: flowPhase, pace } : undefined,

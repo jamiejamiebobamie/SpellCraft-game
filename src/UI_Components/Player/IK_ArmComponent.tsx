@@ -50,7 +50,7 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingR
         if (t >= FLAIL.fromSeconds && t <= FLAIL.fromSeconds + FLAIL.seconds) {
           wandPoint = getFlurryWandPoint(caught.sceneId, direction == 1 ? 'self' : 'rival', t);
           if (!wandPoint) {
-            setTheta(FLAIL.swings.map(([rest, sway, speed], k) => rest + sway * Math.sin(t * speed + k * 1.7)));
+            setTheta(FLAIL.swings.map(([rest, sway, speed], k) => rest + sway * FLAIL.wildness * Math.sin(t * speed * FLAIL.frantic + k * 1.7)));
             lastTheta = [NaN, NaN, NaN];
             animationFrameId = requestAnimationFrame(updateArmIK);
             return;

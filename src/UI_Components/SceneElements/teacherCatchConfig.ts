@@ -31,10 +31,13 @@ export const CATCH_SCENE_TOTAL_SECONDS = CATCH_TIMES.stamp + CATCH_SCENE.stampSe
  * out (fadeSeconds); of every size, overlapping (size: [smallest, largest], % of the wizard's frame; turn: up
  * to so many degrees either way; area: where they may be drawn, as fractions of the game: across, from their edge
  * of the hall to a quarter onto their side of the board, and anywhere down the screen). And their wand arm (FLAIL: from the lift's middle into the drag): tracing
- * each symbol as it's drawn, flailing between (swings: each joint's [rest, sway, speed], degrees).
+ * each symbol as it's drawn, flailing between (swings: each joint's [rest, sway, speed], degrees; frantic: the
+ * flailing's speed, 2 twice as fast; wildness: its reach, 2 twice as wide).
  */
 export const CAST_FLURRY = { perSecond: 1.8, drawSeconds: 0.3, holdSeconds: 0.7, fadeSeconds: 0.9, size: [25, 150], turn: 180, area: { self: [0.02, 0.36], rival: [0.64, 0.98], y: [0, 1] } };
 export const FLAIL = {
+  frantic: 1,
+  wildness: 1,
   fromSeconds: CATCH_TIMES.lift + CATCH_SCENE.liftSeconds * 0.4,
   seconds: CATCH_SCENE.liftSeconds * 0.6 + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds * 0.6,
   swings: [[-15, 22, 9], [-25, 38, 13], [-30, 42, 17]],
