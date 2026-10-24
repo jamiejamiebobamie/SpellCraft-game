@@ -3,6 +3,7 @@ import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import StarrySkyComponent from './SceneElements/StarrySkyComponent';
+import { SillBirds } from './SceneElements/DawnBirds';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import TooltipModalComponent from './TooltipModalComponent';
 import LightTipLayer from './LightTipCard';
@@ -283,6 +284,7 @@ export const GameComponent = () => {
       backgroundSceneBrightness={backgroundSceneBrightness}
       right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
+    <SillBirds />
     <LanternLight />
   </>;
 

@@ -4,6 +4,7 @@ import { getDawnLight } from '../../DataClasses/GameRules/gameRules';
 import { rootGameStore } from '../../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { keyframes } from 'styled-components';
+import { SkyBirds } from './DawnBirds';
 
 const twinkle = keyframes`
   0%, 100% {
@@ -157,6 +158,7 @@ const StarrySkyComponent = ({ index }: { index: number }) => {
                     />
                 )
             )}
+            <SkyBirds />
         </SkyContainer>
     );
 };

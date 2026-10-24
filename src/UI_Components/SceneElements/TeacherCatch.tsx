@@ -94,10 +94,10 @@ export function LanternLight() {
 }
 
 const stampOn = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -50%) rotate(14deg) scale(2.6); }
-  35% { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(0.92); }
-  45% { transform: translate(-50%, -50%) rotate(8deg) scale(1.04); }
-  55%, 100% { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
+  35% { opacity: 1; transform: translate(-50%, -50%) scale(0.92); }
+  45% { transform: translate(-50%, -50%) scale(1.04); }
+  55%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 `;
 
 const Stamp = styled.div`
@@ -108,7 +108,7 @@ const Stamp = styled.div`
   pointer-events: none;
   white-space: nowrap;
   font-family: 'EnchantedLand', sans-serif;
-  font-size: 11cqw;
+  font-size: 15cqw;
   line-height: 1;
   color: #8a0303; /* blood red */
   -webkit-text-stroke: 0.12cqw #2a0000;
