@@ -53,28 +53,102 @@ const Screen = styled.div`
   background: radial-gradient(ellipse 70% 75% at 50% 55%, rgba(0, 0, 0, ${MODE_SELECT.dim}) 0%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.6}) 60%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.35}) 100%);
 `;
 
+const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
+// (the inner frame and its diamonds: a matte, muted black-brown; its hover a shade lighter)
+const FRAME_MATTE = '#2b2119', FRAME_MATTE_HOVER = '#3d2f23';
+// (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
+const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
+// (the title's gold: lit from the top left)
+const TITLE_GRADIENT = `linear-gradient(135deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
+
 const Title = styled.div`
+  position: relative;
+  isolation: isolate; /* (the sfumato behind the lettering, not the scene) */
   font-family: 'EnchantedLand', sans-serif;
   font-size: ${MODE_SELECT.titleSize}cqw;
-  color: #e6c563;
-  text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
   ${MODE_SELECT.titlePlace === 'topLeft' && `position: absolute; left: ${MODE_SELECT.titleInset.x}cqw; top: ${MODE_SELECT.titleInset.y}cqw;`}
 `;
 
-/** A stretch of the title with the underline beneath it (the letter it breaks at has none). */
-const Underlined = styled.span`
-  background: linear-gradient(currentColor, currentColor) no-repeat;
+/**
+ * The title's lettering: the gold (TITLE_GRADIENT) showing through the letters, with a soft gold glow and a
+ * shadow beneath (a filter: a text-shadow would muddy the gold).
+ */
+const TitleLettering = styled.span`
+  position: relative;
+  background: ${TITLE_GRADIENT};
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 1.2cqw rgba(230, 197, 99, 0.3)) drop-shadow(0 0.2cqw 0.35cqw rgba(0, 0, 0, 0.85));
+`;
+
+/**
+ * A stretch of the title with the underline beneath it (the letter it breaks at has none): the line's gold
+ * running bright to deep across both stretches, as the light falls from the top left ($from, $to: where
+ * along it this stretch begins and ends, %).
+ */
+const Underlined = styled.span<{ $from: number; $to: number }>`
+  background: linear-gradient(90deg,
+    color-mix(in srgb, ${GOLD_BRIGHT} ${props => 100 - props.$from}%, ${GOLD_DEEP}),
+    color-mix(in srgb, ${GOLD_BRIGHT} ${props => 100 - props.$to}%, ${GOLD_DEEP})) no-repeat;
   background-size: 100% ${MODE_SELECT.titleUnderline.thickness}cqw;
   background-position: 0 calc(100% - ${-MODE_SELECT.titleUnderline.drop}cqw);
 `;
+
+/**
+ * The darkness behind the title, sfumato: soft dark strokes (brushed sideways by a noise, then blurred), so
+ * the title reads over the hall. Larger than the title (inset, cqw), behind it.
+ */
+const SFUMATO = { inset: { x: -8, y: -5 }, opacity: 1 };
+const SfumatoSvg = styled.svg`
+  position: absolute;
+  left: ${SFUMATO.inset.x}cqw;
+  right: ${SFUMATO.inset.x}cqw;
+  top: ${SFUMATO.inset.y}cqw;
+  bottom: ${SFUMATO.inset.y}cqw;
+  width: calc(100% - ${2 * SFUMATO.inset.x}cqw);
+  height: calc(100% - ${2 * SFUMATO.inset.y}cqw);
+  z-index: -1;
+  opacity: ${SFUMATO.opacity};
+  pointer-events: none;
+  overflow: visible;
+`;
+const TitleSfumato = () => (
+  <SfumatoSvg viewBox='0 0 400 120' preserveAspectRatio='none' aria-hidden='true'>
+    <defs>
+      <radialGradient id='sfumato-dark'>
+        <stop offset='0%' stopColor='#000' stopOpacity='1' />
+        <stop offset='60%' stopColor='#000' stopOpacity='0.9' />
+        <stop offset='100%' stopColor='#000' stopOpacity='0' />
+      </radialGradient>
+      {/* (the strokes' edges roughened sideways, like a dry brush, then softened) */}
+      <filter id='sfumato-brush' x='-20%' y='-50%' width='140%' height='200%'>
+        <feTurbulence type='fractalNoise' baseFrequency='0.012 0.11' numOctaves='3' seed='7' result='noise' />
+        <feDisplacementMap in='SourceGraphic' in2='noise' scale='34' xChannelSelector='R' yChannelSelector='G' result='brushed' />
+        <feGaussianBlur in='brushed' stdDeviation='4.5' />
+      </filter>
+    </defs>
+    <g filter='url(#sfumato-brush)'>
+      <ellipse cx='200' cy='62' rx='190' ry='46' fill='url(#sfumato-dark)' />
+      <ellipse cx='150' cy='46' rx='150' ry='24' fill='url(#sfumato-dark)' opacity='0.75' />
+      <ellipse cx='255' cy='78' rx='145' ry='20' fill='url(#sfumato-dark)' opacity='0.7' />
+      <ellipse cx='90' cy='66' rx='85' ry='30' fill='url(#sfumato-dark)' opacity='0.6' />
+    </g>
+  </SfumatoSvg>
+);
 
 /** The title, underlined if titleUnderline.isOn: the line broken in two at its breakAt letter. */
 const TitleText = () => {
   const { title, titleUnderline } = MODE_SELECT;
   const at = title.indexOf(titleUnderline.breakAt);
-  if (!titleUnderline.isOn) return <>{title}</>;
-  if (at < 0) return <Underlined>{title}</Underlined>;
-  return <><Underlined>{title.slice(0, at)}</Underlined>{title[at]}<Underlined>{title.slice(at + 1)}</Underlined></>;
+  const lettering = (() => {
+    if (!titleUnderline.isOn) return <>{title}</>;
+    if (at < 0) return <Underlined $from={0} $to={100}>{title}</Underlined>;
+    // (the line's gold continuing across the break: each stretch its share, by its letters)
+    const split = Math.round(at / title.length * 100);
+    return <><Underlined $from={0} $to={split}>{title.slice(0, at)}</Underlined>{title[at]}<Underlined $from={split} $to={100}>{title.slice(at + 1)}</Underlined></>;
+  })();
+  return <><TitleSfumato /><TitleLettering>{lettering}</TitleLettering></>;
 };
 
 const Choices = styled.div`
@@ -82,11 +156,6 @@ const Choices = styled.div`
   gap: ${4 * MODE_SELECT.choiceScale}cqw;
 `;
 
-const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
-// (the inner frame and its diamonds: a matte, muted black-brown; its hover a shade lighter)
-const FRAME_MATTE = '#2b2119', FRAME_MATTE_HOVER = '#3d2f23';
-// (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
-const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
 
 // The light sweeping across a choice on hover
 const sheen = keyframes`

@@ -730,6 +730,7 @@ export class Game {
     console.log('Game over preview:', name);
     this.gameOver = null;
     this.catchScene = null;
+    this.isRivalLeft = status === GameOverStatus.EnemyFled; // (as a real flight: no rematch, Back only)
     this.gameClock.stopTurnClock();
     this.disableGameBoard();
     window.setTimeout(() => { this.gameOver = status; }, 60); // (a moment with none, so the card's animations start afresh)
