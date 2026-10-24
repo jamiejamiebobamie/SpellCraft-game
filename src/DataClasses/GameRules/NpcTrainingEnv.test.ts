@@ -48,7 +48,7 @@ describe('actions', () => {
 
   it('are only legal with focus left and a free cell under the drawing', () => {
     const sim = new GameSimulation();
-    expect(getActionMask(sim, PLAYER_INDEX).filter(Boolean)).toHaveLength(NUM_ACTIONS); // empty board
+    expect(getActionMask(sim, PLAYER_INDEX).filter(Boolean)).toHaveLength(NUM_ACTIONS - 4); // empty board (all but the 4 mixed-size Fireballs)
     sim.cast(PLAYER_INDEX, 'Ether', [{ i: 0, j: 0 }]);
     const mask = getActionMask(sim, PLAYER_INDEX);
     const singleCellAt00 = Array.from({ length: END_TURN_ACTION }, (_, a) => a).filter(a => {
@@ -58,6 +58,18 @@ describe('actions', () => {
     expect(singleCellAt00.every(a => !mask[a])).toBe(true); // occupied now
     sim.players[PLAYER_INDEX].depleteFocusToZero();
     expect(getActionMask(sim, PLAYER_INDEX).filter(Boolean)).toHaveLength(1); // only ending the turn
+  });
+
+  it('never include a mixed-size Fireball (a 2x3 or 3x2: its bigger square would swallow its own smaller ones)', () => {
+    const mask = getActionMask(new GameSimulation(), PLAYER_INDEX);
+    const mixed = Array.from({ length: END_TURN_ACTION }, (_, a) => a).filter(a => {
+      const d = decodeAction(a, PLAYER_INDEX);
+      if (d.kind !== 'cast' || d.spellName !== 'Ether') return false;
+      const rows = new Set(d.cells.map(c => c.i)).size, columns = new Set(d.cells.map(c => c.j)).size;
+      return rows > 1 && columns > 1 && rows !== columns;
+    });
+    expect(mixed).toHaveLength(4);
+    expect(mixed.every(a => !mask[a])).toBe(true);
   });
 
   it("never include a cast whose blood magic would kill the caster", () => {

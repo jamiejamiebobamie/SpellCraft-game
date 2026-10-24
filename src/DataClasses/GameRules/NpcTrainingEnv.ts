@@ -82,6 +82,14 @@ export const encodeAction = (spellName: SpellName, cells: Array<CellIndex>, side
   return r < 0 || s < 0 ? null : s * ZONE_RECTS.length + r;
 };
 
+/**
+ * Whether the NPC never casts this: a Fireball over a rectangle that splits into squares of different sizes
+ * (e.g. 3x2: a 2x2 and two 1x1s). The bigger square is faster and swallows its own smaller ones, whose fire
+ * bonus doesn't stack, so their focus is wasted. (The player may still cast them.)
+ */
+const getIsWastefulShape = (spellName: SpellName, rect: ZoneRect): boolean =>
+  spellName === 'Ether' && rect.w > 1 && rect.h > 1 && rect.w !== rect.h;
+
 /** Whether a cast costing `focusCost` would kill its caster with blood magic (never allowed for the AI). */
 const getIsLethalCast = (caster: Player, focusCost: number): boolean =>
   Math.max(0, focusCost - caster.getFocus()) * caster.getBloodMagicCost() >= caster.getHealth();
@@ -89,7 +97,8 @@ const getIsLethalCast = (caster: Player, focusCost: number): boolean =>
 /**
  * Which actions `side` may take now. Ending the turn is always allowed; casting needs the game to
  * be on, the caster alive with some focus left, at least one cell it can cast onto under the
- * drawing (every spell type can fill a single cell), and blood magic that wouldn't kill it. A cast
+ * drawing (every spell type can fill a single cell), blood magic that wouldn't kill it, and not a
+ * wasteful shape (getIsWastefulShape). A cast
  * fills every free cell under the drawing, so its cost is the spell's cost per cell x the free cells.
  * Equivalent to getActionMaskByPlanning, but fast.
  */
@@ -108,7 +117,7 @@ export const getActionMask = (sim: GameView, side: number): Array<boolean> => {
     for (let dr = 0; dr < rect.h; dr++) for (let dc = 0; dc < rect.w; dc++) if (isFree[rect.i + dr][rect.j + dc]) freeCells++;
     if (!freeCells) return;
     SPELL_ORDER.forEach((spellName, s) => {
-      mask[s * ZONE_RECTS.length + r] = !getIsLethalCast(caster, getFocusCost(SPELL_CLASSES[spellName] as SpellClass, freeCells));
+      mask[s * ZONE_RECTS.length + r] = !getIsWastefulShape(spellName, rect) && !getIsLethalCast(caster, getFocusCost(SPELL_CLASSES[spellName] as SpellClass, freeCells));
     });
   });
   return mask;
@@ -122,6 +131,7 @@ export const getActionMaskByPlanning = (sim: GameSimulation, side: number): Arra
     if (action === END_TURN_ACTION) return true;
     if (!canCast) return false;
     const decoded = decodeAction(action, side) as Extract<DecodedAction, { kind: 'cast' }>;
+    if (getIsWastefulShape(decoded.spellName, ZONE_RECTS[action % ZONE_RECTS.length])) return false;
     const SpellType = SPELL_CLASSES[decoded.spellName];
     const rects = planSpellPlacement(SpellType, decoded.cells, caster.getDirection(), sim.getIsOccupied, sim.spells);
     return rects.length > 0 && !getIsLethalCast(caster, getPlacementFocusCost(SpellType, rects));

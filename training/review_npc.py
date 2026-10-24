@@ -84,7 +84,7 @@ def main():
                 if args.best_move:
                     action = int(legal[np.argmax(scores[legal])])
                 else:
-                    keys = [decode(a, end_turn) for a in legal]
+                    keys = [(decode(a, end_turn) or (None,))[0] for a in legal]  # (by spell: NpcBrain.ts getMoveKey)
                     adjusted = scores[legal] - VARIETY["penalty"] * np.array([recent.count(k) if k else 0 for k in keys])
                     weights = np.exp((adjusted - adjusted.max()) / VARIETY["temperature"])
                     action = int(rng.choice(legal, p=weights / weights.sum()))
@@ -102,7 +102,7 @@ def main():
                     shapes[(spell, shape_kind(spell, w, h))] += 1
                     sizes[f"{spell} {w}x{h}"] += 1
                     turn_casts += 1
-                    recent = (recent + [move])[-VARIETY["window"]:]
+                    recent = (recent + [spell])[-VARIETY["window"]:]
                 observation, _, terminated, _, info = env.step(action)
             outcomes[info["outcome"]] += 1
         env.close()

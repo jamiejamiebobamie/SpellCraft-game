@@ -21,7 +21,7 @@ export const NPC_VARIETY = {
   temperature: 1, // how adventurous: 0 = always its top move, 1 = as in training, higher = tries weaker moves more often
   repeatWindow: 4, // how many of its recent casts it remembers (6 was tried: with training's own variety rewards, it passed more)
   // How strongly it avoids repeating a remembered move, per repeat (in the model's scores; 3 was tried). A
-  // move is a spell at a size (e.g. a 2x2 Fireball): the same anywhere on its side of the board. Off on risky
+  // move is a spell, whatever its size or place (getMoveKey). Off on risky
   // turns (a teacher may catch someone at the turn's end: getIsRiskyTurn), where it plays only to win
   repeatPenalty: 1.5,
 };
@@ -37,12 +37,13 @@ const SPELL_SYMBOLS: Record<SpellName, InferenceString> = {
 /** A cast the NPC has decided on: the symbol to draw and the cells its drawing covers. */
 export type PlannedNpcCast = { inferenceString: InferenceString; cells: Array<CellIndex> };
 
-/** A move for the repeat penalty: its spell and size (e.g. 'Ether 2x2'), wherever it's cast. */
+/**
+ * A move for the repeat penalty: its spell, whatever its size or place (by size, a bigger or odd shape of the
+ * same spell looked new, so the penalty pushed it toward wasteful ones).
+ */
 const getMoveKey = (action: number, side: number): string => {
   const decoded = decodeAction(action, side);
-  if (decoded.kind === 'endTurn') return 'endTurn';
-  const rows = new Set(decoded.cells.map(c => c.i)).size, columns = new Set(decoded.cells.map(c => c.j)).size;
-  return `${decoded.spellName} ${columns}x${rows}`;
+  return decoded.kind === 'endTurn' ? 'endTurn' : decoded.spellName;
 };
 
 export class NpcBrain {
