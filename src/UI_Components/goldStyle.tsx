@@ -115,6 +115,10 @@ export const GoldDivider = ({ width = 16, align = 'center' }: { width?: number; 
   <Divider $width={width} $align={align} aria-hidden><i /></Divider>
 );
 
+/** A screen's dimming behind its choices: darkest in the middle, fading toward the edges (dim: 0 none, 1 black). */
+export const screenDim = (dim: number): string =>
+  `radial-gradient(ellipse 70% 75% at 50% 55%, rgba(0, 0, 0, ${dim}) 0%, rgba(0, 0, 0, ${dim * 0.6}) 60%, rgba(0, 0, 0, ${dim * 0.35}) 100%)`;
+
 // --- A panel of glass
 /** A panel of glass with its gold edge (put an <EtchedFrame /> inside it for the inner frame). */
 export const GlassPanel = styled.div`
@@ -214,7 +218,7 @@ export const GoldLink = styled.button<{ $size?: number }>`
 
 /**
  * A small round close button: an ✕ in a gold ring (size: across, cqw). The ✕ drawn as two crossed lines,
- * dead center (a text ✕ sits off center in its font); on hover it brightens, its ring glowing.
+ * dead center (a text ✕ sits off center in its font); on hover it grows and brightens, its ring glowing.
  */
 export const GoldClose = styled.button<{ $size?: number }>`
   position: relative;
@@ -227,18 +231,19 @@ export const GoldClose = styled.button<{ $size?: number }>`
   border: 0.1cqw solid rgba(230, 197, 99, 0.45);
   border-radius: 50%;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  z-index: 2; /* (above whatever's beside it: its whole ring takes the click) */
+  transition: transform 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   &::before, &::after {
     content: '';
     position: absolute;
-    left: 50%;
-    top: 50%;
+    inset: 0;
+    margin: auto; /* (centered by its margins: no rounding off center, as a translate can) */
     width: 50%;
     height: 0.12cqw;
     background: currentColor;
     border-radius: 0.1cqw;
   }
-  &::before { transform: translate(-50%, -50%) rotate(45deg); }
-  &::after { transform: translate(-50%, -50%) rotate(-45deg); }
-  &:hover { border-color: ${GOLD_BRIGHT}; color: ${GOLD_BRIGHT}; box-shadow: 0 0 0.6cqw rgba(255, 220, 130, 0.5); }
+  &::before { transform: rotate(45deg); }
+  &::after { transform: rotate(-45deg); }
+  &:hover { transform: scale(1.15); border-color: ${GOLD_BRIGHT}; color: ${GOLD_BRIGHT}; box-shadow: 0 0 0.6cqw rgba(255, 220, 130, 0.5); }
 `;

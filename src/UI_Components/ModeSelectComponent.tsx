@@ -2,7 +2,7 @@
 // After Play: choose "1 Player" (the duel against the NPC, as before) or "2 Players" (a match with a
 // friend, by an invite link). Two large framed plaques, each brightening on hover (the look: goldStyle.tsx).
 import styled, { css, keyframes } from 'styled-components';
-import { FRAME_ETCH, GLASS as SHARED_GLASS, GOLD, GOLD_BRIGHT, GOLD_DEEP, GOLD_GRADIENT, sheenSweep } from './goldStyle';
+import { FRAME_ETCH, GLASS as SHARED_GLASS, GOLD, GOLD_BRIGHT, GOLD_DEEP, GOLD_GRADIENT, screenDim, sheenSweep } from './goldStyle';
 
 /**
  * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
@@ -52,7 +52,7 @@ const Screen = styled.div`
   box-sizing: border-box;
   animation: ${fadeIn} ${MODE_SELECT.fadeInSeconds}s ease-out both;
   /* the dimming: darkest in the middle, behind the choices, fading toward the edges */
-  background: radial-gradient(ellipse 70% 75% at 50% 55%, rgba(0, 0, 0, ${MODE_SELECT.dim}) 0%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.6}) 60%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.35}) 100%);
+  background: ${screenDim(MODE_SELECT.dim)};
 `;
 
 // (the plaques' glass: goldStyle's, at this screen's own opacity, MODE_SELECT.choiceOpacity)

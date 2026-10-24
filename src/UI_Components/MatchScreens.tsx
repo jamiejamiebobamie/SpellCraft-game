@@ -4,7 +4,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { MultiplayerSession } from '../DataClasses/Multiplayer/MultiplayerSession';
-import { EtchedFrame, GOLD, GOLD_BRIGHT, GlassPanel, GoldButton, GoldDivider, GoldLink, GoldTitle } from './goldStyle';
+import { MODE_SELECT } from './ModeSelectComponent';
+import { EtchedFrame, screenDim, GOLD, GOLD_BRIGHT, GlassPanel, GoldButton, GoldDivider, GoldLink, GoldTitle } from './goldStyle';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(1cqw); }
@@ -16,9 +17,9 @@ const Screen = styled.div`
   inset: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding-top: 7cqw; /* (clear of the clock and its halo, above) */
+  justify-content: center; /* (centered: the hall, its clock too, dimmed behind, as on Choose Your Duel) */
   box-sizing: border-box;
+  background: ${screenDim(MODE_SELECT.dim)};
   animation: ${fadeIn} 0.6s ease-out both;
 `;
 
