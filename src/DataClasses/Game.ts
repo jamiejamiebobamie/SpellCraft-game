@@ -19,7 +19,7 @@ import { InferenceString, CellIndex, NpcDifficulty, Point, NPCMoveData, DivRefDi
 import { proxy, ref } from 'valtio';
 import { TURN_CLOCK } from './GameClock/GameClock';
 import { MatchMessage, MultiplayerSession } from './Multiplayer/MultiplayerSession';
-import { EMOTES, EMOTE_TIMING } from './Multiplayer/emotes';
+import { EMOTES, EMOTE_CLEAR, EMOTE_TIMING } from './Multiplayer/emotes';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES, getSeededRandom } from './GameRules/gameRules';
@@ -185,7 +185,7 @@ export class Game {
       this.processRivalQueue();
     }
     if (message.type === 'stroke') this.addRivalStroke(message.points, message.isNew);
-    if (message.type === 'emote' && EMOTES.includes(message.emoji)) this.showEmote('rival', message.emoji);
+    if (message.type === 'emote' && (EMOTES.includes(message.emoji) || message.emoji === EMOTE_CLEAR)) this.showEmote('rival', message.emoji);
     if (message.type === 'strokeEnd') { this.rivalStrokeEndedAt = performance.now(); }
     if (message.type === 'check') {
       this.rivalFingerprints.set(message.turn, message.fingerprint);
@@ -330,10 +330,10 @@ export class Game {
   getEmote(side: 'self' | 'rival'): { id: number; emoji: string } | null { return this.emotes[side]; }
   getIsEmoteCooling(): boolean { return this.isEmoteCooling; }
 
-  /** This player sends an emoji (shown over its own head here too), unless still cooling down. */
+  /** This player sends an emoji (shown over its own head here too), or EMOTE_CLEAR (theirs taken down), unless still cooling down. */
   sendEmote(emoji: string): void {
-    if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !EMOTES.includes(emoji)) return;
-    if (this.getAtRiskSide() === 'self') return; // (their status is the frightened face until they're not at risk)
+    if (!this.getIsMultiplayer() || this.getIsEmoteCooling() || !(EMOTES.includes(emoji) || emoji === EMOTE_CLEAR)) return;
+    if (this.getIsAtRisk('self')) return; // (their status is the frightened face until they're not at risk)
     this.session?.send({ type: 'emote', emoji });
     this.showEmote('self', emoji);
     this.isEmoteCooling = true;
@@ -341,6 +341,7 @@ export class Game {
   }
 
   private showEmote(side: 'self' | 'rival', emoji: string): void {
+    if (emoji === EMOTE_CLEAR) { this.emotes[side] = null; return; }
     const emote = { id: ++this.emoteCount, emoji };
     this.emotes[side] = emote;
     if (EMOTE_TIMING.showSeconds <= 0) return; // (a status: up until the next)
@@ -682,12 +683,18 @@ export class Game {
   getDawnCard(): { id: number } | null { return this.dawnCard; }
 
   /** In the risky turns (from first light), the weaker wizard (whom a teacher would catch); null: even, or not yet. */
-  getAtRiskSide(): 'self' | 'rival' | null {
+  getAtRiskSide(): 'self' | 'rival' | 'both' | null {
     if (this.gameOver !== null || this.catchScene !== null) return null;
     if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) < CAUGHT_RULES.firstTurn - 1) return null;
     const self = this.players.getHumanPlayer(), rival = this.players.getNpcPlayer();
-    if (!self || !rival || self.getHealth() === rival.getHealth()) return null;
+    if (!self || !rival) return null;
+    if (self.getHealth() === rival.getHealth()) return 'both'; // (even: a catch takes both)
     return self.getHealth() < rival.getHealth() ? 'self' : 'rival';
+  }
+  /** Whether this wizard would be caught at dawn (getAtRiskSide: it, or both). */
+  getIsAtRisk(side: 'self' | 'rival'): boolean {
+    const atRisk = this.getAtRiskSide();
+    return atRisk === side || atRisk === 'both';
   }
 
   /** A teacher catches them: the scene plays (TeacherCatch.tsx), then the game is over. */
@@ -738,7 +745,7 @@ export class Game {
 
   /**
    * While developing (the 0 key): the clock to 5 AM (the birds and birdsong out), and each press the one at
-   * risk in turn: the player (the frightened face), the rival, then neither (even health). The turn clock holds.
+   * risk in turn: the player (the frightened face), the rival, then both (even health: a catch takes both). The turn clock holds.
    */
   private dawnPreviewCount = 0;
   previewDawn(): void {
@@ -754,7 +761,8 @@ export class Game {
 
   /** A risky turn nobody was caught on: a lantern passes the weaker wizard's doorway (either, if even), and they breathe out. */
   private passLantern(): void {
-    const side = this.getAtRiskSide() ?? (Math.random() < 0.5 ? 'self' : 'rival');
+    const atRisk = this.getAtRiskSide();
+    const side = atRisk === 'self' || atRisk === 'rival' ? atRisk : (Math.random() < 0.5 ? 'self' : 'rival');
     const pass = { id: ++this.teacherCount, side };
     this.lanternPass = pass;
     const match = this.matchNumber;

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../../DataClasses/store';
-import { EMOTES } from '../../../DataClasses/Multiplayer/emotes';
+import { EMOTES, EMOTE_CLEAR } from '../../../DataClasses/Multiplayer/emotes';
 import { UIFadeIn } from '../../UIFadeIn';
 import { LAYERS } from '../../layers';
 
@@ -116,6 +116,27 @@ const Tray = styled.div`
   animation: ${swap} 0.18s ease-out;
 `;
 
+/** The tray's clear: an ✕ in the game's gold, where an emoji would be. */
+const ClearChoice = styled.button<{ $isCooling: boolean }>`
+  flex: none;
+  width: 3.6cqw;
+  height: 3.6cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.9cqw;
+  line-height: 1;
+  color: #e6c563;
+  background: transparent;
+  border: 0.12cqw solid rgba(230, 197, 99, 0.45);
+  border-radius: 50%;
+  cursor: ${props => props.$isCooling ? 'default' : 'pointer'};
+  opacity: ${props => props.$isCooling ? 0.45 : 1};
+  transition: transform 0.15s, border-color 0.15s;
+  &:hover { transform: scale(1.12); border-color: #e6c563; }
+`;
+
 const EmojiChoice = styled.button<{ $isCooling: boolean }>`
   flex: none;
   width: 3.6cqw;
@@ -141,7 +162,7 @@ const EmojiChoice = styled.button<{ $isCooling: boolean }>`
 export default function EmojiReactionsComponent({ isShowingModal }: { isShowingModal: boolean }) {
   const snap = useSnapshot(rootGameStore);
   // (cooling down, or at risk at dawn: the status is then the frightened face, and reactions wait)
-  const isCooling = snap.getIsEmoteCooling() || snap.getAtRiskSide() === 'self';
+  const isCooling = snap.getIsEmoteCooling() || snap.getIsAtRisk('self');
   const [index, setIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
@@ -182,6 +203,8 @@ export default function EmojiReactionsComponent({ isShowingModal }: { isShowingM
           {EMOTES.map(emoji => (
             <EmojiChoice key={emoji} $isCooling={isCooling} onClick={() => send(emoji)} aria-label={emoji}>{emoji}</EmojiChoice>
           ))}
+          {/* (last: no reaction, the one up taken down) */}
+          <ClearChoice $isCooling={isCooling} onClick={() => send(EMOTE_CLEAR)} aria-label='Clear' title='Clear'>✕</ClearChoice>
         </Tray>
       )}
     </Anchor>

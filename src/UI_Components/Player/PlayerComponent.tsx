@@ -272,7 +272,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
 
   const avatar = (
     <AvatarPlacementWrapper $exit={direction === 1 ? -1 : 1} $isFleeing={direction === -1 && snap.getIsRivalFleeing()} $isDragged={isCaught} $isSlipping={!!catchScene && !isCaught}>
-      <ShiverWrap $isShivering={snap.getAtRiskSide() === side}>
+      <ShiverWrap $isShivering={snap.getIsAtRisk(side)}>
       <AvatarFrame $src={src} $direction={direction}>
         <Damageable
           $isBeginIntroWalk={isBeginIntroWalk}

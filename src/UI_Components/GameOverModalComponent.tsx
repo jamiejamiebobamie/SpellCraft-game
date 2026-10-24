@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MASK_VORTEX, MaskVortex } from './MaskVortex';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { css, keyframes } from 'styled-components';
@@ -210,47 +211,20 @@ const TEXT_RAISE = 4;
 /**
  * Both wizards' masks beside the title: the player's (white) on the left, the rival's (green) on the right.
  * A winner's stays whole; a loser's cracks, then splits along the crack and falls apart, a moment after the
- * card shows. size: cqw wide. missingGlow: the light behind a missing (black) mask. titleGap: between each
+ * card shows. size: cqw wide. backlight: the white light behind a whole mask (and a missing one: black). titleGap: between each
  * mask's frame and the title (cqw). raise: the mask lifted (% of its height: the image's mask sits low in it), centered in its frame.
  */
-const OUTCOME_MASKS = { size: 9, raise: 11, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, missingGlow: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))' };
+const OUTCOME_MASKS = { size: 9, raise: 8, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, backlight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))' };
 
-/**
- * Each mask's frame: a gold ring (size: across, cqw; ring: its thickness, cqw) around a dark disc (backing:
- * its opacity), a light travelling around it once every sheenSeconds.
- */
-const MASK_FRAME = { size: 10.5, ring: 0.5, backing: 0.35, sheenSeconds: 4 };
-// (the ring's gold: deep, with one bright stretch, the sheen, turning round it)
-const FRAME_GOLD = 'conic-gradient(#a9822e 0deg, #e6c563 50deg, #fff1b8 80deg, #e6c563 110deg, #a9822e 170deg, #7d5f1f 250deg, #a9822e 360deg)';
-
-const frameSheen = keyframes`
-  to { transform: rotate(360deg); }
-`;
-
-/** A mask's round gold frame (MASK_FRAME), the mask centered in it. */
+/** A mask's place: the vortex beneath it (MaskVortex), the mask over its eye. */
 const MaskFrame = styled.div`
   position: relative;
   flex: none;
-  width: ${MASK_FRAME.size}cqw;
+  width: ${MASK_VORTEX.size}cqw;
   aspect-ratio: 1;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle, rgba(0, 0, 0, ${MASK_FRAME.backing}) 60%, rgba(0, 0, 0, ${MASK_FRAME.backing * 0.6}) 100%);
-  box-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.3), 0 0.3cqw 0.8cqw rgba(0, 0, 0, 0.7), inset 0 0 1.2cqw rgba(0, 0, 0, 0.6);
-  /* the ring: the turning gold, cut to a band at the edge */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: ${FRAME_GOLD};
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - ${MASK_FRAME.ring}cqw), #000 calc(100% - ${MASK_FRAME.ring}cqw + 1px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - ${MASK_FRAME.ring}cqw), #000 calc(100% - ${MASK_FRAME.ring}cqw + 1px));
-    animation: ${frameSheen} ${MASK_FRAME.sheenSeconds}s linear infinite;
-    pointer-events: none;
-  }
 `;
 
 /** For each game over (from this player's side): each mask whole, breaking, or missing (a rival who fled: black, backlit). */
@@ -295,10 +269,11 @@ const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100%
 const MaskBox = styled.div<{ $delay: number; $isBroken: boolean; $isMissing: boolean }>`
   position: relative;
   top: ${-OUTCOME_MASKS.raise / 100 * OUTCOME_MASKS.size * 73 / 58}cqw;
+  z-index: 1;
   flex: none;
   width: ${OUTCOME_MASKS.size}cqw;
   aspect-ratio: 58 / 73;
-  filter: ${props => props.$isMissing ? OUTCOME_MASKS.missingGlow : 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))'};
+  filter: ${props => props.$isBroken ? 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))' : OUTCOME_MASKS.backlight};
   ${props => props.$isBroken && css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   svg { ${props => css`animation: ${cracksFade} 0.3s ease-in ${props.$delay + OUTCOME_MASKS.crackSeconds + 0.15}s forwards;`} }
@@ -330,6 +305,7 @@ const OutcomeMask = ({ side, outcome, delaySeconds }: { side: 'self' | 'rival'; 
   const isWhite = side === 'self', isBroken = outcome === 'broken', isMissing = outcome === 'missing';
   return (
     <MaskFrame aria-hidden>
+    <MaskVortex />
     <MaskBox $delay={delaySeconds} $isBroken={isBroken} $isMissing={isMissing}>
       <MaskHalf $isWhite={isWhite} $isMissing={isMissing} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />
       {isBroken && <MaskHalf $isWhite={isWhite} $clip={RIGHT_HALF} $split={splitRight} $delay={splitDelay} />}

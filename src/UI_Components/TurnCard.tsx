@@ -170,7 +170,7 @@ const StatusText = styled.div<{ $isStaying: boolean }>`
 /** Placed over a wizard (in a frame the size of its avatar, not moving with it): its status emoji, if any. */
 export function StatusEmoji({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
-  if (snap.getAtRiskSide() === side) return <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
+  if (snap.getIsAtRisk(side)) return <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
   const emote = snap.getEmote(side);
   if (!emote) return null;
   return <StatusText key={emote.id} $isStaying={EMOTE_TIMING.showSeconds <= 0}>{emote.emoji}</StatusText>;
