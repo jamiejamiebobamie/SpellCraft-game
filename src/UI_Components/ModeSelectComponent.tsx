@@ -58,8 +58,14 @@ const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
 const FRAME_MATTE = '#2b2119', FRAME_MATTE_HOVER = '#3d2f23';
 // (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
 const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
-// (the title's gold: lit from the top left)
-const TITLE_GRADIENT = `linear-gradient(135deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
+/**
+ * The title's gold: lit by a rising sun just above the "oo" of "Choose" (sun: its place in the title's box,
+ * %; x along, y down: above the letters' middle, as if a second "oo" sat on them), deepening away from it.
+ */
+const TITLE_SUN = { x: 25, y: 20 };
+const TITLE_GRADIENT = `radial-gradient(circle at ${TITLE_SUN.x}% ${TITLE_SUN.y}%, ${GOLD_BRIGHT} 0%, ${GOLD} 35%, ${GOLD_DEEP} 100%)`;
+/** The underline's gold at a point along it (%): brightest beneath the sun, deeper away from it. */
+const getUnderlineGold = (at: number) => `color-mix(in srgb, ${GOLD_BRIGHT} ${Math.max(0, 85 - Math.abs(at - TITLE_SUN.x) * 0.85)}%, ${GOLD_DEEP})`;
 
 const Title = styled.div`
   position: relative;
@@ -84,13 +90,12 @@ const TitleLettering = styled.span`
 
 /**
  * A stretch of the title with the underline beneath it (the letter it breaks at has none): the line's gold
- * running bright to deep across both stretches, as the light falls from the top left ($from, $to: where
- * along it this stretch begins and ends, %).
+ * brightest beneath the sun, continuing across both stretches ($from, $to: where along it this stretch
+ * begins and ends, %).
  */
 const Underlined = styled.span<{ $from: number; $to: number }>`
-  background: linear-gradient(90deg,
-    color-mix(in srgb, ${GOLD_BRIGHT} ${props => 100 - props.$from}%, ${GOLD_DEEP}),
-    color-mix(in srgb, ${GOLD_BRIGHT} ${props => 100 - props.$to}%, ${GOLD_DEEP})) no-repeat;
+  background: linear-gradient(90deg, ${props => [props.$from, ...(props.$from < TITLE_SUN.x && TITLE_SUN.x < props.$to ? [TITLE_SUN.x] : []), props.$to]
+    .map(at => `${getUnderlineGold(at)} ${(at - props.$from) / (props.$to - props.$from) * 100}%`).join(', ')}) no-repeat;
   background-size: 100% ${MODE_SELECT.titleUnderline.thickness}cqw;
   background-position: 0 calc(100% - ${-MODE_SELECT.titleUnderline.drop}cqw);
 `;
