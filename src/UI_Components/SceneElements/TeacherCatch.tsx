@@ -195,6 +195,7 @@ export const getFlurryCasts = (sceneId: number, side: 'self' | 'rival'): FlurryC
   if (!casts) {
     const count = Math.round(CAST_FLURRY.perSecond * CATCH_SCENE.struggleSeconds);
     const from = CATCH_TIMES.lift + CATCH_SCENE.liftSeconds * 0.7;
+    const area = getCastArea(side);
     casts = Array.from({ length: count }, (_, k) => {
       // (sizes pushed toward the extremes: tiny ones and huge ones, chaotic; each still square)
       const r = Math.random(), spread = r < 0.5 ? 0.5 * (2 * r) ** 2 : 1 - 0.5 * (2 * (1 - r)) ** 2;
@@ -203,8 +204,9 @@ export const getFlurryCasts = (sceneId: number, side: 'self' | 'rival'): FlurryC
       return {
         points: turnPoints(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)], turn),
         // (in front of them and above, where the raised wand can reach: toward the hall's middle)
-        x: (side === 'self' ? 62 : 38 - size) + (Math.random() - 0.5) * 34,
-        y: -62 + Math.random() * 40,
+        // (anywhere in the casting area: CAST_FLURRY.area, the whole symbol inside it)
+        x: area.x[0] + Math.random() * Math.max(0, area.x[1] - area.x[0] - size),
+        y: area.y[0] + Math.random() * Math.max(0, area.y[1] - area.y[0] - size),
         size,
         turn,
         delay: from + k / CAST_FLURRY.perSecond + Math.random() * 0.12,
@@ -213,6 +215,21 @@ export const getFlurryCasts = (sceneId: number, side: 'self' | 'rival'): FlurryC
     flurries.set(key, casts);
   }
   return casts;
+};
+
+/**
+ * The casting area (CAST_FLURRY.area) in the caught wizard's frame's units (% of its width; it's square):
+ * measured against the game (the frame's nearest container: its cqw), as the scene begins.
+ */
+const getCastArea = (side: 'self' | 'rival'): { x: [number, number]; y: [number, number] } => {
+  const frame = document.querySelector(`[data-cast-frame="${side}"]`);
+  let game = frame?.parentElement ?? null;
+  while (game && getComputedStyle(game).containerType === 'normal') game = game.parentElement;
+  if (!frame || !game) return { x: [0, 100], y: [-100, 100] };
+  const f = frame.getBoundingClientRect(), g = game.getBoundingClientRect();
+  const toX = (at: number) => (g.x + at * g.width - f.x) / f.width * 100, toY = (at: number) => (g.y + at * g.height - f.y) / f.width * 100;
+  const across = CAST_FLURRY.area[side];
+  return { x: [toX(across[0]), toX(across[1])], y: [toY(CAST_FLURRY.area.y[0]), toY(CAST_FLURRY.area.y[1])] };
 };
 
 /** A point along a symbol's strokes (progress: 0 at its start, 1 at its end, by length). */
@@ -248,15 +265,17 @@ const symbolCast = keyframes`
   ${castPct(CAST_FLURRY.drawSeconds + CAST_FLURRY.holdSeconds)} { stroke: #ffd36a; opacity: 1; }
   100% { stroke-dashoffset: 0; stroke: #c2412a; opacity: 0; }
 `;
+// (every symbol drawn over the whole frame, in its units: one scale, so their lines are all the same width)
 const SymbolSvg = styled.svg<{ $delay: number }>`
   position: absolute;
-  aspect-ratio: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   filter: drop-shadow(0 0 0.15cqw rgba(255, 236, 160, 0.9)) drop-shadow(0 0 0.6cqw rgba(255, 196, 70, 0.55));
   polyline {
     fill: none;
-    stroke-width: 0.32cqw; /* (the same at any size) */
-    vector-effect: non-scaling-stroke;
+    stroke-width: 0.85; /* (in the frame's units, 0 to 100) */
     stroke-linecap: round;
     stroke-linejoin: miter; /* (sharp corners: no blobs where a small symbol turns) */
     stroke-miterlimit: 3;
@@ -275,8 +294,8 @@ export function CastFlurry({ side }: { side: 'self' | 'rival' }) {
   const scene = snap.getCatchScene();
   if (!scene || !scene.caught.includes(side)) return null;
   return <>{getFlurryCasts(scene.id, side).map((cast, k) => (
-    <SymbolSvg key={`${scene.id}:${k}`} viewBox='0 0 1 1' $delay={cast.delay} style={{ left: `${cast.x}%`, top: `${cast.y}%`, width: `${cast.size}%` }} aria-hidden>
-      <polyline points={cast.points.map(p => `${p.x},${p.y}`).join(' ')} pathLength={1} />
+    <SymbolSvg key={`${scene.id}:${k}`} viewBox='0 0 100 100' $delay={cast.delay} aria-hidden>
+      <polyline points={cast.points.map(p => `${cast.x + p.x * cast.size},${cast.y + p.y * cast.size}`).join(' ')} pathLength={1} />
     </SymbolSvg>
   ))}</>;
 }

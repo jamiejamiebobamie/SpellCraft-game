@@ -29,10 +29,11 @@ export const CATCH_SCENE_TOTAL_SECONDS = CATCH_TIMES.stamp + CATCH_SCENE.stampSe
  * The caught wizard's struggle in the air: spells cast in a flurry (perSecond), each symbol (the NPC's)
  * drawn by their wand in gold (drawSeconds: the wand tracing it), held a moment (holdSeconds), then fading
  * out (fadeSeconds); of every size, overlapping (size: [smallest, largest], % of the wizard's frame; turn: up
- * to so many degrees either way). And their wand arm (FLAIL: from the lift's middle into the drag): tracing
+ * to so many degrees either way; area: where they may be drawn, as fractions of the game: across, from their edge
+ * of the hall to a quarter onto their side of the board, and anywhere down the screen). And their wand arm (FLAIL: from the lift's middle into the drag): tracing
  * each symbol as it's drawn, flailing between (swings: each joint's [rest, sway, speed], degrees).
  */
-export const CAST_FLURRY = { perSecond: 2.2, drawSeconds: 0.38, holdSeconds: 0.15, fadeSeconds: 0.55, size: [22, 95], turn: 180 };
+export const CAST_FLURRY = { perSecond: 1.8, drawSeconds: 0.3, holdSeconds: 0.7, fadeSeconds: 0.9, size: [25, 150], turn: 180, area: { self: [0.02, 0.36], rival: [0.64, 0.98], y: [0, 1] } };
 export const FLAIL = {
   fromSeconds: CATCH_TIMES.lift + CATCH_SCENE.liftSeconds * 0.4,
   seconds: CATCH_SCENE.liftSeconds * 0.6 + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds * 0.6,
