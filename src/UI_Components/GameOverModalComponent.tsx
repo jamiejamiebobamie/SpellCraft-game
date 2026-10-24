@@ -131,11 +131,17 @@ const SUBTEXT_LINE_HEIGHT = 1.4;
  * The buttons follow the text, as close on every card as on the two-line caught ones (their text, 3.2cqw, a
  * line longer than one at 3.6cqw: that much taken back out of the gap between the text and the buttons).
  */
-const TEXT_TO_BUTTONS_TRIM = (2 * 3.2 - 3.6) * SUBTEXT_LINE_HEIGHT;
+/**
+ * The ending's text's font: a plain book serif, readable (family; weight; scale: its size against the
+ * sizes set per ending, which were set for the narrower EnchantedLand: 1 for those).
+ */
+const SUBTEXT_FONT = { family: "'BookSerif', Georgia, serif", weight: 500, scale: 0.72 };
+const TEXT_TO_BUTTONS_TRIM = (2 * 3.2 - 3.6) * SUBTEXT_LINE_HEIGHT * SUBTEXT_FONT.scale;
 
 const ModalSubText = styled.p<{ $fontSize: number }>`
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: ${props => props.$fontSize}cqw;
+  font-family: ${SUBTEXT_FONT.family};
+  font-weight: ${SUBTEXT_FONT.weight};
+  font-size: ${props => props.$fontSize * SUBTEXT_FONT.scale}cqw;
   color: #efe0b9; /* vellum */
   white-space: nowrap; /* one line */
   margin: 0 auto;
@@ -211,10 +217,10 @@ const TEXT_RAISE = 4;
 /**
  * Both wizards' masks beside the title: the player's (white) on the left, the rival's (green) on the right.
  * A winner's stays whole; a loser's cracks, then splits along the crack and falls apart, a moment after the
- * card shows. size: cqw wide. backlight: the white light behind a whole mask (and a missing one: black). titleGap: between each
+ * card shows. size: cqw wide. backlight: the white light behind a whole mask (and a missing one: black); whiteBacklight: behind the player's white one (softer: 'none' for none). titleGap: between each
  * mask's frame and the title (cqw). raise: the mask lifted (% of its height: the image's mask sits low in it), centered in its frame.
  */
-const OUTCOME_MASKS = { size: 9, raise: 8, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, backlight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))' };
+const OUTCOME_MASKS = { size: 9, raise: 8, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, backlight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))', whiteBacklight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.45)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.22))' };
 
 /** A mask's place: the vortex beneath it (MaskVortex), the mask over its eye. */
 const MaskFrame = styled.div`
@@ -266,14 +272,14 @@ const LEFT_HALF = `polygon(0% 0%, ${CRACK_LINE}, 0% 100%)`;
 // (the right half: up the crack from the bottom, then round by the top right corner: not crossing itself)
 const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100% 0%, 100% 100%)`;
 
-const MaskBox = styled.div<{ $delay: number; $isBroken: boolean; $isMissing: boolean }>`
+const MaskBox = styled.div<{ $delay: number; $isBroken: boolean; $isMissing: boolean; $isWhite: boolean }>`
   position: relative;
   top: ${-OUTCOME_MASKS.raise / 100 * OUTCOME_MASKS.size * 73 / 58}cqw;
   z-index: 1;
   flex: none;
   width: ${OUTCOME_MASKS.size}cqw;
   aspect-ratio: 58 / 73;
-  filter: ${props => props.$isBroken ? 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))' : OUTCOME_MASKS.backlight};
+  filter: ${props => props.$isBroken ? 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))' : props.$isWhite ? OUTCOME_MASKS.whiteBacklight : OUTCOME_MASKS.backlight};
   ${props => props.$isBroken && css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   svg { ${props => css`animation: ${cracksFade} 0.3s ease-in ${props.$delay + OUTCOME_MASKS.crackSeconds + 0.15}s forwards;`} }
@@ -306,7 +312,7 @@ const OutcomeMask = ({ side, outcome, delaySeconds }: { side: 'self' | 'rival'; 
   return (
     <MaskFrame aria-hidden>
     <MaskVortex />
-    <MaskBox $delay={delaySeconds} $isBroken={isBroken} $isMissing={isMissing}>
+    <MaskBox $delay={delaySeconds} $isBroken={isBroken} $isMissing={isMissing} $isWhite={isWhite}>
       <MaskHalf $isWhite={isWhite} $isMissing={isMissing} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />
       {isBroken && <MaskHalf $isWhite={isWhite} $clip={RIGHT_HALF} $split={splitRight} $delay={splitDelay} />}
       {isBroken && (

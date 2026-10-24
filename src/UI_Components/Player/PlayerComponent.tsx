@@ -60,17 +60,20 @@ const AvatarPlacementWrapper = styled.div<{ $exit: number; $isFleeing?: boolean;
 `;
 
 /** At dawn, the weaker wizard (whom a teacher would catch): a shiver, every few seconds. */
+/**
+ * The shiver of a wizard a teacher would catch: now and then a fine tremble, gentler than being hit
+ * (amount: its sway, cqw; seconds: how often).
+ */
+const SHIVER = { amount: 0.08, seconds: 2.6 };
 const shiver = keyframes`
-  0%, 84%, 100% { transform: translateX(0); }
-  86% { transform: translateX(-0.25cqw); }
-  88% { transform: translateX(0.25cqw); }
-  90% { transform: translateX(-0.2cqw); }
-  92% { transform: translateX(0.2cqw); }
-  94% { transform: translateX(-0.1cqw); }
+  0%, 78%, 100% { transform: translateX(0); }
+  80%, 84%, 88%, 92% { transform: translateX(-${SHIVER.amount}cqw); }
+  82%, 86%, 90%, 94% { transform: translateX(${SHIVER.amount}cqw); }
+  96% { transform: translateX(-${SHIVER.amount / 2}cqw); }
 `;
 
 const ShiverWrap = styled.div<{ $isShivering: boolean }>`
-  ${props => props.$isShivering && css`animation: ${shiver} 3.2s ease-in-out infinite;`}
+  ${props => props.$isShivering && css`animation: ${shiver} ${SHIVER.seconds}s linear infinite;`}
 `;
 
 /** The wizard's status emoji (StatusEmoji): placed as the avatar is, but not moving with it. */

@@ -135,6 +135,14 @@ code {
   font-style: normal;
   font-display: swap;
 }
+/* A plain book serif, for the game over card's text (EB Garamond, SIL Open Font License; Latin, weights 400 to 700) */
+@font-face {
+  font-family: 'BookSerif';
+  src: url('/fonts/EBGaramond.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
 /* A quill hand, for the notes scribbled in the Spell Book's margins (Homemade Apple, Apache License 2.0) */
 @font-face {
   font-family: 'QuillHand';

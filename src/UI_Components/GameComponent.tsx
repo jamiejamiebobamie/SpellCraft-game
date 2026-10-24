@@ -267,8 +267,8 @@ export const GameComponent = () => {
     return () => window.removeEventListener('keyup', onKey);
   }, []);
 
-  // The game's keys (Game.keyActions)
-  useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: false });
+  // The game's keys (Game.keyActions): none until the intro walk is over
+  useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: !snap.getIsDoneWithIntroWalk() });
 
   useEffect(() => {
     rootGameStore.setGameBoardRef(gridOverlayRef);
