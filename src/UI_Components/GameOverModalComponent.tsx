@@ -48,9 +48,8 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   },
   [GameOverStatus.EnemyFled]: {
     title: 'Enemy Fled',
-    text: 'Your rival fled the hall, leaving the duel to you.',
-    fontSize: 3.2,
-    isPlayAgainOwnLine: true,
+    text: 'Your rival fled.',
+    fontSize: 3.6,
   },
   [GameOverStatus.OutOfStep]: {
     title: 'Out of Step',
@@ -298,6 +297,12 @@ const OutcomeMask = ({ side, isBroken, delaySeconds }: { side: 'self' | 'rival';
   );
 };
 
+/** A mask's place on the card, left empty (a rival who fled). */
+const MaskPlace = styled.div`
+  flex: none;
+  width: ${OUTCOME_MASKS.size}cqw;
+`;
+
 /** The title, between the two masks. */
 const TitleRow = styled.div`
   display: flex;
@@ -356,9 +361,10 @@ export const GameOverModalComponent: React.FC = () => {
       <ModalCardContent>
         <RaisedText>
           <TitleRow>
-            {masks?.self && <OutcomeMask key={`self:${currentGameOverState}`} side='self' isBroken={masks.self === 'broken'} delaySeconds={maskDelay} />}
+            {/* (a missing mask's place kept, empty: the title centered between the two places) */}
+            {masks?.self ? <OutcomeMask key={`self:${currentGameOverState}`} side='self' isBroken={masks.self === 'broken'} delaySeconds={maskDelay} /> : masks && <MaskPlace />}
             <ModalTitle>{contentConfig.title}</ModalTitle>
-            {masks?.rival && <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' isBroken={masks.rival === 'broken'} delaySeconds={maskDelay} />}
+            {masks?.rival ? <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' isBroken={masks.rival === 'broken'} delaySeconds={maskDelay} /> : masks && <MaskPlace />}
           </TitleRow>
           <ModalSubTextContainer $extraLinesCqw={contentConfig.isPlayAgainOwnLine ? (2 * contentConfig.fontSize - STANDARD_SUBTEXT_SIZE) * SUBTEXT_LINE_HEIGHT : 0}>
             {contentConfig.isPlayAgainOwnLine ? (
