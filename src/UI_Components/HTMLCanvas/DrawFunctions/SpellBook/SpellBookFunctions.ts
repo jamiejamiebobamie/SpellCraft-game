@@ -283,6 +283,13 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
         ui.hoveredSpellName = localHoveredSpell;
         setIsHovered(!!localHoveredSpell);
         if (!localHoveredSpell) {
+            // (every symbol drawn afresh together: the one hovered back in step with the others)
+            availableSymbols.forEach(({ spellName }) => {
+                const state = ui.getSymbolState(spellName);
+                if (state.loopTimeout) { clearTimeout(state.loopTimeout); state.loopTimeout = null; }
+                state.progress = 0;
+                state.particles = [];
+            });
             animStates.forEach((_, key) => {
                 if (key.startsWith('modal-preview-')) {
                     animStates.delete(key);
