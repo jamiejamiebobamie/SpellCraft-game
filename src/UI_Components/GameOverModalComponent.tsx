@@ -36,7 +36,7 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   // Caught by a teacher (the weaker wizard; both, if even)
   [GameOverStatus.TimesUp]: {
     title: 'Teacher!',
-    text: 'A teacher caught you both out of bed after curfew. You will surely be expelled.',
+    text: 'A teacher caught you both out of bed after curfew.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
   },
