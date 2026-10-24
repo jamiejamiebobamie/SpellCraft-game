@@ -7,7 +7,7 @@ import { ref } from 'valtio';
 import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { CellIndex, InferenceString } from '../types';
 import { SpellName } from '../GameRules/GameSimulation';
-import { GameView, decodeAction, encodeObservation, getActionMask } from '../GameRules/NpcTrainingEnv';
+import { GameView, ObservationLayout, decodeAction, encodeObservation, getActionMask, getIsRiskyTurn, getObservationLayout } from '../GameRules/NpcTrainingEnv';
 
 /**
  * How the NPC picks its spells:
@@ -21,11 +21,13 @@ export const NPC_VARIETY = {
   temperature: 1, // how adventurous: 0 = always its top move, 1 = as in training, higher = tries weaker moves more often
   repeatWindow: 4, // how many of its recent casts it remembers (6 was tried: with training's own variety rewards, it passed more)
   // How strongly it avoids repeating a remembered move, per repeat (in the model's scores; 3 was tried). A
-  // move is a spell at a size (e.g. a 2x2 Fireball): the same anywhere on its side of the board
+  // move is a spell at a size (e.g. a 2x2 Fireball): the same anywhere on its side of the board. Off on risky
+  // turns (a teacher may catch someone at the turn's end: getIsRiskyTurn), where it plays only to win
   repeatPenalty: 1.5,
 };
 
 const MODEL_PATH = './models/npc-policy.onnx';
+const MODEL_DESCRIPTION_PATH = './models/npc-policy.json'; // (its observationSize: the layout it was trained on)
 
 /** The symbol the NPC draws for each spell. */
 const SPELL_SYMBOLS: Record<SpellName, InferenceString> = {
@@ -46,8 +48,8 @@ const getMoveKey = (action: number, side: number): string => {
 export class NpcBrain {
   private session: InferenceSession | null = null;
   private recentMoves: Array<string> = []; // e.g. 'Ether 2x2'
-  /** The model predates the observation's last input ('isMovingSecond'), so it's given the rest. */
-  private isLegacyInput = false;
+  /** The observation's layout the model was trained on (its description's observationSize; ObservationLayout). */
+  private layout: ObservationLayout = 'current';
 
   /** Loads the model; the game waits for it on the loading screen (AssetLoader isNpcModelLoaded). */
   constructor(assetLoader: AssetLoader) {
@@ -57,6 +59,7 @@ export class NpcBrain {
       return;
     }
     assetLoader.whenPriorityAssetsLoaded()
+      .then(() => fetch(MODEL_DESCRIPTION_PATH).then(r => r.json()).then(({ observationSize }) => { this.layout = getObservationLayout(observationSize); }).catch(() => { }))
       .then(loadOnnxRuntime)
       .then(ort => ort.InferenceSession.create(MODEL_PATH))
       // ref(): keep valtio from proxying the native inference session
@@ -71,21 +74,25 @@ export class NpcBrain {
   planCast = async (view: GameView, side: number): Promise<PlannedNpcCast | null> => {
     if (!this.session) return null;
     const session = this.session;
-    const fullObservation = encodeObservation(view, side);
     const mask = getActionMask(view, side);
     const ort = await loadOnnxRuntime();
-    const run = (values: Array<number>) => session.run({ observation: new ort.Tensor('float32', Float32Array.from(values), [1, values.length]) });
+    const run = (layout: ObservationLayout) => {
+      const observation = encodeObservation(view, side, layout);
+      return session.run({ observation: new ort.Tensor('float32', Float32Array.from(observation), [1, observation.length]) });
+    };
     let output;
     try {
-      output = await run(this.isLegacyInput ? fullObservation.slice(0, -1) : fullObservation);
+      output = await run(this.layout);
     } catch (err) {
-      // An older model (trained before the 'isMovingSecond' input): it's given everything but that
-      if (this.isLegacyInput) throw err;
-      this.isLegacyInput = true;
-      output = await run(fullObservation.slice(0, -1));
+      // (its description missing or wrong: the layouts tried in turn, the one that fits kept)
+      const others = (['current', 'v2', 'v1'] as Array<ObservationLayout>).filter(layout => layout !== this.layout);
+      for (const layout of others) {
+        try { output = await run(layout); this.layout = layout; break; } catch { /* (the next) */ }
+      }
+      if (!output) throw err;
     }
     const { logits } = output;
-    const action = this.chooseAction(logits.data as Float32Array, mask, side);
+    const action = this.chooseAction(logits.data as Float32Array, mask, side, getIsRiskyTurn(view.turnsElapsed));
 
     const decoded = decodeAction(action, side);
     if (decoded.kind === 'endTurn') return null;
@@ -93,9 +100,10 @@ export class NpcBrain {
     return { inferenceString: SPELL_SYMBOLS[decoded.spellName], cells: decoded.cells };
   };
 
-  /** A legal action, sampled from the model's scores, with recent moves made less likely (NPC_VARIETY). */
-  private chooseAction = (scores: Float32Array, mask: Array<boolean>, side: number): number => {
-    const { temperature, repeatPenalty } = NPC_VARIETY;
+  /** A legal action, sampled from the model's scores, with recent moves made less likely (NPC_VARIETY; not on risky turns). */
+  private chooseAction = (scores: Float32Array, mask: Array<boolean>, side: number, isRisky: boolean): number => {
+    const { temperature } = NPC_VARIETY;
+    const repeatPenalty = isRisky ? 0 : NPC_VARIETY.repeatPenalty;
     const legal = mask.map((isLegal, action) => isLegal ? action : -1).filter(action => action >= 0);
     const adjusted = legal.map(action => {
       const move = getMoveKey(action, side);

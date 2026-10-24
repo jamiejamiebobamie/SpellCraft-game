@@ -12,7 +12,7 @@ import { GYRE_RULES } from '../PlacedSpells/spellRules';
 import { InteractionEvent } from '../PlacedSpells/SpellMovementEngine';
 import { GameBoard } from '../GameBoard/GameBoard';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameSimulation';
-import { SpellClass, getFocusCost, getIsBlockedForCasting, getPlacementFocusCost, planSpellPlacement } from './gameRules';
+import { CAUGHT_RULES, SUNRISE_TURNS, SpellClass, getCaughtChance, getFocusCost, getIsBlockedForCasting, getPlacementFocusCost, planSpellPlacement } from './gameRules';
 import { Player } from '../Player/Player';
 import { playScriptedTurn } from './scriptedOpponent';
 
@@ -67,6 +67,19 @@ export const decodeAction = (action: number, side: number): DecodedAction => {
   const cells: Array<CellIndex> = [];
   for (let r = 0; r < rect.h; r++) for (let c = 0; c < rect.w; c++) cells.push({ i: rect.i + r, j: toSideColumn(rect.j + c, side) });
   return { kind: 'cast', spellName, cells };
+};
+
+/**
+ * The action for a cast by `side` of `spellName` over `cells` (its zone's cells, any order): the zone
+ * rectangle bounding them (as a drawing over it would fill them). For recording the player's moves.
+ */
+export const encodeAction = (spellName: SpellName, cells: Array<CellIndex>, side: number): number | null => {
+  if (!cells.length) return null;
+  const columns = cells.map(c => toSideColumn(c.j, side)), rows = cells.map(c => c.i);
+  const rect = { i: Math.min(...rows), j: Math.min(...columns), h: Math.max(...rows) - Math.min(...rows) + 1, w: Math.max(...columns) - Math.min(...columns) + 1 };
+  const r = ZONE_RECTS.findIndex(z => z.i === rect.i && z.j === rect.j && z.w === rect.w && z.h === rect.h);
+  const s = SPELL_ORDER.indexOf(spellName);
+  return r < 0 || s < 0 ? null : s * ZONE_RECTS.length + r;
 };
 
 /** Whether a cast costing `focusCost` would kill its caster with blood magic (never allowed for the AI). */
@@ -124,19 +137,39 @@ const CHANNELS = [
   // ('empowered': a Phlegm that took in another; for a Gyre (never empowered), the capacity it has left)
   'power', 'onFire', 'electrified', 'empowered', 'width', 'height',
 ] as const;
-const SCALARS = ['ownHealth', 'opponentHealth', 'ownFocus', 'opponentFocus', 'turnsElapsed', 'isMovingSecond'] as const;
+/**
+ * The numbers after the board, in order: health and focus (its own, its opponent's), the clock (turns
+ * elapsed, over the night: SUNRISE_TURNS), whether it moves second this turn, the chance a teacher catches
+ * someone at this turn's end (getCaughtChance), and its health lead (0.5 even; 1: 100 ahead, 0: 100 behind).
+ */
+const SCALARS = ['ownHealth', 'opponentHealth', 'ownFocus', 'opponentFocus', 'turnsElapsed', 'isMovingSecond', 'catchChance', 'healthLead'] as const;
+/** Where each of SCALARS is in the observation. */
+export const SCALAR_INDEX = Object.fromEntries(SCALARS.map((name, k) => [name, ROWS * COLS * CHANNELS.length + k])) as Record<typeof SCALARS[number], number>;
 
-export const OBSERVATION_SIZE = ROWS * COLS * CHANNELS.length + SCALARS.length;
+/**
+ * The observation's layout: 'current' (SCALARS), or an older model's (given exactly what it was trained
+ * on, so it plays as it did): 'v2' (the clock over 72 turns, up to isMovingSecond), 'v1' (v2 without isMovingSecond).
+ */
+export type ObservationLayout = 'current' | 'v2' | 'v1';
+const LAYOUT_SCALARS: Record<ObservationLayout, number> = { current: SCALARS.length, v2: 6, v1: 5 };
+export const getObservationSize = (layout: ObservationLayout): number => ROWS * COLS * CHANNELS.length + LAYOUT_SCALARS[layout];
+/** The layout of a model taking `size` numbers (its description's observationSize). */
+export const getObservationLayout = (size: number): ObservationLayout =>
+  (Object.keys(LAYOUT_SCALARS) as Array<ObservationLayout>).find(layout => getObservationSize(layout) === size) ?? 'current';
+
+export const OBSERVATION_SIZE = getObservationSize('current');
+
+/** Whether a teacher may catch someone at this turn's end (turnsElapsed: the turns before it). */
+export const getIsRiskyTurn = (turnsElapsed: number): boolean => Math.round(turnsElapsed) + 1 >= CAUGHT_RULES.firstTurn;
 
 const SPELL_TYPES = [Phlegm, Ether, Quicken, GyreUp, GyreDown];
 
 /**
  * What `side` sees, as numbers in [0, 1]: for each board cell (from its own side: its zone on the
- * left), the spell covering it, then health, focus, the clock, and whether it moves second this turn
- * (its opponent has already cast).
+ * left), the spell covering it, then the numbers in SCALARS (for an older model, its own layout).
  */
-export const encodeObservation = (sim: GameView, side: number): Array<number> => {
-  const obs = new Array<number>(OBSERVATION_SIZE).fill(0);
+export const encodeObservation = (sim: GameView, side: number, layout: ObservationLayout = 'current'): Array<number> => {
+  const obs = new Array<number>(getObservationSize(layout)).fill(0);
   const set = (i: number, j: number, channel: number, value: number) => { obs[(i * COLS + j) * CHANNELS.length + channel] = value; };
 
   sim.spells.filter(s => !s.getIsRemove()).forEach((spell: Spell) => {
@@ -161,8 +194,14 @@ export const encodeObservation = (sim: GameView, side: number): Array<number> =>
 
   const own = sim.players[side], opponent = sim.players[1 - side];
   const maxFocus = own.getMaxFocus() + own.getMaxExcessFocus();
-  [own.getHealth() / 100, opponent.getHealth() / 100, own.getFocus() / maxFocus, opponent.getFocus() / maxFocus, sim.turnsElapsed / 72, sim.isMovingSecond ? 1 : 0]
-    .forEach((value, k) => { obs[ROWS * COLS * CHANNELS.length + k] = value; });
+  const turn = Math.round(sim.turnsElapsed);
+  const scalars = layout === 'current'
+    ? [own.getHealth() / 100, opponent.getHealth() / 100, own.getFocus() / maxFocus, opponent.getFocus() / maxFocus,
+      Math.min(1, turn / SUNRISE_TURNS), sim.isMovingSecond ? 1 : 0, getCaughtChance(turn + 1),
+      Math.max(0, Math.min(1, 0.5 + (own.getHealth() - opponent.getHealth()) / 200))]
+    : [own.getHealth() / 100, opponent.getHealth() / 100, own.getFocus() / maxFocus, opponent.getFocus() / maxFocus, sim.turnsElapsed / 72, sim.isMovingSecond ? 1 : 0]
+      .slice(0, LAYOUT_SCALARS[layout]);
+  scalars.forEach((value, k) => { obs[ROWS * COLS * CHANNELS.length + k] = value; });
   return obs;
 };
 
@@ -280,7 +319,7 @@ export const INTERACTION_REWARDS: Partial<Record<keyof InteractionCounts, number
  * (0: off): a nudge toward using all its spells. Updraft and Downdraft count as the same spell here
  * (only here). (For scale: a point of damage is 0.01, a win 1.)
  */
-export const REPEAT_PENALTY = { window: 2, penalty: 0.03 }; // (window 3 was tried: with the drafts as one spell, only 4 kinds, it left as few as one cast free of it)
+export const REPEAT_PENALTY = { window: 2, penalty: 0.03 }; // (off on risky turns: getIsRiskyTurn) // (window 3 was tried: with the drafts as one spell, only 4 kinds, it left as few as one cast free of it)
 
 /** The spell a cast counts as for REPEAT_PENALTY and BALANCE_REWARD: an Updraft and a Downdraft are one. */
 const getRepeatKind = (spellName: SpellName): string => spellName === 'GyreDown' ? 'GyreUp' : spellName;
@@ -299,7 +338,14 @@ const BALANCE_KINDS = ['Phlegm', 'Ether', 'Quicken', 'GyreUp'];
  *   fraction of the furthest they can be). For scale: a win is 1. (The per-cast reward was 0.1 a fifth,
  *   counting the drafts apart, with no game-end bonus: the Fireball rose to 19%, Chain Lightning stayed 34%)
  */
-export const BALANCE_REWARD = { perCastScale: 0.2, gameEndBonus: 0.25 };
+export const BALANCE_REWARD = { perCastScale: 0.2, gameEndBonus: 0.25 }; // (perCastScale off on risky turns)
+
+/**
+ * Passing (ending its turn without a cast) when moving first, though it could have cast, costs this
+ * (0: off): it was passing about 40% of such turns, banking focus rather than leading. Small, so it only
+ * tips close calls. (For scale: a point of damage is 0.01, a win 1.)
+ */
+export const PASS_PENALTY = { cost: 0.03 };
 
 export type EnvStepResult = {
   observation: Array<number>;
@@ -338,7 +384,7 @@ const mulberry32 = (seed: number) => () => {
  *
  * Reward: (damage dealt - damage taken) / 100 each turn (healing counts the other way), plus +1 for
  * a win and -1 for a loss, plus any interaction rewards (INTERACTION_REWARDS), BALANCE_REWARD, and less
- * REPEAT_PENALTY.
+ * REPEAT_PENALTY (those two not on risky turns: then it plays only to win) and PASS_PENALTY.
  */
 export class NpcTrainingEnv {
   static readonly AGENT = PLAYER_INDEX;
@@ -354,6 +400,7 @@ export class NpcTrainingEnv {
   private hasOpponentPlayedThisTurn = false;
   private recentCasts: Array<string> = []; // the agent's last casts (REPEAT_PENALTY; getRepeatKind)
   private castCounts = new Map<string, number>(); // the agent's casts this game, by kind (BALANCE_REWARD)
+  private castsThisTurn = 0; // (PASS_PENALTY)
 
   /** BALANCE_REWARD's per-cast reward for casting `spellName` now (then counted). */
   private getBalanceReward = (spellName: SpellName): number => {
@@ -397,6 +444,7 @@ export class NpcTrainingEnv {
   /** A turn begins: if the agent moves second this turn, the opponent casts first. */
   private beginTurn = (): void => {
     this.hasOpponentPlayedThisTurn = false;
+    this.castsThisTurn = 0;
     if (this.sim.gameOver !== null || !getIsMovingSecond(this.sim.turnsElapsed)) return;
     playOpponent(this.sim, NpcTrainingEnv.OPPONENT, this.gameOpponent, this.random);
     this.hasOpponentPlayedThisTurn = true;
@@ -412,15 +460,19 @@ export class NpcTrainingEnv {
     if (decoded.kind === 'cast') {
       if (!getActionMask(this.sim, AGENT)[action]) return this.result(pending, false); // illegal: ignored
       const before = this.healths();
+      const isRisky = getIsRiskyTurn(this.sim.turnsElapsed);
       this.sim.cast(AGENT, decoded.spellName, decoded.cells);
+      this.castsThisTurn++;
       const repeatKind = getRepeatKind(decoded.spellName);
-      const repeatPenalty = this.recentCasts.includes(repeatKind) ? REPEAT_PENALTY.penalty : 0;
+      const repeatPenalty = this.recentCasts.includes(repeatKind) && !isRisky ? REPEAT_PENALTY.penalty : 0;
       this.recentCasts = [...this.recentCasts, repeatKind].slice(-REPEAT_PENALTY.window);
-      const balanceReward = this.getBalanceReward(decoded.spellName);
+      const balanceReward = this.getBalanceReward(decoded.spellName) * (isRisky ? 0 : 1);
       return this.result(pending + this.healthReward(before) - repeatPenalty + balanceReward, true); // blood magic costs health
     }
 
     const before = this.healths();
+    // (passing when moving first, though it could have cast)
+    const passPenalty = !this.hasOpponentPlayedThisTurn && this.castsThisTurn === 0 && getActionMask(this.sim, AGENT).some((isLegal, a) => isLegal && a !== END_TURN_ACTION) ? PASS_PENALTY.cost : 0;
     if (!this.hasOpponentPlayedThisTurn) playOpponent(this.sim, OPPONENT, this.gameOpponent, this.random);
     const log = this.sim.endTurn();
     this.beginTurn(); // (the next turn: the opponent may cast first, its blood magic counting in this step)
@@ -428,7 +480,7 @@ export class NpcTrainingEnv {
     const agentCounts = countInteractions(events, AGENT);
     countInteractions(events, AGENT, this.interactions.agent);
     countInteractions(events, OPPONENT, this.interactions.opponent);
-    return this.result(pending + this.healthReward(before) + this.interactionReward(agentCounts), true);
+    return this.result(pending + this.healthReward(before) + this.interactionReward(agentCounts) - passPenalty, true);
   };
 
   /** Interaction reward for this turn's combos, within the per-game cap. */

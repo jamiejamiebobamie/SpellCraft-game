@@ -16,6 +16,7 @@ import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
 import { useKeyPress } from './UseKeyPress';
+import { moveRecorder } from '../DataClasses/Player/MoveRecorder';
 import { LanternLight, CaughtStamp } from './SceneElements/TeacherCatch';
 import { CATCH_SCENE } from './SceneElements/teacherCatchConfig';
 
@@ -261,6 +262,7 @@ export const GameComponent = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Backquote') rootGameStore.previewCatchScene();
       if (e.code === 'Digit9') rootGameStore.previewGameOver();
+      if (e.code === 'Digit8') moveRecorder.download(); // (the player's recorded moves: MoveRecorder)
       if (e.code === 'Digit0') rootGameStore.previewDawn();
     };
     window.addEventListener('keyup', onKey);

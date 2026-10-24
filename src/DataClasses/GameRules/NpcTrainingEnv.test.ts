@@ -1,7 +1,8 @@
 // NpcTrainingEnv.test.ts
 // The NPC's view of the game for training: observations, actions, legal-move masks, rewards.
 import { describe, expect, it } from 'vitest';
-import { BALANCE_REWARD, END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, REPEAT_PENALTY, decodeAction, encodeObservation, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
+import { SUNRISE_TURNS } from './gameRules';
+import { BALANCE_REWARD, END_TURN_ACTION, INTERACTION_REWARDS, NUM_ACTIONS, NpcTrainingEnv, OBSERVATION_SIZE, PASS_PENALTY, REPEAT_PENALTY, SCALAR_INDEX, decodeAction, encodeAction, encodeObservation, getObservationLayout, getObservationSize, getActionMask, getActionMaskByPlanning } from './NpcTrainingEnv';
 import { GameSimulation, NPC_INDEX, PLAYER_INDEX, SpellName } from './GameSimulation';
 import { CellIndex } from '../types';
 import { Ether } from '../PlacedSpells/Spell';
@@ -183,7 +184,7 @@ describe('episodes', () => {
   it('alternate who moves first each turn: the agent moves second on odd turns (turnsElapsed 0, 2, ...)', () => {
     const env = new NpcTrainingEnv();
     let result = env.reset({ seed: 5, opponent: 'none' });
-    const isMovingSecond = () => result.observation[OBSERVATION_SIZE - 1];
+    const isMovingSecond = () => result.observation[SCALAR_INDEX.isMovingSecond];
     for (let turn = 0; turn < 6 && !result.terminated; turn++) {
       expect(isMovingSecond(), `turnsElapsed ${result.info.turnsElapsed}`).toBe(result.info.turnsElapsed % 2 === 0 ? 1 : 0);
       result = env.step(END_TURN_ACTION);
@@ -191,9 +192,10 @@ describe('episodes', () => {
   });
 
   it('reward damage dealt minus damage taken, and +1 / -1 once for a win or loss', () => {
-    // (just the health and win rewards: the combo rewards, repeat penalty and balance reward off)
-    const repeatPenalty = REPEAT_PENALTY.penalty, balance = { ...BALANCE_REWARD };
+    // (just the health and win rewards: the combo rewards, repeat penalty, balance reward and pass penalty off)
+    const repeatPenalty = REPEAT_PENALTY.penalty, balance = { ...BALANCE_REWARD }, passCost = PASS_PENALTY.cost;
     REPEAT_PENALTY.penalty = 0;
+    PASS_PENALTY.cost = 0;
     Object.assign(BALANCE_REWARD, { perCastScale: 0, gameEndBonus: 0 });
     for (let seed = 1; seed <= 100; seed++) {
       const env = new NpcTrainingEnv();
@@ -214,6 +216,37 @@ describe('episodes', () => {
     }
     REPEAT_PENALTY.penalty = repeatPenalty;
     Object.assign(BALANCE_REWARD, balance);
+    PASS_PENALTY.cost = passCost;
+  });
+
+  it('see the night: the clock over sunrise, the chance of a catch at the turn end, the health lead; older models their own layout', () => {
+    const env = new NpcTrainingEnv();
+    const start = env.reset({ seed: 5, opponent: 'none' }).observation;
+    expect(start[SCALAR_INDEX.turnsElapsed]).toBe(0);
+    expect(start[SCALAR_INDEX.catchChance]).toBe(0);
+    expect(start[SCALAR_INDEX.healthLead]).toBe(0.5); // (even)
+    env.sim.turnsElapsed = SUNRISE_TURNS - 1; // (the last turn: a catch is sure at its end)
+    env.sim.players[NPC_INDEX].decrementHealth(40);
+    const late = encodeObservation({ ...env.sim, isMovingSecond: false }, PLAYER_INDEX);
+    expect(late[SCALAR_INDEX.catchChance]).toBe(1);
+    expect(late[SCALAR_INDEX.healthLead]).toBeCloseTo(0.7, 9); // (40 ahead)
+    expect(getObservationLayout(getObservationSize('v2'))).toBe('v2'); // (the model before these inputs: 342 numbers)
+    expect(encodeObservation({ ...env.sim, isMovingSecond: true }, PLAYER_INDEX, 'v2')).toHaveLength(getObservationSize('v2'));
+  });
+
+  it('turn a cast back into its action (encodeAction, for recording the player)', () => {
+    for (let action = 0; action < END_TURN_ACTION; action++) {
+      const decoded = decodeAction(action, PLAYER_INDEX);
+      if (decoded.kind === 'cast') expect(encodeAction(decoded.spellName, decoded.cells, PLAYER_INDEX)).toBe(action);
+    }
+  });
+
+  it('cost passing when moving first with a cast possible (PASS_PENALTY); not when moving second', () => {
+    // (turn 1: the agent moves second, the opponent ('none') having cast nothing; turn 2: the agent moves first)
+    const env = new NpcTrainingEnv();
+    env.reset({ seed: 3, opponent: 'none', interactionRewardScale: 0 });
+    expect(env.step(END_TURN_ACTION).reward).toBeCloseTo(0, 9); // moving second: no cost
+    expect(env.step(END_TURN_ACTION).reward).toBeCloseTo(-PASS_PENALTY.cost, 9); // moving first, could have cast
   });
 
   const castOf = (spellName: SpellName, row: number, column: number = 0) => Array.from({ length: END_TURN_ACTION }, (_, a) => a)

@@ -23,8 +23,9 @@ import { EMOTES, EMOTE_CLEAR, EMOTE_TIMING } from './Multiplayer/emotes';
 import { INTRO_WALK_ANIM_TIME } from '../UI_Components/Player/CharacterParts';
 import { TipId, TooltipPage } from './TooltipManager/TooltipManager';
 import { SpellClass, createPlacedSpells, getIsBlockedForCasting, getDeathGameOver, getIsTimeUp, getPlacementFocusCost, planSpellPlacement, getCaughtGameOver, CAUGHT_RULES, getSeededRandom } from './GameRules/gameRules';
-import { NPC_INDEX, PLAYER_INDEX } from './GameRules/GameSimulation';
-import { GameView } from './GameRules/NpcTrainingEnv';
+import { NPC_INDEX, PLAYER_INDEX, SPELL_CLASSES, SpellName } from './GameRules/GameSimulation';
+import { END_TURN_ACTION, GameView, encodeAction } from './GameRules/NpcTrainingEnv';
+import { MOVE_RECORDER, MovePhase, moveRecorder } from './Player/MoveRecorder';
 import { NPC_POLICY, NpcBrain } from './Player/NpcBrain';
 import { trackEvent } from '../analytics';
 import { CATCH_SCENE_TOTAL_SECONDS, LANTERN_PASS } from '../UI_Components/SceneElements/teacherCatchConfig';
@@ -110,10 +111,14 @@ export class Game {
   private matchBegunAt: number | null = null;
   private getAnalyticsMode(): string { return this.matchMode === 'single' ? '1 player' : this.matchMode === 'host' ? '2 players (host)' : '2 players (guest)'; }
   /** A match begins (the intro walk over, or a rematch): its length is counted from now. */
-  noteMatchBegun(): void { this.matchBegunAt = performance.now(); }
+  noteMatchBegun(): void {
+    this.matchBegunAt = performance.now();
+    if (this.getIsRecordingMoves()) moveRecorder.beginMatch();
+  }
   /** The game is over: its length (from the match beginning), turns, result and mode. */
   reportGameOver(): void {
     if (this.gameOver === null || this.matchBegunAt === null) return;
+    if (this.getIsRecordingMoves()) moveRecorder.endMatch(this.gameOver);
     const result = Object.entries(GameOverStatus).find(([, value]) => value === this.gameOver)?.[0] ?? 'unknown';
     trackEvent('game-over', {
       mode: this.getAnalyticsMode(),
@@ -794,6 +799,11 @@ export class Game {
   async endTurn(): Promise<void> {
     // (the clock, the Space/Escape keys and the turn timer all end turns through here)
     if (this.getIsMultiplayer() && !this.isResolvingMatchTurn) { this.endLocalPhase(); return; }
+    // (the player ending their turn, recorded once a turn: MoveRecorder)
+    if (this.getIsRecordingMoves() && !this.getIsGameBoardDisabled() && this.endTurnRecordedFor !== this.turnToken) {
+      this.endTurnRecordedFor = this.turnToken;
+      this.recordPlayerMove(END_TURN_ACTION);
+    }
     const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
     // The turn is ending: the seconds hand stops (and goes back to 12)
     if (!this.getIsGameBoardDisabled()) this.gameClock.stopTurnClock();
@@ -942,6 +952,12 @@ export class Game {
               const s = new spell(humanPlayer);
               const isPlayerHasFocus = humanPlayer.getFocus() != 0;
               if (isPlayerHasFocus) {
+                // (the player's cast, recorded as the NPC's action for it, before its cost: MoveRecorder)
+                if (this.getIsRecordingMoves()) {
+                  const spellName = (Object.keys(SPELL_CLASSES) as Array<SpellName>).find(name => SPELL_CLASSES[name] === spell);
+                  const action = spellName ? encodeAction(spellName, [cellIndex], PLAYER_INDEX) : null;
+                  if (action !== null) this.recordPlayerMove(action);
+                }
                 const cost = s.getFocusCost();
                 const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
                 if (bloodMagicCost > 0) {
@@ -1281,6 +1297,12 @@ export class Game {
             const s = new spell(humanPlayer);
             const isPlayerHasFocus = humanPlayer.getFocus() != 0;
             if (isPlayerHasFocus) {
+              // (the player's cast, recorded as the NPC's action for it, before its cost: MoveRecorder)
+              if (this.getIsRecordingMoves()) {
+                const spellName = (Object.keys(SPELL_CLASSES) as Array<SpellName>).find(name => SPELL_CLASSES[name] === spell);
+                const action = spellName ? encodeAction(spellName, [cellIndex], PLAYER_INDEX) : null;
+                if (action !== null) this.recordPlayerMove(action);
+              }
               const cost = s.getFocusCost();
               const bloodMagicCost = humanPlayer.incurPlayerCostForSpell(cost);
               if (bloodMagicCost > 0) {
@@ -1421,6 +1443,12 @@ export class Game {
     if (cells.length === 0 || !activeCaster) return;
     const spell = GameSymbol.SPELL_LOOKUP.get(symbol.toLowerCase() as InferenceString);
     if (!spell) return;
+    // (the player's cast, recorded as the NPC's action for it: MoveRecorder)
+    if (activeCaster === this.getHumanPlayer() && this.getIsRecordingMoves()) {
+      const spellName = (Object.keys(SPELL_CLASSES) as Array<SpellName>).find(name => SPELL_CLASSES[name] === spell);
+      const action = spellName ? encodeAction(spellName, cells, PLAYER_INDEX) : null;
+      if (action !== null) this.recordPlayerMove(action);
+    }
 
     const rects = planSpellPlacement(spell as SpellClass, cells, activeCaster.getDirection(), this.getIsCellOccupied.bind(this), this.placedSpells.spells);
     const placed = createPlacedSpells(spell as SpellClass, rects, activeCaster);
@@ -1499,6 +1527,20 @@ export class Game {
       return;
     }
     npc.doNpcMove(this.gameBoard, this.filterDominantCells.bind(this), this.spawnSizedSpellInstance.bind(this), this.isCanPlaceGameSymbolOn.bind(this), this.getCellAt.bind(this));
+  }
+
+  // RECORDING THE PLAYER'S MOVES (in development: MoveRecorder) - - - - - - - - - - - - - - - - - - - - - - - -
+  getIsRecordingMoves(): boolean { return MOVE_RECORDER.isOn && !this.getIsMultiplayer(); }
+  private endTurnRecordedFor = -1; // (the turn whose end was recorded)
+  /** When in this turn the player moves: before the NPC moved, after it had, or while it was drawing. */
+  private getPlayerMovePhase(): MovePhase {
+    if (this.isNpcWaitingForPlayer) return 'first';
+    return this.players.getNpcPlayer()?.getIsDoneWithTurn() ? 'reply' : 'during';
+  }
+  /** Records the player's move (a cast's action, or END_TURN_ACTION) in the game as it is now. */
+  private recordPlayerMove(action: number): void {
+    if (this.gameOver !== null) return;
+    moveRecorder.record(this.getNpcGameView(), action, this.getPlayerMovePhase(), this.getNpcDifficulty());
   }
 
   /** The game as the NPC's brain sees it: the same view a trained model saw in training. */
