@@ -26,6 +26,7 @@ export const MODE_SELECT = {
   titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -.95 },
   fadeInSeconds: 0.6,
   hoverMotion: 'press' as 'press' | 'rise', // (a choice on hover: pressed in, its shadow tighter; or lifted)
+  choiceOpacity: 0.38, // (the choices' dark glass: 0 clear, 1 solid; a little more on hover)
 };
 
 // The choice's hover motion and shadow (MODE_SELECT.hoverMotion)
@@ -62,7 +63,7 @@ const FRAME_ETCH = { color: '#ffffff', opacity: 0.13, hoverOpacity: 0.24 };
  * The plaques' glass: dark and translucent (tint: its color, alpha its opacity), the hall blurred behind it
  * (blur, cqw), a faint sheen across its top (sheen: the white's opacity there).
  */
-const GLASS = { tint: '12, 13, 18', alpha: 0.38, hoverAlpha: 0.48, blur: 0.5, sheen: 0.07 };
+const GLASS = { tint: '12, 13, 18', alpha: MODE_SELECT.choiceOpacity, hoverAlpha: Math.min(1, MODE_SELECT.choiceOpacity + 0.1), blur: 0.5, sheen: 0.07 };
 // (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
 const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
 /**
@@ -124,7 +125,7 @@ const Underlined = styled.span<{ $from: number; $to: number }>`
  * showing through: depth in the black), brushed sideways by a noise, then blurred, so the title reads over the hall. Larger than the title, behind it:
  * from x before it to x past it, from top above it to bottom below it (cqw).
  */
-const SFUMATO = { x: 12, top: 5, bottom: 11, opacity: 1 };
+const SFUMATO = { x: 10, top: 7, bottom: 11, opacity: 0 };
 const SfumatoSvg = styled.svg`
   position: absolute;
   left: ${-SFUMATO.x}cqw;
@@ -185,7 +186,7 @@ const TitleText = () => {
     const split = Math.round(at / title.length * 100);
     return <><Underlined $from={0} $to={split}>{title.slice(0, at)}</Underlined>{title[at]}<Underlined $from={split} $to={100}>{title.slice(at + 1)}</Underlined></>;
   })();
-  return <><TitleSfumato /><TitleLettering>{lettering}</TitleLettering></>;
+  return <>{SFUMATO.opacity > 0 && <TitleSfumato />}<TitleLettering>{lettering}</TitleLettering></>;
 };
 
 const Choices = styled.div`
