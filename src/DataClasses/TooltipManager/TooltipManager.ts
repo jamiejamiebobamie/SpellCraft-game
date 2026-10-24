@@ -16,7 +16,7 @@ export const GAME_TUTORIALS = {
             paragraphs: [
                 "You are a member of a secret wizard fight club.",
                 "Tonight, like every night, you walk around the school after hours, your wand drawn, in search of a truer education in magic.",
-                "You all wear masks to hide your identities, even from each other... if a teacher catches one of you, the rest stay safe.",
+                "All members of your club wear masks to hide your identities, even from each other... if a teacher catches one of you, the rest stay safe.",
             ],
             mediaUrl: './icon-512.png', // the mask
         },

@@ -217,9 +217,10 @@ export const GoldLink = styled.button<{ $size?: number }>`
 `;
 
 /**
- * A small round close button: an ✕ in a gold ring (size: across, cqw). The ✕ drawn as two crossed lines,
+ * A small round close button: an ✕ in a gold ring (size: across, cqw). The ✕ drawn as one vector shape,
  * dead center (a text ✕ sits off center in its font); on hover it grows and brightens, its ring glowing.
  */
+const CLOSE_X_MASK = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M6 6L14 14M14 6L6 14' stroke='black' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E\")";
 export const GoldClose = styled.button<{ $size?: number }>`
   position: relative;
   width: ${props => props.$size ?? 2}cqw;
@@ -233,17 +234,14 @@ export const GoldClose = styled.button<{ $size?: number }>`
   cursor: pointer;
   z-index: 2; /* (above whatever's beside it: its whole ring takes the click) */
   transition: transform 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
-  &::before, &::after {
+  /* (the ✕: one vector shape over the whole ring, in its color: scaling with it, never snapped off center) */
+  &::before {
     content: '';
     position: absolute;
     inset: 0;
-    margin: auto; /* (centered by its margins: no rounding off center, as a translate can) */
-    width: 50%;
-    height: 0.12cqw;
     background: currentColor;
-    border-radius: 0.1cqw;
+    -webkit-mask: ${CLOSE_X_MASK} center / 100% 100% no-repeat;
+    mask: ${CLOSE_X_MASK} center / 100% 100% no-repeat;
   }
-  &::before { transform: rotate(45deg); }
-  &::after { transform: rotate(-45deg); }
   &:hover { transform: scale(1.15); border-color: ${GOLD_BRIGHT}; color: ${GOLD_BRIGHT}; box-shadow: 0 0 0.6cqw rgba(255, 220, 130, 0.5); }
 `;
