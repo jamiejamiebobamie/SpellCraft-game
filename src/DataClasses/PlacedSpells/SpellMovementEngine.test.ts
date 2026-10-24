@@ -444,6 +444,7 @@ describe('4-5. Gyres', () => {
   });
 
   it("meetingMode 'consume': the bigger Gyre takes in the smaller, which lifts it past its tip by its base", () => {
+    GYRE_RULES.meetingMode = 'consume'; // (the rule before 'shrink')
     const gyresLeft = (spells: Array<Spell>) => finalBoard(runTurns(spells, 2)).filter(x => x instanceof Gyre && !x.isRemove);
 
     // A downdraft on the bottom row pushes a 3-tall updraft (base: bottom row) off the board
@@ -729,5 +730,36 @@ describe('regressions', () => {
   });
   it('a Quicken chain meeting a Phlegm head-on has no cell slip past it', () => {
     expect(isAnyCellPast(runTurns([place(Quicken, player, 2, 1, 3), place(Phlegm, npc, 2, 4)]), 2, 1)).toBe(false);
+  });
+});
+
+describe("5. Gyres meeting ('shrink')", () => {
+  it('the stronger takes in the weaker and shrinks by its height, keeping its base; the weaker is destroyed', () => {
+    // (a 1x1 GyreUp in the top row meets a 3x1 GyreDown: the GyreDown, 2x1, still starting in the top row)
+    const up = place(GyreUp, player, 0, 2, 1);
+    const down = place(GyreDown, npc, 0, 3, 3);
+    const frames = runTurns([up, down], 1)[0];
+    const after = frames.find(f => !byId(f, up) || byId(f, up)!.getIsRemove())!;
+    const survivor = byId(after, down)!;
+    expect(survivor.getIsRemove()).toBe(false);
+    expect([survivor.cellIndex.i, survivor.heightCells]).toEqual([0, 2]);
+  });
+
+  it('a GyreUp keeps its bottom cell as it shrinks', () => {
+    const up = place(GyreUp, player, 0, 2, 3);
+    const down = place(GyreDown, npc, 2, 3, 1);
+    const frames = runTurns([up, down], 1)[0];
+    const after = frames.find(f => !byId(f, down) || byId(f, down)!.getIsRemove())!;
+    const survivor = byId(after, up)!;
+    expect([survivor.cellIndex.i, survivor.heightCells]).toEqual([1, 2]);
+  });
+
+  it('equal Gyres destroy each other', () => {
+    const up = place(GyreUp, player, 0, 2, 2);
+    const down = place(GyreDown, npc, 0, 3, 2);
+    const frames = runTurns([up, down], 1)[0];
+    const after = frames[0];
+    expect(byId(after, up)?.getIsRemove() ?? true).toBe(true);
+    expect(byId(after, down)?.getIsRemove() ?? true).toBe(true);
   });
 });

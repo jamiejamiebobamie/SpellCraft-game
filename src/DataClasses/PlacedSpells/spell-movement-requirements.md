@@ -20,9 +20,11 @@ Each micro-step:
 
 Spells moving the same direction side by side only satisfy one half of the swap test, so they do not collide. The test is footprint-based, so it also applies to vertical (Gyre) movement.
 
+Pieces split off mid-step (13) keep where their part of the spell began the step, and swaps are checked in every pass, so a piece is caught crossing a spell as its parent would have been (e.g. the lower rows of a Gyre bouncing off one Phlegm in a column still meet the Phlegms below it).
+
 ### 1b. Resolution order
 1. Collect all colliding pairs for the micro-step.
-2. Resolve pairs in order of their **weakest participant's damage**, lowest first.
+2. Resolve pairs in the order they meet: the pairs **closest as the step began** first (touching before a cell apart: a spell meets the one it was touching before one a cell behind can reach it), then by their **weakest participant's damage**, lowest first. (Without this, a row of Ethers meeting a 1x1 Phlegm let the lead Ether swap past it while the one behind was reflected.)
 3. Before resolving each pair, re-read both spells' current damage (an earlier resolution may have changed a spell's stats, e.g. gaining `consumedEthers`).
 4. Skip any pair in which either spell has already been destroyed.
 
@@ -113,7 +115,11 @@ Remaining capacity must be visually indicated (see Design principles).
 
 ## 5. Gyre consuming a Gyre
 
-### 5a. Merge and cancel
+### 5a. Shrink (GYRE_RULES.meetingMode 'shrink', the default)
+- **Equal power** (any direction): both Gyres are destroyed.
+- Otherwise the stronger takes in the weaker and **shrinks by its height**, keeping its base (5b); the weaker is destroyed. E.g. a 1x1 GyreUp in the top row meets a 3x1 GyreDown: the GyreDown becomes a 2x1 still starting in the top row. A Gyre left with no height is destroyed too.
+
+### 5a' (earlier modes) Merge and cancel ('merge'); 'consume' let the weaker lift the stronger one row past its tip, so a 1x1 at the board's edge could push a 3x1 off it
 - **Equal power** (any direction): both Gyres are destroyed.
 - **Same direction** (e.g. GyreUp + GyreUp): the stronger Gyre grows by the other's height; the other is destroyed immediately and does not persist.
 - **Opposite directions** (GyreUp + GyreDown): the winner shrinks by the loser's height; the loser is destroyed immediately. A Gyre reduced to height 0 is destroyed. Equal heights cancel, destroying both.

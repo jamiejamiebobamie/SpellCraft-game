@@ -184,7 +184,7 @@ const getPhlegmCapacityUse = (phlegm: Phlegm, entering: Spell): number => {
   return isPowerMode ? entering.getPower() : 1;
 };
 
-const getIsPhlegmFull = (spell: Spell): boolean => spell instanceof Phlegm && spell.capacityUsed >= getPhlegmCapacity(spell);
+export const getIsPhlegmFull = (spell: Spell): boolean => spell instanceof Phlegm && spell.capacityUsed >= getPhlegmCapacity(spell);
 
 // --- Fairness ----------------------------------------------------------------------------------
 // The board must play the same for both sides: any scan order or rounding is done from the left
@@ -604,19 +604,23 @@ export class SpellMovementEngine {
   // --- Collisions (requirements 1a-1c) -------------------------------------------------------
 
   /**
-   * Finds and resolves this micro-step's collisions, weakest participant first. Repeats while
-   * resolving creates new overlaps (e.g. pieces of a broken-up spell landing on another spell).
+   * Finds and resolves this micro-step's collisions in the order they happen: spells that were closer as
+   * the step began meet first (a spell touching another meets it before one a cell behind can), then the
+   * weakest participant first. Repeats while resolving creates new meetings (e.g. pieces of a broken-up
+   * spell landing on, or crossing, another spell).
    */
   private resolveCollisions = (positionCache: Map<string, CellIndex>): void => {
     const resolvedPairKeys = new Set<string>();
+    this.stepStarts = positionCache;
 
     for (let pass = 0; pass < MAX_COLLISION_PASSES; pass++) {
-      const pairs = this.detectCollisionPairs(positionCache, pass === 0, resolvedPairKeys);
+      const pairs = this.detectCollisionPairs(positionCache, true, resolvedPairKeys);
       if (!pairs.length) break;
 
       const weakest = (p: CollisionPair) => Math.min(p.a.getPower(), p.b.getPower());
       const strongest = (p: CollisionPair) => Math.max(p.a.getPower(), p.b.getPower());
-      pairs.sort((p, q) => weakest(p) - weakest(q) || strongest(p) - strongest(q));
+      const gap = (p: CollisionPair) => this.getStartGap(p.a, p.b, positionCache);
+      pairs.sort((p, q) => gap(p) - gap(q) || weakest(p) - weakest(q) || strongest(p) - strongest(q));
 
       pairs.forEach(pair => {
         resolvedPairKeys.add(toPairKey(pair.a, pair.b));
@@ -625,9 +629,26 @@ export class SpellMovementEngine {
     }
   };
 
+  /** Where each spell was as this micro-step began (resolveCollisions): pieces split off mid-step are added (createPiece). */
+  private stepStarts: Map<string, CellIndex> | null = null;
+
   /**
-   * A pair collides if their footprints overlap after moving, or (first pass only) if they
-   * swapped places: A's new footprint overlaps B's old one and B's new overlaps A's old one.
+   * How far apart two spells were as the step began: the empty columns between them in their shared rows
+   * (0: touching, -1: overlapping; Infinity: no shared rows or no start known), for the order meetings happen.
+   */
+  private getStartGap = (a: Spell, b: Spell, positionCache: Map<string, CellIndex>): number => {
+    const startA = positionCache.get(a.id), startB = positionCache.get(b.id);
+    if (!startA || !startB) return Infinity;
+    const isSharingRows = startA.i < startB.i + b.heightCells && startB.i < startA.i + a.heightCells;
+    if (!isSharingRows) return Infinity;
+    const between = Math.max(startB.j - (startA.j + a.widthCells), startA.j - (startB.j + b.widthCells));
+    return Math.max(-1, between);
+  };
+
+  /**
+   * A pair collides if their footprints overlap after moving, or if they swapped places: A's new
+   * footprint overlaps B's old one and B's new overlaps A's old one (in every pass, so pieces split
+   * off mid-step are caught crossing spells too).
    */
   private detectCollisionPairs = (positionCache: Map<string, CellIndex>, isCheckingSwaps: boolean, resolvedPairKeys: Set<string>): Array<CollisionPair> => {
     const pairs: Array<CollisionPair> = [];
@@ -792,6 +813,8 @@ export class SpellMovementEngine {
 
   /**
    * Two Gyres meet (5). Equal power: both are destroyed. Otherwise the stronger takes in the weaker:
+   * - GYRE_RULES.meetingMode 'shrink': the stronger shrinks by the weaker's height, keeping its base (a
+   *   GyreUp's bottom cell, a GyreDown's top cell); nothing left of it: destroyed too
    * - GYRE_RULES.meetingMode 'consume': the weaker lifts the stronger, as it would any spell, until
    *   the stronger's base (a GyreUp's bottom cell, a GyreDown's top cell) is one row past the
    *   weaker's tip, in the weaker's direction (off the board: destroyed)
@@ -805,6 +828,15 @@ export class SpellMovementEngine {
     if (a.getPower() === b.getPower()) {
       a.markSpellForRemoval();
       b.markSpellForRemoval();
+      return;
+    }
+
+    if (GYRE_RULES.meetingMode === 'shrink') {
+      winner.consumedEthers += loser.consumedEthers;
+      winner.consumedQuickens += loser.consumedQuickens;
+      winner.quickenSpeedBonus = Math.max(winner.quickenSpeedBonus, loser.quickenSpeedBonus);
+      loser.markSpellForRemoval();
+      this.resizeGyre(winner, winner.heightCells - loser.heightCells); // (resizeGyre keeps its base)
       return;
     }
 
@@ -1022,6 +1054,12 @@ export class SpellMovementEngine {
     piece.remainingMoves = remainingMoves;
     piece.fragmentGroupId = groupId;
     piece.fragmentBreakerId = breaker.id;
+    piece.originId = parent.originId || parent.id;
+    // (where its part of the parent began this micro-step: the parent's start, offset as the piece is from it)
+    const parentStart = this.stepStarts?.get(parent.id), parentNow = parent.getCellIndex();
+    if (this.stepStarts && parentStart && parentNow) {
+      this.stepStarts.set(piece.id, { i: rect.i + parentStart.i - parentNow.i, j: rect.j + parentStart.j - parentNow.j });
+    }
     this.spells.push(piece);
     return piece;
   };

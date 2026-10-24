@@ -80,6 +80,7 @@ export abstract class Spell extends UniqueId {
 
   // Id of the spell this piece broke off from ('' if not a piece). Pieces of the same spell never collide.
   fragmentGroupId: string = '';
+  originId: string = ''; // a piece's first ancestor: the spell as cast it broke off from ('' for one as cast). For tracing, not play
   // Id of the Phlegm/Gyre that broke this piece off ('' if not a piece)
   fragmentBreakerId: string = '';
 

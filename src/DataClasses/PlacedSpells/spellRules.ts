@@ -43,9 +43,11 @@ export const GYRE_RULES = {
   maxHeight: 3,
   // 'height': a spell leaving a Gyre gets +1 move per cell of its height, once, used right away
   exitBonusMode: 'height' as 'height' | 'none' | 'legacy',
-  // Two Gyres meeting: 'consume', the bigger takes in the smaller, which lifts it one row past the
-  // smaller's tip, in the smaller's direction (by its base); 'merge' (the earlier rule) grows or shrinks it
-  meetingMode: 'consume' as 'consume' | 'merge',
+  // Two Gyres meeting: 'shrink', the stronger takes in the weaker and shrinks by its height, keeping its
+  // base (a GyreUp's bottom cell, a GyreDown's top cell), the weaker destroyed (a 3x1 meeting a 1x1 becomes
+  // a 2x1 where it was); 'consume' (the rule before), the weaker lifts the stronger one row past its tip (a
+  // 1x1 at the edge could push a 3x1 off the board); 'merge' (the earliest) grows or shrinks it by direction
+  meetingMode: 'shrink' as 'shrink' | 'consume' | 'merge',
   collisionMode: 'power' as 'power' | 'alwaysLoses',
 };
 
