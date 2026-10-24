@@ -86,7 +86,7 @@ const Title = styled.div`
  * A light sweeping across the title's letters (as across a plaque on hover), left to right in
  * sweepSeconds, once every everySeconds; brightness: the light's opacity at its middle.
  */
-const TITLE_SHEEN = { isOn: true, everySeconds: 5, sweepSeconds: 1.2, brightness: 0.75 };
+const TITLE_SHEEN = { isOn: true, everySeconds: 2, sweepSeconds: 3, brightness: 0.75 };
 // (the light a band in a layer 2.5x the title's width: at 100% it's off the left, at 0% off the right)
 const titleSheen = keyframes`
   0% { background-position: 100% 0, 0 0; }
@@ -120,18 +120,17 @@ const Underlined = styled.span<{ $from: number; $to: number }>`
 `;
 
 /**
- * The darkness behind the title, sfumato: soft dark strokes (brushed sideways by a noise, then blurred), so
- * the title reads over the hall. Larger than the title (inset, cqw), behind it.
+ * The darkness behind the title, sfumato: soft black strokes over night blue and a little white (beneath,
+ * showing through: depth in the black), brushed sideways by a noise, then blurred, so the title reads over the hall. Larger than the title, behind it:
+ * from x before it to x past it, from top above it to bottom below it (cqw).
  */
-const SFUMATO = { inset: { x: -8, y: -5 }, opacity: 1 };
+const SFUMATO = { x: 12, top: 5, bottom: 11, opacity: 1 };
 const SfumatoSvg = styled.svg`
   position: absolute;
-  left: ${SFUMATO.inset.x}cqw;
-  right: ${SFUMATO.inset.x}cqw;
-  top: ${SFUMATO.inset.y}cqw;
-  bottom: ${SFUMATO.inset.y}cqw;
-  width: calc(100% - ${2 * SFUMATO.inset.x}cqw);
-  height: calc(100% - ${2 * SFUMATO.inset.y}cqw);
+  left: ${-SFUMATO.x}cqw;
+  top: ${-SFUMATO.top}cqw;
+  width: calc(100% + ${2 * SFUMATO.x}cqw);
+  height: calc(100% + ${SFUMATO.top + SFUMATO.bottom}cqw);
   z-index: -1;
   opacity: ${SFUMATO.opacity};
   pointer-events: none;
@@ -145,18 +144,32 @@ const TitleSfumato = () => (
         <stop offset='60%' stopColor='#000' stopOpacity='0.9' />
         <stop offset='100%' stopColor='#000' stopOpacity='0' />
       </radialGradient>
+      <radialGradient id='sfumato-blue'>
+        <stop offset='0%' stopColor='#18254d' stopOpacity='1' />
+        <stop offset='60%' stopColor='#111a38' stopOpacity='0.75' />
+        <stop offset='100%' stopColor='#111a38' stopOpacity='0' />
+      </radialGradient>
+      <radialGradient id='sfumato-white'>
+        <stop offset='0%' stopColor='#e8eeff' stopOpacity='0.35' />
+        <stop offset='100%' stopColor='#e8eeff' stopOpacity='0' />
+      </radialGradient>
       {/* (the strokes' edges roughened sideways, like a dry brush, then softened) */}
       <filter id='sfumato-brush' x='-20%' y='-50%' width='140%' height='200%'>
         <feTurbulence type='fractalNoise' baseFrequency='0.012 0.11' numOctaves='3' seed='7' result='noise' />
         <feDisplacementMap in='SourceGraphic' in2='noise' scale='34' xChannelSelector='R' yChannelSelector='G' result='brushed' />
-        <feGaussianBlur in='brushed' stdDeviation='4.5' />
+        <feGaussianBlur in='brushed' stdDeviation='6' />
       </filter>
     </defs>
     <g filter='url(#sfumato-brush)'>
-      <ellipse cx='200' cy='62' rx='190' ry='46' fill='url(#sfumato-dark)' />
-      <ellipse cx='150' cy='46' rx='150' ry='24' fill='url(#sfumato-dark)' opacity='0.75' />
-      <ellipse cx='255' cy='78' rx='145' ry='20' fill='url(#sfumato-dark)' opacity='0.7' />
-      <ellipse cx='90' cy='66' rx='85' ry='30' fill='url(#sfumato-dark)' opacity='0.6' />
+      {/* (beneath: the night blue and a faint white, the black's depth; over them the black, not quite opaque) */}
+      <ellipse cx='200' cy='56' rx='185' ry='40' fill='url(#sfumato-blue)' />
+      <ellipse cx='190' cy='84' rx='170' ry='22' fill='url(#sfumato-blue)' opacity='0.8' />
+      <ellipse cx='170' cy='62' rx='130' ry='12' fill='url(#sfumato-white)' />
+      <ellipse cx='260' cy='92' rx='110' ry='8' fill='url(#sfumato-white)' opacity='0.7' />
+      <ellipse cx='200' cy='48' rx='180' ry='36' fill='url(#sfumato-dark)' opacity='0.8' />
+      <ellipse cx='140' cy='38' rx='135' ry='18' fill='url(#sfumato-dark)' opacity='0.65' />
+      <ellipse cx='255' cy='76' rx='150' ry='20' fill='url(#sfumato-dark)' opacity='0.55' />
+      <ellipse cx='200' cy='96' rx='150' ry='14' fill='url(#sfumato-dark)' opacity='0.45' />
     </g>
   </SfumatoSvg>
 );
