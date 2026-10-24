@@ -3,6 +3,10 @@
 Run (from the repo root, after `npm run build:bridge`):
   training/.venv/Scripts/python training/train.py --steps 200000
   training/.venv/Scripts/python training/train.py --steps 200000 --resume training/models/<name>.zip
+  training/.venv/Scripts/python training/train.py --steps 2000000 --demos training/demos/*.json
+With --demos (the player's recorded moves, MoveRecorder.ts: the moves dictionary), a new model first learns
+to choose the player's moves (--demo-epochs), then trains by playing with a pull toward them that fades to
+nothing over the first --demo-fade of its steps (demos.py).
 
 Each run saves a model (.zip) and a description (.json: the git commit of the rules it was trained
 on, settings, its win rate and combos) to training/models/, plus checkpoints along the way.
@@ -22,6 +26,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList, Check
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
+from demos import DemoPullCallback, demo_accuracy, load_demos, pretrain
 from model_io import load_model
 from quickcast_env import QuickCastEnv
 
@@ -103,6 +108,12 @@ def main():
     parser.add_argument("--resume", type=pathlib.Path, help="continue training this saved model")
     parser.add_argument("--eval-games", type=int, default=200, help="games for the before/after evaluation")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--demos", nargs="*", type=pathlib.Path, default=[],
+                        help="the player's recorded moves (JSON files from the game's 8 key): taught first, then a fading pull")
+    parser.add_argument("--demo-epochs", type=int, default=15, help="passes over the recorded moves before training by playing")
+    parser.add_argument("--demo-pull", type=float, default=0.5, help="the pull toward them while training by playing, at first")
+    parser.add_argument("--demo-fade", type=float, default=0.25, help="the share of the training's steps over which the pull fades out")
+    parser.add_argument("--demo-wins-only", action="store_true", help="only moves from matches the player won")
     args = parser.parse_args()
 
     run_name = f"quickcast-{datetime.datetime.now():%Y%m%d-%H%M}-{git_commit()}"
@@ -116,12 +127,28 @@ def main():
     else:
         model = MaskablePPO("MlpPolicy", envs, seed=args.seed, verbose=1, tensorboard_log=str(RUNS_DIR))
 
+    # The moves dictionary: the copy phase (a fresh model only), and the pull during training
+    demos, demo_summary = None, None
+    if args.demos:
+        demos = load_demos(args.demos, model.observation_space.shape[0], int(model.action_space.n), args.demo_wins_only)
+        demo_summary = {"files": [str(p) for p in args.demos], "counts": demos["counts"]}
+        print(f"Recorded moves: {demos['counts']}")
+        if not args.resume and len(demos["actions"]):
+            losses = pretrain(model, demos, args.demo_epochs, seed=args.seed)
+            demo_summary.update({"pretrainLosses": losses, "accuracyAfterCopying": demo_accuracy(model, demos)})
+            print(f"Copy phase: loss {losses[0]:.3f} -> {losses[-1]:.3f}; picks the player's move {demo_summary['accuracyAfterCopying']:.0%} of the time")
+
     before = evaluate(model, args.eval_games, args.opponent)
     print(f"Before training: {before}")
 
     checkpoints = CheckpointCallback(save_freq=max(1, 50_000 // args.envs), save_path=str(MODELS_DIR / f"{run_name}-checkpoints"))
-    model.learn(total_timesteps=args.steps, callback=CallbackList([checkpoints, GameStatsCallback()]),
+    callbacks = [checkpoints, GameStatsCallback()]
+    if demos is not None and len(demos["actions"]):
+        callbacks.append(DemoPullCallback(demos, args.steps, pull=args.demo_pull, fade=args.demo_fade))
+    model.learn(total_timesteps=args.steps, callback=CallbackList(callbacks),
                 tb_log_name=run_name, reset_num_timesteps=not args.resume)
+    if demo_summary is not None:
+        demo_summary["accuracyAfterTraining"] = demo_accuracy(model, demos)
 
     after = evaluate(model, args.eval_games, args.opponent)
     print(f"After training:  {after}")
@@ -134,6 +161,7 @@ def main():
         "resumedFrom": str(args.resume) if args.resume else None,
         "steps": args.steps,
         "opponent": args.opponent,
+        "demos": demo_summary,
         "evaluation": {"before": before, "after": after, "games": args.eval_games},
     }, indent=2))
     print(f"Saved {model_path}")
