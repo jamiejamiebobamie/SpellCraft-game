@@ -27,10 +27,16 @@ def _mask_from_hex(hex_mask: str, num_actions: int) -> np.ndarray:
 def load_demos(paths: list, observation_size: int, num_actions: int, wins_only: bool = False) -> dict:
     """The recorded moves in `paths` (JSON files), filtered (see above), as arrays; and what was kept."""
     observations, masks, actions = [], [], []
-    counts = {"total": 0, "bait": 0, "duringNpc": 0, "otherLayout": 0, "notWon": 0, "kept": 0}
+    counts = {"total": 0, "duplicate": 0, "bait": 0, "duringNpc": 0, "otherLayout": 0, "notWon": 0, "kept": 0}
+    seen = set()  # (each download has every move saved in that browser: the same move in several files counted once)
     for path in paths:
         for move in json.loads(pathlib.Path(path).read_text())["moves"]:
             counts["total"] += 1
+            key = (move["match"], move["turn"], move["phase"], move["action"], move["legal"], json.dumps(move["obs"]))
+            if key in seen:
+                counts["duplicate"] += 1
+                continue
+            seen.add(key)
             if move.get("isBait"):
                 counts["bait"] += 1
                 continue
