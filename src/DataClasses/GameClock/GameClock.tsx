@@ -1,3 +1,5 @@
+import { MINUTES_PER_TURN } from '../GameRules/gameRules';
+
 /**
  * The turn clock: the clock's seconds hand counts down the player's turn. It ticks round once a turn,
  * in TURN_CLOCK.ticksPerTurn ticks over TURN_CLOCK.turnSeconds (faster than real seconds); if the
@@ -25,7 +27,7 @@ export class GameClock {
       360 for callback to trigger every hour
         30 to trigger every 1/12th hour.
     */
-    static readonly MINUTE_INCREMENT_ANGLE: number = 120; // a turn: 20 minutes (30, 5 minutes, was tried)
+    static readonly MINUTE_INCREMENT_ANGLE: number = MINUTES_PER_TURN * 6; // a turn's minutes (MINUTES_PER_TURN), 6 degrees each
     static readonly MAX_MINUTE_INCREMENT_ANGLE: number = 360 * 6; // 6 hours (midnight to 6 AM), 360 degrees each
 
     constructor(endTurn: () => {}) {

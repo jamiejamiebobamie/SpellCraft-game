@@ -557,7 +557,6 @@ export class Game {
     this.catchScene = null;
     this.lanternPass = null;
     this.phew = null;
-    this.dawnCard = null;
     this.placedSpells.reset();
     this.gameBoard.reset();
     this.players.reset();
@@ -675,12 +674,10 @@ export class Game {
   private catchScene: { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null = null;
   private lanternPass: { id: number; side: 'self' | 'rival' } | null = null;
   private phew: { id: number; side: 'self' | 'rival' } | null = null;
-  private dawnCard: { id: number } | null = null;
   private teacherCount = 0;
   getCatchScene(): { id: number; status: GameOver; caught: Array<'self' | 'rival'> } | null { return this.catchScene; }
   getLanternPass(): { id: number; side: 'self' | 'rival' } | null { return this.lanternPass; }
   getPhew(): { id: number; side: 'self' | 'rival' } | null { return this.phew; }
-  getDawnCard(): { id: number } | null { return this.dawnCard; }
 
   /** In the risky turns (from first light), the weaker wizard (whom a teacher would catch); null: even, or not yet. */
   getAtRiskSide(): 'self' | 'rival' | 'both' | null {
@@ -850,7 +847,6 @@ export class Game {
       if (hadSpells) this.tooltipManager.triggerTip('spellsInMotion');
       if (isCollision) this.tooltipManager.triggerTip('collisions');
       if (this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle() >= Game.NIGHT_PASSING_TIP_TURN) this.tooltipManager.triggerTip('nightPassing');
-      if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) === Game.NIGHT_PASSING_TIP_TURN) this.dawnCard = { id: ++this.teacherCount };
       if (Math.round(this.getMinuteAngleAcc() / this.gameClock.getMinuteIncrAngle()) >= BIRDSONG.fromTurn) this.audioHandler.startBirdsong();
     }
   }

@@ -185,18 +185,26 @@ export const createPlacedSpells = (SpellType: SpellClass, rects: Array<CellRect>
 
 // --- Game over ---------------------------------------------------------------------------------
 
-/** Turns until sunrise: each turn is 20 minutes (GameClock), from midnight to 6 AM. (5 minutes, 72 turns, was tried) */
-export const SUNRISE_TURNS = 3 * 6;
+/**
+ * A turn's minutes on the clock (GameClock), from midnight: every turn count of the night is derived from it
+ * (getTurnAt), so the hours stay put if it changes. (Was 20: 18 turns to sunrise; 5 minutes, 72, was tried.)
+ */
+export const MINUTES_PER_TURN = 15;
+/** The turns elapsed when the clock reads `hour` (hours after midnight). */
+export const getTurnAt = (hour: number): number => Math.round(hour * 60 / MINUTES_PER_TURN);
+
+/** Turns until sunrise, 6 AM (24, at 15 minutes a turn). */
+export const SUNRISE_TURNS = getTurnAt(6);
 
 /**
  * A teacher may catch them at the end of any turn from `firstTurn` (first light: the turn ending at 4 AM;
  * the "Night Is Passing" tip shows the turn before), surely at sunrise. The chance climbs steeply, slow at
  * first and very likely by the end: `lastChance` x (steps so far / steps to sunrise) ^ `curve`, so with
- * curve 3 and lastChance 0.5 about 0.2%, 2%, 6%, 15%, 29%, 50%, then sunrise (of matches still going at
- * 4 AM: 8% caught by 4:40, 22% by 5:00, 72% by 5:40). (Was from 2 AM, 1% more each turn; then from 4 AM,
- * 4% more each turn.)
+ * curve 3 and lastChance 0.5, at 15 minutes a turn: about 0.1%, 1%, 3%, 6%, 12%, 21%, 34%, 50%, then
+ * sunrise (of matches still going at 4 AM: 10% caught by 4:45, 21% by 5:00, 58% by 5:30, 79% by 5:45).
+ * (Was from 2 AM, 1% more each turn; then from 4 AM, 4% more each turn; then 20-minute turns.)
  */
-export const CAUGHT_RULES = { firstTurn: 12, lastChance: 0.5, curve: 3 };
+export const CAUGHT_RULES = { firstTurn: getTurnAt(4), lastChance: 0.5, curve: 3 };
 
 /** The chance a teacher catches them at the end of turn `turn` (1: sunrise). */
 export const getCaughtChance = (turn: number): number => {

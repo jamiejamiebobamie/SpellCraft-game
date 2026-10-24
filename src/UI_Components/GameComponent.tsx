@@ -16,7 +16,7 @@ import GameOverModalComponent from './GameOverModalComponent';
 import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
 import { useKeyPress } from './UseKeyPress';
-import { LanternLight, CaughtStamp, DawnCard } from './SceneElements/TeacherCatch';
+import { LanternLight, CaughtStamp } from './SceneElements/TeacherCatch';
 import { CATCH_SCENE } from './SceneElements/teacherCatchConfig';
 
 /** The hall shaking as a teacher's light floods in (a catch: TeacherCatch.tsx). */
@@ -297,7 +297,6 @@ export const GameComponent = () => {
     </MainColumn>
     <TurnCard />
     <RivalWaitingCard />
-    <DawnCard />
     <CaughtStamp />
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>;

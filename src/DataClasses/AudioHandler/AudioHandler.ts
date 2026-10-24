@@ -1,6 +1,7 @@
 import { AssetLoader, LoaderProperties } from '../AssetLoader/AssetLoader';
 import { AudioType, SoundEffectName, SFX_REGISTRY } from '../types'
 import { ref } from 'valtio';
+import { getTurnAt } from '../GameRules/gameRules';
 
 /**
  * The volume dials (in Settings): the level at a dial's middle (its default; 0 to 1), the dial's top (a
@@ -16,10 +17,10 @@ export const VOLUME = {
 };
 
 /**
- * The dawn's birdsong: a quiet loop (src) from `fromTurn` turns in (5 AM: the last hour before sunrise),
+ * The dawn's birdsong: a quiet loop (src) from `fromTurn` turns in (5 AM: the last hour before sunrise, getTurnAt),
  * at `volume` of the sound effects' level, fading in and out over these many seconds.
  */
-export const BIRDSONG = { src: './Audio/Effects/Clock/785248__newlocknew__ambbird_birdsong-loop.mp3', fromTurn: 15, volume: 0.6, fadeInSeconds: 8, fadeOutSeconds: 3 };
+export const BIRDSONG = { src: './Audio/Effects/Clock/785248__newlocknew__ambbird_birdsong-loop.mp3', fromTurn: getTurnAt(5), volume: 0.6, fadeInSeconds: 8, fadeOutSeconds: 3 };
 
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';

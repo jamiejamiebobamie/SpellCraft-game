@@ -21,7 +21,7 @@ Duel a trained AI, or send a friend a link and duel them, browser to browser.
 - **Or pay in blood.** Cast beyond your focus, and the difference comes out of your health instead.
 - **End the turn** by clicking the clock. All spells then move and interact.
 - **Mind the clock.** Its red seconds hand counts down your turn (30 seconds, ticking round faster than a real minute). If it reaches 12 before you end your turn, your turn ends anyway. Opening the Spell Book pauses it, so if you'd rather not be timed, keep it open while you think. It also waits while a tip is showing.
-- **Survive until sunrise.** Each turn is twenty minutes of game time, from midnight to 6 AM. From first light, around 4 AM, a teacher may catch you at the end of any turn (4% at first, 4% likelier each turn), and surely at 6 AM. The dawn in the windows tells you how close they are: it brightens with the chance of being caught. The teacher catches the weaker wizard, the one with less health: the other gets away and wins.
+- **Survive until sunrise.** Each turn is fifteen minutes of game time, from midnight to 6 AM. From first light at 4 AM, a teacher may catch you at the end of any turn: rarely at first, then steeply likelier (about one in five by 5 AM, even odds by the last turn before 6), and surely at 6 AM. The dawn in the windows tells you how close they are: it brightens with the chance of being caught. The teacher catches the weaker wizard, the one with less health: the other gets away and wins.
 
 Mouse, keyboard or a mix of both all work; the keyboard controls are in the game's settings.
 

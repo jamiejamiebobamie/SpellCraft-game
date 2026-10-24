@@ -2,13 +2,12 @@
 // The teacher's visits at dawn (Game: passLantern, beginCatchScene; timing: teacherCatchConfig.ts). On a
 // risky turn nobody was caught on, a lantern's light passes the weaker wizard's doorway; on a catch, the
 // light floods through the caught wizard's doorway, they're lifted, struggle in the air (casting in a
-// flurry: CastFlurry) and are dragged out (PlayerComponent), and "Caught!" stamps on. Also the first-light card.
+// flurry: CastFlurry) and are dragged out (PlayerComponent), and "Caught!" stamps on.
 import styled, { css, keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
-import { titleLetteringCss } from '../Logo/titleLettering';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
-import { CAST_FLURRY, CATCH_SCENE, CATCH_TIMES, DAWN_CARD, LANTERN_PASS } from './teacherCatchConfig';
+import { CAST_FLURRY, CATCH_SCENE, CATCH_TIMES, LANTERN_PASS } from './teacherCatchConfig';
 
 /**
  * The doorways (the open arches behind each wizard, in cqw of the game's width): where the lantern's light
@@ -123,52 +122,6 @@ export function CaughtStamp() {
   const scene = snap.getCatchScene();
   if (!scene) return null; // (kept until the game over card, fading in, covers it)
   return <Stamp key={scene.id}>{CATCH_SCENE.stampText}</Stamp>;
-}
-
-const dawnShowAndFade = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -40%); }
-  12% { opacity: 1; transform: translate(-50%, -50%); }
-  80% { opacity: 1; transform: translate(-50%, -50%); }
-  100% { opacity: 0; transform: translate(-50%, -60%); }
-`;
-
-const DawnCardBox = styled.div`
-  position: absolute;
-  left: 50%;
-  top: 27cqw;
-  z-index: 40;
-  pointer-events: none;
-  text-align: center;
-  opacity: 0;
-  animation: ${dawnShowAndFade} 4.5s ease-in-out ${DAWN_CARD.delaySeconds}s forwards;
-  .title {
-    font-family: 'EnchantedLand', sans-serif;
-    font-size: 5.5cqw;
-    line-height: 1;
-    ${titleLetteringCss({ strokeCqw: 0.06, glowCqw: 0.6 })}
-  }
-  .text {
-    margin-top: 0.8cqw;
-    font-family: 'EnchantedLand', sans-serif;
-    font-size: 2.2cqw;
-    color: #f3e2b0;
-    text-shadow: 0 0 0.8cqw rgba(0, 0, 0, 0.9), 0 0.15cqw 0.3cqw rgba(0, 0, 0, 0.9);
-    white-space: nowrap;
-  }
-`;
-
-/** First light: the risky turns begin (not over the Spell Book or the keyboard controls). */
-export function DawnCard() {
-  const snap = useSnapshot(rootGameStore);
-  const card = snap.getDawnCard();
-  if (!card || snap.getGameOver() !== null || snap.getCatchScene() !== null) return null;
-  if (snap.getIsSpellBookOpen() || snap.getIsKeyboardControlsShown()) return null;
-  return (
-    <DawnCardBox key={card.id}>
-      <div className="title">{DAWN_CARD.title}</div>
-      <div className="text">{DAWN_CARD.text}</div>
-    </DawnCardBox>
-  );
 }
 
 // --- The caught wizard's flurry of spells: the NPC's symbols, drawn large in gold by their own wand (the IK

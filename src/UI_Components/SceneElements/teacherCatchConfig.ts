@@ -40,5 +40,3 @@ export const FLAIL = {
   swings: [[-15, 22, 9], [-25, 38, 13], [-30, 42, 17]],
 };
 
-/** First light (the risky turns begin): a card after the turn's own (delay: seconds after it begins). */
-export const DAWN_CARD = { delaySeconds: 2.6, title: 'First Light', text: 'Dawn nears and teachers awake!' };
