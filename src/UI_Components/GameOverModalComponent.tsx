@@ -205,9 +205,9 @@ const TEXT_RAISE = 4;
 /**
  * Both wizards' masks beside the title: the player's (white) on the left, the rival's (green) on the right.
  * A winner's stays whole; a loser's cracks, then splits along the crack and falls apart, a moment after the
- * card shows. size: cqw wide; white: the filter making the green mask image the player's white.
+ * card shows. size: cqw wide.
  */
-const OUTCOME_MASKS = { size: 9, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, white: 'grayscale(1) brightness(2.1) contrast(0.9)' };
+const OUTCOME_MASKS = { size: 9, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7 };
 
 /** For each game over (from this player's side): whether each mask breaks; a missing one isn't shown (a rival who fled). */
 const MASK_OUTCOMES: Record<number, { self?: 'whole' | 'broken'; rival?: 'whole' | 'broken' }> = {
@@ -244,7 +244,8 @@ const splitRight = keyframes`
 // The halves, cut along the main crack (in the mask image's 58 x 73 box, as %)
 const CRACK_LINE = '53.4% 0%, 51.7% 19.2%, 46.6% 30.1%, 53.4% 39.7%, 44.8% 50.7%, 50% 63%, 43.1% 75.3%, 41.4% 100%';
 const LEFT_HALF = `polygon(0% 0%, ${CRACK_LINE}, 0% 100%)`;
-const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100% 100%, 100% 0%)`;
+// (the right half: up the crack from the bottom, then round by the top right corner: not crossing itself)
+const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100% 0%, 100% 100%)`;
 
 const MaskBox = styled.div<{ $delay: number; $isBroken: boolean }>`
   position: relative;
@@ -270,8 +271,7 @@ const MaskBox = styled.div<{ $delay: number; $isBroken: boolean }>`
 const MaskHalf = styled.div<{ $isWhite: boolean; $clip: string; $split: ReturnType<typeof keyframes> | null; $delay: number }>`
   position: absolute;
   inset: 0;
-  background: url('mask-icons/1mask-icon-Normal.png') center / cover no-repeat;
-  ${props => props.$isWhite && `filter: ${OUTCOME_MASKS.white};`}
+  background: url(${props => props.$isWhite ? 'mask-icons/1mask-icon-Normal-white.png' : 'mask-icons/1mask-icon-Normal.png'}) center / cover no-repeat;
   clip-path: ${props => props.$clip};
   transform-origin: 50% 100%;
   ${props => props.$split && css`animation: ${props.$split} ${OUTCOME_MASKS.splitSeconds}s cubic-bezier(0.3, 0, 0.6, 1) ${props.$delay}s forwards;`}

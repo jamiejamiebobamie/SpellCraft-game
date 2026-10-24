@@ -256,10 +256,13 @@ export const GameComponent = () => {
     };
   }, []);
 
-  // While developing: the \` key plays the catch scene again (Game.previewCatchScene)
+  // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 0 key the dawn (previewDawn)
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    const onKey = (e: KeyboardEvent) => { if (e.code === 'Backquote') rootGameStore.previewCatchScene(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Backquote') rootGameStore.previewCatchScene();
+      if (e.code === 'Digit0') rootGameStore.previewDawn();
+    };
     window.addEventListener('keyup', onKey);
     return () => window.removeEventListener('keyup', onKey);
   }, []);

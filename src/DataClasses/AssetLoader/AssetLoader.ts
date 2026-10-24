@@ -34,6 +34,7 @@ const sceneImageSrcs = [
 
 const buttonImgSrcs = [
     'mask-icons/1mask-icon-Normal.png',
+    'mask-icons/1mask-icon-Normal-white.png',
     'mask-icons/2mask-icon-Hard.png',
     'mask-icons/3mask-icon-Brutal.png',
     'spell-icons/spellbook-icon.png',

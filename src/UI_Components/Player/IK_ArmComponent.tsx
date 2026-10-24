@@ -21,15 +21,17 @@ type usIKProps = {
   bicepRef: RefObject<HTMLDivElement | null>;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
   setTheta: Dispatch<SetStateAction<Array<number>>>;
+  isWalkingRef: RefObject<boolean>;
 }
 
 /**
  * How often the shoulder's place on the page is measured (milliseconds). Measuring it every frame made the
  * browser bring every animation's styles up to date mid-frame; the wizards only drift a little as they bob.
+ * While a wizard walks in it's measured every frame: measured less often, the arm jumped as the shoulder moved.
  */
 const SHOULDER_MEASURE_MILLI = 250;
 
-const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProps) => {
+const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef }: usIKProps) => {
   useEffect(() => {
     let animationFrameId: number;
     let bicepRect: DOMRect | null = null, measuredAt = -Infinity;
@@ -42,7 +44,7 @@ const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta }: usIKProp
       const mouseLocation = direction == 1 ? mousePosRef?.current : npcMousePos;
       if (!mouseLocation) return;
 
-      if (!bicepRect || now - measuredAt >= SHOULDER_MEASURE_MILLI) { bicepRect = bicepRef.current.getBoundingClientRect(); measuredAt = now; }
+      if (!bicepRect || isWalkingRef.current || now - measuredAt >= SHOULDER_MEASURE_MILLI) { bicepRect = bicepRef.current.getBoundingClientRect(); measuredAt = now; }
       const shoulderOrigin = {
         x: bicepRect.x + (direction == -1 ? bicepRect.width : -bicepRect.width),
         y: bicepRect.y + bicepRect.height / 2
@@ -104,8 +106,11 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerS
   const bicepRef = useRef<HTMLImageElement | null>(null);
   const handRef = useRef<HTMLImageElement | null>(null);
   const [theta, setTheta] = useState<Array<number>>([]);
+  // (walking in: the shoulder measured every frame, useIK)
+  const isWalkingRef = useRef(false);
+  isWalkingRef.current = !!playerSnap?.getIsBeginIntroWalk() && !playerSnap?.getIsDoneWithIntroWalk();
 
-  useIK({ direction, handRef, bicepRef, mousePosRef, setTheta });
+  useIK({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef });
 
   return (
     <ArmOverlayContainer $direction={direction}>

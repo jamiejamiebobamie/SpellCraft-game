@@ -717,6 +717,22 @@ export class Game {
     window.setTimeout(() => this.beginCatchScene(status), 60); // (a moment with neither, so the animations start afresh)
   }
 
+  /**
+   * While developing (the 0 key): the clock to 5 AM (the birds and birdsong out), and each press the one at
+   * risk in turn: the player (the frightened face), the rival, then neither (even health). The turn clock holds.
+   */
+  private dawnPreviewCount = 0;
+  previewDawn(): void {
+    const self = this.players.getHumanPlayer(), rival = this.players.getNpcPlayer();
+    if (!self || !rival || this.gameOver !== null || this.catchScene !== null) return;
+    this.gameClock.minuteAngleAcc = BIRDSONG.fromTurn * this.gameClock.getMinuteIncrAngle();
+    this.gameClock.stopTurnClock();
+    this.audioHandler.startBirdsong();
+    const atRisk = ['self', 'rival', null][this.dawnPreviewCount++ % 3];
+    self.decrementHealth(self.getHealth() - (atRisk === 'self' ? 60 : 100));
+    rival.decrementHealth(rival.getHealth() - (atRisk === 'rival' ? 60 : 100));
+  }
+
   /** A risky turn nobody was caught on: a lantern passes the weaker wizard's doorway (either, if even), and they breathe out. */
   private passLantern(): void {
     const side = this.getAtRiskSide() ?? (Math.random() < 0.5 ? 'self' : 'rival');
