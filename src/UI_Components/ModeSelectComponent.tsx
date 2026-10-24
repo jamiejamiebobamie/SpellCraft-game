@@ -83,6 +83,8 @@ const Choices = styled.div`
 `;
 
 const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
+// (the inner frame and its diamonds: a matte, muted black-brown; its hover a shade lighter)
+const FRAME_MATTE = '#2b2119', FRAME_MATTE_HOVER = '#3d2f23';
 // (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
 const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
 
@@ -121,7 +123,7 @@ const Choice = styled.button`
   .frame {
     position: absolute;
     inset: ${0.9 * MODE_SELECT.choiceScale}cqw;
-    border: 0.08cqw solid rgba(230, 197, 99, 0.38);
+    border: 0.12cqw solid ${FRAME_MATTE};
     border-radius: 0.35cqw;
     pointer-events: none;
     transition: border-color 0.25s;
@@ -131,9 +133,9 @@ const Choice = styled.button`
     position: absolute;
     width: 0.75cqw;
     height: 0.75cqw;
-    background: ${GOLD_GRADIENT};
+    background: ${FRAME_MATTE};
     transform: translate(-50%, -50%) rotate(45deg);
-    box-shadow: 0 0 0.5cqw rgba(255, 220, 130, 0.35);
+    transition: background 0.25s;
   }
   .frame i:nth-child(1) { left: 0; top: 0; }
   .frame i:nth-child(2) { left: 100%; top: 0; }
@@ -209,7 +211,8 @@ const Choice = styled.button`
     transform: translateY(${HOVER_MOTION.shift}cqw);
   }
   &:hover::after, &:focus-visible::after { animation: ${sheen} 0.9s ease-out 1; }
-  &:hover .frame, &:focus-visible .frame { border-color: rgba(255, 230, 160, 0.65); }
+  &:hover .frame, &:focus-visible .frame { border-color: ${FRAME_MATTE_HOVER}; }
+  &:hover .frame i, &:focus-visible .frame i { background: ${FRAME_MATTE_HOVER}; }
   &:hover .icon, &:focus-visible .icon {
     filter: brightness(1.2) drop-shadow(0 0 0.9cqw rgba(255, 225, 140, 0.6));
     transform: scale(1.04);

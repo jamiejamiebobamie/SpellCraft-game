@@ -134,7 +134,7 @@ export function RivalSpinner() {
  * (EMOTE_TIMING: staying up until the next). Its place: as the avatar's, but it doesn't move with the
  * wizard's own animations.
  */
-export const STATUS_EMOJI = { atRisk: '😰', size: 5.2, top: -16 };
+export const STATUS_EMOJI = { atRisk: '😰', size: 5.2, top: -34 };
 
 const statusPop = keyframes`
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }

@@ -126,8 +126,11 @@ const ModalTitle = styled.h2`
 
 /** The ending's text's line height (in its font size). */
 const SUBTEXT_LINE_HEIGHT = 1.4;
-/** The usual ending's text size (cqw): the buttons sit where they do below one line of it. */
-const STANDARD_SUBTEXT_SIZE = 3.6;
+/**
+ * The buttons follow the text, as close on every card as on the two-line caught ones (their text, 3.2cqw, a
+ * line longer than one at 3.6cqw: that much taken back out of the gap between the text and the buttons).
+ */
+const TEXT_TO_BUTTONS_TRIM = (2 * 3.2 - 3.6) * SUBTEXT_LINE_HEIGHT;
 
 const ModalSubText = styled.p<{ $fontSize: number }>`
   font-family: 'EnchantedLand', sans-serif;
@@ -140,15 +143,15 @@ const ModalSubText = styled.p<{ $fontSize: number }>`
   text-align: center;
 `;
 
-/** The ending's text. $extraLinesCqw: how much taller it is than one line at the standard size, taken back out of the layout so the buttons stay where they are on every ending. */
-const ModalSubTextContainer = styled.div<{ $extraLinesCqw: number }>`
+/** The ending's text (the buttons close beneath it: TEXT_TO_BUTTONS_TRIM). */
+const ModalSubTextContainer = styled.div`
   display: flex;
   flex-flow: column wrap;
   justify-content: center;
   align-items: center;
   width: 100%;
   text-align: center;
-  margin-bottom: -${props => props.$extraLinesCqw}cqw;
+  margin-bottom: -${TEXT_TO_BUTTONS_TRIM}cqw;
 `;
 
 const ButtonRow = styled.div`
@@ -207,12 +210,13 @@ const TEXT_RAISE = 4;
 /**
  * Both wizards' masks beside the title: the player's (white) on the left, the rival's (green) on the right.
  * A winner's stays whole; a loser's cracks, then splits along the crack and falls apart, a moment after the
- * card shows. size: cqw wide.
+ * card shows. size: cqw wide. missingGlow: the light behind a missing (black) mask.
  */
-const OUTCOME_MASKS = { size: 9, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7 };
+const OUTCOME_MASKS = { size: 9, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, missingGlow: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))' };
 
-/** For each game over (from this player's side): whether each mask breaks; a missing one isn't shown (a rival who fled). */
-const MASK_OUTCOMES: Record<number, { self?: 'whole' | 'broken'; rival?: 'whole' | 'broken' }> = {
+/** For each game over (from this player's side): each mask whole, breaking, or missing (a rival who fled: black, backlit). */
+type MaskOutcome = 'whole' | 'broken' | 'missing';
+const MASK_OUTCOMES: Record<number, { self: MaskOutcome; rival: MaskOutcome }> = {
   [GameOverStatus.BothDead]: { self: 'whole', rival: 'whole' }, // (a draw)
   [GameOverStatus.PlayerWon]: { self: 'whole', rival: 'broken' },
   [GameOverStatus.NpcWon]: { self: 'broken', rival: 'whole' },
@@ -220,7 +224,7 @@ const MASK_OUTCOMES: Record<number, { self?: 'whole' | 'broken'; rival?: 'whole'
   [GameOverStatus.CaughtPlayer]: { self: 'broken', rival: 'whole' },
   [GameOverStatus.CaughtNpc]: { self: 'whole', rival: 'broken' },
   [GameOverStatus.OutOfStep]: { self: 'whole', rival: 'whole' },
-  [GameOverStatus.EnemyFled]: { self: 'whole' },
+  [GameOverStatus.EnemyFled]: { self: 'whole', rival: 'missing' },
 };
 
 const crackDraw = keyframes`
@@ -249,12 +253,12 @@ const LEFT_HALF = `polygon(0% 0%, ${CRACK_LINE}, 0% 100%)`;
 // (the right half: up the crack from the bottom, then round by the top right corner: not crossing itself)
 const RIGHT_HALF = `polygon(${CRACK_LINE.split(', ').reverse().join(', ')}, 100% 0%, 100% 100%)`;
 
-const MaskBox = styled.div<{ $delay: number; $isBroken: boolean }>`
+const MaskBox = styled.div<{ $delay: number; $isBroken: boolean; $isMissing: boolean }>`
   position: relative;
   flex: none;
   width: ${OUTCOME_MASKS.size}cqw;
   aspect-ratio: 58 / 73;
-  filter: drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8));
+  filter: ${props => props.$isMissing ? OUTCOME_MASKS.missingGlow : 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))'};
   ${props => props.$isBroken && css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   svg { ${props => css`animation: ${cracksFade} 0.3s ease-in ${props.$delay + OUTCOME_MASKS.crackSeconds + 0.15}s forwards;`} }
@@ -270,22 +274,23 @@ const MaskBox = styled.div<{ $delay: number; $isBroken: boolean }>`
   }
 `;
 
-const MaskHalf = styled.div<{ $isWhite: boolean; $clip: string; $split: ReturnType<typeof keyframes> | null; $delay: number }>`
+const MaskHalf = styled.div<{ $isWhite: boolean; $isMissing?: boolean; $clip: string; $split: ReturnType<typeof keyframes> | null; $delay: number }>`
   position: absolute;
   inset: 0;
   background: url(${props => props.$isWhite ? 'mask-icons/1mask-icon-Normal-white.png' : 'mask-icons/1mask-icon-Normal.png'}) center / cover no-repeat;
+  ${props => props.$isMissing && 'filter: brightness(0);'}
   clip-path: ${props => props.$clip};
   transform-origin: 50% 100%;
   ${props => props.$split && css`animation: ${props.$split} ${OUTCOME_MASKS.splitSeconds}s cubic-bezier(0.3, 0, 0.6, 1) ${props.$delay}s forwards;`}
 `;
 
-/** A wizard's mask on the card: whole, or cracking and splitting apart (`delaySeconds`: when it cracks). */
-const OutcomeMask = ({ side, isBroken, delaySeconds }: { side: 'self' | 'rival'; isBroken: boolean; delaySeconds: number }) => {
+/** A wizard's mask on the card: whole, cracking and splitting apart (`delaySeconds`: when it cracks), or missing. */
+const OutcomeMask = ({ side, outcome, delaySeconds }: { side: 'self' | 'rival'; outcome: MaskOutcome; delaySeconds: number }) => {
   const splitDelay = delaySeconds + OUTCOME_MASKS.crackSeconds + 0.1;
-  const isWhite = side === 'self';
+  const isWhite = side === 'self', isBroken = outcome === 'broken', isMissing = outcome === 'missing';
   return (
-    <MaskBox $delay={delaySeconds} $isBroken={isBroken} aria-hidden>
-      <MaskHalf $isWhite={isWhite} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />
+    <MaskBox $delay={delaySeconds} $isBroken={isBroken} $isMissing={isMissing} aria-hidden>
+      <MaskHalf $isWhite={isWhite} $isMissing={isMissing} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />
       {isBroken && <MaskHalf $isWhite={isWhite} $clip={RIGHT_HALF} $split={splitRight} $delay={splitDelay} />}
       {isBroken && (
         // (cracks from a point on the brow; pathLength 1 so each draws in evenly)
@@ -299,12 +304,6 @@ const OutcomeMask = ({ side, isBroken, delaySeconds }: { side: 'self' | 'rival';
     </MaskBox>
   );
 };
-
-/** A mask's place on the card, left empty (a rival who fled). */
-const MaskPlace = styled.div`
-  flex: none;
-  width: ${OUTCOME_MASKS.size}cqw;
-`;
 
 /** The title, between the two masks. */
 const TitleRow = styled.div`
@@ -364,12 +363,11 @@ export const GameOverModalComponent: React.FC = () => {
       <ModalCardContent>
         <RaisedText>
           <TitleRow>
-            {/* (a missing mask's place kept, empty: the title centered between the two places) */}
-            {masks?.self ? <OutcomeMask key={`self:${currentGameOverState}`} side='self' isBroken={masks.self === 'broken'} delaySeconds={maskDelay} /> : masks && <MaskPlace />}
+            {masks && <OutcomeMask key={`self:${currentGameOverState}`} side='self' outcome={masks.self} delaySeconds={maskDelay} />}
             <ModalTitle>{contentConfig.title}</ModalTitle>
-            {masks?.rival ? <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' isBroken={masks.rival === 'broken'} delaySeconds={maskDelay} /> : masks && <MaskPlace />}
+            {masks && <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' outcome={masks.rival} delaySeconds={maskDelay} />}
           </TitleRow>
-          <ModalSubTextContainer $extraLinesCqw={contentConfig.isPlayAgainOwnLine ? (2 * contentConfig.fontSize - STANDARD_SUBTEXT_SIZE) * SUBTEXT_LINE_HEIGHT : 0}>
+          <ModalSubTextContainer>
             {contentConfig.isPlayAgainOwnLine ? (
               <>
                 <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
