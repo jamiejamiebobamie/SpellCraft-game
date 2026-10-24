@@ -55,6 +55,20 @@ const CheckingSpinner = styled.div`
   transform: translate(-50%, -50%);
 `;
 
+/**
+ * The screens after the landing (Choose Your Duel, the invite, joining): overlapAt, how far into the
+ * landing's dissolve they begin fading in (a share of it: crossfading); leaveSeconds, their own dissolve
+ * once the match begins (1 Player, Begin, or joined), as the landing's.
+ */
+export const SCREEN_TRANSITIONS = { overlapAt: 0.35, leaveSeconds: 0.7 };
+
+const ScreenLayer = styled.div<{ $isLeaving: boolean }>`
+  position: absolute;
+  inset: 0;
+  transition: opacity ${SCREEN_TRANSITIONS.leaveSeconds}s ease-in, filter ${SCREEN_TRANSITIONS.leaveSeconds}s ease-in, transform ${SCREEN_TRANSITIONS.leaveSeconds}s ease-out;
+  ${props => props.$isLeaving && 'opacity: 0; filter: blur(0.5cqw); transform: translateY(-1.5cqw) scale(1.03); pointer-events: none;'}
+`;
+
 /** The landing content and its pixie dust (the content dissolving into it as Play is pressed). */
 const DissolveArea = styled.div`
   position: relative;
@@ -202,14 +216,22 @@ const LoaderComponent = () => {
     setIsDissolving(true);
     // (the multiplayer service is checked meanwhile: if it's down, the game goes straight to 1 Player)
     const isServiceUp = joinId ? Promise.resolve(true) : MultiplayerSession.checkService();
+    // (the next screen fading in while the landing is still dissolving: SCREEN_TRANSITIONS.overlapAt)
     window.setTimeout(async () => {
       if (joinId) { setScreen('join'); return; }
       setScreen('checking'); // (a spinner, if the answer isn't in yet)
       if (await isServiceUp) setScreen('mode');
-      else rootGameStore.startGame();
-    }, PIXIE_DUST_SECONDS * 1000);
+      else window.setTimeout(() => rootGameStore.startGame(), PIXIE_DUST_SECONDS * (1 - SCREEN_TRANSITIONS.overlapAt) * 1000);
+    }, PIXIE_DUST_SECONDS * SCREEN_TRANSITIONS.overlapAt * 1000);
   };
   const playAlone = () => { setJoinId(null); setScreen('mode'); };
+  // The match beginning: the screen dissolves away first (SCREEN_TRANSITIONS.leaveSeconds)
+  const [isLeaving, setIsLeaving] = useState<boolean>(false);
+  const leaveThen = (begin: () => void) => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    window.setTimeout(begin, SCREEN_TRANSITIONS.leaveSeconds * 1000);
+  };
 
   // Hovering: the symbols around the button
   const [hoverKey, setHoverKey] = useState<number>(0);
@@ -261,10 +283,14 @@ const LoaderComponent = () => {
       {screen === 'landing' && !isLoading && (
         <CodeLinkComponent isHidden={isDissolving} />
       )}
-      {screen === 'checking' && <CheckingSpinner><SymbolSpinner size={4.2} /></CheckingSpinner>}
-      {screen === 'mode' && <ModeSelectComponent onSinglePlayer={() => rootGameStore.startGame()} onTwoPlayers={() => setScreen('host')} />}
-      {screen === 'host' && <HostMatchScreen onBegin={session => rootGameStore.startHostedMatch(session)} onBack={() => setScreen('mode')} />}
-      {screen === 'join' && joinId && <JoinMatchScreen hostId={joinId} onJoined={session => rootGameStore.startJoinedMatch(session)} onPlayAlone={playAlone} />}
+      {screen !== 'landing' && (
+        <ScreenLayer $isLeaving={isLeaving}>
+          {screen === 'checking' && <CheckingSpinner><SymbolSpinner size={4.2} /></CheckingSpinner>}
+          {screen === 'mode' && <ModeSelectComponent onSinglePlayer={() => leaveThen(() => rootGameStore.startGame())} onTwoPlayers={() => setScreen('host')} />}
+          {screen === 'host' && <HostMatchScreen onBegin={session => leaveThen(() => rootGameStore.startHostedMatch(session))} onBack={() => setScreen('mode')} />}
+          {screen === 'join' && joinId && <JoinMatchScreen hostId={joinId} onJoined={session => leaveThen(() => rootGameStore.startJoinedMatch(session))} onPlayAlone={playAlone} />}
+        </ScreenLayer>
+      )}
     </LoadingOverlay>
   )
 };
