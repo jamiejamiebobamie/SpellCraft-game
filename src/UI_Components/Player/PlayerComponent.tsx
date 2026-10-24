@@ -6,7 +6,6 @@ import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from 
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
-import { PhewBubble } from '../SceneElements/TeacherCatch';
 import { CATCH_SCENE } from '../SceneElements/teacherCatchConfig';
 import styled, { css, keyframes } from 'styled-components'
 
@@ -293,7 +292,6 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
       </AvatarFrame>
       </ShiverWrap>
       {direction === -1 && <NpcPassCard />}
-      <PhewBubble side={side} />
       {direction === -1 && <RivalSpinner />}
     </AvatarPlacementWrapper>
   );

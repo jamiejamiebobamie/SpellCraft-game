@@ -132,10 +132,11 @@ const SUBTEXT_LINE_HEIGHT = 1.4;
  * line longer than one at 3.6cqw: that much taken back out of the gap between the text and the buttons).
  */
 /**
- * The ending's text's font: a plain book serif, readable (family; weight; scale: its size against the
- * sizes set per ending, which were set for the narrower EnchantedLand: 1 for those).
+ * The ending's text's font: the device's own plain sans-serif, readable (Segoe UI on Windows, Calibri's
+ * family; Helvetica on Apple's; Arial elsewhere), family; weight; scale: its size against the sizes set
+ * per ending, which were set for the narrower EnchantedLand ('EnchantedLand', scale 1: as those were).
  */
-const SUBTEXT_FONT = { family: "'BookSerif', Georgia, serif", weight: 500, scale: 0.72 };
+const SUBTEXT_FONT = { family: "'Segoe UI', Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif", weight: 400, scale: 0.66 };
 const TEXT_TO_BUTTONS_TRIM = (2 * 3.2 - 3.6) * SUBTEXT_LINE_HEIGHT * SUBTEXT_FONT.scale;
 
 const ModalSubText = styled.p<{ $fontSize: number }>`

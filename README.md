@@ -158,7 +158,7 @@ training/.venv/Scripts/python training/export_onnx.py training/models/<model>.zi
 
 **Art:** all game art is my own.
 
-**Fonts:** [Enchanted Land](https://www.sharkshock.net/) by Dennis Ludlow (Sharkshock), free for personal use (see `public/fonts/readme.txt`); [EB Garamond](https://fonts.google.com/specimen/EB+Garamond) by Georg Duffner and Octavio Pardo, under the SIL Open Font License (the game over card's text).
+**Font:** [Enchanted Land](https://www.sharkshock.net/) by Dennis Ludlow (Sharkshock), free for personal use (see `public/fonts/readme.txt`).
 
 **Sound effects:** from [Freesound](https://freesound.org/), used under their Creative Commons licenses:
 

@@ -130,11 +130,12 @@ export function RivalSpinner() {
 
 /**
  * The emoji over a wizard's head, like a chat status: at dawn, the one a teacher would catch (atRisk: a
- * frightened face, with the blue fading down its brow), else a 2-player match's latest reaction
+ * frightened face, with the blue fading down its brow; relieved for a moment when a risky turn passes
+ * them by: LANTERN_PASS), else a 2-player match's latest reaction
  * (EMOTE_TIMING: staying up until the next). Its place: as the avatar's, but it doesn't move with the
  * wizard's own animations.
  */
-export const STATUS_EMOJI = { atRisk: '😰', size: 5.2, top: -34 };
+export const STATUS_EMOJI = { atRisk: '😰', relieved: '😮‍💨', size: 5.2, top: -34 };
 
 const statusPop = keyframes`
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
@@ -170,7 +171,14 @@ const StatusText = styled.div<{ $isStaying: boolean }>`
 /** Placed over a wizard (in a frame the size of its avatar, not moving with it): its status emoji, if any. */
 export function StatusEmoji({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
-  if (snap.getIsAtRisk(side)) return <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
+  if (snap.getIsAtRisk(side)) {
+    // (a risky turn just passed them by: relieved for a moment, both if both were at risk)
+    const phew = snap.getPhew();
+    const isRelieved = phew !== null && (phew.side === side || snap.getAtRiskSide() === 'both');
+    return isRelieved
+      ? <StatusText key={`relieved:${phew.id}`} $isStaying={true}>{STATUS_EMOJI.relieved}</StatusText>
+      : <StatusText key='atRisk' $isStaying={true}>{STATUS_EMOJI.atRisk}</StatusText>;
+  }
   const emote = snap.getEmote(side);
   if (!emote) return null;
   return <StatusText key={emote.id} $isStaying={EMOTE_TIMING.showSeconds <= 0}>{emote.emoji}</StatusText>;

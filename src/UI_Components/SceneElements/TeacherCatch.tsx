@@ -8,7 +8,6 @@ import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
 import { titleLetteringCss } from '../Logo/titleLettering';
 import { CATCH_SCENE, DAWN_CARD, LANTERN_PASS } from './teacherCatchConfig';
-import { PassCard } from '../TurnCard';
 
 /**
  * The doorways (the open arches behind each wizard, in cqw of the game's width): where the lantern's light
@@ -169,12 +168,4 @@ export function DawnCard() {
       <div className="text">{DAWN_CARD.text}</div>
     </DawnCardBox>
   );
-}
-
-/** Placed inside a wizard's avatar: their "phew" once the lantern has passed them by. */
-export function PhewBubble({ side }: { side: 'self' | 'rival' }) {
-  const snap = useSnapshot(rootGameStore);
-  const phew = snap.getPhew();
-  if (!phew || phew.side !== side) return null;
-  return <PassCard key={phew.id}>{LANTERN_PASS.phewText}</PassCard>; // (as "Pass": the same place and lettering)
 }
