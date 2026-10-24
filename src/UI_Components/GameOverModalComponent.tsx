@@ -13,6 +13,7 @@ interface ModalTextConfig {
   text: string;
   fontSize: number;
   isPlayAgainOwnLine?: boolean; // "Play again?" on its own line, below (for a long ending)
+  secondLine?: string; // (with isPlayAgainOwnLine) a sentence starting that line, before "Play again?"
 }
 
 // Assuming your 4th state "Caught by Teacher" maps to a status key or string fallback
@@ -42,7 +43,8 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   },
   [GameOverStatus.CaughtPlayer]: {
     title: 'You Lost', // (caught: the rival got away, so they won)
-    text: 'Too weary to flee, you were caught by a teacher. Your rival slipped away into the dark.',
+    text: 'Too weary to flee, you were caught by a teacher.',
+    secondLine: 'Your rival slipped away into the dark.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
   },
@@ -59,7 +61,8 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
   },
   [GameOverStatus.CaughtNpc]: {
     title: 'You Won', // (the rival was caught: you got away)
-    text: 'A teacher caught your rival, too weary to flee. You slipped away into the dark.',
+    text: 'A teacher caught your rival, too weary to flee.',
+    secondLine: 'You slipped away into the dark.',
     fontSize: 3.2,
     isPlayAgainOwnLine: true,
   },
@@ -371,7 +374,9 @@ export const GameOverModalComponent: React.FC = () => {
               <>
                 <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}</ModalSubText>
                 {/* (no "Play again?" once the rival has left) */}
-                {!isRivalLeft && <ModalSubText $fontSize={contentConfig.fontSize}>Play again?</ModalSubText>}
+                {(contentConfig.secondLine || !isRivalLeft) && (
+                  <ModalSubText $fontSize={contentConfig.fontSize}>{[contentConfig.secondLine, isRivalLeft ? '' : 'Play again?'].filter(Boolean).join(' ')}</ModalSubText>
+                )}
               </>
             ) : (
               <ModalSubText $fontSize={contentConfig.fontSize}>{contentConfig.text}{isRivalLeft ? '' : ' Play again?'}</ModalSubText>
