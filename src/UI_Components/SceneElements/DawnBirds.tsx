@@ -8,7 +8,7 @@ import { rootGameStore } from '../../DataClasses/store';
 /**
  * The dawn's birds, from when the birdsong starts (BIRDSONG.fromTurn): a few flying across each window's sky
  * (`perWindow`, each crossing in `crossSeconds` then gone a while: one pass every `cycleSeconds`), and now
- * and then one landing on a window's sill (`sillWindows`: the windows a button doesn't cover; one at a time
+ * and then one landing on a window's sill (`sillWindows`: all four; one at a time
  * each), one every `landEverySeconds` among them, staying `perchSeconds` in all (landing and leaving included).
  * All of them outside, in the windows' skies: the wall hides them beyond the openings. Sizes in cqw.
  */
@@ -18,7 +18,7 @@ export const DAWN_BIRDS = {
   flySize: 1.8,
   crossSeconds: [4, 7],
   cycleSeconds: [10, 20],
-  sillWindows: [0, 1, 2],
+  sillWindows: [0, 1, 2, 3],
   sillTop: 11.9, // (where a perched bird's feet rest: from the sky's top)
   perchSize: 2.2,
   landEverySeconds: [5, 12],
