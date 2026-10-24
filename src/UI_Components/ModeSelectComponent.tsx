@@ -1,7 +1,7 @@
 // ModeSelectComponent.tsx
 // After Play: choose "1 Player" (the duel against the NPC, as before) or "2 Players" (a match with a
 // friend, by an invite link). Two large framed plaques, each brightening on hover.
-import styled, { keyframes } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 
 /**
  * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
@@ -54,8 +54,15 @@ const Screen = styled.div`
 `;
 
 const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
-// (the inner frame and its diamonds: a matte, muted black-brown; its hover a shade lighter)
-const FRAME_MATTE = '#2b2119', FRAME_MATTE_HOVER = '#3d2f23';
+// (the inner frame and its diamonds: a faint pale line etched in the glass, its hover a little clearer; solid,
+// the frame faded as one, so the lines don't show through the diamonds where they cross)
+const FRAME_ETCH = { color: '#ffffff', opacity: 0.13, hoverOpacity: 0.24 };
+
+/**
+ * The plaques' glass: dark and translucent (tint: its color, alpha its opacity), the hall blurred behind it
+ * (blur, cqw), a faint sheen across its top (sheen: the white's opacity there).
+ */
+const GLASS = { tint: '12, 13, 18', alpha: 0.38, hoverAlpha: 0.48, blur: 0.5, sheen: 0.07 };
 // (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
 const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
 /**
@@ -76,12 +83,24 @@ const Title = styled.div`
 `;
 
 /**
- * The title's lettering: the gold (TITLE_GRADIENT) showing through the letters, with a soft gold glow and a
- * shadow beneath (a filter: a text-shadow would muddy the gold).
+ * A light sweeping across the title's letters (as across a plaque on hover), left to right in
+ * sweepSeconds, once every everySeconds; brightness: the light's opacity at its middle.
+ */
+const TITLE_SHEEN = { isOn: true, everySeconds: 5, sweepSeconds: 1.2, brightness: 0.75 };
+// (the light a band in a layer 2.5x the title's width: at 100% it's off the left, at 0% off the right)
+const titleSheen = keyframes`
+  0% { background-position: 100% 0, 0 0; }
+  ${Math.min(100, TITLE_SHEEN.sweepSeconds / TITLE_SHEEN.everySeconds * 100)}%, 100% { background-position: 0% 0, 0 0; }
+`;
+
+/**
+ * The title's lettering: the gold (TITLE_GRADIENT) showing through the letters, its sheen sweeping across
+ * (TITLE_SHEEN), with a soft gold glow and a shadow beneath (a filter: a text-shadow would muddy the gold).
  */
 const TitleLettering = styled.span`
   position: relative;
-  background: ${TITLE_GRADIENT};
+  background: ${TITLE_SHEEN.isOn ? `linear-gradient(105deg, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, ${TITLE_SHEEN.brightness}) 50%, rgba(255, 255, 255, 0) 58%) 100% 0 / 250% 100% no-repeat, ` : ''}${TITLE_GRADIENT};
+  ${TITLE_SHEEN.isOn && css`animation: ${titleSheen} ${TITLE_SHEEN.everySeconds}s ease-in-out infinite;`}
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -169,9 +188,9 @@ const sheen = keyframes`
 `;
 
 /**
- * A choice: a framed plaque (an outer gold edge, a fine inner frame with a diamond at each corner), dark
- * and deep (a warm glow behind the icon, an inner shadow, a faint top highlight); on hover its gold
- * brightens and a light sweeps across it.
+ * A choice: a framed plaque of dark glass (GLASS: an outer gold edge, a fine etched inner frame with a
+ * diamond at each corner, a soft glow behind the icon, a sheen at the top); on hover its gold brightens
+ * and a light sweeps across it.
  */
 const Choice = styled.button`
   position: relative;
@@ -184,11 +203,14 @@ const Choice = styled.button`
   justify-content: center;
   gap: ${1.1 * MODE_SELECT.choiceScale}cqw;
   background:
-    radial-gradient(ellipse 60% 45% at 50% 40%, rgba(255, 205, 110, 0.13), rgba(255, 205, 110, 0) 70%),
-    linear-gradient(180deg, rgba(34, 27, 15, 0.92) 0%, rgba(14, 11, 7, 0.95) 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, ${GLASS.sheen}) 0%, rgba(255, 255, 255, 0) 38%),
+    radial-gradient(ellipse 60% 45% at 50% 40%, rgba(255, 215, 140, 0.08), rgba(255, 215, 140, 0) 70%),
+    rgba(${GLASS.tint}, ${GLASS.alpha});
+  backdrop-filter: blur(${GLASS.blur}cqw) saturate(1.15);
+  -webkit-backdrop-filter: blur(${GLASS.blur}cqw) saturate(1.15);
   border: 0.16cqw solid rgba(230, 197, 99, 0.7);
   border-radius: 0.8cqw;
-  box-shadow: ${HOVER_MOTION.rest}, inset 0 0 3cqw rgba(0, 0, 0, 0.65), inset 0 0.12cqw 0 rgba(255, 240, 200, 0.14);
+  box-shadow: ${HOVER_MOTION.rest}, inset 0 0 2.5cqw rgba(0, 0, 0, 0.35), inset 0 0.12cqw 0 rgba(255, 255, 255, 0.16);
   color: ${GOLD};
   cursor: pointer;
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s, background 0.25s;
@@ -197,19 +219,19 @@ const Choice = styled.button`
   .frame {
     position: absolute;
     inset: ${0.9 * MODE_SELECT.choiceScale}cqw;
-    border: 0.12cqw solid ${FRAME_MATTE};
+    border: 0.12cqw solid ${FRAME_ETCH.color};
     border-radius: 0.35cqw;
+    opacity: ${FRAME_ETCH.opacity};
     pointer-events: none;
-    transition: border-color 0.25s;
+    transition: opacity 0.25s;
   }
   /* a diamond at each of its corners */
   .frame i {
     position: absolute;
     width: 0.75cqw;
     height: 0.75cqw;
-    background: ${FRAME_MATTE};
+    background: ${FRAME_ETCH.color};
     transform: translate(-50%, -50%) rotate(45deg);
-    transition: background 0.25s;
   }
   .frame i:nth-child(1) { left: 0; top: 0; }
   .frame i:nth-child(2) { left: 100%; top: 0; }
@@ -279,14 +301,14 @@ const Choice = styled.button`
     outline: none;
     border-color: ${GOLD_BRIGHT};
     background:
-      radial-gradient(ellipse 65% 50% at 50% 40%, rgba(255, 205, 110, 0.24), rgba(255, 205, 110, 0) 70%),
-      linear-gradient(180deg, rgba(42, 33, 18, 0.94) 0%, rgba(16, 12, 7, 0.95) 100%);
-    box-shadow: ${HOVER_MOTION.shadow}, 0 0 2.2cqw rgba(255, 220, 130, 0.35), inset 0 0 3cqw rgba(0, 0, 0, 0.55), inset 0 0.12cqw 0 rgba(255, 240, 200, 0.22);
+      linear-gradient(180deg, rgba(255, 255, 255, ${GLASS.sheen * 1.4}) 0%, rgba(255, 255, 255, 0) 38%),
+      radial-gradient(ellipse 65% 50% at 50% 40%, rgba(255, 215, 140, 0.16), rgba(255, 215, 140, 0) 70%),
+      rgba(${GLASS.tint}, ${GLASS.hoverAlpha});
+    box-shadow: ${HOVER_MOTION.shadow}, 0 0 2.2cqw rgba(255, 220, 130, 0.35), inset 0 0 2.5cqw rgba(0, 0, 0, 0.3), inset 0 0.12cqw 0 rgba(255, 255, 255, 0.24);
     transform: translateY(${HOVER_MOTION.shift}cqw);
   }
   &:hover::after, &:focus-visible::after { animation: ${sheen} 0.9s ease-out 1; }
-  &:hover .frame, &:focus-visible .frame { border-color: ${FRAME_MATTE_HOVER}; }
-  &:hover .frame i, &:focus-visible .frame i { background: ${FRAME_MATTE_HOVER}; }
+  &:hover .frame, &:focus-visible .frame { opacity: ${FRAME_ETCH.hoverOpacity}; }
   &:hover .icon, &:focus-visible .icon {
     filter: brightness(1.2) drop-shadow(0 0 0.9cqw rgba(255, 225, 140, 0.6));
     transform: scale(1.04);
