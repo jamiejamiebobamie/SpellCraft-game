@@ -13,6 +13,9 @@ type Ray = { length: number; width: number; style: RayStyle; waves: number; wave
 
 export const CLOCK_HALO = {
   enabled: true,
+  // How the halo meets the scene: 'normal' (painted on, solid: the ribbons as real material, at their
+  // opacity) or 'screen' (a light: only lightening what's beneath, so always a little see-through, ghostly)
+  blend: 'normal' as 'normal' | 'screen',
   center: { x: 50, y: 9.8 }, // the clock face's center (cqw: MenuAnchor 45, 4.8 + padding 0.5 + half of 9)
   radius: 11, // the rays' reach upward (cqw; the face's radius is about 4.3)
   // The long rays' reach straight down (cqw from the face's center): the clock body's bottom edge (its
@@ -36,7 +39,7 @@ export const CLOCK_HALO = {
   // The ribbons' own look, apart from the long rays: opacity (1: completely opaque; on the landing page, and in play), how much they fade
   // toward their tips (0: not at all, 1: to nothing), and brightness (multiplying their colors): on the
   // landing page, and in play (where the scene starts dark, so they're brightened to stay vivid)
-  ribbonLook: { opacity: { landing: 0.75, play: 0.75 }, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
+  ribbonLook: { opacity: { landing: .75, play: 1 }, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
   // How far the ribbons reach: the short rays' shape (short on top, longest straight down, as the long
   // rays), stretched out to the sides along the walls by `sideStretch` (0: none; 1: twice as far at the
   // sides), top and bottom as they were. (Keep the sides short of the doorways, about 32 cqw out.)
@@ -120,7 +123,7 @@ const HaloWrapper = styled.div<{ $brightness: number; $isFrozen: boolean; $isClo
   height: ${CANVAS_REACH * 2}cqw;
   z-index: 1; /* in front of the clock's body (z-index 0), behind its face (31) */
   pointer-events: none;
-  mix-blend-mode: screen; /* lightens what's beneath instead of covering it */
+  mix-blend-mode: ${CLOCK_HALO.blend}; /* (screen: lightens what's beneath instead of covering it) */
   filter: brightness(${props => props.$brightness});
   will-change: filter; /* (its own layer from the start: made mid-intro, as its filter began to change, it could show black for a frame) */
   transition: filter ${INTRO_WALK_ANIM_TIME / 2}s;

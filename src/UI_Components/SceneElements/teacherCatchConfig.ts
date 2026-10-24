@@ -12,18 +12,21 @@ export const LANTERN_PASS = { isLightOn: false, seconds: 2.8, phewDelaySeconds: 
 /**
  * A catch, in order (seconds): the light floods through the caught wizard's doorway (the hall shaking as
  * it peaks); the caught wizard is lifted into the air (liftHeight: cqw) and struggles there (their wand arm
- * flailing, spells cast in a flurry: CAST_FLURRY), then is dragged out through the doorway, still aloft,
- * while the other slips away through theirs (slipDelaySeconds after the flood); then "Caught!" stamps on,
- * and then the game over card.
+ * flailing, spells cast in a flurry: CAST_FLURRY), then is dragged out through the doorway, still aloft.
+ * Meanwhile the other slips away through theirs (slipDelaySeconds after the flood), and once they're gone
+ * "Caught!" stamps on, during the struggle (CATCH_TIMES.stamp); then the game over card.
  */
 export const CATCH_SCENE = { floodSeconds: 1.3, liftSeconds: 0.9, struggleSeconds: 2.8, dragSeconds: 1.6, liftHeight: 7, slipDelaySeconds: 0.5, stampSeconds: 1.5, stampText: 'Caught!' };
 /** When (seconds into the scene) the caught wizard is lifted, dragged off, and "Caught!" stamps on. */
 export const CATCH_TIMES = {
   lift: CATCH_SCENE.floodSeconds,
   drag: CATCH_SCENE.floodSeconds + CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds,
-  stamp: CATCH_SCENE.floodSeconds + CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds,
+  dragged: CATCH_SCENE.floodSeconds + CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds, // (gone)
+  // ("Caught!" once the other wizard has slipped away: when they would have, if both were caught; during the struggle)
+  stamp: CATCH_SCENE.floodSeconds + CATCH_SCENE.slipDelaySeconds + CATCH_SCENE.dragSeconds,
 };
-export const CATCH_SCENE_TOTAL_SECONDS = CATCH_TIMES.stamp + CATCH_SCENE.stampSeconds;
+/** The scene's end (the game over card): the caught wizard gone and "Caught!" stamped on, whichever's later. */
+export const CATCH_SCENE_TOTAL_SECONDS = Math.max(CATCH_TIMES.dragged, CATCH_TIMES.stamp + CATCH_SCENE.stampSeconds);
 
 /**
  * The caught wizard's struggle in the air: spells cast in a flurry (perSecond), each symbol (the NPC's)

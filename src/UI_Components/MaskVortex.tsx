@@ -17,7 +17,7 @@ export const MASK_VORTEX = {
   pixels: 320,
   twist: 2.4,
   arms: 3,
-  speed: 1, // (how fast it all turns: 2, twice as fast; 0.5, half)
+  speed: 4, // (how fast it all turns: 2, twice as fast; 0.5, half)
   seconds: 40,
   innerSeconds: 22,
   colors: { black: [0, 0, 0], midnight: [20, 30, 78], backlight: [190, 170, 245] },
