@@ -212,21 +212,33 @@ export const GoldLink = styled.button<{ $size?: number }>`
   &:hover { color: ${GOLD_BRIGHT}; text-decoration-color: currentColor; }
 `;
 
-/** A small round close button: an ✕ in a gold ring (size: across, cqw). */
+/**
+ * A small round close button: an ✕ in a gold ring (size: across, cqw). The ✕ drawn as two crossed lines,
+ * dead center (a text ✕ sits off center in its font); on hover it brightens, its ring glowing.
+ */
 export const GoldClose = styled.button<{ $size?: number }>`
+  position: relative;
   width: ${props => props.$size ?? 2}cqw;
   height: ${props => props.$size ?? 2}cqw;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0;
-  font-size: ${props => (props.$size ?? 2) * 0.5}cqw;
-  line-height: 1;
+  font-size: 0; /* (any text inside: for screen readers only) */
   color: ${GOLD};
   background: rgba(${GLASS.tint}, 0.4);
   border: 0.1cqw solid rgba(230, 197, 99, 0.45);
   border-radius: 50%;
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, color 0.15s;
-  &:hover { transform: scale(1.1); border-color: ${GOLD_BRIGHT}; color: ${GOLD_BRIGHT}; }
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 50%;
+    height: 0.12cqw;
+    background: currentColor;
+    border-radius: 0.1cqw;
+  }
+  &::before { transform: translate(-50%, -50%) rotate(45deg); }
+  &::after { transform: translate(-50%, -50%) rotate(-45deg); }
+  &:hover { border-color: ${GOLD_BRIGHT}; color: ${GOLD_BRIGHT}; box-shadow: 0 0 0.6cqw rgba(255, 220, 130, 0.5); }
 `;
