@@ -126,7 +126,7 @@ const ModalTitle = styled.h2`
 `;
 
 /** The ending's text's line height (in its font size). */
-const SUBTEXT_LINE_HEIGHT = 1.4;
+const SUBTEXT_LINE_HEIGHT = 2;
 /**
  * The buttons follow the text, as close on every card as on the two-line caught ones (their text, 3.2cqw, a
  * line longer than one at 3.6cqw: that much taken back out of the gap between the text and the buttons).

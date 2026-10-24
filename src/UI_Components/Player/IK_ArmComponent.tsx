@@ -4,6 +4,8 @@ import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
 import styled from 'styled-components';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { rootGameStore } from '../../DataClasses/store';
+import { FLAIL } from '../SceneElements/teacherCatchConfig';
+import { getFlurryWandPoint } from '../SceneElements/TeacherCatch';
 
 const ArmOverlayContainer = styled.div<{ $direction: number }>`
 position: absolute; /* Changed from fixed */
@@ -22,6 +24,7 @@ type usIKProps = {
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
   setTheta: Dispatch<SetStateAction<Array<number>>>;
   isWalkingRef: RefObject<boolean>;
+  catchRef: RefObject<{ sceneId: number; startedAt: number } | null>;
 }
 
 /**
@@ -31,18 +34,37 @@ type usIKProps = {
  */
 const SHOULDER_MEASURE_MILLI = 250;
 
-const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef }: usIKProps) => {
+const useIK = ({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef, catchRef }: usIKProps) => {
   useEffect(() => {
     let animationFrameId: number;
     let bicepRect: DOMRect | null = null, measuredAt = -Infinity;
     let lastTheta = [NaN, NaN, NaN];
 
     const updateArmIK = (now: number) => {
-      const npcMousePos = rootGameStore.getNpcMousePos();
-      if (!bicepRef.current || !handRef.current) return;
+      // (caught by a teacher, struggling: the wand tracing each spell as it's drawn, or flailing between,
+      // each joint swinging at its own speed: FLAIL)
+      const caught = catchRef.current;
+      let wandPoint: { x: number; y: number } | null = null;
+      if (caught) {
+        const t = (now - caught.startedAt) / 1000;
+        if (t >= FLAIL.fromSeconds && t <= FLAIL.fromSeconds + FLAIL.seconds) {
+          wandPoint = getFlurryWandPoint(caught.sceneId, direction == 1 ? 'self' : 'rival', t);
+          if (!wandPoint) {
+            setTheta(FLAIL.swings.map(([rest, sway, speed], k) => rest + sway * Math.sin(t * speed + k * 1.7)));
+            lastTheta = [NaN, NaN, NaN];
+            animationFrameId = requestAnimationFrame(updateArmIK);
+            return;
+          }
+          bicepRect = null; // (the wizard is moving: measured afresh)
+        }
+      }
 
-      const mouseLocation = direction == 1 ? mousePosRef?.current : npcMousePos;
-      if (!mouseLocation) return;
+      const npcMousePos = rootGameStore.getNpcMousePos();
+      // (no arm yet, or nothing to point at yet: looked for again next frame)
+      if (!bicepRef.current || !handRef.current) { animationFrameId = requestAnimationFrame(updateArmIK); return; }
+
+      const mouseLocation = wandPoint ?? (direction == 1 ? mousePosRef?.current : npcMousePos);
+      if (!mouseLocation) { animationFrameId = requestAnimationFrame(updateArmIK); return; }
 
       if (!bicepRect || isWalkingRef.current || now - measuredAt >= SHOULDER_MEASURE_MILLI) { bicepRect = bicepRef.current.getBoundingClientRect(); measuredAt = now; }
       const shoulderOrigin = {
@@ -94,9 +116,10 @@ interface IKArmComponentProps {
   healthDiff: number;
   mousePosRef?: RefObject<{ x: number, y: number } | null | undefined>;
   isDead: boolean;
+  flailFor?: number | null; // (a catch scene's id: this wizard caught, the arm flailing in its struggle)
 }
 
-export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerSnap, direction, healthDiff, mousePosRef }) => {
+export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerSnap, direction, healthDiff, mousePosRef, flailFor }) => {
   
   const avatarBicepSrc = playerSnap?.avatarBicepUrl || '';
   const avatarForearmSrc = playerSnap?.avatarForearmUrl || '';
@@ -110,7 +133,11 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerS
   const isWalkingRef = useRef(false);
   isWalkingRef.current = !!playerSnap?.getIsBeginIntroWalk() && !playerSnap?.getIsDoneWithIntroWalk();
 
-  useIK({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef });
+  // (caught: the scene and when it began, for the struggle: tracing its spells, flailing)
+  const catchRef = useRef<{ sceneId: number; startedAt: number } | null>(null);
+  useEffect(() => { catchRef.current = flailFor ? { sceneId: flailFor, startedAt: performance.now() } : null; }, [flailFor]);
+
+  useIK({ direction, handRef, bicepRef, mousePosRef, setTheta, isWalkingRef, catchRef });
 
   return (
     <ArmOverlayContainer $direction={direction}>

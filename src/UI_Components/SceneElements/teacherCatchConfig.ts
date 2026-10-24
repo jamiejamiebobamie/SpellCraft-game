@@ -11,11 +11,33 @@ export const LANTERN_PASS = { isLightOn: false, seconds: 2.8, phewDelaySeconds: 
 
 /**
  * A catch, in order (seconds): the light floods through the caught wizard's doorway (the hall shaking as
- * it peaks), the caught wizard is dragged out through it while the other slips away through theirs, then
- * "Caught!" stamps on, and then the game over card.
+ * it peaks); the caught wizard is lifted into the air (liftHeight: cqw) and struggles there (their wand arm
+ * flailing, spells cast in a flurry: CAST_FLURRY), then is dragged out through the doorway, still aloft,
+ * while the other slips away through theirs (slipDelaySeconds after the flood); then "Caught!" stamps on,
+ * and then the game over card.
  */
-export const CATCH_SCENE = { floodSeconds: 1.3, dragSeconds: 1.9, slipDelaySeconds: 0.5, stampSeconds: 1.5, stampText: 'Caught!' };
-export const CATCH_SCENE_TOTAL_SECONDS = CATCH_SCENE.floodSeconds + CATCH_SCENE.dragSeconds + CATCH_SCENE.stampSeconds;
+export const CATCH_SCENE = { floodSeconds: 1.3, liftSeconds: 0.9, struggleSeconds: 2.8, dragSeconds: 1.6, liftHeight: 7, slipDelaySeconds: 0.5, stampSeconds: 1.5, stampText: 'Caught!' };
+/** When (seconds into the scene) the caught wizard is lifted, dragged off, and "Caught!" stamps on. */
+export const CATCH_TIMES = {
+  lift: CATCH_SCENE.floodSeconds,
+  drag: CATCH_SCENE.floodSeconds + CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds,
+  stamp: CATCH_SCENE.floodSeconds + CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds,
+};
+export const CATCH_SCENE_TOTAL_SECONDS = CATCH_TIMES.stamp + CATCH_SCENE.stampSeconds;
+
+/**
+ * The caught wizard's struggle in the air: spells cast in a flurry (perSecond), each symbol (the NPC's)
+ * drawn by their wand in gold (drawSeconds: the wand tracing it), held a moment (holdSeconds), then fading
+ * out (fadeSeconds); large and overlapping (size: [smallest, largest], % of the wizard's frame; turn: up
+ * to so many degrees either way). And their wand arm (FLAIL: from the lift's middle into the drag): tracing
+ * each symbol as it's drawn, flailing between (swings: each joint's [rest, sway, speed], degrees).
+ */
+export const CAST_FLURRY = { perSecond: 2.2, drawSeconds: 0.38, holdSeconds: 0.15, fadeSeconds: 0.55, size: [45, 72], turn: 25 };
+export const FLAIL = {
+  fromSeconds: CATCH_TIMES.lift + CATCH_SCENE.liftSeconds * 0.4,
+  seconds: CATCH_SCENE.liftSeconds * 0.6 + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds * 0.6,
+  swings: [[-15, 22, 9], [-25, 38, 13], [-30, 42, 17]],
+};
 
 /** First light (the risky turns begin): a card after the turn's own (delay: seconds after it begins). */
 export const DAWN_CARD = { delaySeconds: 2.6, title: 'First Light', text: 'Dawn nears and teachers awake!' };

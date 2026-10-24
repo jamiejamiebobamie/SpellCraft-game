@@ -6,7 +6,8 @@ import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from 
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
-import { CATCH_SCENE } from '../SceneElements/teacherCatchConfig';
+import { CATCH_SCENE, CATCH_TIMES } from '../SceneElements/teacherCatchConfig';
+import { CastFlurry } from '../SceneElements/TeacherCatch';
 import styled, { css, keyframes } from 'styled-components'
 
 const DuelistSideColumn = styled.div`
@@ -37,12 +38,23 @@ const flee = keyframes`
   100% { transform: translateX(calc(var(--exit) * 34cqw)) scaleX(-1) translateY(-0.6cqw); opacity: 0; }
 `;
 
-/** Caught by a teacher: yanked, then dragged backwards out through the doorway, heels sliding, leaning back. */
+/**
+ * Caught by a teacher (CATCH_SCENE): lifted into the air, struggling there (jerking side to side, twisting),
+ * then yanked and dragged backwards out through the doorway, still aloft, leaning back.
+ */
+const CAUGHT_AWAY_SECONDS = CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds;
+const caughtAt = (seconds: number) => `${(seconds / CAUGHT_AWAY_SECONDS * 100).toFixed(2)}%`;
+const lifted = (x: number, y: number, turn: number) => `transform: translate(calc(var(--exit) * ${x}cqw), ${y - CATCH_SCENE.liftHeight}cqw) rotate(calc(var(--exit) * ${turn}deg));`;
+const STRUGGLE_STEPS = [[0.7, 0.3, -5], [-0.6, -0.4, 4], [0.9, 0.5, -7], [-0.5, -0.2, 3], [0.6, 0.6, -4], [-0.8, -0.3, 6], [0.4, 0.2, -3], [-0.3, 0, 2]];
 const dragged = keyframes`
-  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
-  10% { transform: translateX(calc(var(--exit) * 1.5cqw)) rotate(calc(var(--exit) * -10deg)); }
-  20% { transform: translateX(calc(var(--exit) * 1cqw)) rotate(calc(var(--exit) * -6deg)); }
-  100% { transform: translateX(calc(var(--exit) * 30cqw)) rotate(calc(var(--exit) * -14deg)); opacity: 0; }
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  ${caughtAt(CATCH_SCENE.liftSeconds * 0.6)} { ${lifted(0, -0.6, 2)} }
+  ${caughtAt(CATCH_SCENE.liftSeconds)} { ${lifted(0, 0, 0)} }
+  ${STRUGGLE_STEPS.map(([x, y, turn], k) => `${caughtAt(CATCH_SCENE.liftSeconds + (k + 1) / (STRUGGLE_STEPS.length + 1) * CATCH_SCENE.struggleSeconds)} { ${lifted(x, y, turn)} }`).join('\n  ')}
+  ${caughtAt(CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds)} { ${lifted(0, 0, 0)} }
+  ${caughtAt(CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds * 0.12)} { ${lifted(1.8, -0.4, -12)} }
+  ${caughtAt(CATCH_SCENE.liftSeconds + CATCH_SCENE.struggleSeconds + CATCH_SCENE.dragSeconds * 0.25)} { ${lifted(1.2, 0, -8)} opacity: 1; }
+  100% { ${lifted(30, 1.5, -16)} opacity: 0; }
 `;
 
 const AvatarPlacementWrapper = styled.div<{ $exit: number; $isFleeing?: boolean; $isDragged?: boolean; $isSlipping?: boolean }>`
@@ -54,7 +66,7 @@ const AvatarPlacementWrapper = styled.div<{ $exit: number; $isFleeing?: boolean;
   --exit: ${props => props.$exit};
   transform-origin: bottom center;
   ${props => props.$isFleeing && css`animation: ${flee} 1.8s ease-in forwards;`}
-  ${props => props.$isDragged && css`animation: ${dragged} ${CATCH_SCENE.dragSeconds}s ease-in ${CATCH_SCENE.floodSeconds}s forwards;`}
+  ${props => props.$isDragged && css`animation: ${dragged} ${CAUGHT_AWAY_SECONDS}s ease-in-out ${CATCH_TIMES.lift}s forwards;`}
   ${props => props.$isSlipping && css`animation: ${flee} ${CATCH_SCENE.dragSeconds}s ease-in ${CATCH_SCENE.floodSeconds + CATCH_SCENE.slipDelaySeconds}s forwards;`}
 `;
 
@@ -285,9 +297,10 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           <AvatarRobe $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
             <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
             <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
-            <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap ?? undefined} direction={direction} />
+            <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap ?? undefined} direction={direction} flailFor={isCaught ? catchScene?.id ?? null : null} />
           </AvatarRobe>
-          <FloorShadow $isHide={isDead} />
+          {/* (left on the floor as they're lifted: fading as they rise) */}
+          <FloorShadow $isHide={isDead || isCaught} style={isCaught ? { transitionDelay: `${CATCH_TIMES.lift}s`, transitionDuration: `${CATCH_SCENE.liftSeconds}s` } : undefined} />
         </Damageable>
       </AvatarFrame>
       </ShiverWrap>
@@ -320,6 +333,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
       $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
     {avatar}
     <StatusFrame><StatusEmoji side={side} /></StatusFrame>
+    <StatusFrame data-cast-frame={side}><CastFlurry side={side} /></StatusFrame>
     {focusDots}
     {healthbar}
   </DuelistSideColumn>);
