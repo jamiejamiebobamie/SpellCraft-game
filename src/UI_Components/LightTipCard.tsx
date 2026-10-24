@@ -106,7 +106,7 @@ const Close = styled.button`
 export default function LightTipLayer() {
   const snap = useSnapshot(rootGameStore);
   // (hidden while the Spell Book or the keyboard controls are open, so they never cover them; back after)
-  const tipIds = snap.getIsSpellBookOpen() || snap.getIsKeyboardControlsShown() ? [] : snap.getLightTips();
+  const tipIds = snap.getIsSpellBookOpen() || snap.getIsKeyboardControlsShown() || snap.getIsMatchOver() ? [] : snap.getLightTips();
   return (
     <Layer>
       {tipIds.map(tipId => {

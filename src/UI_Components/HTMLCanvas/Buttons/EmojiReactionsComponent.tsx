@@ -165,6 +165,8 @@ export default function EmojiReactionsComponent({ isShowingModal }: { isShowingM
   const isCooling = snap.getIsEmoteCooling() || snap.getIsAtRisk('self');
   const [index, setIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const isMatchOver = snap.getIsMatchOver();
+  useEffect(() => { if (isMatchOver) setIsOpen(false); }, [isMatchOver]); // (the match over: closed)
   const anchorRef = useRef<HTMLDivElement | null>(null);
 
   // The symbol changing in place

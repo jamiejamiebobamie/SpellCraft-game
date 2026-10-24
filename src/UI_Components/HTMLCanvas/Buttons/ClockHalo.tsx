@@ -39,7 +39,7 @@ export const CLOCK_HALO = {
   // The ribbons' own look, apart from the long rays: opacity (1: completely opaque; on the landing page, and in play), how much they fade
   // toward their tips (0: not at all, 1: to nothing), and brightness (multiplying their colors): on the
   // landing page, and in play (where the scene starts dark, so they're brightened to stay vivid)
-  ribbonLook: { opacity: { landing: .75, play: 1 }, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
+  ribbonLook: { opacity: { landing: .75, play: .75 }, tipFade: 1, brightness: { landing: 1, play: 1 } }, // (as the long rays: tried opacity 1, tipFade 0, play 1.6)
   // How far the ribbons reach: the short rays' shape (short on top, longest straight down, as the long
   // rays), stretched out to the sides along the walls by `sideStretch` (0: none; 1: twice as far at the
   // sides), top and bottom as they were. (Keep the sides short of the doorways, about 32 cqw out.)

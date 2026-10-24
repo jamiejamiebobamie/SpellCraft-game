@@ -1064,6 +1064,16 @@ export class Game {
 
   // TOOLTIP MANAGER - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   getIsTooltips(): boolean { return this.tooltipManager.getIsTooltips(); }
+  /** The match is over: its game over reached, or a teacher's catch under way (nothing more to do in it). */
+  getIsMatchOver(): boolean { return this.gameOver !== null || this.catchScene !== null; }
+  /** The match over: every overlay closed (tooltips, the Spell Book, the keyboard controls). */
+  closeOverlays(): void {
+    this.tooltipManager.closeTooltip();
+    this.tooltipManager.lightTips = [];
+    this.tooltipManager.tipQueue = [];
+    this.setIsSpellBookOpen(false);
+    this.setIsKeyboardControlsShown(false);
+  }
   getIsSpellBookOpen(): boolean { return this.tooltipManager.getIsSpellBookOpen(); }
   setIsSpellBookOpen(isSpellBookOpen?: boolean): void {
     this.tooltipManager.setIsSpellBookOpen(isSpellBookOpen);

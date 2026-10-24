@@ -78,6 +78,12 @@ type Strike = {
   anim: any; // the spell's animation state on the board
 };
 
+/** The UI buttons, off once the match is over (still shown, under the game over card; nothing in them takes a click). */
+const ButtonsOff = styled.div<{ $isOff: boolean }>`
+  display: contents;
+  ${props => props.$isOff && '& * { pointer-events: none !important; }'}
+`;
+
 const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const snap = useSnapshot(rootGameStore);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -633,7 +639,14 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
     ctx.rotate(isFacingLeft ? facingAngle - Math.PI : facingAngle);
     ctx.scale(isFacingLeft ? -1 : 1, 1);
   }
-  const buttons = <>
+  // The match over: every overlay closed, and the buttons off (ButtonsOff)
+  const isMatchOver = snap.getIsMatchOver();
+  useEffect(() => {
+    if (!isMatchOver) return;
+    rootGameStore.closeOverlays();
+    setIsGearHovered(false);
+  }, [isMatchOver]);
+  const buttons = <ButtonsOff $isOff={isMatchOver}>
     <SpellBookComponent isGearHovered={isGearHovered} />
     {/* (2-player: emoji reactions in the difficulty button's place) */}
     {snap.getIsMultiplayer()
@@ -641,7 +654,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
       : <NpcDifficultyComponent isShowingModal={isGearHovered || isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />}
     <ClockFaceComponent />
     <SettingsComponent setIsGearHovered={(bool: boolean) => { if (bool) rootGameStore.setIsSpellBookOpen(false); rootGameStore.setIsKeyboardControlsShown(bool); setIsGearHovered(bool); }} isShowingModal={isSpellBookOpen && scrollUIRef?.current?.hoveredSpellName != null} />
-  </>;
+  </ButtonsOff>;
   return (
     <>
       {buttons}

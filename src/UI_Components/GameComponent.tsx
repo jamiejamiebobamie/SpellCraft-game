@@ -268,7 +268,7 @@ export const GameComponent = () => {
   }, []);
 
   // The game's keys (Game.keyActions): none until the intro walk is over
-  useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: !snap.getIsDoneWithIntroWalk() });
+  useKeyPress({ keyActions: rootGameStore.keyActions, isDisabled: !snap.getIsDoneWithIntroWalk() || snap.getIsMatchOver() });
 
   useEffect(() => {
     rootGameStore.setGameBoardRef(gridOverlayRef);

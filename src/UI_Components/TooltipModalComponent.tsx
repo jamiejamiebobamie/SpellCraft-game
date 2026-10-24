@@ -186,7 +186,7 @@ const TooltipModalComponent = () => {
   const isLore = snap.getIsLore();
   const isLoreChoice = isLore && snap.getIsLastTooltipPage();
 
-  return !!currTooltipPage && (
+  return !!currTooltipPage && !snap.getIsMatchOver() && (
     // The story can only be left by choosing (no Close, and clicking outside does nothing)
     <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={isLore ? undefined : () => rootGameStore.closeTooltip()}>
       <ModalContent onClick={(e) => e.stopPropagation()}>

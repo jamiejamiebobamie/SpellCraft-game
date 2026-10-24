@@ -171,6 +171,7 @@ const StatusText = styled.div<{ $isStaying: boolean }>`
 /** Placed over a wizard (in a frame the size of its avatar, not moving with it): its status emoji, if any. */
 export function StatusEmoji({ side }: { side: 'self' | 'rival' }) {
   const snap = useSnapshot(rootGameStore);
+  if (snap.getIsMatchOver()) return null; // (the match over: none)
   if (snap.getIsAtRisk(side)) {
     // (a risky turn just passed them by: relieved for a moment, both if both were at risk)
     const phew = snap.getPhew();

@@ -260,6 +260,9 @@ export default function SettingsComponent({ isShowingModal, setIsGearHovered }: 
     closeTimeout.current = setTimeout(() => setIsClicked(false), CLOSE_DELAY_MILLI);
   };
   useEffect(() => () => clearTimeout(closeTimeout.current), []);
+  // (the match over: closed, the keyboard controls too)
+  const isMatchOver = snap.getIsMatchOver();
+  useEffect(() => { if (isMatchOver) { clearTimeout(closeTimeout.current); setIsClicked(false); setIsShowingKeys(false); } }, [isMatchOver]);
   // The buttons, left to right (around the gear, each with its place and swing order; or in a row)
   const isRow = SETTINGS_LAYOUT === 'row';
   const isOpen = isRow || isClicked;
