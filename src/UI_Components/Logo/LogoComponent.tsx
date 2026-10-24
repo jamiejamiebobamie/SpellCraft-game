@@ -2,6 +2,7 @@
 // The loading screen's logo: two duelists locked wand to wand, in front of the spells (each symbol
 // fading into its spell), in front of the clock, with "SpellCraft" across the front. Adjust it all
 // in logoConfig.ts. Inside the logo, 1cqw = 1 logo unit (100 units = its width).
+import { getCanvasDensity } from '../canvasResolution';
 import { useEffect, useRef } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { LOGO_CONFIG, GroupTransform, Aura } from './logoConfig';
@@ -258,7 +259,7 @@ export default function LogoComponent({ isShown = true, onSpellsReady }: { isSho
     // Canvases at their size in device pixels (the logo's, plus canvasMargin)
     const margin = LOGO_CONFIG.canvasMargin;
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasDensity();
       const width = Math.round(root.clientWidth * (100 + 2 * margin.x) / 100 * dpr);
       const height = Math.round(root.clientWidth * (LOGO_CONFIG.height + 2 * margin.y) / 100 * dpr);
       [spellsCanvas, sparksCanvas].forEach(canvas => { canvas.width = width; canvas.height = height; });

@@ -90,7 +90,7 @@ const ModalDimOverlay = styled.div<{ $isDisplay: boolean; $bgOpacity: number }>`
   pointer-events: ${props => props.$isDisplay ? 'auto' : 'none'};
   
   background: rgba(0, 0, 0, ${props => props.$bgOpacity});
-  backdrop-filter: blur(2px);
+  ${props => props.$isDisplay && 'backdrop-filter: blur(2px);'} /* (only when shown: a full-screen blur costs every frame, even unseen) */
   
   transition: opacity 0.5s ease, background 0.5s ease;
   transition-delay: ${props => props.$isDisplay ? `${TRANSITION_TIME_SEC}s` : '0s'};

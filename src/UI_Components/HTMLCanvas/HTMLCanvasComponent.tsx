@@ -1,4 +1,5 @@
 ﻿import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { getCanvasDensity } from '../canvasResolution';
 import styled from 'styled-components';
 import { GameBoard } from '../../DataClasses/GameBoard/GameBoard';
 import { rootGameStore } from '../../DataClasses/store';
@@ -156,7 +157,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   useEffect(() => {
     const handleResize = () => {
       const canvas = canvasRef.current; if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasDensity();
       canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
       const ctx = canvas.getContext('2d'); if (ctx) ctx.scale(dpr, dpr);
     };
@@ -212,7 +213,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
     const prewarm = () => {
       const canvas = canvasRef.current;
       if (!canvas || !canvas.width) return;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasDensity();
       prewarmSpellBookPage(canvas.width / dpr, canvas.height / dpr, dpr, () => { isPageWarmUpDueRef.current = true; });
     };
     const whenIdle = (window as any).requestIdleCallback as ((run: () => void, options: { timeout: number }) => number) | undefined;
@@ -232,8 +233,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
 
     const render = (currentTime: number) => {
       const deltaTime = (currentTime - lastTime) / 1000; lastTime = currentTime;
-      const viewW = canvas.width / (window.devicePixelRatio || 1);
-      const viewH = canvas.height / (window.devicePixelRatio || 1);
+      const viewW = canvas.width / getCanvasDensity();
+      const viewH = canvas.height / getCanvasDensity();
       if (isPageWarmUpDueRef.current) {
         // (each spell's page, one a frame)
         const { spellName, sizeIdx, sizeCycleTime } = WARM_UP_PAGES[pagesWarmedRef.current++];

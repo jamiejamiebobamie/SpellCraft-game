@@ -3,6 +3,7 @@
 // over (the clock's body, the wall), slowly turning, pulsing and breathing. The rays reach further
 // downward (to the clock body's bottom), and the wavy ones are drawn as twisting ribbons. Drawn on a
 // canvas each frame, in front of the clock's body, behind its face (ClockFaceComponent).
+import { CANVAS_RESOLUTION, getCanvasDensity } from '../../canvasResolution';
 import { useEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { INTRO_WALK_ANIM_TIME } from '../../Player/CharacterParts';
@@ -345,7 +346,7 @@ export default function ClockHalo({ brightness, isShown }: { brightness: number;
       const isClosedNow = open <= 0.001;
       if (isClosedNow !== isClosedRef.current) { isClosedRef.current = isClosedNow; setIsClosed(isClosedNow); }
       if (isClosedNow && isBlank) { frameId = requestAnimationFrame(draw); return; }
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasDensity(CANVAS_RESOLUTION.haloMaxDensity);
       const size = Math.round(cssWidth * dpr);
       if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
       const pxPerCqw = size / (CANVAS_REACH * 2);
