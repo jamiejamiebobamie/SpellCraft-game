@@ -367,6 +367,8 @@ export type EnvOptions = {
   opponent?: OpponentName;
   /** Scales the interaction rewards (e.g. faded from 1 to 0 over training). */
   interactionRewardScale?: number;
+  /** The observation's layout (an older model's, to play or review it): kept for later games. */
+  layout?: ObservationLayout;
 };
 
 const mulberry32 = (seed: number) => () => {
@@ -395,6 +397,7 @@ export class NpcTrainingEnv {
   private gameOpponent: OpponentName = 'random'; // this game's ('mixed' picks one per game)
   private random: () => number = Math.random;
   private interactionRewardScale: number = 1;
+  private layout: ObservationLayout = 'current';
   private interactionRewardGiven: number = 0;
   private interactions = { agent: emptyCounts(), opponent: emptyCounts() };
   private hasOpponentPlayedThisTurn = false;
@@ -424,7 +427,8 @@ export class NpcTrainingEnv {
   /** Health changes before the agent's first step (the opponent casting first on turn 1): given with that step. */
   private pendingReward = 0;
 
-  reset = ({ seed, opponent, interactionRewardScale }: EnvOptions = {}): EnvStepResult => {
+  reset = ({ seed, opponent, interactionRewardScale, layout }: EnvOptions = {}): EnvStepResult => {
+    this.layout = layout ?? this.layout;
     this.random = seed === undefined ? Math.random : mulberry32(seed);
     this.opponent = opponent ?? this.opponent;
     this.gameOpponent = this.opponent === 'mixed' ? pickMixedOpponent(this.random) : this.opponent;
@@ -522,7 +526,7 @@ export class NpcTrainingEnv {
     const terminalReward = !canEndGame ? 0 : (outcome === 'win' ? 1 : outcome === 'loss' ? -1 : 0) + (outcome !== null ? this.getEvennessBonus() : 0);
     const [ownHealth, opponentHealth] = this.healths();
     return {
-      observation: encodeObservation({ ...this.simView(), isMovingSecond: this.hasOpponentPlayedThisTurn }, NpcTrainingEnv.AGENT),
+      observation: encodeObservation({ ...this.simView(), isMovingSecond: this.hasOpponentPlayedThisTurn }, NpcTrainingEnv.AGENT, this.layout),
       actionMask: getActionMask(this.sim, NpcTrainingEnv.AGENT),
       reward: healthReward + terminalReward,
       terminated: outcome !== null,

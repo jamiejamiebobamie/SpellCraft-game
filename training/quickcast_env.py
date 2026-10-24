@@ -21,15 +21,17 @@ BRIDGE_PATH = pathlib.Path(__file__).parent / "bridge" / "dist" / "bridge.mjs"
 class QuickCastEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, opponent: str = "random"):
+    def __init__(self, opponent: str = "random", layout: str = "current"):
+        """layout: the observation's ('current', or an older model's, e.g. 'v2', to play or review it)."""
         if not BRIDGE_PATH.exists():
             raise FileNotFoundError(f"{BRIDGE_PATH} not found: run `npm run build:bridge` first")
         self.opponent = opponent
+        self.layout = layout
         self._process = subprocess.Popen(
             ["node", str(BRIDGE_PATH)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1,
         )
-        spec = self._request({"cmd": "spec"})
+        spec = self._request({"cmd": "spec", "layout": layout})
         self.observation_space = spaces.Box(0.0, 1.0, shape=(spec["observationSize"],), dtype=np.float32)
         self.action_space = spaces.Discrete(spec["numActions"])
         self.end_turn_action = spec["endTurnAction"]
@@ -54,7 +56,7 @@ class QuickCastEnv(gym.Env):
         super().reset(seed=seed)
         # The game's own randomness (and the opponent's) comes from this seed, so episodes replay exactly
         game_seed = int(self.np_random.integers(0, 2**31 - 1))
-        result = self._request({"cmd": "reset", "seed": game_seed, "opponent": self.opponent})
+        result = self._request({"cmd": "reset", "seed": game_seed, "opponent": self.opponent, "layout": self.layout})
         return self._unpack(result), result["info"]
 
     def step(self, action):
