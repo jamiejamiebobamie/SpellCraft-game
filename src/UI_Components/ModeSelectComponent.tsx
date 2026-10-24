@@ -25,7 +25,13 @@ export const MODE_SELECT = {
   titleSize: 7,
   titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -.95 },
   fadeInSeconds: 0.6,
+  hoverMotion: 'press' as 'press' | 'rise', // (a choice on hover: pressed in, its shadow tighter; or lifted)
 };
+
+// The choice's hover motion and shadow (MODE_SELECT.hoverMotion)
+const HOVER_MOTION = MODE_SELECT.hoverMotion === 'press'
+  ? { shift: 0.35, shadow: '0 0.3cqw 1cqw rgba(0, 0, 0, 0.7)' }
+  : { shift: -0.3, shadow: '0 1cqw 3cqw rgba(0, 0, 0, 0.6)' };
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(1cqw); }
@@ -114,8 +120,8 @@ const Choice = styled.button`
     color: ${GOLD_BRIGHT};
     border-color: ${GOLD_BRIGHT};
     background: rgba(40, 32, 16, 0.6);
-    box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.6), 0 0 2cqw rgba(255, 220, 130, 0.45), inset 0 0 1.5cqw rgba(255, 220, 130, 0.15);
-    transform: translateY(-0.3cqw);
+    box-shadow: ${HOVER_MOTION.shadow}, 0 0 2cqw rgba(255, 220, 130, 0.45), inset 0 0 1.5cqw rgba(255, 220, 130, 0.15);
+    transform: translateY(${HOVER_MOTION.shift}cqw);
   }
   &:hover .icon, &:focus-visible .icon {
     filter: brightness(1.3) drop-shadow(0 0 0.8cqw rgba(255, 225, 140, 0.8));

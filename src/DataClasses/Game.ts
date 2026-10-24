@@ -718,6 +718,24 @@ export class Game {
   }
 
   /**
+   * While developing (the 9 key): each game over card in turn, straight away (no catch scene): a draw, won,
+   * lost, both caught, caught (the player, the rival), out of step, the rival fled. Its title logged.
+   */
+  private gameOverPreviewCount = 0;
+  previewGameOver(): void {
+    const statuses = [GameOverStatus.BothDead, GameOverStatus.PlayerWon, GameOverStatus.NpcWon, GameOverStatus.TimesUp,
+      GameOverStatus.CaughtPlayer, GameOverStatus.CaughtNpc, GameOverStatus.OutOfStep, GameOverStatus.EnemyFled];
+    const status = statuses[this.gameOverPreviewCount++ % statuses.length];
+    const name = Object.keys(GameOverStatus).find(k => GameOverStatus[k as keyof typeof GameOverStatus] === status);
+    console.log('Game over preview:', name);
+    this.gameOver = null;
+    this.catchScene = null;
+    this.gameClock.stopTurnClock();
+    this.disableGameBoard();
+    window.setTimeout(() => { this.gameOver = status; }, 60); // (a moment with none, so the card's animations start afresh)
+  }
+
+  /**
    * While developing (the 0 key): the clock to 5 AM (the birds and birdsong out), and each press the one at
    * risk in turn: the player (the frightened face), the rival, then neither (even health). The turn clock holds.
    */

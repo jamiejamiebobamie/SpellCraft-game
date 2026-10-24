@@ -8,8 +8,9 @@ import { rootGameStore } from '../../DataClasses/store';
 /**
  * The dawn's birds, from when the birdsong starts (BIRDSONG.fromTurn): a few flying across each window's sky
  * (`perWindow`, each crossing in `crossSeconds` then gone a while: one pass every `cycleSeconds`), and now
- * and then one landing on a window's sill (`sillWindows`: the windows a button doesn't cover), every
- * `landEverySeconds`, staying `perchSeconds` in all (landing and leaving included). Sizes in cqw.
+ * and then one landing on a window's sill (`sillWindows`: the windows a button doesn't cover; one at a time
+ * each), one every `landEverySeconds` among them, staying `perchSeconds` in all (landing and leaving included).
+ * All of them outside, in the windows' skies: the wall hides them beyond the openings. Sizes in cqw.
  */
 export const DAWN_BIRDS = {
   color: '#1a1512',
@@ -18,14 +19,14 @@ export const DAWN_BIRDS = {
   crossSeconds: [4, 7],
   cycleSeconds: [10, 20],
   sillWindows: [0, 1, 2],
-  sillTop: 12.9, // (where a perched bird's feet rest)
+  sillTop: 11.9, // (where a perched bird's feet rest: from the sky's top)
   perchSize: 2.2,
   landEverySeconds: [5, 12],
   perchSeconds: 9,
 };
 
-// (the windows: as the skies are laid out, StarrySkyComponent)
-const getWindowCenter = (index: number) => index * 26.5 + 10;
+// (a window's sky: 9cqw wide, StarrySkyComponent)
+const SKY_WIDTH = 9;
 const between = ([from, to]: number[]) => from + Math.random() * (to - from);
 
 /** Whether the birds are out: the birdsong's hour. */
@@ -122,7 +123,6 @@ const SillBird = styled.div<{ $left: number; $from: number; $isFacingLeft: boole
   top: ${DAWN_BIRDS.sillTop - DAWN_BIRDS.perchSize * 0.8}cqw;
   width: ${DAWN_BIRDS.perchSize}cqw;
   aspect-ratio: 20 / 16;
-  z-index: 0; /* (in front of the wall, behind everything else) */
   pointer-events: none;
   --from: ${props => props.$from};
   animation: ${visit} ${DAWN_BIRDS.perchSeconds}s ease-in-out both;
@@ -148,33 +148,28 @@ const PerchedShape = () => (
 
 type Visit = { id: number; left: number; from: number; isFacingLeft: boolean };
 
-/** The birds landing on the windows' sills now and then (one per sill at a time). */
-export const SillBirds = () => {
-  const isOut = useIsBirdsOut();
-  const [visits, setVisits] = useState<Visit[]>([]);
+/** The birds landing on a window's sill now and then (inside its sky: one at a time). */
+export const SillBirds = ({ index }: { index: number }) => {
+  const isOut = useIsBirdsOut() && DAWN_BIRDS.sillWindows.includes(index);
+  const [visit, setVisit] = useState<Visit | null>(null);
   useEffect(() => {
-    if (!isOut) { setVisits([]); return; }
-    let nextId = 0, landTimer = 0;
-    const leaveTimers: number[] = [];
+    if (!isOut) { setVisit(null); return; }
+    let nextId = 0, timer = 0;
+    // (each sill its share of the landings: one every landEverySeconds among them all)
+    const wait = () => between(DAWN_BIRDS.landEverySeconds) * DAWN_BIRDS.sillWindows.length * 1000;
     const land = () => {
-      setVisits(current => {
-        const free = DAWN_BIRDS.sillWindows.filter(w => !current.some(v => Math.round((v.left - getWindowCenter(w)) / 5) === 0));
-        if (!free.length) return current;
-        const window_ = free[Math.floor(Math.random() * free.length)];
-        const from = Math.random() < 0.5 ? -1 : 1;
-        const visit = { id: ++nextId, left: getWindowCenter(window_) - DAWN_BIRDS.perchSize / 2 + (Math.random() - 0.5) * 4, from, isFacingLeft: from > 0 };
-        leaveTimers.push(window.setTimeout(() => setVisits(now => now.filter(v => v.id !== visit.id)), DAWN_BIRDS.perchSeconds * 1000));
-        return [...current, visit];
-      });
-      landTimer = window.setTimeout(land, between(DAWN_BIRDS.landEverySeconds) * 1000);
+      const from = Math.random() < 0.5 ? -1 : 1;
+      setVisit({ id: ++nextId, left: SKY_WIDTH / 2 - DAWN_BIRDS.perchSize / 2 + (Math.random() - 0.5) * 4, from, isFacingLeft: from > 0 });
+      timer = window.setTimeout(() => { setVisit(null); timer = window.setTimeout(land, wait()); }, DAWN_BIRDS.perchSeconds * 1000);
     };
-    landTimer = window.setTimeout(land, between(DAWN_BIRDS.landEverySeconds) * 500);
-    return () => { window.clearTimeout(landTimer); leaveTimers.forEach(t => window.clearTimeout(t)); };
+    timer = window.setTimeout(land, wait() * Math.random());
+    return () => window.clearTimeout(timer);
   }, [isOut]);
-  return <>{visits.map(v => (
-    <SillBird key={v.id} $left={v.left} $from={v.from} $isFacingLeft={v.isFacingLeft}>
+  if (!visit) return null;
+  return (
+    <SillBird key={visit.id} $left={visit.left} $from={visit.from} $isFacingLeft={visit.isFacingLeft}>
       <div className='flyer'><FlyingShape size={DAWN_BIRDS.flySize} /></div>
       <div className='percher'><PerchedShape /></div>
     </SillBird>
-  ))}</>;
+  );
 };

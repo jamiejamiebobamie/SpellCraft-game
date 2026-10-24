@@ -3,7 +3,6 @@ import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import StarrySkyComponent from './SceneElements/StarrySkyComponent';
-import { SillBirds } from './SceneElements/DawnBirds';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import TooltipModalComponent from './TooltipModalComponent';
 import LightTipLayer from './LightTipCard';
@@ -256,11 +255,12 @@ export const GameComponent = () => {
     };
   }, []);
 
-  // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 0 key the dawn (previewDawn)
+  // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 9 key each game over card (previewGameOver), the 0 key the dawn (previewDawn)
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Backquote') rootGameStore.previewCatchScene();
+      if (e.code === 'Digit9') rootGameStore.previewGameOver();
       if (e.code === 'Digit0') rootGameStore.previewDawn();
     };
     window.addEventListener('keyup', onKey);
@@ -287,7 +287,6 @@ export const GameComponent = () => {
       backgroundSceneBrightness={backgroundSceneBrightness}
       right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
-    <SillBirds />
     <LanternLight />
   </>;
 
