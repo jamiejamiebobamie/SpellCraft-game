@@ -972,10 +972,15 @@ export class Game {
       });
     })
 
-    // END turn
+    // END turn: as the clock, only when it could be clicked (not while the board's disabled, the NPC is
+    // drawing, or someone's dead)
     keyActions.push({
       keycodes: ['Escape', 'Space'],
-      action: this.endTurn.bind(this)
+      action: () => {
+        const isAnyPlayerDead = this.players.getPlayers().some(p => p.getIsDead());
+        if (this.getIsGameBoardDisabled() || !this.getIsComputerPlayerDoneWithTurn() || isAnyPlayerDead) return;
+        this.endTurn();
+      }
     });
 
     // CYCLE through NPC Difficulties: 'Normal' -> 'Hard' -> 'Brutal' -> 'Normal'
