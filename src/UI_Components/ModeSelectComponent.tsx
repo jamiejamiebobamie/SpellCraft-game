@@ -1,7 +1,8 @@
 // ModeSelectComponent.tsx
 // After Play: choose "1 Player" (the duel against the NPC, as before) or "2 Players" (a match with a
-// friend, by an invite link). Two large framed plaques, each brightening on hover.
+// friend, by an invite link). Two large framed plaques, each brightening on hover (the look: goldStyle.tsx).
 import styled, { css, keyframes } from 'styled-components';
+import { FRAME_ETCH, GLASS as SHARED_GLASS, GOLD, GOLD_BRIGHT, GOLD_DEEP, GOLD_GRADIENT, sheenSweep } from './goldStyle';
 
 /**
  * The choices' look. iconStyle: 'users' (the 👤 / 👥 icons), 'wizards' (the 🧙 emoji: one, or two
@@ -54,18 +55,8 @@ const Screen = styled.div`
   background: radial-gradient(ellipse 70% 75% at 50% 55%, rgba(0, 0, 0, ${MODE_SELECT.dim}) 0%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.6}) 60%, rgba(0, 0, 0, ${MODE_SELECT.dim * 0.35}) 100%);
 `;
 
-const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8', GOLD_DEEP = '#a9822e';
-// (the inner frame and its diamonds: a faint pale line etched in the glass, its hover a little clearer; solid,
-// the frame faded as one, so the lines don't show through the diamonds where they cross)
-const FRAME_ETCH = { color: '#ffffff', opacity: 0.13, hoverOpacity: 0.24 };
-
-/**
- * The plaques' glass: dark and translucent (tint: its color, alpha its opacity), the hall blurred behind it
- * (blur, cqw), a faint sheen across its top (sheen: the white's opacity there).
- */
-const GLASS = { tint: '12, 13, 18', alpha: MODE_SELECT.choiceOpacity, hoverAlpha: Math.min(1, MODE_SELECT.choiceOpacity + 0.1), blur: 0.5, sheen: 0.07 };
-// (metallic gold: bright at the top, deep at the bottom; the labels and the ornaments)
-const GOLD_GRADIENT = `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 45%, ${GOLD_DEEP} 100%)`;
+// (the plaques' glass: goldStyle's, at this screen's own opacity, MODE_SELECT.choiceOpacity)
+const GLASS = { ...SHARED_GLASS, alpha: MODE_SELECT.choiceOpacity, hoverAlpha: Math.min(1, MODE_SELECT.choiceOpacity + 0.1) };
 /**
  * The title's gold: lit by a rising sun just above the "oo" of "Choose" (sun: its place in the title's box,
  * %; x along, y down: above the letters' middle, as if a second "oo" sat on them), deepening away from it.
@@ -195,12 +186,6 @@ const Choices = styled.div`
 `;
 
 
-// The light sweeping across a choice on hover
-const sheen = keyframes`
-  from { transform: translateX(-120%) skewX(-18deg); }
-  to { transform: translateX(320%) skewX(-18deg); }
-`;
-
 /**
  * A choice: a framed plaque of dark glass (GLASS: an outer gold edge, a fine etched inner frame with a
  * diamond at each corner, a soft glow behind the icon, a sheen at the top); on hover its gold brightens
@@ -321,7 +306,7 @@ const Choice = styled.button`
     box-shadow: ${HOVER_MOTION.shadow}, 0 0 2.2cqw rgba(255, 220, 130, 0.35), inset 0 0 2.5cqw rgba(0, 0, 0, 0.3), inset 0 0.12cqw 0 rgba(255, 255, 255, 0.24);
     transform: translateY(${HOVER_MOTION.shift}cqw);
   }
-  &:hover::after, &:focus-visible::after { animation: ${sheen} 0.9s ease-out 1; }
+  &:hover::after, &:focus-visible::after { animation: ${sheenSweep} 0.9s ease-out 1; }
   &:hover .frame, &:focus-visible .frame { opacity: ${FRAME_ETCH.hoverOpacity}; }
   &:hover .icon, &:focus-visible .icon {
     filter: brightness(1.2) drop-shadow(0 0 0.9cqw rgba(255, 225, 140, 0.6));

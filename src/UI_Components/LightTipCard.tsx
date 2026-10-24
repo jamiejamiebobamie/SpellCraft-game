@@ -1,12 +1,13 @@
 // LightTipCard.tsx
 // The tutorial's light tips: a small card pointing at part of the screen (its caret's tip at the
-// anchor), in the tooltip modal's style. It doesn't pause the game; it closes with its ×, or when the
+// anchor), in the shared look (goldStyle.tsx). It doesn't pause the game; it closes with its ×, or when the
 // player does what it describes (TooltipManager). LightTipLayer shows the current one, above the
 // drawing canvas so its × can be clicked; the layer itself lets clicks through to the game.
 import styled, { keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../DataClasses/store';
 import { LIGHT_TIPS, TipAnchor } from '../DataClasses/TooltipManager/TooltipManager';
+import { EtchedFrame, GLASS, GoldClose, glassCss, goldTextCss } from './goldStyle';
 
 const CARD_WIDTH = 24; // cqw
 const CARET = { length: 1, halfWidth: 0.8 }; // cqw
@@ -32,7 +33,7 @@ const placement = ({ x, y, caret, caretOffset }: TipAnchor): string => {
 /** The caret: a small gold triangle on the card's side facing the anchor. */
 const caretCss = ({ caret, caretOffset }: TipAnchor): string => {
   const { length, halfWidth } = CARET;
-  const side = `${halfWidth}cqw solid transparent`, point = `${length}cqw solid #6b5a2e`;
+  const side = `${halfWidth}cqw solid transparent`, point = `${length}cqw solid rgba(230, 197, 99, 0.7)`;
   switch (caret) {
     case 'down': return `left: ${caretOffset - halfWidth}cqw; top: 100%; border-left: ${side}; border-right: ${side}; border-top: ${point};`;
     case 'up': return `left: ${caretOffset - halfWidth}cqw; bottom: 100%; border-left: ${side}; border-right: ${side}; border-bottom: ${point};`;
@@ -55,10 +56,10 @@ const Card = styled.div<{ $anchor: TipAnchor }>`
   padding: 0.9cqw 1.1cqw 1cqw;
   box-sizing: border-box;
   text-align: left;
-  background: rgba(20, 20, 20, 0.88);
-  border: 0.15cqw solid #6b5a2e;
-  border-radius: 0.7cqw;
-  box-shadow: 0 0.4cqw 1.2cqw rgba(0, 0, 0, 0.6), 0 0 1cqw rgba(230, 197, 99, 0.15);
+  ${glassCss(GLASS.panelAlpha + 0.1)}
+  border-radius: 0.6cqw;
+  box-shadow: 0 0.4cqw 1.2cqw rgba(0, 0, 0, 0.6), 0 0 1cqw rgba(230, 197, 99, 0.15), inset 0 0.1cqw 0 rgba(255, 255, 255, 0.14);
+  > *:not(.frame) { position: relative; } /* (above the etched frame) */
   pointer-events: auto;
   animation: ${popIn} 0.45s ease-out;
 
@@ -75,31 +76,23 @@ const Title = styled.div`
   font-family: 'EnchantedLand', sans-serif;
   font-size: 1.9cqw;
   line-height: 1;
-  color: #e6c563;
-  margin-bottom: 0.4cqw;
-  padding-right: 1.6cqw; /* room for the × */
+  ${goldTextCss}
+  margin-bottom: 0.5cqw;
+  padding-right: 1.8cqw; /* room for the × */
 `;
 
 const Text = styled.p`
   margin: 0;
-  font-family: sans-serif;
+  font-family: 'Segoe UI', Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 1.05cqw;
-  line-height: 1.35;
-  color: #e0e0e0;
+  line-height: 1.4;
+  color: #e6e1d6;
 `;
 
-const Close = styled.button`
-  position: absolute;
-  top: 0.4cqw;
-  right: 0.5cqw;
-  padding: 0 0.3cqw;
-  border: none;
-  background: transparent;
-  color: #999;
-  font-size: 1.5cqw;
-  line-height: 1;
-  cursor: pointer;
-  &:hover { color: #e6c563; }
+const Close = styled(GoldClose)`
+  position: absolute !important;
+  top: 0.55cqw;
+  right: 0.55cqw;
 `;
 
 /** The light tips showing (usually one), each pointing at its anchor. */
@@ -113,7 +106,8 @@ export default function LightTipLayer() {
         const tip = LIGHT_TIPS[tipId];
         return (
           <Card key={tipId} $anchor={tip.anchor} role='status' data-click-type='ui-buttons'>
-            <Close onClick={() => rootGameStore.dismissLightTip(tipId)} aria-label='Close tip' title='Close'>×</Close>
+            <EtchedFrame inset={0.35} diamond={0.4} />
+            <Close $size={1.6} onClick={() => rootGameStore.dismissLightTip(tipId)} aria-label='Close tip' title='Close'>✕</Close>
             <Title>{tip.title}</Title>
             <Text>{tip.text}</Text>
           </Card>

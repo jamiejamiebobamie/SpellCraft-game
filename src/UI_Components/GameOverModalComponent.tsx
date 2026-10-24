@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { MASK_VORTEX, MaskVortex } from './MaskVortex';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { css, keyframes } from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
 import { titleLetteringCss } from './Logo/titleLettering';
-import HoverSymbols from './HoverSymbols';
-import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
+import { GoldButton, GoldDivider } from './goldStyle';
 
 // --- Configuration Content Maps ---
 interface ModalTextConfig {
@@ -182,35 +181,6 @@ const ModalNote = styled.div`
   margin-top: 1.5cqw;
 `;
 
-/** The ruby button (PlayButtonStyles), as on the landing screen. */
-const RubyModalButton = styled.button<{ $glow: string }>`
-  position: relative;
-  cursor: pointer;
-  border: none;
-  outline: none;
-  background: transparent;
-  width: 24cqw;
-  height: ${24 * 100 / 386}cqw; /* the button's shape (386 x 100) */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 4cqw;
-  line-height: 1;
-  user-select: none;
-  z-index: 10;
-  filter: brightness(${PLAY_BUTTON_BRIGHTNESS.rest});
-  transition: filter 0.2s ease;
-
-  &:hover {
-    filter: brightness(${PLAY_BUTTON_BRIGHTNESS.hover}) drop-shadow(0 0 1.2cqw ${props => props.$glow});
-    .panel { filter: brightness(1.25); }
-  }
-  &:active {
-    .inner { transform: translateY(2px); }
-  }
-`;
-
 /** Raises the title and its line of text (not the buttons) this far (cqw). */
 const TEXT_RAISE = 4;
 
@@ -355,22 +325,10 @@ interface ActionButtonProps {
   onClick: () => void;
 }
 
-const ModalButtonWithSymbols: React.FC<ActionButtonProps> = ({ label, onClick }) => {
-  const [hoverKey, setHoverKey] = useState<number>(0);
-  const [isHovered, setIsHovered] = useState<boolean>(false);
-
-  return (
-    <RubyModalButton
-      $glow={getPlayButtonGlow('ruby')}
-      onClick={onClick}
-      onMouseEnter={() => { setHoverKey(prev => prev + 1); setIsHovered(true); }}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <PlayButtonFace look="ruby" label={label} isGlinting={isHovered} />
-      <HoverSymbols isHovered={isHovered} hoverKey={hoverKey} />
-    </RubyModalButton>
-  );
-};
+/** A game over button: the shared gold button (goldStyle), a little wide for one word. */
+const ModalButtonWithSymbols: React.FC<ActionButtonProps> = ({ label, onClick }) => (
+  <GoldButton size='large' isPrimary onClick={onClick} style={{ minWidth: '18cqw' }}>{label}</GoldButton>
+);
 
 export const GameOverModalComponent: React.FC = () => {
   const snap = useSnapshot(rootGameStore);
@@ -392,6 +350,7 @@ export const GameOverModalComponent: React.FC = () => {
             <ModalTitle>{contentConfig.title}</ModalTitle>
             {masks && <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' outcome={masks.rival} delaySeconds={maskDelay} />}
           </TitleRow>
+          <GoldDivider width={24} />
           <ModalSubTextContainer>
             {contentConfig.isPlayAgainOwnLine ? (
               <>

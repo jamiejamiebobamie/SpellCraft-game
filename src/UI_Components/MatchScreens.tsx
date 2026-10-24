@@ -1,11 +1,10 @@
 // MatchScreens.tsx
 // 2 Players: the host's invite screen (the link to send a friend, then Begin) and the guest's joining
 // screen (opening an invite link). See MultiplayerSession.
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { MultiplayerSession } from '../DataClasses/Multiplayer/MultiplayerSession';
-
-const GOLD = '#e6c563', GOLD_BRIGHT = '#fff1b8';
+import { EtchedFrame, GOLD, GOLD_BRIGHT, GlassPanel, GoldButton, GoldDivider, GoldLink, GoldTitle } from './goldStyle';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(1cqw); }
@@ -23,32 +22,30 @@ const Screen = styled.div`
   animation: ${fadeIn} 0.6s ease-out both;
 `;
 
-const Panel = styled.div`
+const Panel = styled(GlassPanel)`
   width: 52cqw;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.8cqw;
-  padding: 2.6cqw 3cqw;
-  background: rgba(20, 16, 10, 0.6);
-  border: 0.22cqw solid rgba(230, 197, 99, 0.55);
-  border-radius: 1.2cqw;
-  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.6);
+  gap: 1.6cqw;
+  padding: 2.8cqw 3.4cqw;
   text-align: center;
+  > *:not(.frame) { position: relative; }
 `;
 
-const Title = styled.div`
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 4cqw;
-  color: ${GOLD};
-  text-shadow: 0 0 1.2cqw rgba(230, 197, 99, 0.35), 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8);
-`;
+/** The panel's title, and the ornament beneath it. */
+const Heading = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6cqw' }}>
+    <GoldTitle $size={4}>{children}</GoldTitle>
+    <GoldDivider width={18} />
+  </div>
+);
 
 const Text = styled.div`
-  font-family: sans-serif;
+  font-family: 'Segoe UI', Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 1.35cqw;
   line-height: 1.5;
-  color: #e0e0e0;
+  color: #e6e1d6;
 `;
 
 const LinkRow = styled.div`
@@ -57,57 +54,31 @@ const LinkRow = styled.div`
   gap: 1cqw;
 `;
 
+/** The invite link: a recessed field in the glass, a faint etched edge. */
 const LinkBox = styled.input`
   flex: 1;
   min-width: 0;
   font-family: monospace;
   font-size: 1.25cqw;
   color: ${GOLD_BRIGHT};
-  background: rgba(0, 0, 0, 0.45);
-  border: 0.12cqw solid rgba(230, 197, 99, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+  border: 0.1cqw solid rgba(255, 255, 255, 0.14);
   border-radius: 0.5cqw;
+  box-shadow: inset 0 0.2cqw 0.6cqw rgba(0, 0, 0, 0.7);
   padding: 0.8cqw 1cqw;
   outline: none;
-`;
-
-const Button = styled.button<{ $isPrimary?: boolean }>`
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: ${props => props.$isPrimary ? 2.8 : 2}cqw;
-  padding: ${props => props.$isPrimary ? '0.6cqw 4cqw' : '0.4cqw 1.6cqw'};
-  border-radius: 0.5cqw;
-  border: 0.15cqw solid ${GOLD};
-  background: ${props => props.$isPrimary ? 'rgba(230, 197, 99, 0.18)' : 'transparent'};
-  color: ${GOLD};
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
-  &:hover:not(:disabled) {
-    color: ${GOLD_BRIGHT};
-    border-color: ${GOLD_BRIGHT};
-    background: rgba(230, 197, 99, 0.28);
-    box-shadow: 0 0 1.4cqw rgba(255, 220, 130, 0.4);
-  }
-  &:disabled { opacity: 0.45; cursor: default; }
+  &:focus { border-color: rgba(230, 197, 99, 0.6); }
 `;
 
 /** A note on the invite and joining screens (the rival's drawings are seen live). */
 const Notice = styled.div`
-  font-family: sans-serif;
-  font-size: 1.1cqw;
+  font-family: 'Segoe UI', Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 1.05cqw;
   font-style: italic;
-  color: #b9b2a0;
+  color: rgba(230, 225, 214, 0.55);
 `;
 const DRAWINGS_NOTICE = "In 2-player duels, you'll see your rival's drawings as they cast. Only duel people you trust.";
 
-const BackLink = styled.button`
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 1.8cqw;
-  color: #aaa;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  &:hover { color: #fff; }
-`;
 
 const pulse = keyframes`
   0%, 100% { opacity: 0.55; }
@@ -166,12 +137,13 @@ export function HostMatchScreen({ onBegin, onBack }: { onBegin: (session: Multip
   return (
     <Screen>
       <Panel>
-        <Title>Invite a Rival</Title>
+        <EtchedFrame />
+        <Heading>Invite a Rival</Heading>
         <Text>Send this link to a friend. When they open it and press Join, their wizard walks into your hall and the duel begins.</Text>
         <LinkRow>
           <LinkBox readOnly value={error ? '' : inviteUrl || 'Creating your match…'} onFocus={e => e.currentTarget.select()} />
-          <Button onClick={copy} disabled={!inviteUrl}>{copied ? 'Copied!' : 'Copy'}</Button>
-          {canShare && <Button onClick={share} disabled={!inviteUrl}>Share…</Button>}
+          <GoldButton size='small' onClick={copy} disabled={!inviteUrl}>{copied ? 'Copied!' : 'Copy'}</GoldButton>
+          {canShare && <GoldButton size='small' onClick={share} disabled={!inviteUrl}>Share…</GoldButton>}
         </LinkRow>
         {error
           ? <Status>{error}</Status>
@@ -180,8 +152,8 @@ export function HostMatchScreen({ onBegin, onBack }: { onBegin: (session: Multip
             : <Status $isWaiting>{inviteUrl ? 'Waiting for your rival to open the link…' : ''}</Status>}
         <Text>You can begin now: you'll wait in the hall until they join.</Text>
         <Notice>{DRAWINGS_NOTICE}</Notice>
-        <Button $isPrimary onClick={begin} disabled={!inviteUrl || !!error}>Begin</Button>
-        <BackLink onClick={onBack}>Back</BackLink>
+        <GoldButton size='large' isPrimary onClick={begin} disabled={!inviteUrl || !!error}>Begin</GoldButton>
+        <GoldLink onClick={onBack}>Back</GoldLink>
       </Panel>
     </Screen>
   );
@@ -216,9 +188,10 @@ export function JoinMatchScreen({ hostId, onJoined, onPlayAlone }: { hostId: str
   return (
     <Screen>
       <Panel>
-        <Title>Joining the Duel</Title>
+        <EtchedFrame />
+        <Heading>Joining the Duel</Heading>
         {error
-          ? <><Status>{error}</Status><Button onClick={onPlayAlone}>Play alone instead</Button></>
+          ? <><Status>{error}</Status><GoldButton isPrimary onClick={onPlayAlone}>Play alone instead</GoldButton></>
           : <Status $isWaiting>Finding your rival's hall…</Status>}
         <Notice>{DRAWINGS_NOTICE}</Notice>
       </Panel>

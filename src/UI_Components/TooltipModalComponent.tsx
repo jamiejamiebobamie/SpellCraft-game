@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled from 'styled-components';
+import { EtchedFrame, GLASS, GOLD, GOLD_BRIGHT, GoldButton, GoldDivider, GoldLink, glassCss, goldTextCss } from './goldStyle';
 
 const TooltipOverlay = styled.div<{ $isDoneWithIntro: boolean }>`
   position: absolute;
@@ -20,8 +21,7 @@ const TooltipOverlay = styled.div<{ $isDoneWithIntro: boolean }>`
 `;
 
 const ModalContent = styled.div`
-  background: #1a1a1a75;
-  border: 0.2cqw solid #444;
+  ${glassCss(GLASS.panelAlpha)}
   border-radius: 0.8cqw;
   padding: 3cqw;
   width: 80%;
@@ -33,8 +33,9 @@ const ModalContent = styled.div`
   display: flex;
   flex-direction: column; /* Changed to column to separate content from footer neatly */
   gap: 2cqw;
-  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.8);
+  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.8), inset 0 0 2.5cqw rgba(0, 0, 0, 0.35), inset 0 0.12cqw 0 rgba(255, 255, 255, 0.16);
   color: #fff;
+  > *:not(.frame) { position: relative; } /* (above the etched frame) */
   box-sizing: border-box;
   overflow: hidden; /* Hard guarantee that scrollbars never appear */
 `;
@@ -47,19 +48,23 @@ const TextColumn = styled.div`
   overflow: hidden; /* Keeps the text bounded within the locked height bounds */
 
   h2 {
-    margin-top: 0;
-    margin-bottom: 1.5cqw;
+    margin: 0 0 0.6cqw;
     font-size: 5.2cqw;
-    color: #e6c563;
+    font-weight: normal;
+    line-height: 1.1;
     font-family: 'EnchantedLand', sans-serif;
+    ${goldTextCss}
+    filter: drop-shadow(0 0 1cqw rgba(230, 197, 99, 0.3)) drop-shadow(0 0.2cqw 0.35cqw rgba(0, 0, 0, 0.85));
   }
+  /* (the ornament under the title) */
+  > span:first-of-type { margin-bottom: 1.6cqw; }
 
   p {
     margin: 0 0 1cqw 0;
     font-size: 1.4cqw;
     line-height: 1.5;
-    color: #e0e0e0;
-    font-family: sans-serif;
+    color: #e6e1d6;
+    font-family: 'Segoe UI', Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   }
 `;
 
@@ -77,28 +82,16 @@ const MediaColumn = styled.div`
   }
 `;
 
-const CloseButton = styled.button`
-  position: absolute;
-  top: 1cqw;
-  right: 1cqw;
-  background: transparent;
-  border: none;
-  color: #888;
+const CloseButton = styled(GoldLink)`
+  position: absolute !important;
+  top: 1.4cqw;
+  right: 1.6cqw;
   font-size: 2cqw;
-  cursor: pointer;
   line-height: 1;
-  padding: 0.2cqw;
-  transition: color 0.2s;
-
-  font-family: 'EnchantedLand', sans-serif;
-
   display: flex;
   align-items: center;
   gap: 0.8cqw;
-
-  &:hover {
-    color: #fff;
-  }
+  z-index: 1;
 `;
 
 const CloseSymbol = styled.span`
@@ -120,13 +113,13 @@ const FooterControls = styled.div`
   gap: 2cqw;
   margin-top: 2cqw;
   width: 100%;
-  border-top: 0.1cqw solid #333;
+  border-top: 0.1cqw solid rgba(230, 197, 99, 0.25);
   padding-top: 1.5cqw;
 `;
 
 const PageIndicator = styled.span`
   font-size: 2.3cqw;
-  color: #aaa;
+  color: rgba(230, 197, 99, 0.75);
   min-width: 4cqw;
   text-align: center;
   font-family: 'EnchantedLand', sans-serif;
@@ -136,7 +129,7 @@ const PageIndicator = styled.span`
 const NavArrow = styled.button<{ $disabled: boolean }>`
   background: transparent;
   border: none;
-  color: ${props => props.$disabled ? '#444' : '#e6c563'};
+  color: ${props => props.$disabled ? '#444' : GOLD};
   font-size: 2cqw;
   cursor: ${props => props.$disabled ? 'default' : 'pointer'};
   opacity: ${props => props.$disabled ? 0.4 : 1};
@@ -145,7 +138,7 @@ const NavArrow = styled.button<{ $disabled: boolean }>`
   padding: 0 1cqw;
 
   &:hover {
-    color: #fff;
+    color: ${GOLD_BRIGHT};
     transform: ${props => props.$disabled ? 'none' : 'scale(1.2)'};
   }
 `;
@@ -158,23 +151,6 @@ const ChoiceControls = styled.div`
   width: 100%;
 `;
 
-const ChoiceButton = styled.button<{ $isPrimary: boolean }>`
-  font-family: 'EnchantedLand', sans-serif;
-  font-size: 2.2cqw;
-  padding: 0.6cqw 2.2cqw;
-  border-radius: 0.5cqw;
-  border: 0.15cqw solid #e6c563;
-  background: ${props => props.$isPrimary ? 'rgba(230, 197, 99, 0.18)' : 'transparent'};
-  color: #e6c563;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, transform 0.2s;
-
-  &:hover {
-    background: rgba(230, 197, 99, 0.32);
-    color: #fff;
-    transform: scale(1.04);
-  }
-`;
 
 const TooltipModalComponent = () => {
   const snap = useSnapshot(rootGameStore);
@@ -190,11 +166,12 @@ const TooltipModalComponent = () => {
     // The story can only be left by choosing (no Close, and clicking outside does nothing)
     <TooltipOverlay $isDoneWithIntro={isDoneWithIntro} onClick={isLore ? undefined : () => rootGameStore.closeTooltip()}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
+        <EtchedFrame />
         {!isLore && <CloseButton onClick={() => rootGameStore.closeTooltip()}>Close{" "}<CloseSymbol /></CloseButton>}
         <div style={{ display: 'flex', flexDirection: 'row', gap: '3cqw', width: '100%', flex: 1, overflow: 'hidden' }}>
           {(currTooltipPage.title || currTooltipPage.paragraphs) && (
             <TextColumn>
-              {currTooltipPage.title && <h2>{currTooltipPage.title}</h2>}
+              {currTooltipPage.title && <><h2>{currTooltipPage.title}</h2><GoldDivider width={20} align='left' /></>}
               {currTooltipPage.paragraphs && currTooltipPage.paragraphs.map((para, i) => (
                 <p key={i}>{para}</p>
               ))}
@@ -231,8 +208,8 @@ const TooltipModalComponent = () => {
         {/* The story's last page: play with tooltips or without (saved for next time) */}
         {isLoreChoice && (
           <ChoiceControls>
-            <ChoiceButton $isPrimary onClick={() => rootGameStore.chooseToolTips(true)}>Play with tooltips</ChoiceButton>
-            <ChoiceButton $isPrimary={false} onClick={() => rootGameStore.chooseToolTips(false)}>Play</ChoiceButton>
+            <GoldButton isPrimary onClick={() => rootGameStore.chooseToolTips(true)}>Play with tooltips</GoldButton>
+            <GoldButton onClick={() => rootGameStore.chooseToolTips(false)}>Play</GoldButton>
           </ChoiceControls>
         )}
       </ModalContent>
