@@ -34,10 +34,10 @@ export const NPC_TURN_ORDER: 'alternateTurns' | 'alternate' | 'waitForPlayer' | 
 
 /** The NPC's turn lasts at least this long (ms), even when it casts nothing, so it's seen to take its turn. */
 /**
- * Each difficulty's share of random turns (the rest its trained brain plays). Brutal: none for now, while
- * building the moves dictionary and testing (was 0.3; perhaps 0.15 after).
+ * Each difficulty's share of random turns (the rest its trained brain plays). (Brutal was 0.3, then none
+ * while building the moves dictionary.)
  */
-export const NPC_RANDOM_MOVES: Record<NpcDifficulty, number> = { Normal: 0.7, Hard: 0.5, Brutal: 0 };
+export const NPC_RANDOM_MOVES: Record<NpcDifficulty, number> = { Normal: 0.7, Hard: 0.5, Brutal: 0.15 };
 
 export const NPC_TURN_MIN_MILLI = 500;
 
