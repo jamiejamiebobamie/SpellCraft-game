@@ -34,7 +34,12 @@ const flood = keyframes`
   100% { opacity: 1; transform: scale(1.15); }
 `;
 
-const Doorway = styled.div<{ $side: 'self' | 'rival' }>`
+// (and once the caught wizard is dragged off: fading away as they go)
+const floodFade = keyframes`
+  to { opacity: 0; }
+`;
+
+const Doorway = styled.div<{ $side: 'self' | 'rival'; $isFading?: boolean }>`
   position: absolute;
   ${props => props.$side === 'self' ? `left: ${DOORWAYS.self.left}cqw;` : `right: ${DOORWAYS.rival.right}cqw;`}
   top: ${DOORWAYS.top}cqw;
@@ -44,6 +49,7 @@ const Doorway = styled.div<{ $side: 'self' | 'rival' }>`
   pointer-events: none;
   mix-blend-mode: screen; /* light: brightening what's there */
   filter: blur(${DOORWAYS.blur}cqw); /* (one soft glow, not its two shapes) */
+  ${props => props.$isFading && css`animation: ${floodFade} ${CATCH_SCENE.dragSeconds}s ease-in ${CATCH_TIMES.drag}s forwards;`}
 `;
 
 const Glow = styled.div<{ $isFlood: boolean; $seconds: number }>`
@@ -83,7 +89,7 @@ export function LanternLight() {
         </Doorway>
       )}
       {scene && scene.caught.map(side => (
-        <Doorway key={`${scene.id}:${side}`} $side={side}>
+        <Doorway key={`${scene.id}:${side}`} $side={side} $isFading={true}>
           <Glow $isFlood={true} $seconds={CATCH_SCENE.floodSeconds} />
           <Spill $isFlood={true} $seconds={CATCH_SCENE.floodSeconds} />
         </Doorway>
