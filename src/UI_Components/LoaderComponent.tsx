@@ -6,7 +6,7 @@ import LogoComponent from './Logo/LogoComponent';
 import { LOGO_CONFIG } from './Logo/logoConfig';
 import { titleLetteringCss, titleSheenSlide } from './Logo/titleLettering';
 import HoverSymbols from './HoverSymbols';
-import PixieDust, { PIXIE_DUST_SECONDS } from './PixieDust';
+import { PIXIE_DUST_SECONDS } from './PixieDust'; // (the dissolve's length; the dust itself no longer shown)
 import { PlayButtonFace, PLAY_BUTTON_BRIGHTNESS, getPlayButtonGlow } from './PlayButtonStyles';
 import ModeSelectComponent from './ModeSelectComponent';
 import CodeLinkComponent from './CodeLinkComponent';
@@ -256,7 +256,6 @@ const LoaderComponent = () => {
         </ActionSlot>
         
       </LoadingContent>
-      <PixieDust isActive={isDissolving} />
       </DissolveArea>
       {/* (on the landing page only: it fades as Play is pressed) */}
       {screen === 'landing' && !isLoading && (

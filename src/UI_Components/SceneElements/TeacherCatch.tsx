@@ -196,7 +196,9 @@ export const getFlurryCasts = (sceneId: number, side: 'self' | 'rival'): FlurryC
     const count = Math.round(CAST_FLURRY.perSecond * CATCH_SCENE.struggleSeconds);
     const from = CATCH_TIMES.lift + CATCH_SCENE.liftSeconds * 0.7;
     casts = Array.from({ length: count }, (_, k) => {
-      const size = CAST_FLURRY.size[0] + Math.random() * (CAST_FLURRY.size[1] - CAST_FLURRY.size[0]);
+      // (sizes pushed toward the extremes: tiny ones and huge ones, chaotic; each still square)
+      const r = Math.random(), spread = r < 0.5 ? 0.5 * (2 * r) ** 2 : 1 - 0.5 * (2 * (1 - r)) ** 2;
+      const size = CAST_FLURRY.size[0] + (k % 2 ? spread : 1 - spread) * (CAST_FLURRY.size[1] - CAST_FLURRY.size[0]);
       const turn = (Math.random() * 2 - 1) * CAST_FLURRY.turn;
       return {
         points: turnPoints(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)], turn),
@@ -250,13 +252,14 @@ const SymbolSvg = styled.svg<{ $delay: number }>`
   position: absolute;
   aspect-ratio: 1;
   overflow: visible;
-  filter: drop-shadow(0 0 0.25cqw rgba(255, 236, 160, 1)) drop-shadow(0 0 0.9cqw rgba(255, 196, 70, 0.7));
+  filter: drop-shadow(0 0 0.15cqw rgba(255, 236, 160, 0.9)) drop-shadow(0 0 0.6cqw rgba(255, 196, 70, 0.55));
   polyline {
     fill: none;
-    stroke-width: 0.45cqw; /* (the same at any size) */
+    stroke-width: 0.32cqw; /* (the same at any size) */
     vector-effect: non-scaling-stroke;
     stroke-linecap: round;
-    stroke-linejoin: round;
+    stroke-linejoin: miter; /* (sharp corners: no blobs where a small symbol turns) */
+    stroke-miterlimit: 3;
     stroke-dasharray: 1;
     opacity: 0;
     animation: ${symbolCast} ${CAST_SECONDS}s linear ${props => props.$delay}s 1 forwards;
