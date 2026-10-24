@@ -39,20 +39,6 @@ const displayNameLookup = new Map<string, string>([
 
 export const pixieColors = ['#FFF7C2', '#FFE53B', '#FFFFFF', '#A6FFEA', '#FFBBE1'];
 
-/** A '#rrggbb' color at `brightness` (as the CSS filter brightness() would make it), remembered. */
-const dimmedColors = new Map<string, string>();
-const dimColor = (hex: string, brightness: number): string => {
-    const key = hex + brightness;
-    let dimmed = dimmedColors.get(key);
-    if (!dimmed) {
-        const value = parseInt(hex.slice(1), 16);
-        const channel = (shift: number) => Math.round(((value >> shift) & 255) * brightness);
-        dimmed = `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
-        dimmedColors.set(key, dimmed);
-    }
-    return dimmed;
-};
-
 export const availableSymbols = Array.from(GameSymbol.SPELL_LOOKUP.entries()).map(([inferenceString, spellClass]) => ({
     inferenceString,
     spellName: spellClass.spellName,
@@ -95,6 +81,13 @@ export const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasS
         ctx.closePath(); ctx.fill(); ctx.restore();
     }
 };
+
+/**
+ * The Spell Book tray's symbols: each always shown in ink (inkColor, its stroke inkWidth of its size), a clear
+ * thing to hover, the gold drawing animating over it; while one is hovered, the others are ink only, their drawing
+ * stopped. ripple: how much they follow the page's rippling in the wind (1: as the paper; 0: still).
+ */
+export const SPELL_BOOK_TRAY = { inkColor: 'rgba(58, 36, 18, 0.85)', inkWidth: 0.045, ripple: 1 };
 
 export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, _viewH: number, deltaTime: number, currentTime: number, setIsHovered: Function, animStates: Map<string, SpellAnimTracker>) => {
     const isTrayOpen = rootGameStore.getIsSpellBookOpen();
@@ -177,6 +170,15 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
     const spacingX = drawZoneW / (availableSymbols.length - 1);
     const baselineCenterY = topY + trayH * 0.45;
     const glyphBoundsDiameter = trayH * 0.6;
+    // The page's own ripple at a point (as its edges are drawn above): its top and bottom edges waving a little
+    // out of step (blended between them by height), and its far edge fluttering (more toward that edge). The
+    // symbols' strokes follow it, inked into the paper.
+    const pageRipple = (x: number, y: number): [number, number] => {
+        const along = Math.max(0, Math.min(1, (y - topY) / trayH));
+        const topWave = Math.sin(x * 0.04 + currentTime * 0.003) * 2.2, bottomWave = Math.cos(x * 0.04 + currentTime * 0.003) * 2.2;
+        const flutter = isTrayOpen ? Math.sin(y * 0.08 + currentTime * 0.002) * (viewW * 0.001) * ui.trayProgress * Math.max(0, (x - startX) / Math.max(1, currentW)) : 0;
+        return [x + flutter * SPELL_BOOK_TRAY.ripple, y + (topWave + (bottomWave - topWave) * along) * SPELL_BOOK_TRAY.ripple];
+    };
     let localHoveredSpell: string | null = null;
     availableSymbols.forEach((symbol, index) => {
         const relativeX = leftPadding + index * spacingX;
@@ -189,15 +191,18 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
         const dx = ui.currentMousePos.x - symbolX;
         const dy = ui.currentMousePos.y - symbolY;
         const isMouseHovering = Math.sqrt(dx * dx + dy * dy) < glyphBoundsDiameter * 0.65;
-        let hoverScale = 1.0; let brightnessMod = 1.0;
+        let hoverScale = 1.0;
         if (isMouseHovering && isTrayOpen) {
             localHoveredSpell = symbol.spellName; hoverScale = 1.15;
         }
-        if (ui.hoveredSpellName && ui.hoveredSpellName !== symbol.spellName) {
-            brightnessMod = 0.35;
-        }
+        // (another symbol hovered: this one ink only, its drawing stopped; it starts afresh once nothing is)
+        const isInkOnly = !!ui.hoveredSpellName && ui.hoveredSpellName !== symbol.spellName;
         const state = ui.getSymbolState(symbol.spellName);
-        if (state.progress < 1.0) {
+        if (isInkOnly) {
+            state.progress = 0;
+            state.particles = [];
+            if (state.loopTimeout) { clearTimeout(state.loopTimeout); state.loopTimeout = null; }
+        } else if (state.progress < 1.0) {
             state.progress += ui.config.symbolDrawSpeed * deltaTime;
         } else if (state.progress >= 1.0 && !state.loopTimeout && isTrayOpen) {
             state.loopTimeout = setTimeout(() => {
@@ -206,73 +211,54 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
                 state.loopTimeout = null;
             }, 4000);
         }
-        ctx.save();
-        ctx.translate(symbolX, symbolY);
-        ctx.scale(hoverScale, hoverScale);
-        // (dimmed by darkening its colors, not with a canvas filter: a filter costs the graphics card a pass
-        // per drawing, and a pause the first time)
-        const tint = (color: string) => brightnessMod < 1.0 ? dimColor(color, brightnessMod) : color;
-        if (symbol.points.length > 0) {
-            let pts = symbol.points; let segments: number[] = []; let totalLen = 0;
-            for (let k = 0; k < pts.length - 1; k++) {
-                let lx = pts[k + 1].x - pts[k].x; let ly = pts[k + 1].y - pts[k].y;
-                let length = Math.sqrt(lx * lx + ly * ly);
-                segments.push(length); totalLen += length;
-            }
-            ctx.save();
-            ctx.translate(-glyphBoundsDiameter * 0.5, -glyphBoundsDiameter * 0.5);
-            const tremor = viewW * 0.0005;
-            ctx.translate((Math.random() - 0.5) * tremor, (Math.random() - 0.5) * tremor);
-            ctx.rotate((Math.random() - 0.5) * 0.01);
-            ctx.lineWidth = glyphBoundsDiameter * 0.035;
-            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            ctx.strokeStyle = tint('#f7cb44');
-            ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = tint('#e8dfb9');
+        if (symbol.points.length === 0) return;
+        const pts = symbol.points as Array<{ x: number; y: number; moveTo?: boolean }>;
+        // (a point of the symbol, from its 0-1 box, on the page: placed, sized, then rippling with the paper)
+        const size = glyphBoundsDiameter * hoverScale;
+        const toPage = (p: { x: number; y: number }): [number, number] => pageRipple(symbolX + (p.x - 0.5) * size, symbolY + (p.y - 0.5) * size);
+        const tracePath = (until: number): [number, number] => {
+            // (the strokes up to \`until\` of their length, 0-1, as a path; returns where the drawing's tip is)
+            let tip = toPage(pts[0]);
             ctx.beginPath();
-            if (pts.length > 0 && pts[0]) {
-                ctx.moveTo(pts[0].x * glyphBoundsDiameter, pts[0].y * glyphBoundsDiameter);
+            ctx.moveTo(tip[0], tip[1]);
+            const lengths = pts.slice(1).map((p, k) => Math.hypot(p.x - pts[k].x, p.y - pts[k].y));
+            let left = until * lengths.reduce((a, b) => a + b, 0);
+            for (let m = 1; m < pts.length; m++) {
+                const p = pts[m];
+                if (p.moveTo) { tip = toPage(p); ctx.moveTo(tip[0], tip[1]); continue; }
+                const segment = lengths[m - 1];
+                if (left < segment) {
+                    const t = segment > 0 ? left / segment : 0;
+                    tip = toPage({ x: pts[m - 1].x + (p.x - pts[m - 1].x) * t, y: pts[m - 1].y + (p.y - pts[m - 1].y) * t });
+                    ctx.lineTo(tip[0], tip[1]);
+                    break;
+                }
+                left -= segment;
+                tip = toPage(p);
+                ctx.lineTo(tip[0], tip[1]);
             }
-            const activeTargetLength = state.progress * totalLen;
-            let currentAccumulated = 0;
-            let tipX = (pts.length > 0 && pts[0]) ? pts[0].x * glyphBoundsDiameter : 0;
-            let tipY = (pts.length > 0 && pts[0]) ? pts[0].y * glyphBoundsDiameter : 0;
-            if (state.progress >= 1.0) {
-                for (let m = 1; m < pts.length; m++) {
-                    const p = pts[m] as any;
-                    if (p.moveTo) {
-                        ctx.moveTo(p.x * glyphBoundsDiameter, p.y * glyphBoundsDiameter);
-                    } else {
-                        ctx.lineTo(p.x * glyphBoundsDiameter, p.y * glyphBoundsDiameter);
-                    }
-                }
-                if (pts.length > 0 && pts[pts.length - 1]) {
-                    tipX = pts[pts.length - 1].x * glyphBoundsDiameter;
-                    tipY = pts[pts.length - 1].y * glyphBoundsDiameter;
-                }
-            } else {
-                for (let m = 0; m < pts.length - 1; m++) {
-                    let p1 = pts[m]; let p2 = pts[m + 1]; let segLen = segments[m];
-                    if (p1 && p2 && currentAccumulated + segLen >= activeTargetLength) {
-                        let rem = activeTargetLength - currentAccumulated;
-                        let ratio = segLen > 0 ? rem / segLen : 0;
-                        tipX = (p1.x + (p2.x - p1.x) * ratio) * glyphBoundsDiameter;
-                        tipY = (p1.y + (p2.y - p1.y) * ratio) * glyphBoundsDiameter;
-                        ctx.lineTo(tipX, tipY);
-                        break;
-                    } else if (p2) {
-                        ctx.lineTo(p2.x * glyphBoundsDiameter, p2.y * glyphBoundsDiameter);
-                        currentAccumulated += segLen;
-                        tipX = p2.x * glyphBoundsDiameter; tipY = p2.y * glyphBoundsDiameter;
-                    }
-                }
-            }
+            return tip;
+        };
+        ctx.save();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        // The ink: always there, the whole symbol (a clear thing to hover)
+        tracePath(1);
+        ctx.strokeStyle = SPELL_BOOK_TRAY.inkColor;
+        ctx.lineWidth = glyphBoundsDiameter * SPELL_BOOK_TRAY.inkWidth * hoverScale;
+        ctx.stroke();
+        if (!isInkOnly) {
+            // The gold drawing over it, as it's drawn (sparkling at its tip)
+            const tip = tracePath(Math.min(1, state.progress));
+            ctx.lineWidth = glyphBoundsDiameter * 0.035 * hoverScale;
+            ctx.strokeStyle = '#f7cb44';
+            ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = '#e8dfb9';
             ctx.stroke();
             ctx.shadowBlur = 0;
             if (state.progress < 1.0) {
                 for (let pCount = 0; pCount < 2; pCount++) {
                     state.particles.push({
-                        x: tipX + (Math.random() - 0.5) * (glyphBoundsDiameter * 0.03),
-                        y: tipY + (Math.random() - 0.5) * (glyphBoundsDiameter * 0.03),
+                        x: tip[0] + (Math.random() - 0.5) * (glyphBoundsDiameter * 0.03),
+                        y: tip[1] + (Math.random() - 0.5) * (glyphBoundsDiameter * 0.03),
                         size: Math.random() * (glyphBoundsDiameter * 0.009) + 0.4,
                         vx: (Math.random() - 0.5) * 0.9, vy: (Math.random() - 0.7) * 0.5 - 0.2,
                         alpha: 1.0, decay: Math.random() * 0.024 + 0.016,
@@ -281,16 +267,15 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
                 }
             }
             for (let q = state.particles.length - 1; q >= 0; q--) {
-                let part = state.particles[q];
+                const part = state.particles[q];
                 if (!part) continue;
                 part.x += part.vx; part.y += part.vy; part.vy += 0.01; part.alpha -= part.decay;
                 if (part.alpha <= 0) { state.particles.splice(q, 1); continue; }
-                ctx.save(); ctx.globalAlpha = part.alpha; ctx.fillStyle = tint(part.color);
+                ctx.save(); ctx.globalAlpha = part.alpha; ctx.fillStyle = part.color;
                 if (part.isStar) draw4PointStar(ctx, part.x, part.y, part.size * 2, part.size * 0.5);
                 else { ctx.beginPath(); ctx.arc(part.x, part.y, part.size, 0, Math.PI * 2); ctx.fill(); }
                 ctx.restore();
             }
-            ctx.restore();
         }
         ctx.restore();
     });
