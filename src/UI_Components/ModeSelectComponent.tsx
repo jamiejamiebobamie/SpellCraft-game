@@ -26,7 +26,7 @@ export const MODE_SELECT = {
   titleUnderline: { isOn: true, breakAt: 'Y', thickness: 0.1, drop: -.95 },
   fadeInSeconds: 0.6,
   hoverMotion: 'press' as 'press' | 'rise', // (a choice on hover: pressed in, its shadow tighter; or lifted)
-  choiceOpacity: 0.38, // (the choices' dark glass: 0 clear, 1 solid; a little more on hover)
+  choiceOpacity: 0, // (the choices' dark glass: 0 clear, 1 solid; a little more on hover)
 };
 
 // The choice's hover motion and shadow (MODE_SELECT.hoverMotion)
