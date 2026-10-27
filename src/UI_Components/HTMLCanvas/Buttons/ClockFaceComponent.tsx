@@ -118,9 +118,19 @@ const ClockWrapper = styled.div`
   transition: filter 0.4s ease-out; /* the hover brightening (MenuAnchor:hover) eases in and out */
 `;
 
-const ClockHands = styled.line<{ $brightness?: number, $transitionTime?: number }>`
-  ${props => props.$transitionTime ? `transition: transform ${props.$transitionTime}s;` : 'transition: transform 2s;'}
-  ${props => props.$brightness && `filter: brightness(${props.$brightness}) drop-shadow(0 0 .3cqw #fffb00) !important;`}
+/**
+ * A hand: its own svg over the face, turned as a whole. (Turning a line inside the face's svg can't be done
+ * by the GPU alone: each step laid out and repainted the page, the seconds hand every frame of a turn.)
+ */
+const ClockHand = styled.svg<{ $transitionTime?: number }>`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform ${props => props.$transitionTime ?? 2}s;
 `;
 
 interface UseClockChimesAnimProps {
@@ -289,28 +299,23 @@ export default function ClockFaceComponent() {
               transform={`rotate(${i * 30} 50 50)`}
             />
           ))}
-          {/* Hour Hand (Thicker, Shorter) */}
-          <ClockHands
-            x1="50" y1="50" x2="50" y2="28"
-            stroke="#917d41" strokeWidth="5" strokeLinecap="round"
-            transform={`rotate(${angles.hour} 50 50)`}
-          />
-          {/* Minute Hand (Thinner, Longer) */}
-          <ClockHands
-            x1="50" y1="50" x2="50" y2="16"
-            stroke="#917d41" strokeWidth="3.5" strokeLinecap="round"
-            transform={`rotate(${angles.minute} 50 50)`}
-          />
-          {/* Seconds Hand (thin, red: on the landing page a real clock's; in play, counting down the turn) */}
-          <ClockHands
-            x1="50" y1="58" x2="50" y2="12"
-            stroke="#a33a2a" strokeWidth="1.5" strokeLinecap="round"
-            $transitionTime={hand.transition}
-            style={{ transform: `rotate(${hand.shown}deg)`, transformOrigin: '50px 50px' }}
-          />
-          {/* Center Pin */}
-          <circle cx="50" cy="50" r="4" fill="#917d41" />
         </svg>
+        {/* Hour Hand (Thicker, Shorter) */}
+        <ClockHand viewBox="0 0 100 100" style={{ transform: `rotate(${angles.hour}deg)` }}>
+          <line x1="50" y1="50" x2="50" y2="28" stroke="#917d41" strokeWidth="5" strokeLinecap="round" />
+        </ClockHand>
+        {/* Minute Hand (Thinner, Longer) */}
+        <ClockHand viewBox="0 0 100 100" style={{ transform: `rotate(${angles.minute}deg)` }}>
+          <line x1="50" y1="50" x2="50" y2="16" stroke="#917d41" strokeWidth="3.5" strokeLinecap="round" />
+        </ClockHand>
+        {/* Seconds Hand (thin, red: on the landing page a real clock's; in play, counting down the turn) */}
+        <ClockHand viewBox="0 0 100 100" $transitionTime={hand.transition} style={{ transform: `rotate(${hand.shown}deg)` }}>
+          <line x1="50" y1="58" x2="50" y2="12" stroke="#a33a2a" strokeWidth="1.5" strokeLinecap="round" />
+        </ClockHand>
+        {/* Center Pin */}
+        <ClockHand viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="4" fill="#917d41" />
+        </ClockHand>
       </ClockWrapper>
     </MenuAnchor >
   </>
