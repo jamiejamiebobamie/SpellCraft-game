@@ -21,7 +21,7 @@ type MarginNote = { text: string; place: 'gap' | 'below' | 'at'; tilt: number; n
 const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     // (nudged toward 255 degrees on the unit circle: down and a little left, off the preview's edge)
     // (and right of the title, a little below it: at the preview's top left)
-    Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }, { text: 'draw a circle\nor click on a cell', place: 'at', tilt: -5, at: { x: 0.42, y: 0.33 }, underline: false }],
+    Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }, { text: 'draw a circle\nor click on a cell', place: 'at', tilt: -5, at: { x: 0.44, y: 0.33 }, underline: false }],
     // (nudged up, clear of the description's last line; and under the description, to the left)
     Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }, { text: 'draw a line', place: 'at', tilt: -3, at: { x: 0.22, y: 0.86 }, underline: false }],
     // (and under the description, to the left)
@@ -29,7 +29,7 @@ const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     // (and under the description, to the left)
     // (and right of the title: which way it goes)
     GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }, { text: 'up', place: 'at', tilt: -4, at: { x: 0.47, y: 0.28 }, scale: 1.4, arrow: 'up' }],
-    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }, { text: 'down', place: 'at', tilt: -4, at: { x: 0.43, y: 0.28 }, scale: 1.4, arrow: 'down' }],
+    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }, { text: 'down', place: 'at', tilt: -4, at: { x: 0.45, y: 0.28 }, scale: 1.4, arrow: 'down' }],
 };
 
 const displayNameLookup = new Map<string, string>([
