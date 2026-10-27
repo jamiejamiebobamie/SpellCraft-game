@@ -1,8 +1,11 @@
 // MaskVortex.tsx
-// The swirl beneath each mask on the game over card: a hurricane seen from above, in the night's colors. Its
-// cloud bands wind into a black eye; the image is drawn once (a canvas: spiral-streaked noise) and turns.
+// The swirl beneath each mask on the game over card. MASK_VORTEX.style 'etched': flat and quiet, as the buttons'
+// inner detail (goldStyle): a disc of dark glass, a faint ring, and a few pale lines spiralling in, turning slowly.
+// 'storm': a hurricane seen from above, in the night's colors, its cloud bands winding into a black eye (drawn
+// once: a canvas of spiral-streaked noise).
 import { useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
+import { FRAME_ETCH, GLASS } from './goldStyle';
 
 /**
  * size: across (cqw); pixels: the image's resolution (drawn once, shared). twist: how tightly the bands wind;
@@ -12,6 +15,7 @@ import styled, { keyframes } from 'styled-components';
  * specks of red or green over it all (fleckShare: how many).
  */
 export const MASK_VORTEX = {
+  style: 'etched' as 'etched' | 'storm',
   size: 15,
   opacity: 1, // (the whole maelstrom: 0 gone, 1 full)
   pixels: 320,
@@ -25,6 +29,32 @@ export const MASK_VORTEX = {
   flecks: [[170, 30, 40], [40, 150, 80]],
   fleckShare: 0.05,
 };
+
+/**
+ * The etched swirl (style 'etched'): the disc's glass (opacity), its lines' colour and opacity (as the buttons'
+ * etched frame: FRAME_ETCH) and width (in the disc's units: its radius is 1), how many arms spiral in and how
+ * far each winds (turns), and how long a turn of the whole takes (seconds).
+ */
+export const ETCHED_VORTEX = { glass: GLASS.alpha + 0.12, line: FRAME_ETCH.color, lineOpacity: FRAME_ETCH.opacity * 1.6, lineWidth: 0.018, arms: 3, turns: 0.9, seconds: 30 };
+
+/** An arm spiralling from the rim in toward the middle, as an SVG path (the disc's radius 1). */
+const spiralArm = (start: number): string => {
+  const points = Array.from({ length: 41 }, (_, k) => {
+    const t = k / 40, r = 0.9 - 0.78 * t, angle = start + t * ETCHED_VORTEX.turns * Math.PI * 2;
+    return `${(r * Math.cos(angle)).toFixed(3)} ${(r * Math.sin(angle)).toFixed(3)}`;
+  });
+  return 'M' + points.join(' L ');
+};
+
+const EtchedSvg = styled.svg`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: ${MASK_VORTEX.opacity};
+  .turning { animation: ${keyframes`to { transform: rotate(-360deg); }`} ${ETCHED_VORTEX.seconds}s linear infinite; transform-origin: 0 0; }
+`;
 
 // --- Noise (value noise, layered: fbm), for the bands' texture
 const hash = (x: number, y: number, seed: number) => {
@@ -111,8 +141,26 @@ const Layer = styled.img<{ $seconds: number; $inset: number; $opacity: number }>
   animation: ${turn} ${props => props.$seconds}s linear infinite;
 `;
 
-/** The vortex (fills its parent): the whole turning slowly, its core faster. */
-export const MaskVortex = () => {
+/** The vortex (fills its parent): etched (flat, turning slowly), or the storm (the whole turning slowly, its core faster). */
+export const MaskVortex = () => MASK_VORTEX.style === 'etched' ? <EtchedVortex /> : <StormVortex />;
+
+const EtchedVortex = () => {
+  const { glass, line, lineOpacity, lineWidth, arms } = ETCHED_VORTEX;
+  return (
+    <EtchedSvg viewBox='-1 -1 2 2' aria-hidden>
+      <circle r={0.97} fill={`rgba(${GLASS.tint}, ${glass})`} />
+      <g fill='none' stroke={line} strokeOpacity={lineOpacity} strokeWidth={lineWidth} strokeLinecap='round'>
+        <circle r={0.9} />
+        <g className='turning'>
+          {Array.from({ length: arms }, (_, k) => <path key={k} d={spiralArm(k / arms * Math.PI * 2)} />)}
+        </g>
+        <circle r={0.12} />
+      </g>
+    </EtchedSvg>
+  );
+};
+
+const StormVortex = () => {
   const src = useMemo(() => vortexImage ?? (vortexImage = drawVortex()), []);
   return <>
     <Layer src={src} alt='' aria-hidden $seconds={MASK_VORTEX.seconds / MASK_VORTEX.speed} $inset={0} $opacity={MASK_VORTEX.opacity} />

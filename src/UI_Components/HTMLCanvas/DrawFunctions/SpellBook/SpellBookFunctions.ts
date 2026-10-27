@@ -14,19 +14,22 @@ import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMargi
  * description and the preview ('gap'); longer ones below the preview ('below'); or anywhere ('at': its
  * center, in fractions of the page's width and height from its top left). tilt: degrees, as in CSS
  * (negative: rising to the right). nudge: moved from there, in fractions of the page's width (x right,
- * y down).
+ * y down). Underlined unless underline is false; scale: its size (1: as the rest); arrow: one to its right,
+ * pointing up or down; a \n in the text starts another line.
  */
-type MarginNote = { text: string; place: 'gap' | 'below' | 'at'; tilt: number; nudge?: { x: number; y: number }; at?: { x: number; y: number } };
+type MarginNote = { text: string; place: 'gap' | 'below' | 'at'; tilt: number; nudge?: { x: number; y: number }; at?: { x: number; y: number }; underline?: boolean; scale?: number; arrow?: 'up' | 'down' };
 const MARGIN_NOTES: Record<string, Array<MarginNote>> = {
     // (nudged toward 255 degrees on the unit circle: down and a little left, off the preview's edge)
-    Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }],
-    // (nudged up, clear of the description's last line)
-    Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }],
+    // (and right of the title, a little below it: at the preview's top left)
+    Ether: [{ text: 'hurts a lot!', place: 'gap', tilt: 15, nudge: { x: -0.03, y: 0.045 } }, { text: 'draw a circle\nor click on a cell', place: 'at', tilt: -5, at: { x: 0.42, y: 0.33 }, underline: false }],
+    // (nudged up, clear of the description's last line; and under the description, to the left)
+    Quicken: [{ text: 'fast!!', place: 'gap', tilt: -15, nudge: { x: 0, y: -0.035 } }, { text: 'draw a line', place: 'at', tilt: -3, at: { x: 0.22, y: 0.86 }, underline: false }],
     // (and under the description, to the left)
     Phlegm: [{ text: 'patches you up', place: 'below', tilt: -3 }, { text: '2x3 cells = heal self', place: 'at', tilt: -3, at: { x: 0.25, y: 0.68 } }],
     // (and under the description, to the left)
-    GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
-    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }],
+    // (and right of the title: which way it goes)
+    GyreUp: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }, { text: 'up', place: 'at', tilt: -4, at: { x: 0.47, y: 0.28 }, scale: 1.4, arrow: 'up' }],
+    GyreDown: [{ text: 'gives breathing room', place: 'below', tilt: -3 }, { text: 'off the board = destroyed', place: 'at', tilt: -3, at: { x: 0.25, y: 0.86 } }, { text: 'down', place: 'at', tilt: -4, at: { x: 0.43, y: 0.28 }, scale: 1.4, arrow: 'down' }],
 };
 
 const displayNameLookup = new Map<string, string>([
@@ -727,7 +730,7 @@ export const drawModalDetails = (
                 x = rightGridX + gridBoxW * 0.5;
                 y = rightGridY + gridBoxW + viewW * 0.03;
             }
-            drawMarginNote(ctx, marginNote.text, x + viewW * nudge.x, y + viewW * nudge.y, viewW * 0.017, marginNote.tilt * Math.PI / 180);
+            drawMarginNote(ctx, marginNote.text, x + viewW * nudge.x, y + viewW * nudge.y, viewW * 0.017 * (marginNote.scale ?? 1), marginNote.tilt * Math.PI / 180, marginNote);
         });
     });
     ctx.save();

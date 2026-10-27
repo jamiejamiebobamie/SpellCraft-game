@@ -211,7 +211,7 @@ const SUB_ICONS = {
   'FX_ON': '🔊', 'FX_LOW': '🔉', 'FX_OFF': '🔇',
   'MUSIC_ON': '🔊', 'MUSIC_LOW': '🔉', 'MUSIC_OFF': '🔇',
   'KEYBOARD_CONTROLS': '⌨️',
-  'SEE_TOOLTIPS': '👁️',
+  'SEE_TOOLTIPS': '📝', // (a note: the tooltips; was 👁️)
   'CANVAS_WAND': '🪄',
   'RIVAL_DRAWINGS': '✍️',
 }

@@ -250,7 +250,7 @@ const MaskBox = styled.div<{ $delay: number; $isBroken: boolean; $isMissing: boo
   flex: none;
   width: ${OUTCOME_MASKS.size}cqw;
   aspect-ratio: 58 / 73;
-  filter: ${props => props.$isBroken ? 'drop-shadow(0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.8))' : props.$isWhite ? OUTCOME_MASKS.whiteBacklight : OUTCOME_MASKS.backlight};
+  filter: ${props => props.$isWhite ? OUTCOME_MASKS.whiteBacklight : OUTCOME_MASKS.backlight}; /* (broken or whole: its halves glow as they part) */
   ${props => props.$isBroken && css`animation: ${crackJolt} 0.45s ease-out ${props.$delay}s 1;`}
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   svg { ${props => css`animation: ${cracksFade} 0.3s ease-in ${props.$delay + OUTCOME_MASKS.crackSeconds + 0.15}s forwards;`} }

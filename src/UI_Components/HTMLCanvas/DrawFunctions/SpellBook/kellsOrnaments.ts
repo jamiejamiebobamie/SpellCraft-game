@@ -264,9 +264,10 @@ export const getIsQuillFontReady = (): boolean => {
 
 /**
  * A note scribbled in the margin by some earlier owner of the book: brown ink in a quick hand, tilted
- * by `tilt` (radians), centered on (x, y), with a wobbly underline. Skipped until the font has loaded.
+ * by `tilt` (radians), centered on (x, y) (its lines split at \n), with a wobbly underline unless `underline` is
+ * false, and an `arrow` to its right if given (two shafts, wide apart, under one caret). Skipped until the font has loaded.
  */
-export const drawMarginNote = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, tilt: number): void => {
+export const drawMarginNote = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, tilt: number, { underline = true, arrow }: { underline?: boolean; arrow?: 'up' | 'down' } = {}): void => {
   if (!getIsQuillFontReady()) return;
   ctx.save();
   ctx.translate(x, y);
@@ -275,12 +276,30 @@ export const drawMarginNote = (ctx: CanvasRenderingContext2D, text: string, x: n
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = 'rgba(48, 26, 10, 0.92)'; // iron-gall ink, browned with age
-  ctx.fillText(text, 0, 0);
-  // The underline: one quick stroke, wobbling a little (the same wobble every frame)
-  const halfW = ctx.measureText(text).width / 2;
+  const lines = text.split('\n'), lineHeight = size * 1.2;
+  ctx.translate(0, -(lines.length - 1) * lineHeight / 2);
+  lines.forEach((line, k) => ctx.fillText(line, 0, k * lineHeight));
+  ctx.translate(0, (lines.length - 1) * lineHeight);
+  // (the underline and arrow go by the last line)
+  const halfW = ctx.measureText(lines[lines.length - 1]).width / 2;
   ctx.strokeStyle = 'rgba(48, 26, 10, 0.75)';
   ctx.lineWidth = Math.max(1, size * 0.07);
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (arrow) {
+    // Two shafts (wide apart), under a single caret at the end they point to
+    // (as tall as the capitals: from the baseline to their tops)
+    const left = halfW + size * 0.45, right = left + size * 0.42, middle = (left + right) / 2;
+    const tip = arrow === 'up' ? -size * 0.95 : size * 0.12, tail = arrow === 'up' ? size * 0.12 : -size * 0.95;
+    const toward = Math.sign(tip - tail), caretH = size * 0.42, flare = size * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(left, tail); ctx.lineTo(left, tip - toward * caretH * 0.55);
+    ctx.moveTo(right, tail); ctx.lineTo(right, tip - toward * caretH * 0.55);
+    ctx.moveTo(left - flare, tip - toward * caretH); ctx.lineTo(middle, tip); ctx.lineTo(right + flare, tip - toward * caretH);
+    ctx.stroke();
+  }
+  if (!underline) { ctx.restore(); return; }
+  // The underline: one quick stroke, wobbling a little (the same wobble every frame)
   ctx.beginPath();
   const underY = size * 0.45, steps = 12;
   for (let k = 0; k <= steps; k++) {

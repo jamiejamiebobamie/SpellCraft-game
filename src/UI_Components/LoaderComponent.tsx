@@ -197,14 +197,14 @@ const LoaderComponent = () => {
   const isLogoSpellsReady = snap.getIsLogoSpellsReady();
 
   // The boot screen (index.html: the title and a spinner) fades out as the logo fades in, once the
-  // logo's spells are ready
+  // logo's spells are ready and the hall's images have loaded (so the landing page shows complete)
   useEffect(() => {
     const bootScreen = document.getElementById('boot-screen');
-    if (!isPriorityAssetsLoaded || !isLogoSpellsReady || !bootScreen) return;
+    if (!isPriorityAssetsLoaded || !isLogoSpellsReady || !isSceneImgsLoaded || !bootScreen) return;
     bootScreen.classList.add('boot-screen--done');
     const removeTimeout = setTimeout(() => bootScreen.remove(), 1600); // (its fade through black: index.html)
     return () => clearTimeout(removeTimeout);
-  }, [isPriorityAssetsLoaded, isLogoSpellsReady]);
+  }, [isPriorityAssetsLoaded, isLogoSpellsReady, isSceneImgsLoaded]);
 
   // Play: the landing page dissolves into pixie dust, then the choice of 1 Player or 2 Players. Opened
   // from an invite link, Play reads "Join", and joins the host's match instead

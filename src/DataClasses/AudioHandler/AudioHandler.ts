@@ -18,9 +18,9 @@ export const VOLUME = {
 
 /**
  * The dawn's birdsong: a quiet loop (src) from `fromTurn` turns in (5 AM: the last hour before sunrise, getTurnAt),
- * at `volume` of the sound effects' level, fading in and out over these many seconds.
+ * at `volume` of the sound effects' level (1.2: was 0.6, too quiet; past 1 is fine: a gain, not the element's volume), fading in and out over these many seconds.
  */
-export const BIRDSONG = { src: './Audio/Effects/Clock/785248__newlocknew__ambbird_birdsong-loop.mp3', fromTurn: getTurnAt(5), volume: 0.6, fadeInSeconds: 8, fadeOutSeconds: 3 };
+export const BIRDSONG = { src: './Audio/Effects/Clock/785248__newlocknew__ambbird_birdsong-loop.mp3', fromTurn: getTurnAt(5), volume: 1.2, fadeInSeconds: 8, fadeOutSeconds: 3 };
 
 export class AudioHandler {
     private readonly BACKGROUND_MUSIC_SRC = './Audio/Music/Magic Escape Room.mp3';
@@ -78,8 +78,10 @@ export class AudioHandler {
             .catch(err => console.log("Autoplay blocked:", err));
     }
 
-    // The birdsong (BIRDSONG): an audio element (ref: never proxied), and the fade under way
+    // The birdsong (BIRDSONG): an audio element (ref: never proxied) played through a gain (so its volume can go
+    // past the element's own limit of 1), and the fade under way
     private birdsong: HTMLAudioElement | null = null;
+    private birdsongGain: GainNode | null = null;
     private birdsongFade = 0;
     private isBirdsongOn = false;
 
@@ -90,8 +92,11 @@ export class AudioHandler {
         if (!this.birdsong) {
             this.birdsong = ref(new Audio(BIRDSONG.src));
             this.birdsong.loop = true;
+            this.birdsongGain = ref(this.audioContext.createGain());
+            this.audioContext.createMediaElementSource(this.birdsong).connect(this.birdsongGain).connect(this.audioContext.destination);
         }
-        this.birdsong.volume = 0;
+        if (this.audioContext.state === 'suspended') this.audioContext.resume().catch(() => { });
+        if (this.birdsongGain) this.birdsongGain.gain.value = 0;
         this.birdsong.play().catch(err => console.log('Birdsong blocked:', err));
         this.fadeBirdsong(BIRDSONG.fadeInSeconds);
     }
@@ -101,15 +106,15 @@ export class AudioHandler {
         this.isBirdsongOn = false;
         this.fadeBirdsong(BIRDSONG.fadeOutSeconds);
     }
-    private getBirdsongLevel(): number { return this.isBirdsongOn ? Math.min(1, this.getLevel('fx') * BIRDSONG.volume) : 0; }
+    private getBirdsongLevel(): number { return this.isBirdsongOn ? this.getLevel('fx') * BIRDSONG.volume : 0; }
     private fadeBirdsong(seconds: number): void {
-        const audio = this.birdsong;
-        if (!audio) return;
+        const audio = this.birdsong, gain = this.birdsongGain;
+        if (!audio || !gain) return;
         window.clearInterval(this.birdsongFade);
-        const from = audio.volume, startedAt = performance.now();
+        const from = gain.gain.value, startedAt = performance.now();
         this.birdsongFade = window.setInterval(() => {
             const t = Math.min(1, (performance.now() - startedAt) / (seconds * 1000));
-            audio.volume = Math.max(0, Math.min(1, from + (this.getBirdsongLevel() - from) * t));
+            gain.gain.value = Math.max(0, from + (this.getBirdsongLevel() - from) * t);
             if (t >= 1) {
                 window.clearInterval(this.birdsongFade);
                 if (!this.isBirdsongOn) audio.pause();
@@ -155,7 +160,7 @@ export class AudioHandler {
     private getLevel(audioType: AudioType): number { return this.muted[audioType] ? 0 : this.volumes[audioType] * VOLUME.middleLevel; }
     private applyMusicLevel(): void {
         if (this.backgroundMusic) this.backgroundMusic.volume = this.getLevel('music');
-        if (this.birdsong && this.isBirdsongOn) this.birdsong.volume = this.getBirdsongLevel();
+        if (this.birdsongGain && this.isBirdsongOn) this.birdsongGain.gain.value = this.getBirdsongLevel();
     }
 
     /** Mutes or unmutes a kind (`isMuted`: which; else the other way round). */

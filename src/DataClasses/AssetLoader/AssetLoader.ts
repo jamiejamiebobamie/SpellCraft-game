@@ -42,6 +42,7 @@ const buttonImgSrcs = [
     'mask-icons/2mask-icon-Hard.png',
     'mask-icons/3mask-icon-Brutal.png',
     'spell-icons/spellbook-icon.png',
+    'cursors/wand.png',
 ];
 
 export type LoaderProperties = 'isOnnxModelLoaded' | 'isNpcModelLoaded' | 'isFontsLoaded' | 'isSoundsEffectsLoaded' | 'isImgsLoaded' | 'isSceneImgsLoaded' | 'isPriorityAssetsLoaded' | 'isMinLoadingTimeElapsed' | 'isLogoSpellsReady';
@@ -146,11 +147,10 @@ export class AssetLoader {
     async loadFontsAndImgs() {
         try {
             await Promise.all([
-                this.loadImages(sceneImageSrcs, () => {
-                    const loaderObj: Map<LoaderProperties, boolean> = new Map<LoaderProperties, boolean>();
-                    loaderObj.set('isSceneImgsLoaded', true);
-                    this.setIsLoading(loaderObj);
-                }),
+                // (the scene's images: the landing page waits for them; marked loaded even if one fails, so it
+            // never waits for good)
+            this.loadImages(sceneImageSrcs).catch(error => console.error('Scene image loading error: ', error))
+                .finally(() => this.setIsLoading(new Map<LoaderProperties, boolean>([['isSceneImgsLoaded', true]]))),
                 this.loadImages(buttonImgSrcs),
             ]);
         } catch (error) {
