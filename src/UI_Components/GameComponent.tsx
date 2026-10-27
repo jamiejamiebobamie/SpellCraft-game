@@ -3,6 +3,7 @@ import PlayerComponent from './Player/PlayerComponent';
 import HTMLCanvasComponent from './HTMLCanvas/HTMLCanvasComponent';
 import GameBoardComponent from './GameBoard/GameBoardComponent';
 import StarrySkyComponent from './SceneElements/StarrySkyComponent';
+import WallElements, { BACKGROUND_IMAGE_BRIGHTNESS } from './SceneElements/WallElements';
 import ChandelierComponent from './SceneElements/ChandelierComponent';
 import TooltipModalComponent from './TooltipModalComponent';
 import LightTipLayer from './LightTipCard';
@@ -37,7 +38,6 @@ const hallShake = keyframes`
  * The background image's brightness, on top of the scene's lighting: dark (the landing page, and the
  * intro walk until the lights come up; scene lighting 0.1) and lit (once they're up; 0.4). 1 = as is.
  */
-const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
 
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking: boolean }>`
   /* Vertical placement comes from the spacers around #root (index.css) */
@@ -79,7 +79,7 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking:
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('background-scene/QuickCast-Background-Test3.png');
+    background-image: url('background-scene/QuickCast-Background-Test4_with_Glow.png');
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
@@ -289,6 +289,7 @@ export const GameComponent = () => {
       backgroundSceneBrightness={backgroundSceneBrightness}
       right={'22.5cqw'} />
     {Array.from({ length: 4 }).map((_, i) => <StarrySkyComponent key={i} index={i} />)}
+    <WallElements sceneBrightness={backgroundSceneBrightness} />
     <LanternLight />
   </>;
 

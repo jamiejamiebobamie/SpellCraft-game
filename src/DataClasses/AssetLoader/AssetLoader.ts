@@ -26,7 +26,10 @@ const logoImgSrcs = [
 
 /** The rest of the background scene (the clock is in logoImgSrcs). */
 const sceneImageSrcs = [
-    'background-scene/QuickCast-Background-Test3.png',
+    'background-scene/QuickCast-Background-Test4_with_Glow.png',
+    'background-scene/BackgroundWallElements/PictureFrames.png',
+    'background-scene/BackgroundWallElements/SuitOfArmor.png',
+    'background-scene/DoorFlame/Green_Flame.png',
     'background-scene/Chandelier/Chandelier-candle-flames.png',
     'background-scene/Chandelier/Chandelier-candles-holder-iron.png',
     'background-scene/Chandelier/Chandelier-chain-iron.png',

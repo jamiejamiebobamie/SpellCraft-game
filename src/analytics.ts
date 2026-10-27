@@ -8,7 +8,7 @@
  * sent. domains: the only ones counted (so playing locally never is).
  */
 export const ANALYTICS = {
-  websiteId: '',
+  websiteId: '91f779c4-490c-4675-85d5-6cce24a4ba88',
   scriptUrl: 'https://cloud.umami.is/script.js',
   domains: ['spellcraft-game.netlify.app'],
 };
