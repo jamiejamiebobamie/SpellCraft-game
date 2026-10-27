@@ -27,6 +27,7 @@ export const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
  * where it touches the floor (contacts), each a flat, blurred rounded patch (blur: cqw), at the floor's height (y).
  * scale: its width and height (1: as drawn), from the bottom of its middle (so it stays standing on the floor);
  * move: shifting it (pixels, of the 1200 x 675 scene: x right, y down). Its shadow moves and widens with it.
+ * isInFrontOfFlame: drawn over the door's flame (the wall sconce holding it).
  */
 export const WALL_ELEMENTS = {
   brightness: { landing: 1, play: 1 },
@@ -34,6 +35,7 @@ export const WALL_ELEMENTS = {
   hueRotate: 0,
   items: [
     { name: 'PictureFrames', box: { x: 220, y: 190, w: 288, h: 260 }, hueRotate: 0, scale: { x: 1, y: 1 }, move: { x: 0, y: 0 } } as WallItem,
+    { name: 'Wall_Sconce', box: { x: 1068, y: 254, w: 26, h: 30 }, isInFrontOfFlame: true } as WallItem,
     { name: 'SuitOfArmor', box: { x: 705, y: 45, w: 266, h: 460 }, hueRotate: 0, scale: { x: 1, y: 1 }, move: { x: 0, y: 0 }, shadow: {
       y: 484, blur: 0.5,
       spread: { x: 858, w: 230, h: 18, opacity: 0.4 },
@@ -46,6 +48,7 @@ type WallItem = {
   brightness?: { landing: number; play: number }; blur?: number; hueRotate?: number;
   shadow?: { y: number; blur: number; spread: ShadowSpot; contacts: Array<ShadowSpot> };
   scale?: { x: number; y: number }; move?: { x: number; y: number };
+  isInFrontOfFlame?: boolean; // (the sconce: drawn over the torch's flame)
 };
 
 /** A patch of shadow on the floor: its middle (x), width and height (pixels), and how dark (opacity). */
@@ -70,8 +73,8 @@ export const DOOR_FLAME = {
   flickerSeconds: 0.9,
   swaySeconds: 3.4,
   swayDeg: 3,
-  box: { x: 1022, y: 195, w: 120, h: 120 },
-  base: { x: 1082, y: 268 },
+  box: { x: 1004, y: 200, w: 126, h: 132 },
+  base: { x: 1082, y: 266 }, // (standing in the sconce's cup)
 };
 
 const isLit = (sceneBrightness: number) => sceneBrightness > rootGameStore.LOW_BRIGHTNESS;
@@ -172,7 +175,7 @@ const FlameSway = styled.div`
   animation: ${torchSway} ${DOOR_FLAME.swaySeconds}s ease-in-out infinite;
 `;
 const FlameFlicker = styled.div`
-  ${crop('background-scene/DoorFlame/Green_Flame.png', DOOR_FLAME.box)}
+  ${crop('background-scene/BackgroundWallElements/Green_Flame.png', DOOR_FLAME.box)}
   left: 0;
   top: 0;
   transform-origin: ${origin};
@@ -183,7 +186,7 @@ const FlameFlicker = styled.div`
 export default function WallElements({ sceneBrightness }: { sceneBrightness: number }) {
   return (
     <>
-      {WALL_ELEMENTS.items.map(item => (
+      {WALL_ELEMENTS.items.filter(item => !item.isInFrontOfFlame).map(item => (
         <Fragment key={item.name}>
           {item.shadow && (
             <FloorShadow $item={item}>
@@ -196,6 +199,7 @@ export default function WallElements({ sceneBrightness }: { sceneBrightness: num
       <FlameBox $sceneBrightness={sceneBrightness}>
         <FlameSway><FlameFlicker /></FlameSway>
       </FlameBox>
+      {WALL_ELEMENTS.items.filter(item => item.isInFrontOfFlame).map(item => <WallItemImage key={item.name} $item={item} $sceneBrightness={sceneBrightness} />)}
     </>
   );
 }

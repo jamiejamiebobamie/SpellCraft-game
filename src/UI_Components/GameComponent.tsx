@@ -79,7 +79,7 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking:
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('background-scene/QuickCast-Background-Test4_with_Glow.png');
+    background-image: url('background-scene/QuickCast-Background-Test3.png');
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
