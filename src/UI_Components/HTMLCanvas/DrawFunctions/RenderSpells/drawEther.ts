@@ -133,6 +133,54 @@ export function spawnEtherParticles(particles: GameParticle[], w: number, h: num
 }
 
 /**
+ * A great Ether (3x3) destroyed in a collision breaks apart like a meteor: its disc cracks into `chunks` pieces
+ * (meteorChunk: each a slice of it, its rim smooth and its broken sides jagged, cream at the middle and orange at
+ * the rim, as the fireball), all blasted back out away from the collision (the way the spell came from), each on
+ * its own arc: `speed` (px a second, x the spell's width), launched at `climbDeg` (degrees above level; below 0 a
+ * little down) and pulled down by `gravity` (px a second a second, x the spell's width), all ranges, so some
+ * drop soon and some fly high and land late; trailing fire as it goes. size: the disc's radius, as a fraction
+ * of the spell's width (a range: each piece its own); seconds: how long a piece lasts (long enough to leave
+ * the screen: it stays bright until just before). high: a share of the pieces lobbed high instead, over the
+ * wizards and off the screen above them (their own speed, climbDeg and gravity: lighter). deepShare: a share of
+ * the pieces burning a deeper, darker orange (DEEP_FIRE) than the fireball's cream and orange.
+ */
+export const ETHER_SHATTER = {
+  chunks: 6, speed: [0.9, 2.1], climbDeg: [-12, 38], gravity: [0.6, 1.6], size: [0.12, 0.26], seconds: [5, 6],
+  high: { share: 0.34, speed: [1.6, 2.3], climbDeg: [38, 58], gravity: [0.25, 0.45] },
+  deepShare: 0.4,
+};
+
+export function spawnEtherShatterParticles(particles: GameParticle[], w: number, h: number, dir: number) {
+  const { chunks, size, seconds, high: lob, deepShare } = ETHER_SHATTER;
+  const between = ([lo, hi]: Array<number>) => lo + Math.random() * (hi - lo);
+  // The disc's slices: round it in order, each a little wider or narrower than its share
+  const spans = Array.from({ length: chunks }, () => 0.7 + Math.random() * 0.6);
+  const total = spans.reduce((a, b) => a + b, 0);
+  let angle = Math.random() * Math.PI * 2;
+  for (let k = 0; k < chunks; k++) {
+    const wedgeSpan = spans[k] / total * Math.PI * 2, middle = angle + wedgeSpan / 2;
+    // (its arc: a lob over the wizards, or a lower one; the slices that faced up launched higher, each with its own weight)
+    const facingUp = (1 - Math.sin(middle)) / 2; // (1: its slice faced straight up, 0: straight down)
+    const arc = Math.random() < lob.share ? lob : ETHER_SHATTER;
+    const [low, high] = arc.climbDeg;
+    const climb = (low + (high - low) * (0.5 * facingUp + 0.5 * Math.random())) * Math.PI / 180;
+    const side = -dir; // (back the way it came: away from the collision)
+    const v = between(arc.speed) * w;
+    particles.push({
+      x: w / 2 + Math.cos(middle) * w * 0.06, y: h / 2 + Math.sin(middle) * w * 0.06,
+      vx: Math.cos(climb) * v * side, vy: -Math.sin(climb) * v, gravity: between(arc.gravity) * w,
+      alpha: 1, size: between(size) * w, color: Math.random() < deepShare ? 'deep' : '',
+      rotation: 0, vRotation: (Math.random() - 0.5) * 5,
+      wedgeStart: angle, wedgeSpan, seed: Math.random() * 100,
+      life: 1, decay: 1 / between(seconds), type: 'meteorChunk',
+    });
+    angle += wedgeSpan;
+  }
+  // The blast where they met: a flash of embers and smoke (as a lesser Ether's)
+  spawnEtherParticles(particles, w, h);
+}
+
+/**
  * ETHER SPAWN (Fireball)
  * Springs into space with an elastic bounce while gathering environmental energy.
  */

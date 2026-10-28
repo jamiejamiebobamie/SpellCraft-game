@@ -744,6 +744,42 @@ export class Game {
   }
 
   /**
+   * While developing (the 7 key): two great (3x3) Ethers, the player's and the rival's, put on a
+   * cleared board facing each other. The rival is held off
+   * (its pending move called off); after a moment the spells move as at a turn's end, meet and break apart
+   * (ETHER_SHATTER, PHLEGM_SPLASH), and the rival's turn starts again.
+   */
+  private clashPreviewCount = 0;
+  async previewGreatClash(): Promise<void> {
+    const self = this.players.getHumanPlayer(), rival = this.players.getNpcPlayer();
+    if (!self || !rival || this.gameOver !== null || this.catchScene !== null || !this.getIsDoneWithIntroWalk()) return;
+    const SpellClass = GameSymbol.SPELL_LOOKUP.get((['circle'] as const)[this.clashPreviewCount++ % 1]); // (Ethers only now: the Phlegms' splash is settled; 'star' to see it again)
+    if (!SpellClass) return;
+    const token = ++this.turnToken; // (the rival's pending move called off)
+    this.stopNpcWaiting();
+    this.gameClock.stopTurnClock();
+    this.placedSpells.spells = [];
+    this.gameBoard.cells.forEach(c => c.setSpell(null));
+    ([[self, 0], [rival, GameBoard.NUM_COLS - 3]] as const).forEach(([player, firstCol]) => {
+      for (let i = 0; i < 3; i++) for (let j = firstCol; j < firstCol + 3; j++) {
+        const cell = this.gameBoard.getCellAt({ i, j });
+        if (!cell) continue;
+        const s = new SpellClass(player);
+        s.setCellIndex({ i, j });
+        this.placedSpells.addSpell(s);
+        this.gameBoard.setSpellAt(s, cell);
+      }
+    });
+    this.placedSpells.combineSpellsMaximally(this.gameBoard);
+    await new Promise(r => setTimeout(r, 1500)); // (a look at them before they move)
+    if (token !== this.turnToken) return; // (pressed again meanwhile)
+    this.disableGameBoard();
+    await this.updatePlacedSpells();
+    this.enableGameBoard();
+    if (token === this.turnToken && this.gameOver === null) this.startNpcTurn(1500);
+  }
+
+  /**
    * While developing (the 0 key): the clock to 5 AM (the birds and birdsong out), and each press the one at
    * risk in turn: the player (the frightened face), the rival, then both (even health: a catch takes both). The turn clock holds.
    */

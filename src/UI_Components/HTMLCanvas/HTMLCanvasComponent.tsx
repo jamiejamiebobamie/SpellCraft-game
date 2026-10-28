@@ -10,12 +10,13 @@ import NpcDifficultyComponent from './Buttons/NpcDifficultyComponent';
 import EmojiReactionsComponent from './Buttons/EmojiReactionsComponent';
 import { drawProceduralSpell, updateAndDrawParticles } from './DrawFunctions/RenderSpells/renderSpells';
 import { spawnQuickenParticles, spawnQuickenHitParticles } from './DrawFunctions/RenderSpells/drawQuicken';
-import { spawnEtherParticles, spawnEtherHitParticles } from './DrawFunctions/RenderSpells/drawEther';
-import { spawnPhlegmParticles, spawnPhlegmHitParticles } from './DrawFunctions/RenderSpells/drawPhlegm';
+import { spawnEtherParticles, spawnEtherHitParticles, spawnEtherShatterParticles } from './DrawFunctions/RenderSpells/drawEther';
+import { spawnPhlegmParticles, spawnPhlegmHitParticles, spawnPhlegmSplashParticles } from './DrawFunctions/RenderSpells/drawPhlegm';
+import { spawnLensDrops, updateAndDrawLensDrops, LensDrop } from './DrawFunctions/RenderSpells/drawLensDrops';
 import { spawnGyreParticles, spawnGyreHitParticles, getGyreSputterAlpha } from './DrawFunctions/RenderSpells/drawGyre';
 import { GYRE_RULES } from '../../DataClasses/PlacedSpells/spellRules';
 import { spawnBloodMagicHitParticles } from './DrawFunctions/RenderSpells/drawBloodMagicHit';
-import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI } from '../../DataClasses/types';
+import { SpellAnimTracker, PlacedSpellsProps, DustParticle, CanvasScrollUI, GameParticle } from '../../DataClasses/types';
 import { draw4PointStar } from './DrawFunctions/Sparkles/SparkleFunctions';
 import { drawClockAdvanceSymbols } from './DrawFunctions/ClockSymbols/ClockSymbolFunctions';
 import { PALETTE } from './DrawFunctions/RenderSpells/ColorPalette';
@@ -97,6 +98,11 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   // Spells striking a wizard: flying off the board into them, their hit effects on arrival (STRIKE).
   // Kept apart from the board's spells, so a flight finishes even once the spell is gone from the board
   const strikesRef = useRef<Array<Strike>>([]);
+  // A great (3x3) Ether or Phlegm destroyed: its explosion (ETHER_SHATTER, PHLEGM_SPLASH), where it was. Kept apart
+  // from the board's spells too, so it plays out in full once the spell is gone
+  const shattersRef = useRef<Array<{ x: number; y: number; particles: Array<GameParticle> }>>([]);
+  // Water on the lens after a great Phlegm's splash (LENS_DROPS), over the whole scene
+  const lensDropsRef = useRef<Array<LensDrop>>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
 
   // Performance-optimized reference tracking for NPC stroke progress mapping
@@ -328,7 +334,17 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             anim.hasSpawnedParticles = true;
 
             // (whether or not it was cast with blood magic: that effect plays at its caster)
-            if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
+            // Only when two great (3x3) spells of a kind meet: another destroyed with it (the rare clash of titans)
+            const isGreat = (s: any) => (s.getPropertyValue?.('widthCells') || 1) >= 3 && (s.getPropertyValue?.('heightCells') || 1) >= 3;
+            const isGreatClash = isGreat(spell) && placedSpells.some((other: any) => other !== spell && other.id !== id &&
+              other.constructor.spellName === spellClass && isGreat(other) && other.getIsRemove?.());
+            if (isGreatClash && (spellClass === 'Ether' || spellClass === 'Phlegm')) {
+              const shatter = { x: anim.visualX, y: anim.visualY, particles: [] as Array<GameParticle> };
+              if (spellClass === 'Ether') spawnEtherShatterParticles(shatter.particles, w, h, dir);
+              else { spawnPhlegmSplashParticles(shatter.particles, w, h); spawnLensDrops(lensDropsRef.current, viewW, viewH); }
+              shattersRef.current.push(shatter);
+            }
+            else if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
             else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
             else if (spellClass === 'Phlegm') spawnPhlegmParticles(anim.particles, w, h);
             else if (spellClass === 'GyreUp' || spellClass === 'GyreDown') spawnGyreParticles(anim.particles, w, h);
@@ -397,6 +413,10 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           if (strike.particles.length > 0) updateAndDrawParticles(ctx, strike.particles, deltaTime);
         });
         strikesRef.current = strikesRef.current.filter(strike => !strike.hasArrived || strike.particles.length > 0);
+        // The great spells' explosions, until their last piece is gone
+        shattersRef.current.forEach(shatter => { ctx.save(); ctx.translate(shatter.x, shatter.y); updateAndDrawParticles(ctx, shatter.particles, deltaTime); ctx.restore(); });
+        shattersRef.current = shattersRef.current.filter(shatter => shatter.particles.length > 0);
+        if (lensDropsRef.current.length) updateAndDrawLensDrops(ctx, lensDropsRef.current, deltaTime, viewW);
 
         // The damage and healing numbers, on top, held inside the screen's edges
         const floatingNumbers = floatingNumbersRef.current;

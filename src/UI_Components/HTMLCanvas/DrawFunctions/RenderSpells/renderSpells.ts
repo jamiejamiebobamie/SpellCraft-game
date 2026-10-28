@@ -89,17 +89,44 @@ export function spawnPreviewSpellParticles(spellName: string, particles: any[], 
   }
 }
 
+/**
+ * A shattered Ether's piece's tail (meteorChunk): how many frames of its path it streams back over (length),
+ * how wide it is at the piece (width: x the piece's radius), how opaque its orange plume and its cream core are
+ * there (outerOpacity, coreOpacity: added light, fading toward the tail's end), and how much its edges waver.
+ */
+/** A deeper-burning piece's colours (ETHER_SHATTER.deepShare): its middle and its rim. */
+export const DEEP_FIRE = { core: '#ffb347', rim: '#d94e00' };
+
+export const METEOR_TAIL ={ length: 24, width: 0.75, outerOpacity: 0.22, coreOpacity: 0.3, waver: 0.25 };
+
 export function updateAndDrawParticles(
   ctx: CanvasRenderingContext2D,
   particles: any[], // Matches your GameParticle collection array type
   deltaTime: number
 ) {
   // --- PASS 1: ADVANCE PHYSICS & TIMER LOGIC (RUNS FOR ALL PARTICLES) ---
+  const trails: any[] = []; // (fire shed by meteor chunks this frame: added after the pass)
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
 
     if (p.type === 'droplet') {
       p.vy += 450 * deltaTime; // Gravity pull
+    }
+    if (p.type === 'meteorChunk') {
+      // A burning piece of a shattered Ether: arcs down, its path kept for its streaming tail (METEOR_TAIL),
+      // now and then shedding a spark of fire
+      p.vy += (p.gravity ?? 180) * deltaTime;
+      (p.trail ??= []).push({ x: p.x, y: p.y });
+      if (p.trail.length > METEOR_TAIL.length) p.trail.shift();
+      const shed = Math.random() < 0.25 * p.life ? 1 : 0;
+      for (let k = 0; k < shed; k++) {
+        trails.push({
+          x: p.x + (Math.random() - 0.5) * p.size * 0.6, y: p.y + (Math.random() - 0.5) * p.size * 0.6,
+          vx: p.vx * 0.06 + (Math.random() - 0.5) * 20, vy: -15 - Math.random() * 25,
+          alpha: 1, size: p.size * (0.22 + Math.random() * 0.2) * (0.5 + 0.5 * p.life), color: '',
+          life: 1, decay: 2.2 + Math.random() * 1.2, type: 'meteorTrail',
+        });
+      }
     }
     if (p.type === 'smoke') {
       p.size += 15 * deltaTime; // Expand smoke rings over time
@@ -120,6 +147,7 @@ export function updateAndDrawParticles(
       particles.splice(i, 1);
     }
   }
+  if (trails.length) particles.push(...trails);
 
   // --- PASS 2: RENDER SWITCHBOARD (STANDARD VISUALS ONLY) ---
   particles.forEach((p) => {
@@ -152,6 +180,89 @@ export function updateAndDrawParticles(
       const midX = (p.x + p.targetX) / 2 + (Math.random() * 16 - 8);
       const midY = (p.y + p.targetY) / 2 + (Math.random() * 16 - 8);
       ctx.moveTo(p.x, p.y); ctx.lineTo(midX, midY); ctx.lineTo(p.targetX, p.targetY);
+      ctx.stroke();
+      ctx.restore();
+    }
+    else if (p.type === 'meteorTrail') {
+      // Fire, cooling as it ages: bright yellow, orange, red (added light), then a wisp of dark smoke
+      const age = 1 - p.life;
+      ctx.save();
+      if (age < 0.6) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = age < 0.15 ? '#ffe08a' : age < 0.35 ? '#ff9a1f' : '#d8400c';
+        ctx.globalAlpha = 0.55 * p.life;
+      } else {
+        ctx.fillStyle = '#3a2a22';
+        ctx.globalAlpha = 0.35 * p.life;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.5, p.size * (age < 0.6 ? 1 - age * 0.6 : 0.8 + age * 0.6)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    else if (p.type === 'meteorChunk') {
+      // A piece of the fireball's disc (radius p.size): its rim a smooth arc, its broken sides jagged, running
+      // in toward where the middle was; cream inside and orange at the rim (PALETTE.fireCore, fireMid), as the
+      // fireball, in a soft glow. Drawn about its own middle, so it tumbles in place
+      const R = p.size, start = p.wedgeStart ?? 0, span = p.wedgeSpan ?? 1, middle = start + span / 2, seed = p.seed ?? 0;
+      const jitter = (k: number) => Math.sin(seed * 12.9898 + k * 78.233) * 0.5; // (the same jag every frame)
+      const centroid = R * 0.55;
+      // Its tail: a plume streaming back along its path, widest and brightest at the piece (cream inside
+      // orange), narrowing and fading behind, its edges wavering (METEOR_TAIL)
+      const trail: Array<{ x: number; y: number }> = p.trail ?? [];
+      if (trail.length > 1) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const fade = Math.min(1, p.life * 8); // (bright until the very end: it leaves the screen first)
+        for (let k = 0; k < trail.length; k++) {
+          const t = (k + 1) / trail.length; // (0: the tail's end, 1: at the piece)
+          const waver = Math.sin(k * 1.9 + seed + p.life * 25) * R * METEOR_TAIL.waver * (1 - t);
+          const x = trail[k].x, y = trail[k].y + waver;
+          ctx.fillStyle = `rgba(255, 119, 0, ${METEOR_TAIL.outerOpacity * t * fade})`;
+          ctx.beginPath(); ctx.arc(x, y, R * METEOR_TAIL.width * (0.15 + 0.85 * t), 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = `rgba(255, 244, 163, ${METEOR_TAIL.coreOpacity * t * t * fade})`;
+          ctx.beginPath(); ctx.arc(x, y, R * METEOR_TAIL.width * 0.45 * t, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, p.life * 8);
+      ctx.translate(p.x, p.y);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.1);
+      glow.addColorStop(0, 'rgba(255, 210, 120, 0.5)');
+      glow.addColorStop(1, 'rgba(255, 90, 0, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(0, 0, R * 1.1, 0, Math.PI * 2); ctx.fill();
+      ctx.rotate(p.rotation || 0);
+      ctx.translate(-Math.cos(middle) * centroid, -Math.sin(middle) * centroid); // (the disc's middle)
+      const inner = { x: Math.cos(middle + jitter(9) * span * 0.4) * R * (0.08 + 0.12 * Math.abs(jitter(7))), y: 0 };
+      inner.y = Math.sin(middle + jitter(9) * span * 0.4) * R * (0.08 + 0.12 * Math.abs(jitter(7)));
+      // A broken side, from (x0, y0) to (x1, y1): a few jags either side of the straight line
+      const jagged = (x0: number, y0: number, x1: number, y1: number, k0: number) => {
+        const steps = 4, nx = -(y1 - y0), ny = x1 - x0, len = Math.hypot(nx, ny) || 1;
+        for (let k = 1; k < steps; k++) {
+          const t = k / steps, off = jitter(k0 + k) * R * 0.22;
+          ctx.lineTo(x0 + (x1 - x0) * t + nx / len * off, y0 + (y1 - y0) * t + ny / len * off);
+        }
+        ctx.lineTo(x1, y1);
+      };
+      ctx.beginPath();
+      ctx.moveTo(inner.x, inner.y);
+      jagged(inner.x, inner.y, Math.cos(start) * R, Math.sin(start) * R, 1);
+      ctx.arc(0, 0, R, start, start + span);
+      jagged(Math.cos(start + span) * R, Math.sin(start + span) * R, inner.x, inner.y, 20);
+      ctx.closePath();
+      const body = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+      const fire = p.color === 'deep' ? DEEP_FIRE : { core: PALETTE.fireCore, rim: PALETTE.fireMid };
+      body.addColorStop(0, fire.core);
+      body.addColorStop(0.55, fire.core);
+      body.addColorStop(0.85, fire.rim);
+      body.addColorStop(1, fire.rim);
+      ctx.fillStyle = body;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 119, 0, 0.9)';
+      ctx.lineWidth = Math.max(1, R * 0.05);
+      ctx.lineJoin = 'round';
       ctx.stroke();
       ctx.restore();
     }

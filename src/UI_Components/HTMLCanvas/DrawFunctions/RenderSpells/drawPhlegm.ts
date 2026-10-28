@@ -186,6 +186,31 @@ export function spawnPhlegmParticles(particles: GameParticle[], w: number, h: nu
 }
 
 /**
+ * A great Phlegm (3x3) destroyed in a collision bursts in a massive splash, thrown out to both sides: `drops`
+ * droplets and `blobs` big gouts of water, each `speed` (px a second, x the spell's width: a range), climbing up
+ * to `spreadDeg` from level, then falling (droplet: gravity); sizes as fractions of the spell's width.
+ */
+export const PHLEGM_SPLASH = { drops: 110, blobs: 14, speed: [0.8, 2.6], spreadDeg: 45, dropSize: [0.008, 0.022], blobSize: [0.03, 0.055] };
+
+export function spawnPhlegmSplashParticles(particles: GameParticle[], w: number, h: number) {
+  const { drops, blobs, speed, spreadDeg, dropSize, blobSize } = PHLEGM_SPLASH;
+  const between = ([lo, hi]: Array<number>) => lo + Math.random() * (hi - lo);
+  for (let k = 0; k < drops + blobs; k++) {
+    const isBlob = k >= drops;
+    const side = k % 2 === 0 ? 1 : -1;
+    const climb = (Math.random() * 1.2 - 0.2) * spreadDeg * Math.PI / 180;
+    const v = between(speed) * w * (isBlob ? 0.75 : 1);
+    particles.push({
+      x: w / 2 + (Math.random() - 0.5) * w * 0.5, y: h / 2 + (Math.random() - 0.5) * h * 0.4,
+      vx: Math.cos(climb) * v * side, vy: -Math.sin(climb) * v - 60,
+      alpha: 1, size: between(isBlob ? blobSize : dropSize) * w,
+      color: Math.random() > 0.65 ? FX_PALETTE.waterFroth : Math.random() > 0.4 ? FX_PALETTE.waterSplash : PALETTE.waterDeep,
+      life: 1, decay: isBlob ? 0.55 + Math.random() * 0.25 : 0.6 + Math.random() * 0.5, type: 'droplet',
+    });
+  }
+}
+
+/**
  * PHLEGM SPAWN (Water Wheel)
  * Spins the donut aggressively fast while expanding outward radially.
  */

@@ -256,7 +256,8 @@ export const GameComponent = () => {
     };
   }, []);
 
-  // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 9 key each game over card (previewGameOver), the 0 key the dawn (previewDawn)
+  // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 9 key each game over card (previewGameOver), the 0 key the dawn (previewDawn),
+  // the 7 key two great Ethers meeting (previewGreatClash)
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const onKey = (e: KeyboardEvent) => {
@@ -264,6 +265,7 @@ export const GameComponent = () => {
       if (e.code === 'Digit9') rootGameStore.previewGameOver();
       if (e.code === 'Digit8') moveRecorder.download(); // (the player's recorded moves: MoveRecorder)
       if (e.code === 'Digit0') rootGameStore.previewDawn();
+      if (e.code === 'Digit7') rootGameStore.previewGreatClash();
     };
     window.addEventListener('keyup', onKey);
     return () => window.removeEventListener('keyup', onKey);

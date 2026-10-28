@@ -67,7 +67,7 @@ export interface GameParticle {
   vRotation?: number;     // Optional rotational speed (radians per second)
   life: number;           // Remaining lifetime index tracking (starts at 1.0)
   decay: number;          // How quickly life ticks down to 0 per second
-  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail' | 'etherFlame' | 'lightningArc' | 'fireballOrb' | 'bloodDroplets'; // Optional tag to apply unique custom behaviors
+  type?: 'smoke' | 'droplet' | 'windLine' | 'windCurl' | 'healCross' | 'electricShock' | 'windTrail' | 'etherFlame' | 'lightningArc' | 'fireballOrb' | 'bloodDroplets' | 'meteorChunk' | 'meteorTrail'; // Optional tag to apply unique custom behaviors
   radius?: number;        // Size of Fireball (for Ether)
   initialX?: number;              // Current X position on the canvas
   initialY?: number;              // Current Y position on the canvas
@@ -75,6 +75,13 @@ export interface GameParticle {
   // --- ADDED EXTRA TARGET VECTORS FOR LIGHTNING AND GEOMETRY SNAP PATHS ---
   targetX?: number;       // Terminal X target coordinate destination point
   targetY?: number;       // Terminal Y target coordinate destination point
+
+  // A shattered Ether's piece (meteorChunk): its slice of the disc (radians), and the shape of its broken edges
+  wedgeStart?: number;
+  wedgeSpan?: number;
+  seed?: number;
+  trail?: Array<{ x: number; y: number }>; // (its path: its streaming tail)
+  gravity?: number; // (its own pull down: px a second a second)
 }
 
 export interface SpellAnimTracker {
