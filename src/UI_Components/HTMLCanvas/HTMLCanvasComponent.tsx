@@ -33,7 +33,13 @@ import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTS
  */
 const FLOATING_NUMBERS = { joinSeconds: 0.5, size: 46, swell: 1.3, sideOffset: 30, sameWizardPx: 60 };
 
-const MasterCanvasOverlay = styled.canvas<{ $zIndex: number; $cursor: string }>`
+/**
+ * Two great (3x3) spells of a kind meeting: each charges on into the other, gathering speed, for `chargeSeconds`,
+ * until they meet halfway, then breaks apart there (ETHER_SHATTER, PHLEGM_SPLASH).
+ */
+const GREAT_CLASH = { chargeSeconds: 0.35 };
+
+const MasterCanvasOverlay =styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
   top: 50%;
   left: 50%;
@@ -100,7 +106,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const strikesRef = useRef<Array<Strike>>([]);
   // A great (3x3) Ether or Phlegm destroyed: its explosion (ETHER_SHATTER, PHLEGM_SPLASH), where it was. Kept apart
   // from the board's spells too, so it plays out in full once the spell is gone
-  const shattersRef = useRef<Array<{ x: number; y: number; particles: Array<GameParticle> }>>([]);
+  // (first charging into the other: charge, until they meet)
+  const shattersRef = useRef<Array<{ x: number; y: number; particles: Array<GameParticle>; charge?: { spell: any; kind: string; fromX: number; toX: number; w: number; h: number; dir: number; progress: number } }>>([]);
   // Water on the lens after a great Phlegm's splash (LENS_DROPS), over the whole scene
   const lensDropsRef = useRef<Array<LensDrop>>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
@@ -339,10 +346,15 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             const isGreatClash = isGreat(spell) && placedSpells.some((other: any) => other !== spell && other.id !== id &&
               other.constructor.spellName === spellClass && isGreat(other) && other.getIsRemove?.());
             if (isGreatClash && (spellClass === 'Ether' || spellClass === 'Phlegm')) {
-              const shatter = { x: anim.visualX, y: anim.visualY, particles: [] as Array<GameParticle> };
-              if (spellClass === 'Ether') spawnEtherShatterParticles(shatter.particles, w, h, dir);
-              else { spawnPhlegmSplashParticles(shatter.particles, w, h); spawnLensDrops(lensDropsRef.current, viewW, viewH); }
-              shattersRef.current.push(shatter);
+              // It charges on into the other (GREAT_CLASH), to where the two meet (halfway between them), then breaks
+              const other = placedSpells.find((o: any) => o !== spell && o.id !== id && o.constructor.spellName === spellClass && isGreat(o) && o.getIsRemove?.());
+              const otherAnim = other ? animStatesRef.current.get(other.id) : undefined;
+              const otherW = cellWidthPx * (other?.getPropertyValue?.('widthCells') || 3);
+              const meetX = otherAnim ? (anim.visualX + w / 2 + otherAnim.visualX + otherW / 2) / 2 : anim.visualX + (dir > 0 ? w : 0);
+              shattersRef.current.push({
+                x: anim.visualX, y: anim.visualY, particles: [],
+                charge: { spell, kind: spellClass, fromX: anim.visualX, toX: dir > 0 ? meetX - w : meetX, w, h, dir, progress: 0 },
+              });
             }
             else if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
             else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
@@ -414,8 +426,23 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         });
         strikesRef.current = strikesRef.current.filter(strike => !strike.hasArrived || strike.particles.length > 0);
         // The great spells' explosions, until their last piece is gone
-        shattersRef.current.forEach(shatter => { ctx.save(); ctx.translate(shatter.x, shatter.y); updateAndDrawParticles(ctx, shatter.particles, deltaTime); ctx.restore(); });
-        shattersRef.current = shattersRef.current.filter(shatter => shatter.particles.length > 0);
+        shattersRef.current.forEach(shatter => {
+          const charge = shatter.charge;
+          if (charge && charge.progress < 1) {
+            // Charging into the other, gathering speed; on meeting, it breaks apart there
+            charge.progress = Math.min(1, charge.progress + deltaTime / GREAT_CLASH.chargeSeconds);
+            shatter.x = charge.fromX + (charge.toX - charge.fromX) * charge.progress * charge.progress;
+            ctx.save(); ctx.translate(shatter.x + charge.w / 2, shatter.y + charge.h / 2); applySpellFacing(ctx, undefined, charge.dir); ctx.translate(-charge.w / 2, -charge.h / 2);
+            drawProceduralSpell(ctx, charge.spell, cellWidthPx, cellHeightPx, currentTime, 1, true); ctx.restore();
+            if (charge.progress >= 1) {
+              if (charge.kind === 'Ether') spawnEtherShatterParticles(shatter.particles, charge.w, charge.h, charge.dir);
+              else { spawnPhlegmSplashParticles(shatter.particles, charge.w, charge.h); spawnLensDrops(lensDropsRef.current, viewW, viewH); }
+              shatter.charge = undefined;
+            }
+          }
+          if (shatter.particles.length) { ctx.save(); ctx.translate(shatter.x, shatter.y); updateAndDrawParticles(ctx, shatter.particles, deltaTime); ctx.restore(); }
+        });
+        shattersRef.current = shattersRef.current.filter(shatter => shatter.charge || shatter.particles.length > 0);
         if (lensDropsRef.current.length) updateAndDrawLensDrops(ctx, lensDropsRef.current, deltaTime, viewW);
 
         // The damage and healing numbers, on top, held inside the screen's edges

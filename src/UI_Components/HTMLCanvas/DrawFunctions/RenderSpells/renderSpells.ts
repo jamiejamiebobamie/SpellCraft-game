@@ -97,7 +97,7 @@ export function spawnPreviewSpellParticles(spellName: string, particles: any[], 
 /** A deeper-burning piece's colours (ETHER_SHATTER.deepShare): its middle and its rim. */
 export const DEEP_FIRE = { core: '#ffb347', rim: '#d94e00' };
 
-export const METEOR_TAIL ={ length: 24, width: 0.75, outerOpacity: 0.22, coreOpacity: 0.3, waver: 0.25 };
+export const METEOR_TAIL ={ length: 50, width: 0.75, outerOpacity: 0.22, coreOpacity: 0.3, waver: 0.25 };
 
 export function updateAndDrawParticles(
   ctx: CanvasRenderingContext2D,
