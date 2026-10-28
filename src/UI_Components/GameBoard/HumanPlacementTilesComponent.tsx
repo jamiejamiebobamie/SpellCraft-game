@@ -51,8 +51,8 @@ const PlacementArea = styled.div<{ $isPulsing: boolean }>`
 export const HumanPlacementTilesComponent = () => {
   const snap = useSnapshot(rootGameStore);
   const isDrawingOffBoard = snap.getIsDrawingOffBoard();
-  const isGameBoardDisabled: boolean = snap.getIsGameBoardDisabled();
-  const isShow = !isGameBoardDisabled && isDrawingOffBoard;
+  // (only while the player can act: when the clock's halo shows, Game.getCanPlayerAct)
+  const isShow = snap.getCanPlayerAct() && isDrawingOffBoard;
   return (
     <PlacementFade $isShow={isShow}>
       <PlacementArea $isPulsing={isShow}>

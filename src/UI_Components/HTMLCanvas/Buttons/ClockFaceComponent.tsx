@@ -270,7 +270,7 @@ export default function ClockFaceComponent() {
     </ClockImgWrapper>
     {/* The halo: always on the loading screen; in play, while the clock can end the turn (not once a player is dead) */}
     <ClockHalo brightness={isLanding ? LOGO_CONFIG.landingClock.haloBrightness : backgroundSceneBrightness * CLOCK_HALO.sceneBrightness}
-      isShown={!snap.getIsPlaying() || (isDoneWithIntro && !isGameBoardDisabled && !isComputerPlayerDoingTurn && !isAnyPlayerDead)} />
+      isShown={!snap.getIsPlaying() || snap.getCanPlayerAct()} />
     <MenuAnchor
       // Before Play, every brightness the face uses (normal, disabled, flashing, hovered) is the landing one
       $lowBrightness={isLanding ? LOGO_CONFIG.landingClock.faceBrightness : backgroundSceneBrightness * 2}

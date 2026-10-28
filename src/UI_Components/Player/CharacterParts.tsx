@@ -46,22 +46,50 @@ const flashDamage = keyframes`
   100% { opacity: 0; }
 `;
 
-// Body Death Anim
+/**
+ * A wizard's death: they crumple, and stay down in a heap. The knees give (the body sinking into itself:
+ * buckle, its height and width, from the floor; by buckleAt of the fall), then they slump over onto the
+ * floor (toppleDeg, landing at landAt, a small bounce: bounceDeg back; settling down onto it: drop, cqw across
+ * and down, as tipping over lifts their back off the floor) and settle (seconds: the whole fall).
+ * Their head droops onto the pile (headDeg), the far arm goes limp at the sleeve (arm: its turn, deg, about its
+ * joint, where the forearm meets the cuff: the top right of its picture), and the wand arm gives a last
+ * spasm up (spasmDeg) before flopping limp (limpDeg; the forearm and hand hanging: forearmDeg, handDeg).
+ * The heap's shadow (shadow: its width and height, cqw, how far it reaches past the feet, its darkness).
+ */
+export const DEATH_POSE = {
+  seconds: 3, buckle: { height: 0.72, width: 1.1 }, buckleAt: 0.3, toppleDeg: 84, landAt: 0.78, bounceDeg: 6, drop: { x: 0.8, y: 2.2 },
+  headDeg: 32, arm: { joint: '88% 5%', deg: -60 }, spasmDeg: -75, limpDeg: 28, forearmDeg: 35, handDeg: 25,
+  shadow: { width: 17, height: 2.6, reach: 4, opacity: 0.55 },
+};
+
+// Body Death Anim: buckling, then slumping over onto the floor, and staying there (squashed from the floor
+// before it's turned, so it stays a heap, not a stretched board)
+const pct = (at: number) => `${(at * 100).toFixed(1)}%`;
+const { buckle, buckleAt, toppleDeg, landAt, bounceDeg, drop } = DEATH_POSE;
+const down = (share: number) => `translate(${drop.x * share}cqw, ${drop.y * share}cqw)`;
 export const fallAndSquash = keyframes`
-  0% {
-    transform: rotate(0deg) scale(1, 1) skewX(0deg) translate(0cqw, 0cqw);
-    opacity: 1;
-  }
-  /* The fall accelerates naturally. The squash, skew, and slide 
-     happen rapidly right as the body impacts the ground. */
-  85% {
-    transform: rotate(75deg) scale(1, 1) skewX(-5deg) translate(0.5cqw, 1cqw);
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(90deg) scale(0.6, 1.2) skewX(-15deg) translate(2cqw, 3cqw);
-    opacity: 0; /* Fades out smoothly at the very end */
-  }
+  0% { transform: ${down(0)} rotate(0deg) scale(1, 1); animation-timing-function: ease-in; }
+  ${pct(buckleAt)} { transform: ${down(0)} rotate(4deg) scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-in; }
+  ${pct(landAt)} { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-out; }
+  ${pct(landAt + (1 - landAt) * 0.4)} { transform: ${down(0.85)} rotate(${toppleDeg - bounceDeg}deg) scale(${buckle.width * 1.02}, ${buckle.height * 0.97}); animation-timing-function: ease-in-out; }
+  100% { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${buckle.width}, ${buckle.height}); }
+`;
+
+// The head drooping onto the pile, and the far arm draping, as they come down
+const headDroop = keyframes`
+  to { transform: rotate(${DEATH_POSE.headDeg}deg) translateY(0.4cqw) var(--extra-transform, ); }
+`;
+const armDrape = keyframes`
+  to { transform: rotate(${DEATH_POSE.arm.deg}deg) var(--extra-transform, ); }
+`;
+// The wand arm: a last spasm up, then flopping limp
+const armSpasmAndFlop = keyframes`
+  0% { transform: rotate(var(--part-angle, 0deg)); }
+  20% { transform: rotate(${DEATH_POSE.spasmDeg}deg); animation-timing-function: ease-in; }
+  100% { transform: rotate(${DEATH_POSE.limpDeg}deg); }
+`;
+const deadPart = (frames: ReturnType<typeof keyframes>, delay: number, seconds: number) => css`
+  animation: ${frames} ${seconds}s ease-in-out ${delay}s forwards;
 `;
 
 // Intro anim
@@ -98,7 +126,7 @@ export const Damageable = styled.div<{
     will-change: transform, filter;
     animation: ${walkIn} ${INTRO_WALK_ANIM_TIME}s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
   ` : props.$isDead ? css`
-    animation: ${fallAndSquash} 3s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+    animation: ${fallAndSquash} ${DEATH_POSE.seconds}s linear forwards;
   ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
   `}
@@ -206,19 +234,37 @@ export const FloorShadow = styled.div<{ $isHide: boolean }>`
   opacity: ${props => props.$isHide ? 0 : 1};
 `;
 
-export const AvatarHead = styled(CharacterPart)`
+// A fallen wizard's shadow on the floor (DEATH_POSE.shadow): wider and flatter than a standing one's, reaching
+// past their feet the way they fell, darkening in as they land (outside the falling body, so it stays level)
+export const HeapShadow = styled.div<{ $isShown: boolean }>`
+  position: absolute;
+  z-index: -1;
+  top: ${21.5 + 2 / 2 - DEATH_POSE.shadow.height / 2}cqw; /* (level with the standing shadow's middle: FloorShadow) */
+  left: ${5.5 + 10 / 2 - DEATH_POSE.shadow.width / 2 + DEATH_POSE.shadow.reach}cqw;
+  width: ${DEATH_POSE.shadow.width}cqw;
+  height: ${DEATH_POSE.shadow.height}cqw;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, ${DEATH_POSE.shadow.opacity}) 0%, rgba(0, 0, 0, ${DEATH_POSE.shadow.opacity * 0.6}) 55%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  opacity: ${props => props.$isShown ? 1 : 0};
+  transition: opacity ${props => props.$isShown ? `0.6s ease-out ${DEATH_POSE.seconds * DEATH_POSE.landAt * 0.8}s` : '0.2s'};
+`;
+
+export const AvatarHead = styled(CharacterPart)<{ $isDead?: boolean }>`
   top: -7.5cqw;
   left: 3.5cqw;
   width: 4.5cqw;
-  aspect-ratio: 186/411; 
+  aspect-ratio: 186/411;
   z-index: 2;
   transform-origin: bottom center;
 
   --extra-transform: translateZ(-1px);
 
-  animation-name: ${sway};
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
+  ${props => props.$isDead ? deadPart(headDroop, DEATH_POSE.seconds * DEATH_POSE.buckleAt, DEATH_POSE.seconds * (DEATH_POSE.landAt - DEATH_POSE.buckleAt) + 0.4) : css`
+    animation-name: ${sway};
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  `}
 `;
 
 export const AvatarForearm = styled(CharacterPart)`
@@ -244,9 +290,12 @@ export const AvatarRightArm = styled(CharacterPart) <{ $isDead?: boolean }>`
   z-index: -1;
   transform-origin: top left;
   --extra-transform: translateZ(-1px);
-  animation-name: ${sway};
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
+  /* (dead: turning about its joint, so the forearm stays in the sleeve's cuff) */
+  ${props => props.$isDead ? css`transform-origin: ${DEATH_POSE.arm.joint}; ${deadPart(armDrape, DEATH_POSE.seconds * DEATH_POSE.buckleAt, DEATH_POSE.seconds * (DEATH_POSE.landAt - DEATH_POSE.buckleAt))}` : css`
+    animation-name: ${sway};
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  `}
 `;
 
 // Update AvatarBicep to fling up when dead
@@ -258,9 +307,7 @@ export const AvatarBicep = styled(CharacterPart) <{ $isDead?: boolean }>`
   transform-origin: .75cqw 1.5cqw;
   --extra-transform: rotate(var(--part-angle));
 
-  ${props => props.$isDead ? css`
-    animation: ${armFlingUp} 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  ` : css`
+  ${props => props.$isDead ? deadPart(armSpasmAndFlop, 0, DEATH_POSE.seconds * DEATH_POSE.landAt) : css`
     animation-name: ${sway};
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;

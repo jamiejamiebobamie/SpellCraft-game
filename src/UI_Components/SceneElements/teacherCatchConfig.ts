@@ -25,6 +25,16 @@ export const CATCH_TIMES = {
   // ("Caught!" once the other wizard has slipped away: when they would have, if both were caught; during the struggle)
   stamp: CATCH_SCENE.floodSeconds + CATCH_SCENE.slipDelaySeconds + CATCH_SCENE.dragSeconds,
 };
+/**
+ * Once the other wizard has got away (as "Caught!" stamps on: fromSeconds into the scene), the scene darkens
+ * (opacity: the darkness over it, 0 none, 1 black; over fadeSeconds): everything but the caught wizard, their
+ * flurry of spells, their doorway's red light and "Caught!" (CATCH_LAYERS). The caught wizard's health, focus,
+ * status and spotlight darken with the rest.
+ */
+export const CATCH_DIM = { isOn: true, opacity: 0.75, fadeSeconds: 0.9, fromSeconds: CATCH_TIMES.stamp - 0.2 };
+/** The catch's stacking (z-index): the darkness, the caught doorway's light over it, the caught wizard over that ("Caught!", 45, on top). */
+export const CATCH_LAYERS = { dim: 42, doorway: 43, caught: 44 };
+
 /** The scene's end (the game over card): the caught wizard gone and "Caught!" stamped on, whichever's later. */
 export const CATCH_SCENE_TOTAL_SECONDS = Math.max(CATCH_TIMES.dragged, CATCH_TIMES.stamp + CATCH_SCENE.stampSeconds);
 

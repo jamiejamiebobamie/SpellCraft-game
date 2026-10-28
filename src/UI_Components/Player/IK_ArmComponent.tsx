@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, RefObject, Dispatch, SetStateAction } from 'react';
 import { Player } from '../../DataClasses/Player/Player';
-import { AvatarBicep, AvatarForearm, AvatarWandHand } from './CharacterParts';
+import { AvatarBicep, AvatarForearm, AvatarWandHand, DEATH_POSE } from './CharacterParts';
 import styled from 'styled-components';
 import { GameSymbol } from '../../DataClasses/PlacedSpells/GameSymbol';
 import { rootGameStore } from '../../DataClasses/store';
@@ -142,8 +142,9 @@ export const IK_ArmComponent: React.FC<IKArmComponentProps> = ({ isDead, playerS
   return (
     <ArmOverlayContainer $direction={direction}>
       <AvatarBicep $isDead={isDead} $healthDiff={healthDiff} ref={bicepRef} $src={avatarBicepSrc} $angle={theta[0] * direction}>
-        <AvatarForearm $healthDiff={healthDiff} $src={avatarForearmSrc} $angle={theta[1] * direction}>
-          <AvatarWandHand $speed={'2s'} $gameSymbol={gameSymbol?.symbolName} $healthDiff={healthDiff} ref={handRef} $src={avatarWandHandSrc} $angle={theta[2] * direction} />
+        {/* (dead: hanging limp, no longer following the aim: DEATH_POSE) */}
+        <AvatarForearm $healthDiff={healthDiff} $src={avatarForearmSrc} $angle={isDead ? DEATH_POSE.forearmDeg : theta[1] * direction}>
+          <AvatarWandHand $speed={'2s'} $gameSymbol={gameSymbol?.symbolName} $healthDiff={healthDiff} ref={handRef} $src={avatarWandHandSrc} $angle={isDead ? DEATH_POSE.handDeg : theta[2] * direction} />
         </AvatarForearm>
       </AvatarBicep>
     </ArmOverlayContainer>

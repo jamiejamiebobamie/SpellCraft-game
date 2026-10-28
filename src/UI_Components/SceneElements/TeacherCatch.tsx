@@ -7,7 +7,7 @@ import styled, { css, keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
-import { CAST_FLURRY, CATCH_SCENE, CATCH_TIMES, LANTERN_PASS } from './teacherCatchConfig';
+import { CAST_FLURRY, CATCH_DIM, CATCH_LAYERS, CATCH_SCENE, CATCH_TIMES, LANTERN_PASS } from './teacherCatchConfig';
 
 /**
  * The doorways (the open arches behind each wizard, in cqw of the game's width): where the lantern's light
@@ -45,7 +45,8 @@ const Doorway = styled.div<{ $side: 'self' | 'rival'; $isFading?: boolean }>`
   top: ${DOORWAYS.top}cqw;
   width: ${DOORWAYS.width}cqw;
   height: ${DOORWAYS.height}cqw;
-  z-index: 1; /* over the background, beneath the wizards */
+  /* over the background, beneath the wizards; a catch's, over the darkness that falls (CATCH_DIM), still beneath its wizard */
+  z-index: ${props => props.$isFading && CATCH_DIM.isOn ? CATCH_LAYERS.doorway : 1};
   pointer-events: none;
   mix-blend-mode: screen; /* light: brightening what's there */
   filter: blur(${DOORWAYS.blur}cqw); /* (one soft glow, not its two shapes) */
@@ -121,6 +122,29 @@ const Stamp = styled.div`
   opacity: 0;
   animation: ${stampOn} ${CATCH_SCENE.stampSeconds}s cubic-bezier(0.2, 0.8, 0.3, 1) ${CATCH_TIMES.stamp}s forwards;
 `;
+
+const darken = keyframes`
+  from { opacity: 0; }
+  to { opacity: ${CATCH_DIM.opacity}; }
+`;
+
+const Darkness = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: ${CATCH_LAYERS.dim};
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  animation: ${darken} ${CATCH_DIM.fadeSeconds}s ease-in ${CATCH_DIM.fromSeconds}s forwards;
+`;
+
+/** A catch: the scene darkening once the other wizard has got away (CATCH_DIM), all but the caught. */
+export function CatchDarkness() {
+  const snap = useSnapshot(rootGameStore);
+  const scene = snap.getCatchScene();
+  if (!scene || !CATCH_DIM.isOn) return null;
+  return <Darkness key={scene.id} />;
+}
 
 /** "Caught!", stamped on once the caught wizard has been dragged away. */
 export function CaughtStamp() {

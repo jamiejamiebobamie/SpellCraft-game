@@ -1,6 +1,7 @@
 import styled, { keyframes, css } from 'styled-components';
 import { INTRO_WALK_ANIM_TIME } from '../Player/CharacterParts';
 import { rootGameStore } from '../../DataClasses/store';
+import { DEATH_DIM } from './DeathDarkness';
 
 // Soft breathing/shimmering animation for a cinematic, dust-mote lens effect
 const lightShimmer = keyframes`
@@ -60,5 +61,6 @@ export const Spotlight = styled.div<{ $isBeginIntroWalk: boolean; $isDoneWithInt
   ${props => props.$isDoneWithIntroWalk ? css`animation: ${lightShimmer} 6s ease-in-out infinite;` : props.$isBeginIntroWalk ? css`animation: ${fadeIn} ${INTRO_WALK_ANIM_TIME}s ease-in forwards;` : ''}
 
   transition: opacity 3s, filter ${SPOTLIGHT_TURN.seconds}s ease-in-out;
-  opacity: ${props => props.$isDead || (!props.$isBeginIntroWalk && !props.$isDoneWithIntroWalk) ? 0 : 1};
+  /* (off once its wizard has fallen, unless the scene darkens around them both, the spotlights still on: DEATH_DIM) */
+  opacity: ${props => (props.$isDead && !DEATH_DIM.isOn) || (!props.$isBeginIntroWalk && !props.$isDoneWithIntroWalk) ? 0 : 1};
 `;

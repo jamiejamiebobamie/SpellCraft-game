@@ -16,7 +16,7 @@ export const CLOCK_HALO = {
   enabled: true,
   // How the halo meets the scene: 'normal' (painted on, solid: the ribbons as real material, at their
   // opacity) or 'screen' (a light: only lightening what's beneath, so always a little see-through, ghostly)
-  blend: 'normal' as 'normal' | 'screen',
+  blend: 'screen' as 'normal' | 'screen',
   center: { x: 50, y: 9.8 }, // the clock face's center (cqw: MenuAnchor 45, 4.8 + padding 0.5 + half of 9)
   radius: 11, // the rays' reach upward (cqw; the face's radius is about 4.3)
   // The long rays' reach straight down (cqw from the face's center): the clock body's bottom edge (its

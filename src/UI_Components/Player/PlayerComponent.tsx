@@ -2,15 +2,26 @@
 import { useState, useEffect, useRef, RefObject } from 'react';
 import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
-import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow } from './CharacterParts';
+import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow, HeapShadow } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
-import { CATCH_SCENE, CATCH_TIMES } from '../SceneElements/teacherCatchConfig';
+import { CATCH_DIM, CATCH_LAYERS, CATCH_SCENE, CATCH_TIMES } from '../SceneElements/teacherCatchConfig';
+import { DEATH_DIM, useIsAnyWizardDead } from '../SceneElements/DeathDarkness';
+import { CARD_FADE_IN } from '../GameOverModalComponent';
 import { CastFlurry } from '../SceneElements/TeacherCatch';
 import styled, { css, keyframes } from 'styled-components'
 
-const DuelistSideColumn = styled.div`
+/**
+ * The game over card: the wizards and their spotlights shown over it (isOn), their health, focus and status
+ * hidden as it comes in (it covers them otherwise), and each spotlight's top fading out (topFade: transparent
+ * down to `from`, fully shown from `to`, as fractions of the side's height) so it stays clear of the card's
+ * masks. (The card is at z-index 10000: overCard is above it.)
+ */
+const OVER_GAME_OVER_CARD = { isOn: true, overCard: 10001, topFade: { from: 0.35, to: 0.6 } };
+
+// (a caught wizard's, or both at a death, over the darkness that falls on the scene: CATCH_LAYERS; over the game over card: OVER_GAME_OVER_CARD)
+const DuelistSideColumn = styled.div<{ $isRaised?: boolean; $isOverCard?: boolean }>`
   flex: 1;
   background: transparent;
   padding: 1.5cqw;
@@ -19,9 +30,34 @@ const DuelistSideColumn = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   gap: 1cqw;
-  z-index: 12;
+  z-index: ${props => props.$isOverCard ? OVER_GAME_OVER_CARD.overCard : props.$isRaised ? CATCH_LAYERS.caught : 12};
   pointer-events: none;
   width: 100%;
+`;
+
+// The spotlight's top fading out as the game over card comes in (OVER_GAME_OVER_CARD.topFade): a mask twice the
+// side's height, its lower half solid, slid up so its fading top half covers the side
+const { from: fadeFrom, to: fadeTo } = OVER_GAME_OVER_CARD.topFade;
+const topFadeIn = keyframes`
+  from { -webkit-mask-position: 0 100%; mask-position: 0 100%; }
+  to { -webkit-mask-position: 0 0; mask-position: 0 0; }
+`;
+
+// The caught wizard's spotlight, darkening with the scene (in a layer of its own: the spotlight has its own filter)
+const SpotlightDarkening = styled.div<{ $isTopFaded?: boolean }>`
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  ${props => props.$isTopFaded && css`
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent ${fadeFrom * 50}%, #000 ${fadeTo * 50}%, #000 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, transparent ${fadeFrom * 50}%, #000 ${fadeTo * 50}%, #000 100%);
+    -webkit-mask-size: 100% 200%;
+    mask-size: 100% 200%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    animation: ${topFadeIn} ${CARD_FADE_IN.seconds}s ease ${CARD_FADE_IN.delaySeconds}s both;
+  `}
 `;
 
 /**
@@ -282,6 +318,21 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   const side = direction === 1 ? 'self' : 'rival';
   const catchScene = snap.getCatchScene();
   const isCaught = !!catchScene?.caught.includes(side);
+  // (all but their avatar and its flurry of spells darkening with the scene, once the other has got away: CATCH_DIM)
+  const caughtDarkening = isCaught && CATCH_DIM.isOn
+    ? { filter: `brightness(${1 - CATCH_DIM.opacity})`, transition: `filter ${CATCH_DIM.fadeSeconds}s ease-in ${CATCH_DIM.fromSeconds}s` }
+    : undefined;
+  // A death: both wizards and their spotlights over the darkness (DeathDarkness), their health, focus and status darkening
+  const isDeathDark = useIsAnyWizardDead() && DEATH_DIM.isOn && !catchScene;
+  const infoDarkening = caughtDarkening ?? (isDeathDark
+    ? { filter: `brightness(${1 - DEATH_DIM.opacity})`, transition: `filter ${DEATH_DIM.fadeSeconds}s ease-in ${DEATH_DIM.fromSeconds}s` }
+    : undefined);
+  // The game over card up: this wizard and their spotlight over it, their health, focus and status hidden as it comes in
+  const isOverCard = OVER_GAME_OVER_CARD.isOn && snap.getGameOver() !== null;
+  const hideInfo = `visibility 0s linear ${CARD_FADE_IN.delaySeconds + CARD_FADE_IN.seconds}s`;
+  const infoStyle = isOverCard
+    ? { ...infoDarkening, visibility: 'hidden' as const, transition: infoDarkening ? `${infoDarkening.transition}, ${hideInfo}` : hideInfo }
+    : infoDarkening;
 
 
   const avatar = (
@@ -295,13 +346,15 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           $healthDiff={healthDiff}
           $isDead={isDead}>
           <AvatarRobe $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
-            <AvatarHead $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
-            <AvatarRightArm $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
+            <AvatarHead $isDead={isDead} $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
+            <AvatarRightArm $isDead={isDead} $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
             <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap ?? undefined} direction={direction} flailFor={isCaught ? catchScene?.id ?? null : null} />
           </AvatarRobe>
           {/* (left on the floor as they're lifted: fading as they rise) */}
           <FloorShadow $isHide={isDead || isCaught} style={isCaught ? { transitionDelay: `${CATCH_TIMES.lift}s`, transitionDuration: `${CATCH_SCENE.liftSeconds}s` } : undefined} />
         </Damageable>
+        {/* (fallen: the heap's shadow on the floor, under where they lie) */}
+        <HeapShadow $isShown={isDead} />
       </AvatarFrame>
       </ShiverWrap>
       {direction === -1 && <NpcPassCard />}
@@ -309,7 +362,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     </AvatarPlacementWrapper>
   );
 
-  const healthbar = (<BarBorder $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction}>
+  const healthbar = (<BarBorder $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction} style={infoStyle}>
     <BarFill $pct={pct} $direction={direction}>
       <BarTextContainer $pct={pct} $direction={direction}>
         <BarText>
@@ -320,7 +373,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   </BarBorder >);
 
   const focusDots = (
-    <FocusContainer $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction}>
+    <FocusContainer $isDoneWithIntro={isDoneWithIntroWalk} $direction={direction} style={infoStyle}>
       {/* STORED FOCUS */}
       {direction == -1 ? Array.from({ length: maxExcessFocus }).map((_, i) => <ExcessFocusBadge key={i} $i={maxFocus - i - 1} $focusAmt={focusAmt - maxFocus} $isPlayerOutOfFocus={isPlayerOutOfFocus} />) : Array.from({ length: maxFocus }).map((_, i) => <FocusBadge key={i} $i={i} $focusAmt={focusAmt} $isPlayerOutOfFocus={isPlayerOutOfFocus} />)}
       {/* EXCESS STORED FOCUS */}
@@ -328,11 +381,13 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     </FocusContainer>
   );
 
-  return (<DuelistSideColumn>
-    <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead}
-      $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
+  return (<DuelistSideColumn $isRaised={(isCaught && CATCH_DIM.isOn) || isDeathDark} $isOverCard={isOverCard}>
+    <SpotlightDarkening style={caughtDarkening} $isTopFaded={isOverCard}>
+      <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead}
+        $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
+    </SpotlightDarkening>
     {avatar}
-    <StatusFrame><StatusEmoji side={side} /></StatusFrame>
+    <StatusFrame style={infoStyle}><StatusEmoji side={side} /></StatusFrame>
     <StatusFrame data-cast-frame={side}><CastFlurry side={side} /></StatusFrame>
     {focusDots}
     {healthbar}

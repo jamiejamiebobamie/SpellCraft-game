@@ -603,6 +603,15 @@ export class Game {
     const npc = this.players.getNpcPlayer();
     return npc && !this.isNpcWaitingForPlayer && !npc.getIsDoneWithTurn() ? NPC_INDEX : PLAYER_INDEX;
   }
+  /**
+   * Whether the player can act now (end their turn at the clock, or draw a spell): the intro walk over, the
+   * board on, not the rival's move, and nobody fallen. The clock's halo shows then (ClockFaceComponent), and
+   * drawing off the board highlights their side only then (HumanPlacementTilesComponent).
+   */
+  getCanPlayerAct(): boolean {
+    return this.getIsDoneWithIntroWalk() && !this.getIsGameBoardDisabled() && this.getIsComputerPlayerDoneWithTurn()
+      && !this.players.getPlayers().some(player => player.getIsDead());
+  }
   private isNpcWaitingForPlayer = false;
   private npcWaitingTipsShown = 0; // this session (each makes the next wait 5 seconds longer)
   private npcWaitingTipRef: number | undefined = undefined;
@@ -777,6 +786,20 @@ export class Game {
     await this.updatePlacedSpells();
     this.enableGameBoard();
     if (token === this.turnToken && this.gameOver === null) this.startNpcTurn(1500);
+  }
+
+  /**
+   * While developing (the 6 key): a wizard falls, their health gone (the death: their crumple, the darkness,
+   * then the game over card), each press the next: the player, the rival, then both. (Play again to try another.)
+   */
+  private deathPreviewCount = 0;
+  previewDeath(): void {
+    const self = this.players.getHumanPlayer(), rival = this.players.getNpcPlayer();
+    if (!self || !rival || this.gameOver !== null || this.catchScene !== null || !this.getIsDoneWithIntroWalk()) return;
+    const who = (['self', 'rival', 'both'] as const)[this.deathPreviewCount++ % 3];
+    if (who !== 'rival') self.decrementHealth(self.getHealth());
+    if (who !== 'self') rival.decrementHealth(rival.getHealth());
+    this.checkIfIsGameOver();
   }
 
   /**

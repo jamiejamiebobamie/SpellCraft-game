@@ -5,7 +5,7 @@
 // once: a canvas of spiral-streaked noise).
 import { useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FRAME_ETCH, GLASS } from './goldStyle';
+import { FRAME_ETCH, GLASS, GOLD } from './goldStyle';
 
 /**
  * size: across (cqw); pixels: the image's resolution (drawn once, shared). twist: how tightly the bands wind;
@@ -35,7 +35,7 @@ export const MASK_VORTEX = {
  * etched frame: FRAME_ETCH) and width (in the disc's units: its radius is 1), how many arms spiral in and how
  * far each winds (turns), and how long a turn of the whole takes (seconds).
  */
-export const ETCHED_VORTEX = { glass: GLASS.alpha + 0.12, line: FRAME_ETCH.color, lineOpacity: FRAME_ETCH.opacity * 1.6, lineWidth: 0.018, arms: 3, turns: 0.9, seconds: 30 };
+export const ETCHED_VORTEX = { glass: GLASS.alpha + 0.12, line: GOLD, /* (gold, as the UI's: was FRAME_ETCH.color, white) */ lineOpacity: FRAME_ETCH.opacity * 1.6, lineWidth: 0.018, arms: 3, turns: 0.9, seconds: 30 };
 
 /** An arm spiralling from the rim in toward the middle, as an SVG path (the disc's radius 1). */
 const spiralArm = (start: number): string => {

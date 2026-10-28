@@ -69,6 +69,8 @@ const MODAL_CONTENT_MAP: Record<string, ModalTextConfig> = {
 };
 
 const MIN_OPACITY = 0, MAX_OPACITY = .85, TRANSITION_TIME_SEC = 1.5;
+/** The card fading in: after delaySeconds (the game over), over seconds (Overlay's transition). PlayerComponent follows it. */
+export const CARD_FADE_IN = { delaySeconds: TRANSITION_TIME_SEC, seconds: 0.5 };
 
 // --- Styled Component Architectures ---
 

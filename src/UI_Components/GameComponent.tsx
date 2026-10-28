@@ -18,7 +18,8 @@ import { CURSOR_MODE, WAND_CURSOR_CSS } from './cursors';
 import TurnCard, { RivalWaitingCard } from './TurnCard';
 import { useKeyPress } from './UseKeyPress';
 import { moveRecorder } from '../DataClasses/Player/MoveRecorder';
-import { LanternLight, CaughtStamp } from './SceneElements/TeacherCatch';
+import { LanternLight, CaughtStamp, CatchDarkness } from './SceneElements/TeacherCatch';
+import DeathDarkness from './SceneElements/DeathDarkness';
 import { CATCH_SCENE } from './SceneElements/teacherCatchConfig';
 import { PLAY_BUTTON_LOOKS } from './PlayButtonStyles';
 
@@ -294,7 +295,7 @@ export const GameComponent = () => {
   }, []);
 
   // While developing: the ` key plays the catch scene again (Game.previewCatchScene), the 9 key each game over card (previewGameOver), the 0 key the dawn (previewDawn),
-  // the 7 key two great Ethers meeting (previewGreatClash)
+  // the 7 key two great Ethers meeting (previewGreatClash), the 6 key a wizard falling (previewDeath)
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const onKey = (e: KeyboardEvent) => {
@@ -303,6 +304,7 @@ export const GameComponent = () => {
       if (e.code === 'Digit8') moveRecorder.download(); // (the player's recorded moves: MoveRecorder)
       if (e.code === 'Digit0') rootGameStore.previewDawn();
       if (e.code === 'Digit7') rootGameStore.previewGreatClash();
+      if (e.code === 'Digit6') rootGameStore.previewDeath();
     };
     window.addEventListener('keyup', onKey);
     return () => window.removeEventListener('keyup', onKey);
@@ -339,6 +341,8 @@ export const GameComponent = () => {
     </MainColumn>
     <TurnCard />
     <RivalWaitingCard />
+    <CatchDarkness />
+    <DeathDarkness />
     <CaughtStamp />
     <PlayerComponent playerIndex={1} mousePosRef={mousePos} isPlayerOutOfFocus={false} />
   </>;
