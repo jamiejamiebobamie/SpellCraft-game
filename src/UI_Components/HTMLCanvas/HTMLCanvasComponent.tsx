@@ -371,7 +371,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             const perCell = GYRE_RULES.capacityMode === 'power' ? GYRE_RULES.powerCapacityPerCell : GYRE_RULES.capacityPerCell;
             const isTopCellPartlyUsed = remaining !== undefined && remaining > 1e-9 && Math.abs(remaining / perCell - Math.round(remaining / perCell)) > 1e-6;
             if (isTopCellPartlyUsed) ctx.globalAlpha *= getGyreSputterAlpha(currentTime);
-            drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress); ctx.restore();
+            drawProceduralSpell(ctx, spell, cellWidthPx, cellHeightPx, currentTime, anim.spawnProgress, true); ctx.restore();
           }
           if (anim.particles.length > 0) { ctx.save(); ctx.translate(anim.visualX, anim.visualY); updateAndDrawParticles(ctx, anim.particles, deltaTime); ctx.restore(); }
         });
@@ -382,7 +382,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             const t = strike.progress * strike.progress; // (gathering speed)
             const x = strike.fromX + (strike.toX - strike.fromX) * t, y = strike.fromY + (strike.toY - strike.fromY) * t;
             ctx.save(); ctx.translate(x + strike.w / 2, y + strike.h / 2); applySpellFacing(ctx, undefined, strike.dir); ctx.translate(-strike.w / 2, -strike.h / 2);
-            drawProceduralSpell(ctx, strike.spell, cellWidthPx, cellHeightPx, currentTime, 1); ctx.restore();
+            drawProceduralSpell(ctx, strike.spell, cellWidthPx, cellHeightPx, currentTime, 1, true); ctx.restore();
             if (strike.progress >= 1) {
               strike.hasArrived = true;
               strike.anim.isStriking = false; // (if the spell is still on the board, it shows again)
@@ -427,7 +427,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           ctx.save();
           ctx.globalAlpha = 0.65;
           ctx.translate(mX - cellWidthPx * 0.5, mY - cellHeightPx * 0.5);
-          drawProceduralSpell(ctx, mockPreviewInstance, cellWidthPx, cellHeightPx, currentTime, 1.0);
+          drawProceduralSpell(ctx, mockPreviewInstance, cellWidthPx, cellHeightPx, currentTime, 1.0, true);
           ctx.restore();
         }
         const dustParticles = drawingParticlesRef.current;

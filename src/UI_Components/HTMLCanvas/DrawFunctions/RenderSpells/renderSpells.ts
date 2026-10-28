@@ -1,5 +1,5 @@
 import { drawEtherSpawn } from "./drawEther";
-import { drawGyreSpawn } from "./drawGyre";
+import { drawGyreSpawn, GYRE_LOOK } from "./drawGyre";
 import { drawPhlegmSpawn } from "./drawPhlegm";
 import { drawQuickenSpawn, getAsymmetricTaper } from "./drawQuicken";
 import { PALETTE } from "./ColorPalette";
@@ -10,7 +10,8 @@ export function drawProceduralSpell(
   cellWidthPx: number,
   cellHeightPx: number,
   time: number,
-  spawnProgress: number = 1.0
+  spawnProgress: number = 1.0,
+  isOnBoard: boolean = false // (Gyres drawn stronger there: GYRE_LOOK)
 ) {
   const cellCols = spell.getPropertyValue?.('widthCells') || 1;
   const cellRows = spell.getPropertyValue?.('heightCells') || 1;
@@ -48,14 +49,14 @@ export function drawProceduralSpell(
     ctx.translate(w / 2, 0);
     ctx.scale(spawnProgress, 1.0);
     ctx.translate(-w / 2, 0);
-    drawGyreSpawn(ctx, w * 0.9, h, dir, 'up', time, spawnProgress, cellRows);
+    drawGyreSpawn(ctx, w * 0.9, h, dir, 'up', time, spawnProgress, cellRows, isOnBoard ? GYRE_LOOK.board : GYRE_LOOK.elsewhere);
     ctx.restore();
   } else if (spellClass === 'GyreDown') {
     ctx.save();
     ctx.translate(w / 2, 0);
     ctx.scale(spawnProgress, 1.0);
     ctx.translate(-w / 2, 0);
-    drawGyreSpawn(ctx, w * 0.9, h, dir, 'down', time, spawnProgress, cellRows);
+    drawGyreSpawn(ctx, w * 0.9, h, dir, 'down', time, spawnProgress, cellRows, isOnBoard ? GYRE_LOOK.board : GYRE_LOOK.elsewhere);
     ctx.restore();
   } else if (spellClass === 'Quicken') {
     drawQuickenSpawn(ctx, w, h, cellCols, time, spawnProgress);

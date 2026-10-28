@@ -20,6 +20,17 @@ export const getGyreSputterAlpha = (time: number): number => {
 };
 
 /**
+ * How opaque a Gyre is drawn (0 to 1): its funnel's rings and sparks (opacity), and the dust at its base
+ * (dustOpacity); on the board (stronger: faint against the hall's wall; were as elsewhere), and elsewhere
+ * (the Spell Book, the loading screen's logo).
+ */
+export const GYRE_LOOK = {
+  board: { opacity: 0.3, dustOpacity: 0.5 },
+  elsewhere: { opacity: 0.15, dustOpacity: 0.35 },
+};
+type GyreLook = { opacity: number; dustOpacity: number };
+
+/**
  * 3 & 4. GYRE (Updraft / Downdraft Tornadoes)
  * Funnel cloud architecture shifting side to side.
  * Blurry texturing shifting right-to-left across the internal clipping bounds.
@@ -31,7 +42,8 @@ export function drawGyre(
   dir: number,
   orientation: 'up' | 'down',
   time: number,
-  cellRows: number
+  cellRows: number,
+  look: GyreLook = GYRE_LOOK.elsewhere
 ) {
   const bleedHeight = - h * 0.1;
   const startY = orientation === 'up' ? h + bleedHeight : -bleedHeight;
@@ -47,7 +59,7 @@ export function drawGyre(
   const baseInheritedAlpha = ctx.globalAlpha;
 
   // --- GLOBAL TRANSPARENCY CONTROLLER (MULTIPLIED) ---
-  ctx.globalAlpha = baseInheritedAlpha * 0.15;
+  ctx.globalAlpha = baseInheritedAlpha * look.opacity;
 
   // 1. DENSE RING RESOLUTION FOR DETAILED RIVETS/DIVOTS
   const ringCount = 45;
@@ -145,7 +157,7 @@ export function drawGyre(
   // --- 7. GROUND DUST KICKING CLOUD LAYER ---
   ctx.save();
   // Compound original fade sequence alpha factor into dust layers
-  ctx.globalAlpha = baseInheritedAlpha * 0.35; 
+  ctx.globalAlpha = baseInheritedAlpha * look.dustOpacity;
 
   const tipSwayX = Math.sin(time * 0.003) * (w * 0.12) * 0.5; 
   const dustBaseX = w * 0.5 + tipSwayX;
@@ -217,7 +229,7 @@ export function spawnGyreParticles(particles: GameParticle[], w: number, h: numb
  * GYRE SPAWN (Tornado Updraft / Downdraft)
  * Begins as a needle-thin baseline strike, expanding outward horizontally.
  */
-export function drawGyreSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, orientation: 'up' | 'down', time: number, progress: number, cellRows: number) {
+export function drawGyreSpawn(ctx: CanvasRenderingContext2D, w: number, h: number, dir: number, orientation: 'up' | 'down', time: number, progress: number, cellRows: number, look: GyreLook = GYRE_LOOK.elsewhere) {
   ctx.save();
 
   // Pivot scale horizontally around the center x-axis of the funnel
@@ -225,7 +237,7 @@ export function drawGyreSpawn(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.scale(progress, 1.0); // X-scale grows from 0 to 1, Y-scale is instantly full height
   ctx.translate(-w / 2, 0);
 
-  drawGyre(ctx, w, h, dir, orientation, time, cellRows);
+  drawGyre(ctx, w, h, dir, orientation, time, cellRows, look);
   ctx.restore();
 }
 
