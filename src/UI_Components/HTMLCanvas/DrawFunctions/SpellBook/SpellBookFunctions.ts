@@ -415,6 +415,30 @@ const drawSinusoidalFloatingMessage = (
  */
 const STATS_BACKLIGHT = { isOn: true, color: 'rgba(230, 197, 99, 1)', blur: 0.012, passes: 4, outline: 0.004 };
 
+/**
+ * A preview's stats, from the game's own spell of that shape (so they follow the rules: Spell.getPropertyValue,
+ * getFocusCost): squares (Ether, Phlegm) size x size, Quickens size wide, Gyres size tall. Its cost (focus),
+ * power (damage dealt, or healing for a Phlegm) and speed (cells a turn). Made once per spell and size.
+ */
+const previewStats = new Map<string, { cost: number; power: number; speed: number }>();
+const getPreviewStats = (spellKey: string, size: number): { cost: number; power: number; speed: number } => {
+    const key = `${spellKey}:${size}`;
+    const known = previewStats.get(key);
+    if (known) return known;
+    const SpellClass = SPELL_CLASSES[spellKey as SpellName];
+    if (!SpellClass) return { cost: size, power: 0, speed: 1 };
+    const spell = new (SpellClass as any)({ getDirection: () => 1 }); // (a caster facing right: only its direction is read)
+    spell.widthCells = spellKey === 'GyreUp' || spellKey === 'GyreDown' ? 1 : size;
+    spell.heightCells = spellKey === 'Quicken' ? 1 : size;
+    const stats = {
+        cost: getFocusCost(SpellClass, spell.widthCells * spell.heightCells),
+        power: spell.getPower(),
+        speed: Math.abs(spell.getPropertyValue('speedDirection')),
+    };
+    previewStats.set(key, stats);
+    return stats;
+};
+
 export const drawWidgetLineOverlay = (
     ctx: CanvasRenderingContext2D,
     centerX: number,
@@ -428,29 +452,10 @@ export const drawWidgetLineOverlay = (
     ctx.save();
     ctx.globalAlpha = fadeAlpha;// * 0.35;
 
-    const cellMultiplier = sizeIdx + 1;
-    // Square spells (Ether, Phlegm) cover size x size cells; lines (Quicken, Gyres) cover size cells
-    const spellClass = SPELL_CLASSES[spellKey as SpellName];
-    const isSquare = spellKey === 'Ether' || spellKey === 'Phlegm';
-    let cost = spellClass ? getFocusCost(spellClass, isSquare ? cellMultiplier * cellMultiplier : cellMultiplier) : cellMultiplier;
-    let damageOrHeal = 5 * cellMultiplier;
-    let speed = 1;
-    let isHealing = false;
-    let labelText = "Damage";
-
-    if (spellKey === 'Ether') {
-        damageOrHeal = 5 * cellMultiplier * cellMultiplier + 5;
-        speed = cellMultiplier;
-    } else if (spellKey === 'Quicken') {
-        damageOrHeal = 5 * cellMultiplier;
-        speed = 1 + cellMultiplier;
-    } else if (spellKey === 'Phlegm') {
-        damageOrHeal = 5 * cellMultiplier;
-        isHealing = true;
-        labelText = "Heal";
-    } else if (spellKey === 'GyreUp' || spellKey === 'GyreDown') {
-        damageOrHeal = 4 * cellMultiplier;
-    }
+    const { cost, power, speed } = getPreviewStats(spellKey, sizeIdx + 1);
+    const damageOrHeal = power;
+    const isHealing = spellKey === 'Phlegm';
+    const labelText = isHealing ? "Heal" : "Damage";
 
     const isRightColumn = (activeCol === 2);
     const sideDirectionSign = isRightColumn ? -1 : 1;

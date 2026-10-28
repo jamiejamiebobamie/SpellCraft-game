@@ -156,7 +156,9 @@ training/.venv/Scripts/python training/export_onnx.py training/models/<model>.zi
 
 ## Credits
 
-**Art:** all game art is my own.
+**Art:** all game art is my own, except the wallpaper around the game (below).
+
+**Wallpapers:** the patterns around the game (one picked at random each visit) are from the [Midnight Herbarium Halloween digital paper collection](https://www.etsy.com/listing/4544416287/midnight-herbarium-halloween-digital) by [HueStudioCreations](https://www.etsy.com/shop/HueStudioCreations) on Etsy, purchased and used under the seller's license.
 
 **Font:** [Enchanted Land](https://www.sharkshock.net/) by Dennis Ludlow (Sharkshock), free for personal use (see `public/fonts/readme.txt`).
 
@@ -183,4 +185,4 @@ Licensed under Creative Commons: By Attribution 4.0 License\
 
 ## License
 
-The code is released under the [MIT License](LICENSE). The art, sounds, music and font are not covered by it; they belong to their creators, under the terms above.
+The code is released under the [MIT License](LICENSE). The art, wallpapers, sounds, music and font are not covered by it; they belong to their creators, under the terms above.

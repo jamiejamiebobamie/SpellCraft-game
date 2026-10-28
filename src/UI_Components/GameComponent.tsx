@@ -20,6 +20,7 @@ import { useKeyPress } from './UseKeyPress';
 import { moveRecorder } from '../DataClasses/Player/MoveRecorder';
 import { LanternLight, CaughtStamp } from './SceneElements/TeacherCatch';
 import { CATCH_SCENE } from './SceneElements/teacherCatchConfig';
+import { PLAY_BUTTON_LOOKS } from './PlayButtonStyles';
 
 /** The hall shaking as a teacher's light floods in (a catch: TeacherCatch.tsx). */
 const hallShake = keyframes`
@@ -38,6 +39,40 @@ const hallShake = keyframes`
  * The background image's brightness, on top of the scene's lighting: dark (the landing page, and the
  * intro walk until the lights come up; scene lighting 0.1) and lit (once they're up; 0.4). 1 = as is.
  */
+
+/**
+ * The game's frame: a band of bevelled brass around its edge, as the Play button's (PlayButtonStyles: the ruby
+ * look's frame, lit from above: bright at the top, deep bronze at the bottom), a dark outline outside it, a
+ * shade cast inward over the game's edge, and a fine hairline just inside. Sizes in cqw: the band's width,
+ * the outline's, the inner shade's spread, and the hairline's width and how far in from the band it sits.
+ * brightness: the band's gold (1: as the button's; lower, its sheen toned down).
+ */
+const GAME_FRAME = {
+  isOn: true, width: 0.5, outline: 0.12, innerShade: 0.6, hairline: 0.08, hairlineInset: 0.22, hairlineOpacity: 0.7,
+  brightness: 0.8,
+};
+
+/** A colour (#rrggbb) at `factor` of its brightness. */
+const dimmed = (hex: string, factor: number): string => '#' + [1, 3, 5]
+  .map(k => Math.round(Math.min(255, parseInt(hex.slice(k, k + 2), 16) * factor)).toString(16).padStart(2, '0')).join('');
+const FRAME_GOLD = PLAY_BUTTON_LOOKS.ruby.frame.map(color => dimmed(color, GAME_FRAME.brightness));
+
+const GameFrame = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 99990; /* (over everything in the game, its edges) */
+  pointer-events: none;
+  border: ${GAME_FRAME.width}cqw solid transparent;
+  border-image: linear-gradient(180deg, ${FRAME_GOLD[0]} 0%, ${FRAME_GOLD[1]} 35%, ${FRAME_GOLD[2]} 70%, ${FRAME_GOLD[3]} 100%) 1;
+  box-shadow: inset 0 0 0 ${GAME_FRAME.outline}cqw ${PLAY_BUTTON_LOOKS.ruby.outline}, inset 0 0 ${GAME_FRAME.innerShade}cqw rgba(0, 0, 0, 0.55);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: ${GAME_FRAME.hairlineInset}cqw;
+    border: ${GAME_FRAME.hairline}cqw solid ${PLAY_BUTTON_LOOKS.ruby.hairline};
+    opacity: ${GAME_FRAME.hairlineOpacity};
+  }
+`;
 
 const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking: boolean }>`
   /* Vertical placement comes from the spacers around #root (index.css) */
@@ -66,8 +101,10 @@ const GameWrapper = styled.div<{ $backgroundSceneBrightness: number; $isShaking:
   container-type: inline-size;
   container-name: game-canvas;
 
-  /* Layered shadows (tight contact, mid, large soft and lower) make the game look lifted off the page */
+  /* The frame's dark outline (GAME_FRAME), then layered shadows (tight contact, mid, large soft and lower)
+     that make the game look lifted off the page */
   box-shadow:
+    ${GAME_FRAME.isOn ? `0 0 0 ${GAME_FRAME.outline}cqw ${PLAY_BUTTON_LOOKS.ruby.outline},` : ''}
     0 2px 4px rgba(0, 0, 0, 0.3),
     0 8px 16px rgba(0, 0, 0, 0.3),
     0 24px 48px rgba(0, 0, 0, 0.4);
@@ -323,5 +360,6 @@ export const GameComponent = () => {
       <LightTipLayer />
       {sceneElements}
       {mainUI}
+      {GAME_FRAME.isOn && <GameFrame />}
     </GameWrapper>)
 };

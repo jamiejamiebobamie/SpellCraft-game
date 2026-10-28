@@ -1,5 +1,6 @@
 
 import { ref } from 'valtio';
+import { chosenWallpaper } from '../../UI_Components/wallpaper';
 
 // Assets load in two batches: the priority batch (the title font and the logo's images, so the
 // loading screen can show the logo first), then everything else (images, sounds, models).
@@ -24,9 +25,10 @@ const logoImgSrcs = [
     'player_avatars/WandHand.png',
 ];
 
-/** The rest of the background scene (the clock is in logoImgSrcs). */
+/** The rest of the background scene (the clock is in logoImgSrcs), and this visit's wallpaper around the game (wallpaper.ts). */
 const sceneImageSrcs = [
     'background-scene/QuickCast-Background-Test3.png',
+    chosenWallpaper,
     'background-scene/BackgroundWallElements/PictureFrames.png',
     'background-scene/BackgroundWallElements/SuitOfArmor.png',
     'background-scene/BackgroundWallElements/Green_Flame.png',

@@ -30,7 +30,7 @@ export const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
  * isInFrontOfFlame: drawn over the door's flame (the wall sconce holding it).
  */
 export const WALL_ELEMENTS = {
-  brightness: { landing: 1, play: 1 },
+  brightness: { landing: 1, play: .75 },
   blur: 0,
   hueRotate: 0,
   items: [
@@ -46,7 +46,7 @@ export const WALL_ELEMENTS = {
       contacts: [{ x: 811, w: 52, h: 9, opacity: 0.75 }, { x: 869, w: 52, h: 9, opacity: 0.75 }, { x: 907, w: 14, h: 5, opacity: 0.6 }],
     },
     // brightness: { landing: 2.25, play: 2.25 },
-    brightness: { landing: 1.75, play: 1.75 },
+    brightness: { landing: 1.75, play: 1.5 },
   } as WallItem,
   ],
 };

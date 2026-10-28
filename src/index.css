@@ -80,6 +80,19 @@ body {
   margin: 0;
 }
 
+/* The wallpaper around the game: a seamless tile (--wallpaper-image: one of public/Wallpapers, picked at
+   random as the page loads, wallpaper.ts), shown --wallpaper-width wide, at --wallpaper-brightness (1: as drawn, 0.5: half as bright, 0: black; a black
+   wash over it, as a page's background can't take a filter). (On :root, as --bg is: a body background
+   would cover the game's scene, drawn behind it at z-index -1.) */
+:root {
+  --wallpaper-width: 450px; /* (each wallpaper sets its own: wallpaper.ts) */
+  --wallpaper-brightness: .5;
+  background:
+    linear-gradient(rgba(0, 0, 0, calc(1 - var(--wallpaper-brightness))), rgba(0, 0, 0, calc(1 - var(--wallpaper-brightness)))),
+    #000 var(--wallpaper-image, none) repeat;
+  background-size: auto, var(--wallpaper-width) auto;
+}
+
 h1,
 h2 {
   font-family: var(--heading);
