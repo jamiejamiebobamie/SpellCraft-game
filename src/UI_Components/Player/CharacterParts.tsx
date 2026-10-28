@@ -49,30 +49,51 @@ const flashDamage = keyframes`
 /**
  * A wizard's death: they crumple, and stay down in a heap. The knees give (the body sinking into itself:
  * buckle, its height and width, from the floor; by buckleAt of the fall), then they slump over onto the
- * floor (toppleDeg, landing at landAt, a small bounce: bounceDeg back; settling down onto it: drop, cqw across
+ * floor (toppleDeg, landing at landAt, a small bounce: bounceDeg back; lying low: lying, its length and its
+ * thickness, now across the floor, so the heap lies flat rather than bulging up; the robe's flared hem drawn in
+ * as it lands (hem: the robe tipped away from us at the hem, tiltDeg, seen in perspective, cqw: so it narrows to the
+ * hem rather than flaring); settling down onto it, centered in their spotlight: drop, cqw across
  * and down, as tipping over lifts their back off the floor) and settle (seconds: the whole fall).
  * Their head droops onto the pile (headDeg), the far arm goes limp at the sleeve (arm: its turn, deg, about its
  * joint, where the forearm meets the cuff: the top right of its picture), and the wand arm gives a last
  * spasm up (spasmDeg) before flopping limp (limpDeg; the forearm and hand hanging: forearmDeg, handDeg).
  * The heap's shadow (shadow: its width and height, cqw, how far it reaches past the feet, its darkness).
+ * style: 'sideways', the slump over described above; 'backward', falling away from us instead, about their feet
+ * (back: how far, deg, seen in perspective, cqw: the closer, the stronger; a small bounce; where the far arm goes
+ * limp, deg; the shadow lying back from their feet, lift, cqw; turning about their feet, feetAt: % down the
+ * avatar's box, where the hem meets the floor, below the box's bottom), staying in their spotlight.
  */
 export const DEATH_POSE = {
-  seconds: 3, buckle: { height: 0.72, width: 1.1 }, buckleAt: 0.3, toppleDeg: 84, landAt: 0.78, bounceDeg: 6, drop: { x: 0.8, y: 2.2 },
-  headDeg: 32, arm: { joint: '88% 5%', deg: -60 }, spasmDeg: -75, limpDeg: 28, forearmDeg: 35, handDeg: 25,
-  shadow: { width: 17, height: 2.6, reach: 4, opacity: 0.55 },
+  style: 'backward' as 'backward' | 'sideways',
+  back: { deg: 62, perspective: 40, bounceDeg: 6, armDeg: -40, shadowLift: 0, feetAt: 122 },
+  seconds: 3, buckle: { height: 0.72, width: 1.1 }, buckleAt: 0.3, toppleDeg: 90, landAt: 0.78, bounceDeg: 6, drop: { x: -5.9, y: 2.6 },
+  hem: { tiltDeg: -25, perspective: 25 },
+  lying: { height: 0.86, width: 0.78 },
+  headDeg: 32, arm: { joint: '88% 5%', deg: -130 }, spasmDeg: -75, limpDeg: 28, forearmDeg: 35, handDeg: 25,
+  shadow: { width: 17, height: 2.6, reach: -5.9, opacity: 0.55 },
 };
 
 // Body Death Anim: buckling, then slumping over onto the floor, and staying there (squashed from the floor
 // before it's turned, so it stays a heap, not a stretched board)
 const pct = (at: number) => `${(at * 100).toFixed(1)}%`;
-const { buckle, buckleAt, toppleDeg, landAt, bounceDeg, drop } = DEATH_POSE;
+const { buckle, buckleAt, toppleDeg, landAt, bounceDeg, drop, lying, back } = DEATH_POSE;
+export const isFallingBackward = DEATH_POSE.style === 'backward';
 const down = (share: number) => `translate(${drop.x * share}cqw, ${drop.y * share}cqw)`;
-export const fallAndSquash = keyframes`
+// (backward: tipping away from us about the feet, in perspective: the buckle, then over, a bounce, and down)
+const away = (deg: number) => `perspective(${back.perspective}cqw) rotateX(${deg}deg)`;
+const fallBackward = keyframes`
+  0% { transform: ${away(0)} scale(1, 1); animation-timing-function: ease-in; }
+  ${pct(buckleAt)} { transform: ${away(4)} scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-in; }
+  ${pct(landAt)} { transform: ${away(back.deg)} scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-out; }
+  ${pct(landAt + (1 - landAt) * 0.4)} { transform: ${away(back.deg - back.bounceDeg)} scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-in-out; }
+  100% { transform: ${away(back.deg)} scale(${buckle.width}, ${buckle.height}); }
+`;
+const fallSideways = keyframes`
   0% { transform: ${down(0)} rotate(0deg) scale(1, 1); animation-timing-function: ease-in; }
   ${pct(buckleAt)} { transform: ${down(0)} rotate(4deg) scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-in; }
-  ${pct(landAt)} { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${buckle.width}, ${buckle.height}); animation-timing-function: ease-out; }
-  ${pct(landAt + (1 - landAt) * 0.4)} { transform: ${down(0.85)} rotate(${toppleDeg - bounceDeg}deg) scale(${buckle.width * 1.02}, ${buckle.height * 0.97}); animation-timing-function: ease-in-out; }
-  100% { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${buckle.width}, ${buckle.height}); }
+  ${pct(landAt)} { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${lying.width}, ${lying.height}); animation-timing-function: ease-out; }
+  ${pct(landAt + (1 - landAt) * 0.4)} { transform: ${down(0.85)} rotate(${toppleDeg - bounceDeg}deg) scale(${lying.width * 1.04}, ${lying.height * 0.98}); animation-timing-function: ease-in-out; }
+  100% { transform: ${down(1)} rotate(${toppleDeg}deg) scale(${lying.width}, ${lying.height}); }
 `;
 
 // The head drooping onto the pile, and the far arm draping, as they come down
@@ -80,7 +101,7 @@ const headDroop = keyframes`
   to { transform: rotate(${DEATH_POSE.headDeg}deg) translateY(0.4cqw) var(--extra-transform, ); }
 `;
 const armDrape = keyframes`
-  to { transform: rotate(${DEATH_POSE.arm.deg}deg) var(--extra-transform, ); }
+  to { transform: rotate(${isFallingBackward ? DEATH_POSE.back.armDeg : DEATH_POSE.arm.deg}deg) var(--extra-transform, ); }
 `;
 // The wand arm: a last spasm up, then flopping limp
 const armSpasmAndFlop = keyframes`
@@ -88,6 +109,7 @@ const armSpasmAndFlop = keyframes`
   20% { transform: rotate(${DEATH_POSE.spasmDeg}deg); animation-timing-function: ease-in; }
   100% { transform: rotate(${DEATH_POSE.limpDeg}deg); }
 `;
+export const fallAndSquash = isFallingBackward ? fallBackward : fallSideways;
 const deadPart = (frames: ReturnType<typeof keyframes>, delay: number, seconds: number) => css`
   animation: ${frames} ${seconds}s ease-in-out ${delay}s forwards;
 `;
@@ -126,6 +148,7 @@ export const Damageable = styled.div<{
     will-change: transform, filter;
     animation: ${walkIn} ${INTRO_WALK_ANIM_TIME}s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
   ` : props.$isDead ? css`
+    ${isFallingBackward && `transform-origin: 50% ${DEATH_POSE.back.feetAt}%;`}
     animation: ${fallAndSquash} ${DEATH_POSE.seconds}s linear forwards;
   ` : props.$healthDiff < 0 && css`
     animation: ${shake} .75s cubic-bezier(.36,.07,.19,.97) both;
@@ -189,7 +212,13 @@ export const CharacterPart = styled.div.attrs<PartProps>(props => ({
   }
 `;
 
-export const AvatarRobe = styled(CharacterPart) <{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean }>`
+// The fallen robe's hem drawing in (DEATH_POSE.hem): the robe's picture, on a layer of its own, tipped away at the hem
+const hemDrawIn = keyframes`
+  from { transform: perspective(${DEATH_POSE.hem.perspective}cqw) rotateX(0deg); }
+  to { transform: perspective(${DEATH_POSE.hem.perspective}cqw) rotateX(${DEATH_POSE.hem.tiltDeg}deg); }
+`;
+
+export const AvatarRobe = styled(CharacterPart) <{ $isBeginIntroWalk: boolean; $isDoneWithIntroWalk: boolean; $isDead?: boolean }>`
   top: 7.75cqw;
   left: 2.4cqw;
   width: 13cqw;
@@ -203,6 +232,19 @@ export const AvatarRobe = styled(CharacterPart) <{ $isBeginIntroWalk: boolean; $
   animation-iteration-count: infinite;
 
   animation-play-state: ${props => props.$isBeginIntroWalk ? 'running' : 'paused'};
+
+  /* Fallen: the robe's picture drawn on a layer of its own (so only it tips, not the head and arms on it) */
+  ${props => props.$isDead && !isFallingBackward && css`
+    background-image: none !important;
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--part-src) center / cover no-repeat;
+      transform-origin: 50% 0%;
+      animation: ${hemDrawIn} ${DEATH_POSE.seconds * (1 - DEATH_POSE.buckleAt)}s ease-in-out ${DEATH_POSE.seconds * DEATH_POSE.buckleAt}s forwards;
+    }
+  `}
 `;
 
 const shadowPulse = keyframes`
@@ -234,21 +276,57 @@ export const FloorShadow = styled.div<{ $isHide: boolean }>`
   opacity: ${props => props.$isHide ? 0 : 1};
 `;
 
-// A fallen wizard's shadow on the floor (DEATH_POSE.shadow): wider and flatter than a standing one's, reaching
-// past their feet the way they fell, darkening in as they land (outside the falling body, so it stays level)
-export const HeapShadow = styled.div<{ $isShown: boolean }>`
-  position: absolute;
-  z-index: -1;
-  top: ${21.5 + 2 / 2 - DEATH_POSE.shadow.height / 2}cqw; /* (level with the standing shadow's middle: FloorShadow) */
-  left: ${5.5 + 10 / 2 - DEATH_POSE.shadow.width / 2 + DEATH_POSE.shadow.reach}cqw;
-  width: ${DEATH_POSE.shadow.width}cqw;
-  height: ${DEATH_POSE.shadow.height}cqw;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, ${DEATH_POSE.shadow.opacity}) 0%, rgba(0, 0, 0, ${DEATH_POSE.shadow.opacity * 0.6}) 55%, rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
-  opacity: ${props => props.$isShown ? 1 : 0};
-  transition: opacity ${props => props.$isShown ? `0.6s ease-out ${DEATH_POSE.seconds * DEATH_POSE.landAt * 0.8}s` : '0.2s'};
+/**
+ * Falling backward (DEATH_POSE.style 'backward'): the robe's hem opening toward us as they go over, and their
+ * two feet in it, soles up. Where the hem is (cqw, in the avatar's box, as the buckle widens it: its middle,
+ * x, y, and width), how tall the opening grows (height, cqw), when it opens (from, to: shares of the fall), the
+ * shoes (their colour, size: a share of the opening's width, and how far apart).
+ */
+export const HEM_OPENING = { x: 11.25, y: 23.2, width: 8.6, height: 3.2, from: 0.45, to: 0.8, shoe: { color: '#2b1d14', sole: '#140c08', size: 0.2, apart: 0.24 } };
+
+const hemOpen = keyframes`
+  from { opacity: 0; transform: translate(-50%, -50%) scaleY(0.1); }
+  to { opacity: 1; transform: translate(-50%, -50%) scaleY(1); }
 `;
+const HemSvg = styled.svg`
+  position: absolute;
+  left: ${HEM_OPENING.x}cqw;
+  top: ${HEM_OPENING.y}cqw;
+  width: ${HEM_OPENING.width}cqw;
+  height: ${HEM_OPENING.height}cqw;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  animation: ${hemOpen} ${DEATH_POSE.seconds * (HEM_OPENING.to - HEM_OPENING.from)}s ease-out ${DEATH_POSE.seconds * HEM_OPENING.from}s forwards;
+`;
+
+/** The hem's opening and the feet in it (falling backward only): `robe`, the robe's colour, for its rim. */
+export const HemOpening = ({ robe }: { robe: string }) => {
+  const { shoe } = HEM_OPENING;
+  const footW = 100 * shoe.size, footH = 30;
+  return (
+    <HemSvg viewBox='0 0 100 40' preserveAspectRatio='none' aria-hidden>
+      <defs>
+        <radialGradient id={`hem-in-${robe}`} cx='50%' cy='40%' r='60%'>
+          <stop offset='0' stopColor='#050306' />
+          <stop offset='0.75' stopColor='#120a14' />
+          <stop offset='1' stopColor={robe} />
+        </radialGradient>
+      </defs>
+      {/* the robe's rim, then the dark inside */}
+      <ellipse cx='50' cy='20' rx='50' ry='20' fill={robe} />
+      <ellipse cx='50' cy='20' rx='45' ry='16.5' fill={`url(#hem-in-${robe})`} />
+      {/* the feet, soles toward us, toes up and turned out a little */}
+      {[-1, 1].map(side => (
+        <g key={side} transform={`translate(${50 + side * 100 * shoe.apart / 2} 22) rotate(${side * 10})`}>
+          <path d={`M 0 ${-footH * 0.62} C ${footW * 0.55} ${-footH * 0.5}, ${footW * 0.55} ${footH * 0.1}, ${footW * 0.32} ${footH * 0.35} C ${footW * 0.2} ${footH * 0.48}, ${-footW * 0.2} ${footH * 0.48}, ${-footW * 0.32} ${footH * 0.35} C ${-footW * 0.55} ${footH * 0.1}, ${-footW * 0.55} ${-footH * 0.5}, 0 ${-footH * 0.62} Z`} fill={shoe.color} />
+          <path d={`M 0 ${-footH * 0.5} C ${footW * 0.4} ${-footH * 0.4}, ${footW * 0.4} ${-footH * 0.05}, ${footW * 0.22} ${footH * 0.05} L ${-footW * 0.22} ${footH * 0.05} C ${-footW * 0.4} ${-footH * 0.05}, ${-footW * 0.4} ${-footH * 0.4}, 0 ${-footH * 0.5} Z`} fill={shoe.sole} opacity={0.85} />
+          <ellipse cx='0' cy={footH * 0.27} rx={footW * 0.24} ry={footH * 0.11} fill={shoe.sole} />
+        </g>
+      ))}
+    </HemSvg>
+  );
+};
 
 export const AvatarHead = styled(CharacterPart)<{ $isDead?: boolean }>`
   top: -7.5cqw;

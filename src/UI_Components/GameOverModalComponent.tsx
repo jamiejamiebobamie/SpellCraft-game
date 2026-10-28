@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { MASK_VORTEX, MaskVortex } from './MaskVortex';
 import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
@@ -193,7 +193,7 @@ const TEXT_RAISE = 4;
  * card shows. size: cqw wide. backlight: the white light behind a whole mask (and a missing one: black); whiteBacklight: behind the player's white one (softer: 'none' for none). titleGap: between each
  * mask's frame and the title (cqw). raise: the mask lifted (% of its height: the image's mask sits low in it), centered in its frame.
  */
-const OUTCOME_MASKS = { size: 9, raise: 8, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, backlight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))', whiteBacklight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.45)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.22))' };
+const OUTCOME_MASKS = { size: 9, raise: 8, titleGap: 6, crackDelaySeconds: 0.6, crackSeconds: 0.5, splitSeconds: 0.7, backlight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))', whiteBacklight: 'drop-shadow(0 0 0.5cqw rgba(255, 255, 255, 0.9)) drop-shadow(0 0 1.6cqw rgba(255, 255, 255, 0.45))' }; // (white: as the green's again; was halved)
 
 /** A mask's place: the vortex beneath it (MaskVortex), the mask over its eye. */
 const MaskFrame = styled.div`
@@ -209,7 +209,7 @@ const MaskFrame = styled.div`
 /** For each game over (from this player's side): each mask whole, breaking, or missing (a rival who fled: black, backlit). */
 type MaskOutcome = 'whole' | 'broken' | 'missing';
 const MASK_OUTCOMES: Record<number, { self: MaskOutcome; rival: MaskOutcome }> = {
-  [GameOverStatus.BothDead]: { self: 'whole', rival: 'whole' }, // (a draw)
+  [GameOverStatus.BothDead]: { self: 'broken', rival: 'broken' }, // (a draw: both fallen, both masks shattering)
   [GameOverStatus.PlayerWon]: { self: 'whole', rival: 'broken' },
   [GameOverStatus.NpcWon]: { self: 'broken', rival: 'whole' },
   [GameOverStatus.TimesUp]: { self: 'broken', rival: 'broken' }, // (both caught)
@@ -279,11 +279,42 @@ const MaskHalf = styled.div<{ $isWhite: boolean; $isMissing?: boolean; $clip: st
 `;
 
 /** A wizard's mask on the card: whole, cracking and splitting apart (`delaySeconds`: when it cracks), or missing. */
+/**
+ * Whether each mask sits right above its own wizard (centered over their spotlight: data-spotlight, shifted
+ * across from its place beside the title), or beside the title (false).
+ */
+const MASKS_OVER_WIZARDS = true;
+/** How far the masks (and their vortices) are raised: a share of a vortex's radius (MASK_VORTEX.size / 2, cqw). */
+const MASK_RAISE = 1 / 3;
+
+/** How far across (px) to shift a mask so it's centered over its wizard's spotlight; measured as it's laid out, and on resizing. */
+const useOverWizardShift = (side: 'self' | 'rival') => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    if (!MASKS_OVER_WIZARDS) return;
+    const measure = () => {
+      const frame = ref.current, spot = document.querySelector(`[data-spotlight="${side}"]`);
+      if (!frame || !spot) return;
+      const f = frame.getBoundingClientRect(), s = spot.getBoundingClientRect();
+      setShift(current => Math.round((s.left + s.width / 2) - (f.left + f.width / 2 - current)));
+    };
+    // (again while the card comes in, as it moves: until it has settled)
+    measure();
+    const settling = window.setInterval(measure, 200);
+    const settled = window.setTimeout(() => window.clearInterval(settling), (CARD_FADE_IN.delaySeconds + CARD_FADE_IN.seconds + 2) * 1000);
+    window.addEventListener('resize', measure);
+    return () => { window.clearInterval(settling); window.clearTimeout(settled); window.removeEventListener('resize', measure); };
+  }, [side]);
+  return { ref, style: MASKS_OVER_WIZARDS ? { transform: `translate(${shift}px, ${-MASK_RAISE * MASK_VORTEX.size / 2}cqw)` } : undefined };
+};
+
 const OutcomeMask = ({ side, outcome, delaySeconds }: { side: 'self' | 'rival'; outcome: MaskOutcome; delaySeconds: number }) => {
   const splitDelay = delaySeconds + OUTCOME_MASKS.crackSeconds + 0.1;
   const isWhite = side === 'self', isBroken = outcome === 'broken', isMissing = outcome === 'missing';
+  const overWizard = useOverWizardShift(side);
   return (
-    <MaskFrame aria-hidden>
+    <MaskFrame aria-hidden ref={overWizard.ref} style={overWizard.style}>
     <MaskVortex />
     <MaskBox $delay={delaySeconds} $isBroken={isBroken} $isMissing={isMissing} $isWhite={isWhite}>
       <MaskHalf $isWhite={isWhite} $isMissing={isMissing} $clip={isBroken ? LEFT_HALF : 'none'} $split={isBroken ? splitLeft : null} $delay={splitDelay} />

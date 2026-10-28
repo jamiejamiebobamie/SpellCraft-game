@@ -89,8 +89,14 @@ export const runGlobalBookSparkles = (ctx: CanvasRenderingContext2D, ui: CanvasS
  * The Spell Book tray's symbols: each always shown in ink (inkColor, its stroke inkWidth of its size), a clear
  * thing to hover, the gold drawing animating over it; while one is hovered, the others are ink only, their drawing
  * stopped. ripple: how much they follow the page's rippling in the wind (1: as the paper; 0: still).
+ * goldWidth: the gold drawing's stroke (of its size; the ink, wider, edging it dark either side so it reads on the paper).
+ * paperBrightness: the scroll's paper (1: as it was; lower, darker, so the gold symbols stand out on it).
  */
-export const SPELL_BOOK_TRAY = { inkColor: 'rgba(58, 36, 18, 0.85)', inkWidth: 0.045, ripple: 1 };
+export const SPELL_BOOK_TRAY = { inkColor: 'rgba(30, 17, 6, 1)', inkWidth: 0.055, goldWidth: 0.025, ripple: 1, paperBrightness: 1 };
+
+/** A colour (#rrggbb) at `factor` of its brightness. */
+const paperShade = (hex: string): string => '#' + [1, 3, 5]
+    .map(k => Math.round(parseInt(hex.slice(k, k + 2), 16) * SPELL_BOOK_TRAY.paperBrightness).toString(16).padStart(2, '0')).join('');
 
 export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasScrollUI, viewW: number, _viewH: number, deltaTime: number, currentTime: number, setIsHovered: Function, animStates: Map<string, SpellAnimTracker>) => {
     const isTrayOpen = rootGameStore.getIsSpellBookOpen();
@@ -130,11 +136,11 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
     ctx.lineTo(startX, topY);
     ctx.closePath();
     const baseGradient = ctx.createLinearGradient(startX, topY, rightEdgeX, bottomY);
-    baseGradient.addColorStop(0, '#c68f4c');
-    baseGradient.addColorStop(0.25, '#d3c69a');
-    baseGradient.addColorStop(0.5, '#ada487');
-    baseGradient.addColorStop(0.85, '#cfc39c');
-    baseGradient.addColorStop(1, '#db9b48');
+    baseGradient.addColorStop(0, paperShade('#c68f4c'));
+    baseGradient.addColorStop(0.25, paperShade('#d3c69a'));
+    baseGradient.addColorStop(0.5, paperShade('#ada487'));
+    baseGradient.addColorStop(0.85, paperShade('#cfc39c'));
+    baseGradient.addColorStop(1, paperShade('#db9b48'));
     ctx.fillStyle = baseGradient;
     ctx.fill();
     ctx.restore();
@@ -252,7 +258,7 @@ export const drawProceduralScroll = (ctx: CanvasRenderingContext2D, ui: CanvasSc
         if (!isInkOnly) {
             // The gold drawing over it, as it's drawn (sparkling at its tip)
             const tip = tracePath(Math.min(1, state.progress));
-            ctx.lineWidth = glyphBoundsDiameter * 0.035 * hoverScale;
+            ctx.lineWidth = glyphBoundsDiameter * SPELL_BOOK_TRAY.goldWidth * hoverScale;
             ctx.strokeStyle = '#f7cb44';
             ctx.shadowBlur = glyphBoundsDiameter * 0.04; ctx.shadowColor = '#e8dfb9';
             ctx.stroke();

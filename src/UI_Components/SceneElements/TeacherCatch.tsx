@@ -7,6 +7,7 @@ import styled, { css, keyframes } from 'styled-components';
 import { useSnapshot } from 'valtio';
 import { rootGameStore } from '../../DataClasses/store';
 import { HARDCODED_SYMBOLS } from '../../DataClasses/PlacedSpells/HardCodedSymbols';
+import { CARD_FADE_IN } from '../GameOverModalComponent';
 import { CAST_FLURRY, CATCH_DIM, CATCH_LAYERS, CATCH_SCENE, CATCH_TIMES, LANTERN_PASS } from './teacherCatchConfig';
 
 /**
@@ -146,12 +147,18 @@ export function CatchDarkness() {
   return <Darkness key={scene.id} />;
 }
 
-/** "Caught!", stamped on once the caught wizard has been dragged away. */
+// (gone once the game over card is fully shown: CARD_FADE_IN)
+const StampHiding = styled.div<{ $isHidden: boolean }>`
+  display: contents;
+  ${props => props.$isHidden && css`& > * { visibility: hidden; transition: visibility 0s linear ${CARD_FADE_IN.delaySeconds + CARD_FADE_IN.seconds}s; }`}
+`;
+
+/** "Caught!", stamped on once the caught wizard has been dragged away; hidden once the game over card has come in. */
 export function CaughtStamp() {
   const snap = useSnapshot(rootGameStore);
   const scene = snap.getCatchScene();
-  if (!scene) return null; // (kept until the game over card, fading in, covers it)
-  return <Stamp key={scene.id}>{CATCH_SCENE.stampText}</Stamp>;
+  if (!scene) return null;
+  return <StampHiding $isHidden={snap.getGameOver() !== null}><Stamp key={scene.id}>{CATCH_SCENE.stampText}</Stamp></StampHiding>;
 }
 
 // --- The caught wizard's flurry of spells: the NPC's symbols, drawn large in gold by their own wand (the IK

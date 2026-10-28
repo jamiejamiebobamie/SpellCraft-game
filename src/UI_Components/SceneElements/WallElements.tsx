@@ -16,7 +16,7 @@ const cqw = (px: number) => px * 100 / SCENE.width;
  * The background image's brightness (as GameComponent's): the scene's brightness x this, dark on the landing
  * page and lit in play.
  */
-export const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.25 };
+export const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.1 };
 
 /**
  * The picture frames and the suit of armour. brightness: as the wall (1) or brighter or dimmer, on the landing

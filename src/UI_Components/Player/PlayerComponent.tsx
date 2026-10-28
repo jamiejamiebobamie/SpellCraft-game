@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, RefObject } from 'react';
 import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
-import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow, HeapShadow } from './CharacterParts';
+import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow, HemOpening, isFallingBackward, DEATH_POSE } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
@@ -134,8 +134,18 @@ const StatusFrame = styled.div`
   z-index: 41;
 `;
 
-const AvatarFrame = styled.div<{ $direction: number, $src: string }>`
+/**
+ * A fallen wizard's shadow: a drop-shadow of their own shape (it follows their outline), fading in as they land.
+ * Its offset down (y, cqw), softness (blur, cqw) and darkness (opacity).
+ */
+const FALLEN_SHADOW = { isOn: true, y: 0.35, blur: 0.5, opacity: 0.75 };
+
+const AvatarFrame = styled.div<{ $direction: number, $src: string, $isFallen?: boolean }>`
   transform: scale(${props => props.$direction}, 1);
+  ${props => FALLEN_SHADOW.isOn && `
+    filter: ${props.$isFallen ? `drop-shadow(0 ${FALLEN_SHADOW.y}cqw ${FALLEN_SHADOW.blur}cqw rgba(0, 0, 0, ${FALLEN_SHADOW.opacity}))` : 'none'};
+    ${props.$isFallen ? `transition: filter 0.6s ease-out ${DEATH_POSE.seconds * DEATH_POSE.landAt * 0.8}s;` : ''}
+  `}
   width: 100%; aspect-ratio: 1/1; object-fit: cover; 
 
   /* Leave in for testing CharacterParts placement: */
@@ -328,24 +338,30 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
     ? { filter: `brightness(${1 - DEATH_DIM.opacity})`, transition: `filter ${DEATH_DIM.fadeSeconds}s ease-in ${DEATH_DIM.fromSeconds}s` }
     : undefined);
   // The game over card up: this wizard and their spotlight over it, their health, focus and status hidden as it comes in
-  const isOverCard = OVER_GAME_OVER_CARD.isOn && snap.getGameOver() !== null;
+  // (not after a catch: both wizards have left, nothing to show over it; raised early, the one who got away
+  // lit up over the darkness before the card came)
+  const isOverCard = OVER_GAME_OVER_CARD.isOn && snap.getGameOver() !== null && !catchScene;
   const hideInfo = `visibility 0s linear ${CARD_FADE_IN.delaySeconds + CARD_FADE_IN.seconds}s`;
   const infoStyle = isOverCard
     ? { ...infoDarkening, visibility: 'hidden' as const, transition: infoDarkening ? `${infoDarkening.transition}, ${hideInfo}` : hideInfo }
     : infoDarkening;
+  // A catch's card: both wizards gone from the hall, so their spotlights fade out with the card coming in (nobody to light)
+  const spotlightStyle = snap.getGameOver() !== null && catchScene
+    ? { ...caughtDarkening, opacity: 0, transition: `${caughtDarkening ? `${caughtDarkening.transition}, ` : ''}opacity ${CARD_FADE_IN.seconds}s ease ${CARD_FADE_IN.delaySeconds}s` }
+    : caughtDarkening;
 
 
   const avatar = (
     <AvatarPlacementWrapper $exit={direction === 1 ? -1 : 1} $isFleeing={direction === -1 && snap.getIsRivalFleeing()} $isDragged={isCaught} $isSlipping={!!catchScene && !isCaught}>
       <ShiverWrap $isShivering={snap.getIsAtRisk(side)}>
-      <AvatarFrame $src={src} $direction={direction}>
+      <AvatarFrame $src={src} $direction={direction} $isFallen={isDead}>
         <Damageable
           $isBeginIntroWalk={isBeginIntroWalk}
           $isDoneWithIntroWalk={isDoneWithIntroWalk}
           $direction={direction}
           $healthDiff={healthDiff}
           $isDead={isDead}>
-          <AvatarRobe $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
+          <AvatarRobe $isDead={isDead} $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $healthDiff={healthDiff} $src={playerSnap?.avatarRobeUrl}>
             <AvatarHead $isDead={isDead} $healthDiff={healthDiff} $src={playerSnap?.avatarHeadUrl} />
             <AvatarRightArm $isDead={isDead} $healthDiff={healthDiff} $src={playerSnap?.avatarRightArmUrl} />
             <IK_ArmComponent isDead={isDead} mousePosRef={mousePosRef} healthDiff={healthDiff} playerSnap={playerSnap ?? undefined} direction={direction} flailFor={isCaught ? catchScene?.id ?? null : null} />
@@ -353,8 +369,8 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
           {/* (left on the floor as they're lifted: fading as they rise) */}
           <FloorShadow $isHide={isDead || isCaught} style={isCaught ? { transitionDelay: `${CATCH_TIMES.lift}s`, transitionDuration: `${CATCH_SCENE.liftSeconds}s` } : undefined} />
         </Damageable>
-        {/* (fallen: the heap's shadow on the floor, under where they lie) */}
-        <HeapShadow $isShown={isDead} />
+        {/* (falling backward: the robe's hem opening toward us, their feet in it; in the robe's colour) */}
+        {isDead && isFallingBackward && <HemOpening robe={direction === 1 ? '#4e2867' : '#272725'} />}
       </AvatarFrame>
       </ShiverWrap>
       {direction === -1 && <NpcPassCard />}
@@ -382,7 +398,7 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
   );
 
   return (<DuelistSideColumn $isRaised={(isCaught && CATCH_DIM.isOn) || isDeathDark} $isOverCard={isOverCard}>
-    <SpotlightDarkening style={caughtDarkening} $isTopFaded={isOverCard}>
+    <SpotlightDarkening style={spotlightStyle} $isTopFaded={isOverCard} data-spotlight={side}>
       <Spotlight $isBeginIntroWalk={isBeginIntroWalk} $isDoneWithIntroWalk={isDoneWithIntroWalk} $isDead={isDead}
         $turn={activeSide === null ? 'none' : activeSide === playerIndex ? 'active' : 'inactive'} />
     </SpotlightDarkening>
