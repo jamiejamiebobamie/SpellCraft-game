@@ -34,13 +34,20 @@ export const WALL_ELEMENTS = {
   blur: 0,
   hueRotate: 0,
   items: [
-    { name: 'PictureFrames', box: { x: 220, y: 190, w: 288, h: 260 }, hueRotate: 0, scale: { x: 1, y: 1 }, move: { x: 0, y: 0 } } as WallItem,
+    { name: 'PictureFrames', box: { x: 220, y: 190, w: 288, h: 260 }, hueRotate: 0, scale: { x: .95, y: 1 }, move: { x: -1, y: 0 } } as WallItem,
     { name: 'Wall_Sconce', box: { x: 1068, y: 254, w: 26, h: 30 }, isInFrontOfFlame: true } as WallItem,
-    { name: 'SuitOfArmor', box: { x: 705, y: 45, w: 266, h: 460 }, hueRotate: 0, scale: { x: 1, y: 1 }, move: { x: 0, y: 0 }, shadow: {
-      y: 484, blur: 0.5,
-      spread: { x: 858, w: 230, h: 18, opacity: 0.4 },
+    { name: 'SuitOfArmor', box: { x: 705, y: 45, w: 266, h: 460 }, 
+      hueRotate: 0, 
+      // scale: { x: 0.85, y: 0.85 }, 
+      scale: { x: .9, y: .9 }, 
+      move: { x: -15, y: 0 }, shadow: {
+      y: 475, blur: 0.5,
+      spread: { x: 858, w: 210, h: 30, opacity: 0.2 },
       contacts: [{ x: 811, w: 52, h: 9, opacity: 0.75 }, { x: 869, w: 52, h: 9, opacity: 0.75 }, { x: 907, w: 14, h: 5, opacity: 0.6 }],
-    } } as WallItem,
+    },
+    // brightness: { landing: 2.25, play: 2.25 },
+    brightness: { landing: 1.75, play: 1.75 },
+  } as WallItem,
   ],
 };
 type WallItem = {
