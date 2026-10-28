@@ -14,6 +14,9 @@ const getStops = (): Array<string> => {
   return gradient ? gradient.stops.map(stop => scaleStop(stop, gradient.brightness)) : [LOGO_CONFIG.title.color];
 };
 
+/** The title's still gold (its slanted gradient), as a background, for layering under something else. */
+export const getTitleGold = (): string => `linear-gradient(${LOGO_CONFIG.title.gradient?.angle ?? 180}deg, ${getStops().join(', ')})`;
+
 /** The sheen sliding across (one tile of `tileCqw` per cycle, so it loops seamlessly). */
 export const titleSheenSlide = (tileCqw: number) => keyframes`
   from { background-position: 0 0; }

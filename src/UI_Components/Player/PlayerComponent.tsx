@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, RefObject } from 'react';
 import { rootGameStore } from '../../DataClasses/store';
 import { IK_ArmComponent } from './IK_ArmComponent';
-import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow, HemOpening, isFallingBackward, DEATH_POSE } from './CharacterParts';
+import { AvatarRobe, AvatarHead, AvatarRightArm, Damageable, FloorShadow, HemOpening, isFallingBackward, DEATH_POSE, DizzyStars, DIZZY_STARS } from './CharacterParts';
 import { Spotlight } from '../SceneElements/Spotlight'
 import { UIFadeIn } from '../UIFadeIn';
 import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
@@ -18,7 +18,7 @@ import styled, { css, keyframes } from 'styled-components'
  * down to `from`, fully shown from `to`, as fractions of the side's height) so it stays clear of the card's
  * masks. (The card is at z-index 10000: overCard is above it.)
  */
-const OVER_GAME_OVER_CARD = { isOn: true, overCard: 10001, topFade: { from: 0.35, to: 0.6 } };
+const OVER_GAME_OVER_CARD = { isOn: true, overCard: 10001, topFade: { from: 0, to: 0.6 } };
 
 // (a caught wizard's, or both at a death, over the darkness that falls on the scene: CATCH_LAYERS; over the game over card: OVER_GAME_OVER_CARD)
 const DuelistSideColumn = styled.div<{ $isRaised?: boolean; $isOverCard?: boolean }>`
@@ -371,6 +371,8 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
         </Damageable>
         {/* (falling backward: the robe's hem opening toward us, their feet in it; in the robe's colour) */}
         {isDead && isFallingBackward && <HemOpening robe={direction === 1 ? '#4e2867' : '#272725'} />}
+        {/* (knocked out: stars circling above their head) */}
+        {isDead && DIZZY_STARS.isOn && <DizzyStars />}
       </AvatarFrame>
       </ShiverWrap>
       {direction === -1 && <NpcPassCard />}

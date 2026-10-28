@@ -4,7 +4,7 @@ import { rootGameStore } from '../DataClasses/store';
 import { useSnapshot } from 'valtio';
 import styled, { css, keyframes } from 'styled-components';
 import { GameOverStatus } from '../DataClasses/types'; // Update paths based on your actual structure
-import { titleLetteringCss } from './Logo/titleLettering';
+import { getTitleGold, titleLetteringCss } from './Logo/titleLettering';
 import { GoldButton, GoldDivider } from './goldStyle';
 
 // --- Configuration Content Maps ---
@@ -121,10 +121,102 @@ const ModalTitle = styled.h2`
   line-height: 1.1;
 
   margin-bottom: 1cqw;
-  
-  /* In the "SpellCraft" title's lettering (still) */
-  ${titleLetteringCss({ strokeCqw: 0.1, glowCqw: 0.8 })}
 `;
+
+/**
+ * The title's letters dropping in, one after another (first to last: `stagger` seconds apart, starting as the
+ * card comes in, after `delaySeconds`): each fades in as it falls from `fromCqw` above, gathering speed, lands
+ * past its place (overshootCqw) squashing (squash: wider, shorter), springs back up past it stretching (bounces:
+ * how high each rebound goes, cqw, smaller each time; stretch), and settles, losing momentum with each bounce;
+ * `seconds` for each letter, fading in over the first `fadeShare` of it.
+ */
+const TITLE_DROP = { isOn: true, fromCqw: -6, overshootCqw: 1.3, bounces: [1.2, 0.45, 0.15], squash: 0.14, stretch: 0.08, seconds: 1.2, stagger: 0.06, fadeShare: 0.2, delaySeconds: TRANSITION_TIME_SEC };
+
+// (falling, ease-in: gathering speed; rising, ease-out: losing it. Squashed as it lands, stretched as it springs up)
+const { fromCqw, overshootCqw, bounces, squash, stretch } = TITLE_DROP;
+const at = (share: number) => `${(share * 100).toFixed(1)}%`;
+const shape = (squashBy: number) => `scale(${1 + squashBy}, ${1 - squashBy})`;
+const letterDrop = keyframes`
+  0% { transform: translateY(${fromCqw}cqw) ${shape(-stretch)}; opacity: 0; animation-timing-function: ease-in; }
+  ${at(TITLE_DROP.fadeShare)} { opacity: 1; }
+  ${at(0.3)} { transform: translateY(${overshootCqw}cqw) ${shape(squash)}; animation-timing-function: ease-out; }
+  ${at(0.46)} { transform: translateY(${-bounces[0]}cqw) ${shape(-stretch)}; animation-timing-function: ease-in; }
+  ${at(0.6)} { transform: translateY(${overshootCqw * 0.35}cqw) ${shape(squash * 0.55)}; animation-timing-function: ease-out; }
+  ${at(0.72)} { transform: translateY(${-bounces[1]}cqw) ${shape(-stretch * 0.4)}; animation-timing-function: ease-in; }
+  ${at(0.82)} { transform: translateY(${overshootCqw * 0.1}cqw) ${shape(squash * 0.2)}; animation-timing-function: ease-out; }
+  ${at(0.91)} { transform: translateY(${-bounces[2]}cqw) ${shape(0)}; animation-timing-function: ease-in; }
+  100% { transform: translateY(0) ${shape(0)}; opacity: 1; }
+`;
+
+/**
+ * Once they've landed, the letters hop again now and then (every everySeconds, no fade), as a wave running
+ * through the word from its first letter to its last (waveStagger: seconds from one letter to the next): each
+ * surges up as if buoyed by water (heightCqw: quickly, easing off at the top), dips back down past its place
+ * (sinkCqw), bobs up and down again (bobs: each smaller) and settles, in `seconds`. As in water, it's carried
+ * along with the passing wave as well: forward (driftCqw, to the right) as it rides up to the crest, back to the
+ * left as it drops into the trough, its sideways sway following its rise and fall (a small loop).
+ */
+const TITLE_HOP = { isOn: true, everySeconds: 8, heightCqw: 1.4, sinkCqw: 0.45, bobs: [0.28, 0.1], seconds: 1.5, waveStagger: 0.09, driftCqw: 0.4 };
+// (the hop at the end of each cycle: the first a full everySeconds after landing; still, as it landed, till then)
+const hopAt = (share: number) => at(1 - (1 - share) * TITLE_HOP.seconds / TITLE_HOP.everySeconds);
+// (sideways in step with the height: right on the way up and at the crest, back left down into the trough)
+const drift = (share: number) => (share * TITLE_HOP.driftCqw).toFixed(3);
+const letterHop = keyframes`
+  0%, ${hopAt(0)} { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  ${hopAt(0.26)} { transform: translate(${drift(1)}cqw, ${-TITLE_HOP.heightCqw}cqw); animation-timing-function: ease-in-out; }
+  ${hopAt(0.5)} { transform: translate(${drift(-0.4)}cqw, ${TITLE_HOP.sinkCqw}cqw); animation-timing-function: ease-in-out; }
+  ${hopAt(0.68)} { transform: translate(${drift(0.25)}cqw, ${-TITLE_HOP.bobs[0]}cqw); animation-timing-function: ease-in-out; }
+  ${hopAt(0.84)} { transform: translate(${drift(-0.1)}cqw, ${TITLE_HOP.bobs[1]}cqw); animation-timing-function: ease-in-out; }
+  100% { transform: translate(0, 0); }
+`;
+
+/**
+ * Once the letters have landed, a light sweeping across the title (as across Choose Your Duel's: ModeSelect's
+ * TITLE_SHEEN), letter by letter left to right, once every everySeconds: crossing each letter in
+ * letterSeconds, perLetter seconds after the one before; brightness: the light's opacity at its middle.
+ */
+const TITLE_SHEEN = { isOn: true, everySeconds: 3, letterSeconds: 0.45, perLetter: 0.07, brightness: 0.75 };
+// (the light a band in a layer 2.5x the letter's width: at 100% it's off its left, at 0% off its right)
+const letterSheen = keyframes`
+  0% { background-position: 100% 0, 0 0; }
+  ${TITLE_SHEEN.letterSeconds / TITLE_SHEEN.everySeconds * 100}%, 100% { background-position: 0% 0, 0 0; }
+`;
+const SHEEN_BAND = `linear-gradient(105deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, ${TITLE_SHEEN.brightness}) 50%, rgba(255, 255, 255, 0) 62%) 100% 0 / 250% 100% no-repeat`;
+
+// (each letter in the "SpellCraft" title's lettering: its gradient runs top to bottom, so it reads the same per letter)
+const TitleLetter = styled.span<{ $index: number; $count: number; $isDropping: boolean }>`
+  display: inline-block;
+  transform-origin: 50% 85%; /* (squashing onto its baseline) */
+  white-space: pre;
+  ${titleLetteringCss({ strokeCqw: 0.1, glowCqw: 0.8 })}
+  ${TITLE_SHEEN.isOn && `background: ${SHEEN_BAND}, ${getTitleGold()}; -webkit-background-clip: text; background-clip: text;`}
+  ${props => {
+    const landed = TITLE_DROP.delaySeconds + (props.$count - 1) * TITLE_DROP.stagger + TITLE_DROP.seconds;
+    const drop = TITLE_DROP.delaySeconds + props.$index * TITLE_DROP.stagger, sheenFrom = landed + props.$index * TITLE_SHEEN.perLetter;
+    // (hopping once all have landed: a wave, letter after letter, first to last)
+    const hopFrom = landed + props.$index * TITLE_HOP.waveStagger;
+    if (props.$isDropping && TITLE_SHEEN.isOn && TITLE_HOP.isOn) return css`
+      opacity: 0;
+      animation: ${letterDrop} ${TITLE_DROP.seconds}s linear ${drop}s forwards, ${letterHop} ${TITLE_HOP.everySeconds}s linear ${hopFrom}s infinite, ${letterSheen} ${TITLE_SHEEN.everySeconds}s ease-in-out ${sheenFrom}s infinite;
+    `;
+    if (props.$isDropping && TITLE_SHEEN.isOn) return css`
+      opacity: 0;
+      animation: ${letterDrop} ${TITLE_DROP.seconds}s linear ${drop}s forwards, ${letterSheen} ${TITLE_SHEEN.everySeconds}s ease-in-out ${sheenFrom}s infinite;
+    `;
+    if (props.$isDropping) return css`
+      opacity: 0;
+      animation: ${letterDrop} ${TITLE_DROP.seconds}s linear ${drop}s forwards;
+    `;
+    return TITLE_SHEEN.isOn ? css`animation: ${letterSheen} ${TITLE_SHEEN.everySeconds}s ease-in-out ${props.$index * TITLE_SHEEN.perLetter}s infinite;` : '';
+  }}
+`;
+
+/** The title, its letters dropping in as the card comes in (TITLE_DROP). */
+const DroppingTitle = ({ text, isShown }: { text: string; isShown: boolean }) => (
+  <ModalTitle aria-label={text}>
+    {[...text].map((letter, k) => <TitleLetter key={k} $index={k} $count={text.length} $isDropping={TITLE_DROP.isOn && isShown} aria-hidden>{letter}</TitleLetter>)}
+  </ModalTitle>
+);
 
 /** The ending's text's line height (in its font size). */
 const SUBTEXT_LINE_HEIGHT = 2;
@@ -284,13 +376,20 @@ const MaskHalf = styled.div<{ $isWhite: boolean; $isMissing?: boolean; $clip: st
  * across from its place beside the title), or beside the title (false).
  */
 const MASKS_OVER_WIZARDS = true;
-/** How far the masks (and their vortices) are raised: a share of a vortex's radius (MASK_VORTEX.size / 2, cqw). */
-const MASK_RAISE = 1 / 3;
+/**
+ * Where the masks (and their vortices) sit up and down: their middle this far below the game's top (cqw), the
+ * same on every card (the title, with them in its row, sits higher on a card with more text: a catch's).
+ */
+const MASK_MIDDLE_FROM_TOP = 9.5;
 
-/** How far across (px) to shift a mask so it's centered over its wizard's spotlight; measured as it's laid out, and on resizing. */
+/**
+ * How far (px) to shift a mask: across, so it's centered over its wizard's spotlight; down, so its middle is
+ * MASK_MIDDLE_FROM_TOP below the game's top. Measured as it's laid out, and on resizing.
+ */
 const useOverWizardShift = (side: 'self' | 'rival') => {
   const ref = useRef<HTMLDivElement | null>(null);
   const [shift, setShift] = useState(0);
+  const [drop, setDrop] = useState(0);
   useLayoutEffect(() => {
     if (!MASKS_OVER_WIZARDS) return;
     const measure = () => {
@@ -298,6 +397,13 @@ const useOverWizardShift = (side: 'self' | 'rival') => {
       if (!frame || !spot) return;
       const f = frame.getBoundingClientRect(), s = spot.getBoundingClientRect();
       setShift(current => Math.round((s.left + s.width / 2) - (f.left + f.width / 2 - current)));
+      // (the game: the frame's nearest container, its cqw)
+      let game = frame.parentElement;
+      while (game && getComputedStyle(game).containerType === 'normal') game = game.parentElement;
+      if (game) {
+        const g = game.getBoundingClientRect();
+        setDrop(current => Math.round(g.top + MASK_MIDDLE_FROM_TOP * g.width / 100 - (f.top + f.height / 2 - current)));
+      }
     };
     // (again while the card comes in, as it moves: until it has settled)
     measure();
@@ -306,7 +412,7 @@ const useOverWizardShift = (side: 'self' | 'rival') => {
     window.addEventListener('resize', measure);
     return () => { window.clearInterval(settling); window.clearTimeout(settled); window.removeEventListener('resize', measure); };
   }, [side]);
-  return { ref, style: MASKS_OVER_WIZARDS ? { transform: `translate(${shift}px, ${-MASK_RAISE * MASK_VORTEX.size / 2}cqw)` } : undefined };
+  return { ref, style: MASKS_OVER_WIZARDS ? { transform: `translate(${shift}px, ${drop}px)` } : undefined };
 };
 
 const OutcomeMask = ({ side, outcome, delaySeconds }: { side: 'self' | 'rival'; outcome: MaskOutcome; delaySeconds: number }) => {
@@ -380,7 +486,7 @@ export const GameOverModalComponent: React.FC = () => {
         <RaisedText>
           <TitleRow>
             {masks && <OutcomeMask key={`self:${currentGameOverState}`} side='self' outcome={masks.self} delaySeconds={maskDelay} />}
-            <ModalTitle>{contentConfig.title}</ModalTitle>
+            <DroppingTitle key={`${currentGameOverState}:${isGameOver}`} text={contentConfig.title} isShown={isGameOver} />
             {masks && <OutcomeMask key={`rival:${currentGameOverState}`} side='rival' outcome={masks.rival} delaySeconds={maskDelay} />}
           </TitleRow>
           <GoldDivider width={24} />

@@ -1,4 +1,5 @@
 import styled, { keyframes, css } from 'styled-components';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { InferenceString } from '../../DataClasses/types';
 
 export const INTRO_WALK_ANIM_TIME = 12; // in seconds
@@ -325,6 +326,162 @@ export const HemOpening = ({ robe }: { robe: string }) => {
         </g>
       ))}
     </HemSvg>
+  );
+};
+
+/**
+ * A knocked out wizard's dizzy stars, as in a cartoon: `count` little stars circling above their head on a
+ * tilted orbit (its middle, x and y, and its width and height, cqw, in the avatar's box; tiltDeg), every
+ * `seconds`, smaller and dimmer round the back (backScale, backOpacity), the orbit's line drawn faintly
+ * (orbits: how many rings, each a little wider and tilted the other way). Woozy, always moving: each lap
+ * sways a little in its pace (lurch: 0 steadily; kept under 0.08, so no star ever stops or goes back), each
+ * star spins in place (spinSeconds a turn) and wobbles on its own rhythm (wobble: every `seconds`, squashing
+ * and stretching by squash, swaying swayCqw side to side). The orbit see-saws slowly (seesaw: deg either way of
+ * its tilt, every `seconds`), its rings turning in place (ringSeconds a turn: their dashes running round, the
+ * rings opposite ways; dash: the dash and gap, as shares of the ring). They appear once the wizard has landed
+ * (delaySeconds after their fall begins), fading in as they grow out from their middle (grow: from `from` of
+ * their size, a little past full, overshoot, then settling, over `seconds`).
+ */
+export const DIZZY_STARS = {
+  isOn: true, x: 10.3, y: 10, width: 9, height: 1.75, tiltDeg: -3, count: 5, seconds: 5, lurch: 0.05, spinSeconds: 3,
+  wobble: { seconds: 2, squash: 0.18, swayCqw: 0.22 },
+  size: 1.4, color: '#ffe27a', glow: 'rgba(255, 220, 110, 0.8)', backScale: 0.6, backOpacity: 0.55,
+  seesaw: { deg: 19, seconds: 4.5 }, ringSeconds: 6, dash: [0.22, 0.04],
+  orbits: 2, orbitColor: 'rgba(230, 236, 245, 0.25)', orbitWidth: 0.07,
+  delaySeconds: DEATH_POSE.seconds * DEATH_POSE.landAt + 0.2, fadeSeconds: 1,
+  grow: { from: 0, overshoot: 1.12, seconds: 0.7 },
+};
+
+const dizzyAppear = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+// Round the orbit: front (bottom of the ellipse, nearest us) bright and full size, back small and dim
+// (lurching: running ahead, then dragging behind, the way round; a lap still in `seconds`)
+const lurch = Math.min(DIZZY_STARS.lurch, 0.075); // (above about 0.08, a star would stall or slip back)
+const lurchAt = (share: number) => `${((share + lurch * Math.sin(share * Math.PI * 4)) * 100).toFixed(1)}%`;
+const dizzyOrbit = keyframes`
+  0% { offset-distance: 0%; }
+  ${[0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map(share => `${share * 100}% { offset-distance: ${lurchAt(share)}; }`).join(' ')}
+  100% { offset-distance: 100%; }
+`;
+// The wobble: rocking, squashing and stretching, bobbing (its own rhythm, out of step with the lap)
+const { wobble } = DIZZY_STARS;
+const dizzyWobble = keyframes`
+  0%, 100% { transform: translateX(${-wobble.swayCqw}cqw) scale(1, 1); }
+  25% { transform: translateX(0) scale(${1 - wobble.squash}, ${1 + wobble.squash}); }
+  50% { transform: translateX(${wobble.swayCqw}cqw) scale(1, 1); }
+  75% { transform: translateX(0) scale(${1 + wobble.squash}, ${1 - wobble.squash}); }
+`;
+const dizzySpin = keyframes`
+  to { transform: rotate(360deg); }
+`;
+const dizzyDepth = keyframes`
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(${DIZZY_STARS.backScale}); opacity: ${DIZZY_STARS.backOpacity}; }
+`;
+const dizzySeesaw = keyframes`
+  0%, 100% { transform: rotate(${DIZZY_STARS.tiltDeg - DIZZY_STARS.seesaw.deg}deg); }
+  50% { transform: rotate(${DIZZY_STARS.tiltDeg + DIZZY_STARS.seesaw.deg}deg); }
+`;
+const ringTurn = keyframes`
+  to { stroke-dashoffset: -1; }
+`;
+const dizzyGrow = keyframes`
+  0% { transform: scale(${DIZZY_STARS.grow.from}); animation-timing-function: ease-out; }
+  65% { transform: scale(${DIZZY_STARS.grow.overshoot}); animation-timing-function: ease-in-out; }
+  100% { transform: scale(1); }
+`;
+// (growing out from the middle: on a layer of its own, as the box's own turn is its see-saw)
+const DizzyGrow = styled.div`
+  position: absolute;
+  inset: 0;
+  transform: scale(${DIZZY_STARS.grow.from});
+  animation: ${dizzyGrow} ${DIZZY_STARS.grow.seconds}s linear ${DIZZY_STARS.delaySeconds}s forwards;
+`;
+const DizzyBox = styled.div`
+  position: absolute;
+  left: ${DIZZY_STARS.x - DIZZY_STARS.width / 2}cqw;
+  top: ${DIZZY_STARS.y - DIZZY_STARS.height / 2}cqw;
+  width: ${DIZZY_STARS.width}cqw;
+  height: ${DIZZY_STARS.height}cqw;
+  transform: rotate(${DIZZY_STARS.tiltDeg}deg);
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  animation: ${dizzyAppear} ${DIZZY_STARS.fadeSeconds}s ease-out ${DIZZY_STARS.delaySeconds}s forwards,
+    ${dizzySeesaw} ${DIZZY_STARS.seesaw.seconds}s ease-in-out infinite;
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  ellipse {
+    stroke-dasharray: ${DIZZY_STARS.dash.join(' ')};
+    animation: ${ringTurn} ${DIZZY_STARS.ringSeconds}s linear infinite;
+  }
+  ellipse:nth-child(even) { animation-direction: reverse; }
+`;
+const DizzyStar = styled.div<{ $phase: number; $orbitPx: string }>`
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: ${DIZZY_STARS.size}cqw;
+  height: ${DIZZY_STARS.size}cqw;
+  offset-path: ${props => props.$orbitPx};
+  offset-rotate: 0deg;
+  animation: ${dizzyOrbit} ${DIZZY_STARS.seconds}s linear ${props => -props.$phase * DIZZY_STARS.seconds}s infinite;
+  > svg {
+    animation: ${dizzyDepth} ${DIZZY_STARS.seconds}s linear ${props => -props.$phase * DIZZY_STARS.seconds}s infinite;
+    filter: drop-shadow(0 0 0.25cqw ${DIZZY_STARS.glow});
+    overflow: visible;
+  }
+  /* (the wobble on the star's group, its spin on the star itself: each its own transform) */
+  > svg > g, > svg > g > path {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  > svg > g {
+    animation: ${dizzyWobble} ${wobble.seconds}s ease-in-out ${props => -props.$phase * wobble.seconds * 1.7}s infinite;
+  }
+  > svg > g > path {
+    animation: ${dizzySpin} ${DIZZY_STARS.spinSeconds}s linear ${props => -props.$phase * DIZZY_STARS.spinSeconds}s infinite;
+  }
+`;
+
+/** The dizzy stars over a knocked out wizard (DIZZY_STARS). */
+export const DizzyStars = () => {
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const [orbit, setOrbit] = useState<string | null>(null);
+  // (the orbit's path in pixels: offset-path takes no container units; measured from the box, and on resizing)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const box = boxRef.current;
+      if (!box) return;
+      const w = box.offsetWidth, h = box.offsetHeight, rx = w / 2, ry = h / 2;
+      // (round the ellipse from its front, the bottom middle: so a star's middle follows it)
+      setOrbit(`path("M ${rx} ${h} A ${rx} ${ry} 0 1 1 ${rx} 0 A ${rx} ${ry} 0 1 1 ${rx} ${h} Z")`);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+  const { orbits, orbitColor, orbitWidth, width, height, count, color } = DIZZY_STARS;
+  return (
+    <DizzyBox ref={boxRef} aria-hidden>
+      <DizzyGrow>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio='none'>
+        {Array.from({ length: orbits }, (_, k) => (
+          <ellipse key={k} cx={width / 2} cy={height / 2} rx={width / 2 * (1 + k * 0.12)} ry={height / 2 * (1 + k * 0.25)}
+            transform={`rotate(${k % 2 ? 5 : 0} ${width / 2} ${height / 2})`}
+            fill='none' stroke={orbitColor} vectorEffect='non-scaling-stroke' pathLength={1} style={{ strokeWidth: `${orbitWidth}cqw` }} />
+        ))}
+      </svg>
+      {orbit && Array.from({ length: count }, (_, k) => (
+        <DizzyStar key={k} $phase={k / count} $orbitPx={orbit}>
+          <svg viewBox='-10 -10 20 20' width='100%' height='100%'>
+            <g><path d='M0 -10 L2.6 -3.2 L9.5 -3.1 L4 1.3 L5.9 8.1 L0 4.1 L-5.9 8.1 L-4 1.3 L-9.5 -3.1 L-2.6 -3.2 Z' fill={color} /></g>
+          </svg>
+        </DizzyStar>
+      ))}
+      </DizzyGrow>
+    </DizzyBox>
   );
 };
 
