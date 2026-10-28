@@ -246,31 +246,29 @@ export const drawIlluminatedCapital = (ctx: CanvasRenderingContext2D, letter: st
 /** The quill hand of the notes scribbled in the margins (QuillHand, in index.css). */
 const QUILL_FONT = "'QuillHand', cursive";
 /**
- * Whether a font face (by its family) has really finished loading. (Not document.fonts.check: Safari can
- * answer yes before it has, and a page drawn then kept its fallback font, cached, until resized.)
+ * Whether a font (by its family) has really finished loading: its load request (requestFont) has come back
+ * with its face, or the browser lists that face as loaded. (Not document.fonts.check: Safari can answer yes
+ * before it has, and a page drawn then kept its fallback font, cached, until resized. Nor the listing alone:
+ * on an iPad it never showed the quill hand as loaded, and the notes never showed.)
  */
+const loadedFamilies = new Set<string>();
+const requestedFamilies = new Set<string>();
+const requestFont = (family: string): Promise<unknown> => {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve();
+  requestedFamilies.add(family);
+  return document.fonts.load(`20px '${family}'`).then(faces => { if (faces.length > 0) loadedFamilies.add(family); });
+};
 export const getIsFontFaceLoaded = (family: string): boolean => {
+  if (loadedFamilies.has(family)) return true;
   if (typeof document === 'undefined' || !document.fonts) return false;
-  let isLoaded = false;
-  document.fonts.forEach(face => { if (face.family.replace(/["']/g, '') === family && face.status === 'loaded') isLoaded = true; });
-  return isLoaded;
+  if (!requestedFamilies.has(family)) requestFont(family).catch(() => { });
+  document.fonts.forEach(face => { if (face.family.replace(/["']/g, '') === family && face.status === 'loaded') loadedFamilies.add(family); });
+  return loadedFamilies.has(family);
 };
 
-/**
- * Loads the quill font ahead of time (a canvas only draws with a font once it's loaded; AssetLoader asks for
- * it with the scene), ready once it has finished loading.
- */
-let quillFontState: 'unrequested' | 'loading' | 'ready' = 'unrequested';
-export const loadQuillFont = (): Promise<unknown> => {
-  if (quillFontState === 'unrequested' && typeof document !== 'undefined' && document.fonts) quillFontState = 'loading';
-  return document.fonts?.load("20px 'QuillHand'") ?? Promise.resolve();
-};
-export const getIsQuillFontReady = (): boolean => {
-  if (quillFontState === 'ready') return true;
-  if (quillFontState === 'unrequested') loadQuillFont().catch(() => { });
-  if (getIsFontFaceLoaded('QuillHand')) quillFontState = 'ready';
-  return quillFontState === 'ready';
-};
+/** The quill font, loaded ahead of time (a canvas only draws with a font once it's loaded; AssetLoader asks for it with the scene). */
+export const loadQuillFont = (): Promise<unknown> => requestFont('QuillHand');
+export const getIsQuillFontReady = (): boolean => getIsFontFaceLoaded('QuillHand');
 
 /**
  * A note scribbled in the margin by some earlier owner of the book: brown ink in a quick hand, tilted
