@@ -1000,7 +1000,8 @@ export class Game {
         action: () => {
           const cell = this.gameBoard.getCellAt(cellIndex);
           const humanPlayer = this.players.getHumanPlayer();
-          if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast()) {
+          // (only where they can cast: nothing spent otherwise)
+          if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast() && this.isCanPlaceGameSymbolOn(cell)) {
             const gameSymbol = humanPlayer.getGameSymbol();
             if (!gameSymbol) return;
             const inferenceString = gameSymbol.symbolName as InferenceString;
@@ -1347,7 +1348,9 @@ export class Game {
       if (cellIndex) {
         const cell = this.getCellAt(cellIndex);
         const humanPlayer = this.players.getHumanPlayer();
-        if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast()) {
+        // (a cell they can't cast on: nothing spent, and their side highlighted, as drawing off it)
+        if (cell && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast() && !this.isCanPlaceGameSymbolOn(cell)) this.incrementDrawingOffBoard();
+        else if (cell && cell.getIsFree() && humanPlayer && !humanPlayer.getIsDead() && this.getCanLocalCast()) {
           const inferenceString = humanPlayer?.getGameSymbol()?.symbolName || 'circle';
           const spell = GameSymbol.SPELL_LOOKUP.get(inferenceString);
           if (spell) {
@@ -1416,8 +1419,10 @@ export class Game {
       if (dominantCells.length > 0 && humanPlayer && this.getCanLocalCast()) {
         const freeCells = dominantCells.map(cellIndex => this.getCellAt(cellIndex)).filter(cell => !!cell && this.isCanPlaceGameSymbolOn(cell));
         const spell = GameSymbol.SPELL_LOOKUP.get(result);
-        if (humanPlayer && spell) {
-          const freePositions = freeCells.filter(c => !!c).map(c => c?.getCellIndex());
+        const freePositions = freeCells.filter(c => !!c).map(c => c!.getCellIndex());
+        // (drawn on the board but over none of their cells: as drawing off it, their side highlighted)
+        if (freePositions.length === 0) this.incrementDrawingOffBoard();
+        else if (spell) {
           this.spawnSizedSpellInstance(result, freePositions, humanPlayer);
           this.noteLocalCast(result, freePositions, true);
         }

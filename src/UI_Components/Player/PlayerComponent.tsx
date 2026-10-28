@@ -9,6 +9,7 @@ import { NpcPassCard, RivalSpinner, StatusEmoji } from '../TurnCard';
 import { CATCH_DIM, CATCH_LAYERS, CATCH_SCENE, CATCH_TIMES } from '../SceneElements/teacherCatchConfig';
 import { DEATH_DIM, useIsAnyWizardDead } from '../SceneElements/DeathDarkness';
 import { CARD_FADE_IN } from '../GameOverModalComponent';
+import Confetti, { CONFETTI } from './Confetti';
 import { CastFlurry } from '../SceneElements/TeacherCatch';
 import styled, { css, keyframes } from 'styled-components'
 
@@ -375,6 +376,8 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
         {isDead && DIZZY_STARS.isOn && <DizzyStars />}
       </AvatarFrame>
       </ShiverWrap>
+      {/* (still standing when their rival falls: one burst of confetti around them, CONFETTI.startSeconds after) */}
+      {isOverCard && !isDead && <Confetti delaySeconds={CONFETTI.startSeconds} />}
       {direction === -1 && <NpcPassCard />}
       {direction === -1 && <RivalSpinner />}
     </AvatarPlacementWrapper>

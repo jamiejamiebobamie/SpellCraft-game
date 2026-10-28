@@ -34,10 +34,11 @@ import { CANVAS_WAND_SRC, CANVAS_WAND_WIDTH_FRACTION, WAND_CURSOR_CSS, WAND_HOTS
 const FLOATING_NUMBERS = { joinSeconds: 0.5, size: 46, swell: 1.3, sideOffset: 30, sameWizardPx: 60 };
 
 /**
- * Two great (3x3) spells of a kind meeting: each charges on into the other, gathering speed, for `chargeSeconds`,
- * until they meet halfway, then breaks apart there (ETHER_SHATTER, PHLEGM_SPLASH).
+ * Two great (3x3) spells of a kind meeting: each carries on into the other at the speed it was moving (its
+ * glide toward its next cell; at least minCellsPerSecond, in cells), until they meet halfway, then breaks apart
+ * there (ETHER_SHATTER, PHLEGM_SPLASH).
  */
-const GREAT_CLASH = { chargeSeconds: 0.35 };
+const GREAT_CLASH = { minCellsPerSecond: 3 };
 
 const MasterCanvasOverlay =styled.canvas<{ $zIndex: number; $cursor: string }>`
   position: absolute;
@@ -106,8 +107,8 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
   const strikesRef = useRef<Array<Strike>>([]);
   // A great (3x3) Ether or Phlegm destroyed: its explosion (ETHER_SHATTER, PHLEGM_SPLASH), where it was. Kept apart
   // from the board's spells too, so it plays out in full once the spell is gone
-  // (first charging into the other: charge, until they meet)
-  const shattersRef = useRef<Array<{ x: number; y: number; particles: Array<GameParticle>; charge?: { spell: any; kind: string; fromX: number; toX: number; w: number; h: number; dir: number; progress: number } }>>([]);
+  // (first carrying on into the other: charge, until they meet)
+  const shattersRef = useRef<Array<{ x: number; y: number; particles: Array<GameParticle>; charge?: { spell: any; kind: string; toX: number; speed: number; w: number; h: number; dir: number } }>>([]);
   // Water on the lens after a great Phlegm's splash (LENS_DROPS), over the whole scene
   const lensDropsRef = useRef<Array<LensDrop>>([]);
   const scrollUIRef = useRef<CanvasScrollUI>(new CanvasScrollUI());
@@ -276,6 +277,7 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
           }
           const anim = animStatesRef.current.get(id)!;
           if (!anim.initialized) { anim.visualX = targetCoords.x; anim.visualY = targetCoords.y; anim.initialized = true; }
+          (anim as any).speedX = (targetCoords.x - anim.visualX) * 3.5; // (its glide's speed now, px a second: a great clash carries it on)
           anim.visualX += (targetCoords.x - anim.visualX) * 3.5 * deltaTime;
           anim.visualY += (targetCoords.y - anim.visualY) * 3.5 * deltaTime;
           const cellCols = spell.getPropertyValue?.('widthCells') || 1, cellRows = spell.getPropertyValue?.('heightCells') || 1;
@@ -346,15 +348,13 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
             const isGreatClash = isGreat(spell) && placedSpells.some((other: any) => other !== spell && other.id !== id &&
               other.constructor.spellName === spellClass && isGreat(other) && other.getIsRemove?.());
             if (isGreatClash && (spellClass === 'Ether' || spellClass === 'Phlegm')) {
-              // It charges on into the other (GREAT_CLASH), to where the two meet (halfway between them), then breaks
+              // It carries on into the other (GREAT_CLASH), at the speed it was moving, to where the two meet, then breaks
               const other = placedSpells.find((o: any) => o !== spell && o.id !== id && o.constructor.spellName === spellClass && isGreat(o) && o.getIsRemove?.());
               const otherAnim = other ? animStatesRef.current.get(other.id) : undefined;
               const otherW = cellWidthPx * (other?.getPropertyValue?.('widthCells') || 3);
               const meetX = otherAnim ? (anim.visualX + w / 2 + otherAnim.visualX + otherW / 2) / 2 : anim.visualX + (dir > 0 ? w : 0);
-              shattersRef.current.push({
-                x: anim.visualX, y: anim.visualY, particles: [],
-                charge: { spell, kind: spellClass, fromX: anim.visualX, toX: dir > 0 ? meetX - w : meetX, w, h, dir, progress: 0 },
-              });
+              const speed = Math.max(Math.abs((anim as any).speedX ?? 0), GREAT_CLASH.minCellsPerSecond * cellWidthPx);
+              shattersRef.current.push({ x: anim.visualX, y: anim.visualY, particles: [], charge: { spell, kind: spellClass, toX: dir > 0 ? meetX - w : meetX, speed, w, h, dir } });
             }
             else if (spellClass === 'Quicken') spawnQuickenParticles(anim.particles, w, h);
             else if (spellClass === 'Ether') spawnEtherParticles(anim.particles, w, h);
@@ -428,13 +428,13 @@ const HTMLCanvasComponent = ({ gridOverlayRef }: PlacedSpellsProps) => {
         // The great spells' explosions, until their last piece is gone
         shattersRef.current.forEach(shatter => {
           const charge = shatter.charge;
-          if (charge && charge.progress < 1) {
-            // Charging into the other, gathering speed; on meeting, it breaks apart there
-            charge.progress = Math.min(1, charge.progress + deltaTime / GREAT_CLASH.chargeSeconds);
-            shatter.x = charge.fromX + (charge.toX - charge.fromX) * charge.progress * charge.progress;
+          if (charge) {
+            // Carrying on into the other at its own speed; on meeting, breaking apart there
+            const gap = charge.toX - shatter.x, step = charge.speed * deltaTime;
+            shatter.x = Math.abs(gap) <= step ? charge.toX : shatter.x + Math.sign(gap) * step;
             ctx.save(); ctx.translate(shatter.x + charge.w / 2, shatter.y + charge.h / 2); applySpellFacing(ctx, undefined, charge.dir); ctx.translate(-charge.w / 2, -charge.h / 2);
             drawProceduralSpell(ctx, charge.spell, cellWidthPx, cellHeightPx, currentTime, 1, true); ctx.restore();
-            if (charge.progress >= 1) {
+            if (shatter.x === charge.toX) {
               if (charge.kind === 'Ether') spawnEtherShatterParticles(shatter.particles, charge.w, charge.h, charge.dir);
               else { spawnPhlegmSplashParticles(shatter.particles, charge.w, charge.h); spawnLensDrops(lensDropsRef.current, viewW, viewH); }
               shatter.charge = undefined;

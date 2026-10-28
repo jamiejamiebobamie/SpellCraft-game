@@ -312,9 +312,10 @@ export class TooltipManager {
 
     // DRAWING OFF BOARD
     getIsDrawingOffBoard(): boolean { return this.isDrawingOffBoard; }
+    /** A cast missing their cells (drawn off the board, or on it outside their cells; or a click there): their side highlighted, on every miss. */
     incrementDrawingOffBoard(): void {
         this.drawingOffBoardCount++;
-        if (this.drawingOffBoardCount > 1) {
+        if (this.drawingOffBoardCount > 0) {
             clearTimeout(this.drawingOffBoardRef);
             this.isDrawingOffBoard = true;
             this.drawingOffBoardRef = setTimeout(() => {
