@@ -19,7 +19,9 @@ const chosen = WALLPAPERS[Math.floor(Math.random() * WALLPAPERS.length)];
 /** This visit's wallpaper (the asset loader waits for it, with the rest of the scene). */
 export const chosenWallpaper: string = chosen.file;
 
-document.documentElement.style.setProperty('--wallpaper-image', `url('${chosen.file}')`);
+// (from the site's root: a relative url in a custom property resolves against the stylesheet using it, in the build
+// /assets/, where it isn't)
+document.documentElement.style.setProperty('--wallpaper-image', `url('/${chosen.file}')`);
 document.documentElement.style.setProperty('--wallpaper-width', `${chosen.width}px`);
 
 /**
@@ -45,7 +47,7 @@ if (import.meta.env.DEV) {
     const width = parseFloat(getComputedStyle(root).getPropertyValue('--wallpaper-width')) || 450;
     if (e.key === ']' || e.key === '[') {
       index = (index + (e.key === ']' ? 1 : -1) + WALLPAPERS.length) % WALLPAPERS.length;
-      root.style.setProperty('--wallpaper-image', `url('${WALLPAPERS[index].file}')`);
+      root.style.setProperty('--wallpaper-image', `url('/${WALLPAPERS[index].file}')`);
       root.style.setProperty('--wallpaper-width', `${WALLPAPERS[index].width}px`);
     } else if (e.key === '=' || e.key === '+' || e.key === '-') {
       const next = Math.max(WALLPAPER_TUNING.minWidth, width + (e.key === '-' ? -1 : 1) * WALLPAPER_TUNING.step);

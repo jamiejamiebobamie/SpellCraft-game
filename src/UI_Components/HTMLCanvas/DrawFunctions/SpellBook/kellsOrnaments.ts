@@ -246,19 +246,29 @@ export const drawIlluminatedCapital = (ctx: CanvasRenderingContext2D, letter: st
 /** The quill hand of the notes scribbled in the margins (QuillHand, in index.css). */
 const QUILL_FONT = "'QuillHand', cursive";
 /**
- * Loads the quill font ahead of time (a canvas only draws with a font once it's loaded). Ready once its
- * load has finished, or once the browser says so: asked about the face alone, as Safari can go on
- * answering no for a list ending in a generic family ('cursive'), and the notes never showed.
+ * Whether a font face (by its family) has really finished loading. (Not document.fonts.check: Safari can
+ * answer yes before it has, and a page drawn then kept its fallback font, cached, until resized.)
+ */
+export const getIsFontFaceLoaded = (family: string): boolean => {
+  if (typeof document === 'undefined' || !document.fonts) return false;
+  let isLoaded = false;
+  document.fonts.forEach(face => { if (face.family.replace(/["']/g, '') === family && face.status === 'loaded') isLoaded = true; });
+  return isLoaded;
+};
+
+/**
+ * Loads the quill font ahead of time (a canvas only draws with a font once it's loaded; AssetLoader asks for
+ * it with the scene), ready once it has finished loading.
  */
 let quillFontState: 'unrequested' | 'loading' | 'ready' = 'unrequested';
+export const loadQuillFont = (): Promise<unknown> => {
+  if (quillFontState === 'unrequested' && typeof document !== 'undefined' && document.fonts) quillFontState = 'loading';
+  return document.fonts?.load("20px 'QuillHand'") ?? Promise.resolve();
+};
 export const getIsQuillFontReady = (): boolean => {
-  if (typeof document === 'undefined' || !document.fonts) return false;
   if (quillFontState === 'ready') return true;
-  if (quillFontState === 'unrequested') {
-    quillFontState = 'loading';
-    document.fonts.load("20px 'QuillHand'").then(faces => { if (faces.length > 0) quillFontState = 'ready'; }).catch(() => { });
-  }
-  if (document.fonts.check("20px 'QuillHand'")) quillFontState = 'ready';
+  if (quillFontState === 'unrequested') loadQuillFont().catch(() => { });
+  if (getIsFontFaceLoaded('QuillHand')) quillFontState = 'ready';
   return quillFontState === 'ready';
 };
 

@@ -1,6 +1,7 @@
 
 import { ref } from 'valtio';
 import { chosenWallpaper } from '../../UI_Components/wallpaper';
+import { loadQuillFont } from '../../UI_Components/HTMLCanvas/DrawFunctions/SpellBook/kellsOrnaments';
 
 // Assets load in two batches: the priority batch (the title font and the logo's images, so the
 // loading screen can show the logo first), then everything else (images, sounds, models).
@@ -154,6 +155,8 @@ export class AssetLoader {
             this.loadImages(sceneImageSrcs).catch(error => console.error('Scene image loading error: ', error))
                 .finally(() => this.setIsLoading(new Map<LoaderProperties, boolean>([['isSceneImgsLoaded', true]]))),
                 this.loadImages(buttonImgSrcs),
+                // (the Spell Book's quill hand, for its margin notes: ready before the first page is opened)
+                loadQuillFont().catch(error => console.error('Quill font loading error: ', error)),
             ]);
         } catch (error) {
             console.error("Asset loading error context: ", error);

@@ -7,6 +7,7 @@ import { Fragment } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { INTRO_WALK_ANIM_TIME } from '../Player/CharacterParts';
 import { rootGameStore } from '../../DataClasses/store';
+import { isWebKit } from '../browserEngine';
 
 /** The scene images' size (pixels), and how many cqw a pixel is (the scene is 100cqw wide). */
 const SCENE = { width: 1200, height: 675 };
@@ -14,9 +15,13 @@ const cqw = (px: number) => px * 100 / SCENE.width;
 
 /**
  * The background image's brightness (as GameComponent's): the scene's brightness x this, dark on the landing
- * page and lit in play.
+ * page and lit in play. In WebKit (Safari, and every browser on an iPad: browserEngine.ts) its own values.
  */
-export const BACKGROUND_IMAGE_BRIGHTNESS = { dark: 4, lit: 1.1 };
+const BACKGROUND_IMAGE_BRIGHTNESS_BY_ENGINE = {
+  other: { dark: 4, lit: 1.1 },
+  webKit: { dark: 4, lit: 1.25 },
+};
+export const BACKGROUND_IMAGE_BRIGHTNESS = isWebKit ? BACKGROUND_IMAGE_BRIGHTNESS_BY_ENGINE.webKit : BACKGROUND_IMAGE_BRIGHTNESS_BY_ENGINE.other;
 
 /**
  * The picture frames and the suit of armour. brightness: as the wall (1) or brighter or dimmer, on the landing

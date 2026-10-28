@@ -7,7 +7,7 @@ import { drawProceduralSpell, spawnPreviewSpellParticles, updateAndDrawParticles
 import { SpellAnimTracker } from '../../../../DataClasses/types';
 import { SPELL_CLASSES, SpellName } from '../../../../DataClasses/GameRules/GameSimulation';
 import { getFocusCost } from '../../../../DataClasses/GameRules/gameRules';
-import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote, getIsQuillFontReady, prewarmQuillFont } from './kellsOrnaments';
+import { KELLS, drawDotContour, drawIlluminatedCapital, drawKellsPage, drawMarginNote, getIsFontFaceLoaded, getIsQuillFontReady, prewarmQuillFont } from './kellsOrnaments';
 
 /**
  * Notes scribbled in each page by some earlier owner of the book: short ones in the space between the
@@ -591,7 +591,7 @@ const drawStillPage = (ctx: CanvasRenderingContext2D, key: string, x: number, y:
     const dpr = ctx.getTransform().a || 1; // the canvas' scale (device pixels per drawing unit)
     const size = `${Math.round(w)}x${Math.round(h)}@${dpr}`;
     if (size !== stillPagesSize) { stillPages.clear(); stillPagesSize = size; } // (resized: the old ones freed)
-    const isFontsReady = getIsQuillFontReady() && document.fonts.check(`20px 'EnchantedLand'`);
+    const isFontsReady = getIsQuillFontReady() && getIsFontFaceLoaded('EnchantedLand');
     const fullKey = `${key}:${isFontsReady}`;
     let canvas = stillPages.get(fullKey);
     if (!canvas) {
