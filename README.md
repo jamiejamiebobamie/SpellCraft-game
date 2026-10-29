@@ -137,6 +137,14 @@ SpellCraft grew out of an earlier attempt. I first built the drawing recognizer 
 
 SpellCraft is my own project: I designed it, made its art and built it over about three months. Along the way I used AI coding assistants ([Claude Code](https://claude.com/claude-code) and Gemini) as part of my workflow, for implementation support, refactoring, testing and tooling. The game's design, art and direction are my own.
 
+## Development
+
+[![SpellCraft's development: from a pencil-sketch prototype to the finished game](docs/development-video.jpg)](https://www.youtube.com/watch?v=OFDujlrZZYc)
+
+**[Watch it evolve](https://www.youtube.com/watch?v=OFDujlrZZYc)**: a three-minute tour through 14 versions, from the pencil-sketch prototype to the finished game, each built and played from the code as it was at the time.
+
+Every version is in the **[changelog](CHANGELOG.md)**, from v0.1.0 (the first commit) to v2.4.0, along with the design notes I kept on paper: the spells' original names, the rules that were tried and dropped, and the ideas that never made it in. Each version is tagged in git (`git checkout v1.0.0`).
+
 ## Running locally
 
 ```bash
