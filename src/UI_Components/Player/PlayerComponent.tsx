@@ -376,8 +376,8 @@ const PlayerComponent = ({ playerIndex, mousePosRef, isPlayerOutOfFocus }: Playe
         {isDead && DIZZY_STARS.isOn && <DizzyStars />}
       </AvatarFrame>
       </ShiverWrap>
-      {/* (still standing when their rival falls: one burst of confetti around them, CONFETTI.startSeconds after) */}
-      {isOverCard && !isDead && <Confetti delaySeconds={CONFETTI.startSeconds} />}
+      {/* (still standing when their rival falls: one burst of confetti around them, CONFETTI.startSeconds after; never for a rival who fled) */}
+      {isOverCard && !isDead && !(direction === -1 && snap.getIsRivalLeft()) && <Confetti delaySeconds={CONFETTI.startSeconds} />}
       {direction === -1 && <NpcPassCard />}
       {direction === -1 && <RivalSpinner />}
     </AvatarPlacementWrapper>
